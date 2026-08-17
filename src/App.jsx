@@ -1,20 +1,20 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { Home, Heart, X, MessageCircle, LogOut, ArrowLeft, Send, Loader2, Sparkles, MoreVertical, Flag, Ban, Settings, Shield, Info, Moon, Image as ImageIcon, CheckCheck, Circle, UserRound, Camera, Menu, Search, Bell } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { supabase } from "./supabaseClient";
 import Auth from "./Auth.jsx";
-import { PrivacyPolicyContent, TermsOfServiceContent } from "./legalContent";
-import { C, LOOKING_FOR, EDUCATION_LEVELS, HAS_CHILDREN_OPTIONS, MAX_PHOTOS } from "./constants";
-import { matchKey, formatLastSeen, formatMessageTime, formatDayLabel } from "./utils/format";
-import Avatar from "./components/Avatar";
+import { C, EDUCATION_LEVELS, HAS_CHILDREN_OPTIONS, MAX_PHOTOS } from "./constants";
+import { matchKey } from "./utils/format";
 import SocialShell from "./components/SocialShell";
 import AppModals from "./components/AppModals";
-import CreateProfileForm from "./screens/CreateProfileForm";
 import EditProfileForm from "./screens/EditProfileForm";
 import UpdatePasswordScreen from "./screens/UpdatePasswordScreen";
 import OnboardingWizard from "./screens/onboarding/OnboardingWizard";
 import { computeAge } from "./screens/onboarding/steps/Step1Identity";
 import MatchCelebrationModal from "./components/social/MatchCelebrationModal";
 import { filterCandidatesByPreferences } from "./lib/matching/matchingService";
+import { validateMediaFile } from "./lib/mediaValidation";
+import { uploadWithProgress } from "./lib/uploadWithProgress";
+import { MEDIA_BUCKET, extFromMime } from "./lib/mediaConstants";
 
 export default function App() {
   const [session, setSession] = useState(undefined); // undefined = pas encore vérifié, null = pas connecté
@@ -23,16 +23,14 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState(null);
   const [likePairs, setLikePairs] = useState([]); // [{from_id, to_id}]
   const [passPairs, setPassPairs] = useState([]); // [{from_id, to_id}]
-  const [discoverIdx, setDiscoverIdx] = useState(0);
+  const likeInFlightRef = useRef(new Set()); // to_id en cours d'envoi — évite un double clic = double insert
+  const passInFlightRef = useRef(new Set());
   const [matchNotice, setMatchNotice] = useState(null);
   const [activeMatch, setActiveMatch] = useState(null);
   const [messages, setMessages] = useState([]);
   const [messageDraft, setMessageDraft] = useState("");
   const [error, setError] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [blockPairs, setBlockPairs] = useState([]); // [{from_id, to_id}] — blocages faits par moi
-  const [menuOpenFor, setMenuOpenFor] = useState(null); // id du profil dont le menu ⋮ est ouvert
   const [reportTarget, setReportTarget] = useState(null); // profil en cours de signalement
   const [reportReason, setReportReason] = useState("");
   const [reportCategory, setReportCategory] = useState("");
@@ -42,16 +40,12 @@ export default function App() {
   const [successNotice, setSuccessNotice] = useState("");
   const [hasMoreHistory, setHasMoreHistory] = useState(false);
   const [loadingOlder, setLoadingOlder] = useState(false);
-  const [showMenu, setShowMenu] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [privacyOpen, setPrivacyOpen] = useState(false);
   const [termsOpen, setTermsOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
   const [coverFile, setCoverFile] = useState(null);
   const [coverPreview, setCoverPreview] = useState("");
-  const [isOnline, setIsOnline] = useState(true);
-  const [typing, setTyping] = useState(false);
-  const [lastSeen, setLastSeen] = useState(null);
   const [otherTyping, setOtherTyping] = useState(false);
   const typingChannelRef = useRef(null);
   const typingTimeoutRef = useRef(null);
@@ -63,7 +57,6 @@ export default function App() {
 
   // Photos multiples — indexées par profil, pour l'affichage (discover, etc.)
   const [profilePhotos, setProfilePhotos] = useState({}); // { [profileId]: [{id, url, position}] }
-  const [cardPhotoIdx, setCardPhotoIdx] = useState({}); // { [profileId]: index affiché }
 
   // Édition de profil existant
   const [editForm, setEditForm] = useState(null);
@@ -71,12 +64,6 @@ export default function App() {
   const [newPhotoFiles, setNewPhotoFiles] = useState([]);
   const [newPhotoPreviews, setNewPhotoPreviews] = useState([]);
   const [savingProfile, setSavingProfile] = useState(false);
-
-  const [form, setForm] = useState({
-    name: "", age: "", country: "", languages: "", city: "",
-    arrivedSince: "", lookingFor: LOOKING_FOR[0], bio: "",
-    occupation: "", interests: "", educationLevel: EDUCATION_LEVELS[0], hasChildren: HAS_CHILDREN_OPTIONS[1],
-  });
 
   const loadAll = useCallback(async () => {
     try {
@@ -110,7 +97,15 @@ export default function App() {
 
   // Suivre l'état de connexion
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => setSession(data.session ?? null));
+    if (!error) return;
+    const timer = setTimeout(() => setError(""), 8000);
+    return () => clearTimeout(timer);
+  }, [error]);
+
+  useEffect(() => {
+    supabase.auth.getSession()
+      .then(({ data }) => setSession(data.session ?? null))
+      .catch(() => setSession(null));
     const { data: listener } = supabase.auth.onAuthStateChange((event, newSession) => {
       setSession(newSession);
       // Lien "mot de passe oublié" cliqué depuis l'email : Supabase authentifie
@@ -129,7 +124,6 @@ export default function App() {
     let alive = true;
 
     if (currentUser && currentUser.show_online_status === false) {
-      setIsOnline(false);
       supabase.from("profiles").update({
         is_online: false,
         last_seen: new Date().toISOString(),
@@ -139,8 +133,6 @@ export default function App() {
 
     const heartbeat = async () => {
       const now = new Date().toISOString();
-      setIsOnline(true);
-      setLastSeen(now);
       try {
         const { error: heartbeatError } = await supabase.from("profiles").update({
           is_online: true,
@@ -156,7 +148,6 @@ export default function App() {
     const handleVisibility = async () => {
       if (document.visibilityState === "visible") heartbeat();
       else {
-        setIsOnline(false);
         try {
           await supabase.from("profiles").update({
             is_online: false,
@@ -196,7 +187,6 @@ export default function App() {
       if (!own.onboarding_completed_at) {
         setView("onboarding");
       } else {
-        setDiscoverIdx(0);
         setView("feed");
       }
     } else {
@@ -237,7 +227,6 @@ export default function App() {
         .insert({ from_id: currentUser.id, to_id: target.id });
       if (blockError) throw blockError;
       setBlockPairs((b) => [...b, { from_id: currentUser.id, to_id: target.id }]);
-      setMenuOpenFor(null);
       if (activeMatch?.id === target.id) {
         setActiveMatch(null);
       }
@@ -249,7 +238,6 @@ export default function App() {
 
   // Ouvre la confirmation de blocage — ne bloque jamais immédiatement.
   function requestBlock(target) {
-    setMenuOpenFor(null);
     setBlockTarget(target);
   }
 
@@ -329,7 +317,6 @@ export default function App() {
         .insert({ from_id: currentUser.id, to_id: reportTarget.id, reason: reportReason.trim() || null, category: reportCategory });
       if (reportError) throw reportError;
       setReportSubmitted(true);
-      setMenuOpenFor(null);
     } catch (e) {
       console.error(e);
       setError("Échec de l'envoi du signalement.");
@@ -382,16 +369,6 @@ export default function App() {
     setPhotoPreviews((prev) => prev.filter((_, i) => i !== idx));
   }
 
-  // ---- Carrousel de photos (cartes discover / matches) ----
-  function nextCardPhoto(profileId, total, ev) {
-    if (ev) ev.stopPropagation();
-    setCardPhotoIdx((m) => ({ ...m, [profileId]: ((m[profileId] || 0) + 1) % total }));
-  }
-  function prevCardPhoto(profileId, total, ev) {
-    if (ev) ev.stopPropagation();
-    setCardPhotoIdx((m) => ({ ...m, [profileId]: ((m[profileId] || 0) - 1 + total) % total }));
-  }
-
   // ---- Édition de profil existant ----
   function openEditProfile() {
     if (!currentUser) return;
@@ -427,7 +404,6 @@ export default function App() {
     setNewPhotoPreviews([]);
     setCoverFile(null);
     setCoverPreview("");
-    setMenuOpenFor(null);
     setView("editProfile");
   }
 
@@ -548,68 +524,6 @@ export default function App() {
     }
   }
 
-  async function handleCreateProfile(e) {
-    e.preventDefault();
-    const ageNum = Number(form.age);
-    if (!form.name || !form.age) { setError("Nom et âge sont requis."); return; }
-    if (Number.isNaN(ageNum) || ageNum < 18) { setError("Tu dois avoir au moins 18 ans pour créer un profil."); return; }
-    setSaving(true);
-    try {
-      const uploadedUrls = [];
-      for (let i = 0; i < photoFiles.length; i++) {
-        const url = await uploadPhoto(session.user.id, photoFiles[i], i);
-        uploadedUrls.push(url);
-      }
-      const payload = {
-        user_id: session.user.id,
-        name: form.name,
-        age: Number(form.age),
-        country: form.country,
-        languages: form.languages,
-        city: form.city,
-        arrived_since: form.arrivedSince,
-        looking_for: form.lookingFor,
-        bio: form.bio,
-        occupation: form.occupation,
-        interests: form.interests,
-        education_level: form.educationLevel,
-        has_children: form.hasChildren,
-        avatar_url: uploadedUrls[0] || null,
-      };
-      const { data, error: insertError } = await supabase
-        .from("profiles")
-        .insert(payload)
-        .select()
-        .single();
-      if (insertError) throw insertError;
-
-      let photoRows = [];
-      if (uploadedUrls.length > 0) {
-        const rows = uploadedUrls.map((url, idx) => ({ profile_id: data.id, url, position: idx }));
-        const { data: inserted, error: photoError } = await supabase
-          .from("profile_photos")
-          .insert(rows)
-          .select();
-        if (photoError) throw photoError;
-        photoRows = inserted || [];
-      }
-
-      setCurrentUser(data);
-      setProfiles((p) => [...p, data]);
-      setProfilePhotos((pp) => ({ ...pp, [data.id]: photoRows }));
-      setDiscoverIdx(0);
-      setError("");
-      setPhotoFiles([]);
-      setPhotoPreviews([]);
-      setView("feed");
-    } catch (e) {
-      console.error(e);
-      setError("Erreur lors de la création du profil.");
-    } finally {
-      setSaving(false);
-    }
-  }
-
   const candidates = currentUser
     ? filterCandidatesByPreferences(
         currentUser,
@@ -630,6 +544,8 @@ export default function App() {
 
   async function handleLike(target) {
     if (!currentUser) return;
+    if (hasLiked(currentUser.id, target.id) || likeInFlightRef.current.has(target.id)) return;
+    likeInFlightRef.current.add(target.id);
     try {
       const { error: likeError } = await supabase
         .from("likes")
@@ -639,25 +555,29 @@ export default function App() {
       if (hasLiked(target.id, currentUser.id)) {
         setMatchNotice(target);
       }
-      setDiscoverIdx((i) => i + 1);
     } catch (e) {
       console.error(e);
       setError("Impossible d'enregistrer ce like.");
+    } finally {
+      likeInFlightRef.current.delete(target.id);
     }
   }
 
   async function handlePass(target) {
     if (!currentUser) return;
+    if (passInFlightRef.current.has(target.id)) return;
+    passInFlightRef.current.add(target.id);
     try {
       const { error: passError } = await supabase
         .from("passes")
         .insert({ from_id: currentUser.id, to_id: target.id });
       if (passError) throw passError;
       setPassPairs((k) => [...k, { from_id: currentUser.id, to_id: target.id }]);
-      setDiscoverIdx((i) => i + 1);
     } catch (e) {
       console.error(e);
       setError("Une erreur est survenue.");
+    } finally {
+      passInFlightRef.current.delete(target.id);
     }
   }
 
@@ -732,15 +652,15 @@ export default function App() {
     }
   }
 
-  async function sendMessageText(text, tempId) {
+  // Réconciliation partagée par tous les chemins d'envoi (texte/sticker/
+  // média/réessai) : dédoublonnage contre l'écho Realtime, _status:"failed"
+  // en cas d'erreur. "row" est un objet explicite — jamais les champs
+  // locaux (_file/_progress/_status) d'un message optimiste.
+  async function insertMessageRow(row, tempId) {
     try {
       const { data, error: sendError } = await supabase
         .from("messages")
-        .insert({
-          match_key: matchKey(currentUser.id, activeMatch.id),
-          from_id: currentUser.id,
-          text,
-        })
+        .insert(row)
         .select()
         .single();
       if (sendError) throw sendError;
@@ -748,10 +668,19 @@ export default function App() {
         const withoutRealtimeDupe = m.filter((msg) => msg.id !== data.id);
         return withoutRealtimeDupe.map((msg) => (msg.id === tempId ? data : msg));
       });
+      return true;
     } catch (e) {
       console.error(e);
       setMessages((m) => m.map((msg) => (msg.id === tempId ? { ...msg, _status: "failed" } : msg)));
+      return false;
     }
+  }
+
+  async function sendMessageText(text, tempId) {
+    await insertMessageRow(
+      { match_key: matchKey(currentUser.id, activeMatch.id), from_id: currentUser.id, kind: "text", text },
+      tempId
+    );
   }
 
   function sendMessage() {
@@ -762,7 +691,10 @@ export default function App() {
       id: tempId,
       match_key: matchKey(currentUser.id, activeMatch.id),
       from_id: currentUser.id,
+      kind: "text",
       text,
+      media_path: null,
+      media_meta: null,
       created_at: new Date().toISOString(),
       read_at: null,
       _status: "sending",
@@ -771,7 +703,101 @@ export default function App() {
     sendMessageText(text, tempId);
   }
 
+  // Un sticker n'implique jamais d'upload — la carte affichée dans le
+  // sélecteur EST déjà l'aperçu, donc l'envoi est instantané.
+  async function sendStickerMessage(sticker) {
+    if (!currentUser || !activeMatch) return;
+    const key = matchKey(currentUser.id, activeMatch.id);
+    const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const media_meta = { emoji: sticker.emoji, caption: sticker.caption || null, gradient: sticker.gradient };
+    setMessages((m) => [...m, {
+      id: tempId,
+      match_key: key,
+      from_id: currentUser.id,
+      kind: "sticker",
+      text: null,
+      media_path: null,
+      media_meta,
+      created_at: new Date().toISOString(),
+      read_at: null,
+      _status: "sending",
+    }]);
+    await insertMessageRow(
+      { match_key: key, from_id: currentUser.id, kind: "sticker", text: null, media_path: null, media_meta },
+      tempId
+    );
+  }
+
+  // Envoie une photo/vidéo/audio/fichier avec progression réelle.
+  // tempIdOverride est fourni lors d'un "Réessayer" — dans ce cas le
+  // message optimiste existe déjà (avec _file), on ne le recrée pas.
+  async function sendMediaMessage(file, kind, tempIdOverride) {
+    if (!currentUser || !activeMatch) return;
+    const validation = await validateMediaFile(file, kind);
+    if (!validation.ok) {
+      setError(validation.error);
+      return;
+    }
+    const key = matchKey(currentUser.id, activeMatch.id);
+    const tempId = tempIdOverride || `temp-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const media_meta = { original_name: file.name, mime: file.type, size: file.size };
+
+    if (tempIdOverride) {
+      setMessages((m) => m.map((msg) => (msg.id === tempId ? { ...msg, _status: "uploading", _progress: 0 } : msg)));
+    } else {
+      setMessages((m) => [...m, {
+        id: tempId,
+        match_key: key,
+        from_id: currentUser.id,
+        kind,
+        text: null,
+        media_path: null,
+        media_meta,
+        created_at: new Date().toISOString(),
+        read_at: null,
+        _status: "uploading",
+        _progress: 0,
+        _file: file, // local uniquement — jamais envoyé à Supabase (voir insertMessageRow)
+      }]);
+    }
+
+    const path = `${key}/${Date.now()}-${Math.random().toString(36).slice(2)}.${extFromMime(file.type)}`;
+    try {
+      await uploadWithProgress({
+        bucket: MEDIA_BUCKET,
+        path,
+        file,
+        onProgress: (pct) => setMessages((m) => m.map((msg) => (msg.id === tempId ? { ...msg, _progress: pct } : msg))),
+      });
+    } catch (e) {
+      console.error(e);
+      setMessages((m) => m.map((msg) => (msg.id === tempId ? { ...msg, _status: "failed" } : msg)));
+      return;
+    }
+
+    const inserted = await insertMessageRow(
+      { match_key: key, from_id: currentUser.id, kind, text: null, media_path: path, media_meta },
+      tempId
+    );
+    if (!inserted) {
+      // Upload Storage réussi mais INSERT échoué : jamais de fichier orphelin.
+      supabase.storage.from(MEDIA_BUCKET).remove([path]).catch(() => {});
+    }
+  }
+
   function retrySend(msg) {
+    if (msg._file) {
+      sendMediaMessage(msg._file, msg.kind, msg.id);
+      return;
+    }
+    if (msg.kind === "sticker") {
+      setMessages((m) => m.map((x) => (x.id === msg.id ? { ...x, _status: "sending" } : x)));
+      insertMessageRow(
+        { match_key: msg.match_key, from_id: currentUser.id, kind: "sticker", text: null, media_path: null, media_meta: msg.media_meta },
+        msg.id
+      );
+      return;
+    }
     setMessages((m) => m.map((x) => (x.id === msg.id ? { ...x, _status: "sending" } : x)));
     sendMessageText(msg.text, msg.id);
   }
@@ -857,6 +883,7 @@ export default function App() {
           currentUser={currentUser}
           setView={setView}
           handleSignOut={handleSignOut}
+          onError={setError}
           candidates={candidates}
           getMatches={getMatches}
           openChat={openChat}
@@ -878,6 +905,8 @@ export default function App() {
           setMessageDraft={setMessageDraft}
           broadcastTyping={broadcastTyping}
           sendMessage={sendMessage}
+          sendStickerMessage={sendStickerMessage}
+          sendMediaMessage={sendMediaMessage}
           retrySend={retrySend}
           otherTyping={otherTyping}
         />
@@ -892,6 +921,12 @@ export default function App() {
         {successNotice && (
           <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[95] px-4 py-3 rounded-2xl text-sm font-semibold text-white shadow-xl" style={{ background: "#151B3D" }}>
             {successNotice}
+          </div>
+        )}
+        {error && (
+          <div role="alert" className="fixed top-4 left-1/2 -translate-x-1/2 z-[95] flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-semibold shadow-xl max-w-[92vw]" style={{ background: "#fce8e0", color: C.clay }}>
+            <span>{error}</span>
+            <button onClick={() => setError("")} aria-label="Fermer le message d'erreur" className="text-xs font-bold underline flex-shrink-0">Fermer</button>
           </div>
         )}
         <AppModals
@@ -946,64 +981,6 @@ export default function App() {
             prototype
           </span>
         </div>
-        {currentUser && view !== "editProfile" && view !== "onboarding" && (
-          <div className="flex items-center gap-1" style={{ position: "relative" }}>
-            <button onClick={openEditProfile} className="flex items-center gap-2">
-              <div style={{ position: "relative" }}>
-                <Avatar name={currentUser.name} url={currentUser.avatar_url} size={30} />
-                {uploadingAvatar && (
-                  <div style={{ position: "absolute", inset: 0, borderRadius: "50%", background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    <Loader2 size={14} color="#fff" className="animate-spin" />
-                  </div>
-                )}
-              </div>
-              <span className="text-sm font-medium">{currentUser.name}</span>
-            </button>
-            <button
-              onClick={() => setShowMenu((v) => !v)}
-              aria-label="Menu"
-              className="w-8 h-8 rounded-full flex items-center justify-center"
-              style={{ color: C.indigo }}
-            >
-              <Menu size={18} />
-            </button>
-            {showMenu && (
-              <div
-                className="rounded-xl overflow-hidden bg-white"
-                style={{ border: "1px solid rgba(43,36,32,0.1)", position: "absolute", top: 42, right: 0, minWidth: 210, zIndex: 20, boxShadow: "var(--bb-shadow-lg, 0 8px 24px rgba(20,29,56,0.18))" }}
-              >
-                <button
-                  onClick={() => { setSettingsOpen(true); setShowMenu(false); }}
-                  className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-left"
-                  style={{ color: C.ink }}
-                >
-                  <Settings size={15} color={C.indigo} /> Paramètres
-                </button>
-                <button
-                  onClick={() => { setPrivacyOpen(true); setShowMenu(false); }}
-                  className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-left"
-                  style={{ color: C.ink, borderTop: "1px solid rgba(43,36,32,0.08)" }}
-                >
-                  <Shield size={15} color={C.indigo} /> Politique de confidentialité
-                </button>
-                <button
-                  onClick={() => { setAboutOpen(true); setShowMenu(false); }}
-                  className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-left"
-                  style={{ color: C.ink, borderTop: "1px solid rgba(43,36,32,0.08)" }}
-                >
-                  <Info size={15} color={C.indigo} /> À propos
-                </button>
-                <button
-                  onClick={() => { setShowMenu(false); handleSignOut(); }}
-                  className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-left"
-                  style={{ color: C.clay, borderTop: "1px solid rgba(43,36,32,0.08)" }}
-                >
-                  <LogOut size={15} /> Se déconnecter
-                </button>
-              </div>
-            )}
-          </div>
-        )}
       </div>
 
       {error && (
@@ -1029,19 +1006,6 @@ export default function App() {
             setPhotoPreviews={setPhotoPreviews}
             uploadPhoto={uploadPhoto}
             setView={setView}
-          />
-        )}
-
-        {/* ---------- FORM (ancien formulaire unique — orphelin depuis l'onboarding, conservé pour l'instant) ---------- */}
-        {view === "form" && (
-          <CreateProfileForm
-            form={form}
-            setForm={setForm}
-            photoPreviews={photoPreviews}
-            handlePhotosSelected={handlePhotosSelected}
-            removePhotoFile={removePhotoFile}
-            saving={saving}
-            handleCreateProfile={handleCreateProfile}
           />
         )}
 
@@ -1097,22 +1061,6 @@ export default function App() {
         setAboutOpen={setAboutOpen}
       />
 
-      {/* Bottom nav */}
-      {currentUser && view !== "form" && view !== "editProfile" && view !== "onboarding" && (
-        <div className="relative z-20 flex justify-around py-2.5 px-3 bb-generic-glass" style={{ borderTop: "1px solid rgba(43,36,32,0.08)", boxShadow: "0 -1px 0 rgba(20,29,56,0.02)" }}>
-          <button onClick={() => setView("discover")} className="bb-nav-btn flex flex-col items-center gap-1 text-xs py-1.5 px-4 rounded-xl"
-            style={{ color: view === "discover" ? C.clay : "rgba(43,36,32,0.45)", background: view === "discover" ? "rgba(193,97,61,0.08)" : "transparent", fontWeight: view === "discover" ? 700 : 500 }}>
-            <Heart size={18} fill={view === "discover" ? C.clay : "none"} /> Découvrir
-          </button>
-          <button onClick={() => setView("matches")} className="bb-nav-btn flex flex-col items-center gap-1 text-xs py-1.5 px-4 rounded-xl"
-            style={{ color: view === "matches" ? C.clay : "rgba(43,36,32,0.45)", background: view === "matches" ? "rgba(193,97,61,0.08)" : "transparent", fontWeight: view === "matches" ? 700 : 500 }}>
-            <MessageCircle size={18} /> Matchs
-          </button>
-          <button onClick={handleSignOut} className="bb-nav-btn flex flex-col items-center gap-1 text-xs py-1.5 px-4 rounded-xl" style={{ color: "rgba(43,36,32,0.45)", fontWeight: 500 }}>
-            <LogOut size={18} /> Déconnexion
-          </button>
-        </div>
-      )}
     </div>
   );
 }

@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { X, ChevronLeft, ChevronRight, Heart, MessageCircle, Star, Flag, Ban } from "lucide-react";
 import Avatar from "../Avatar";
 import VerifiedBadge from "../VerifiedBadge";
+import { useEscapeKey } from "../../hooks/useEscapeKey";
 import { primary, green, coral, gold, bg, muted, card } from "./theme";
 
 // Allow-list explicite des champs affichés — jamais de spread {...profile},
@@ -32,6 +33,7 @@ export default function PublicProfileModal({
   onBlock,
 }) {
   const [photoIdx, setPhotoIdx] = useState(0);
+  useEscapeKey(Boolean(profile), onClose);
   if (!profile) return null;
 
   const gallery = photos.length > 0 ? photos.map((p) => p.url) : profile.avatar_url ? [profile.avatar_url] : [];
@@ -54,6 +56,9 @@ export default function PublicProfileModal({
       className="fixed inset-0 z-[70] flex items-end md:items-center justify-center p-0 md:p-5"
       style={{ background: "rgba(21,27,61,.55)", backdropFilter: "blur(5px)" }}
       onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-label={`Profil de ${profile.name}`}
     >
       <div
         className={`${card} w-full max-w-md rounded-t-[30px] md:rounded-[30px] max-h-[92vh] overflow-y-auto`}
@@ -138,7 +143,7 @@ export default function PublicProfileModal({
               </button>
             )}
             {onToggleFavorite && (
-              <button onClick={() => onToggleFavorite(profile)} aria-pressed={isFavorite} className="h-10 w-10 rounded-full flex items-center justify-center shrink-0" style={{ background: isFavorite ? "#FFF3D6" : bg }}>
+              <button onClick={() => onToggleFavorite(profile)} aria-pressed={isFavorite} aria-label={isFavorite ? `Retirer ${profile.name} des favoris` : `Ajouter ${profile.name} aux favoris`} className="h-10 w-10 rounded-full flex items-center justify-center shrink-0" style={{ background: isFavorite ? "#FFF3D6" : bg }}>
                 <Star size={16} color={isFavorite ? gold : muted} fill={isFavorite ? gold : "none"} />
               </button>
             )}

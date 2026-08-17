@@ -1,5 +1,6 @@
 import React from "react";
 import { X } from "lucide-react";
+import { useEscapeKey } from "../../hooks/useEscapeKey";
 import { primary, coral, bg, muted } from "./theme";
 
 export default function EventComposerModal({
@@ -20,9 +21,10 @@ export default function EventComposerModal({
   createEvent,
 }) {
   const canSubmit = eventTitle.trim() && eventLocation.trim() && eventDate && eventTime;
+  useEscapeKey(eventComposer, () => setEventComposer(false));
   return (
     eventComposer && (
-      <div className="fixed inset-0 z-[60] flex items-end md:items-center justify-center p-0 md:p-5" style={{ background: "rgba(21,27,61,.55)", backdropFilter: "blur(5px)" }} onClick={() => setEventComposer(false)}>
+      <div className="fixed inset-0 z-[60] flex items-end md:items-center justify-center p-0 md:p-5" style={{ background: "rgba(21,27,61,.55)", backdropFilter: "blur(5px)" }} onClick={() => setEventComposer(false)} role="dialog" aria-modal="true" aria-label="Nouvel événement">
         <div className="bg-white w-full max-w-md rounded-t-[30px] md:rounded-[30px] p-6 shadow-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-black" style={{ color: primary }}>Nouvel événement</h2>

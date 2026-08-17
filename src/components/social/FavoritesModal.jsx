@@ -2,15 +2,20 @@ import React from "react";
 import { X, Star } from "lucide-react";
 import Avatar from "../Avatar";
 import EmptyState from "../home/EmptyState";
+import { useEscapeKey } from "../../hooks/useEscapeKey";
 import { primary, coral, gold, muted, card } from "./theme";
 
 export default function FavoritesModal({ open, onClose, favoriteProfiles = [], onViewProfile, onToggleFavorite, onDiscover }) {
+  useEscapeKey(open, onClose);
   if (!open) return null;
   return (
     <div
       className="fixed inset-0 z-[70] flex items-end md:items-center justify-center p-0 md:p-5"
       style={{ background: "rgba(21,27,61,.55)", backdropFilter: "blur(5px)" }}
       onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Mes favoris"
     >
       <div className={`${card} w-full max-w-md rounded-t-[30px] md:rounded-[30px] p-6 max-h-[85vh] overflow-y-auto`} onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">

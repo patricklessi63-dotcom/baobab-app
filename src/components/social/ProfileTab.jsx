@@ -1,8 +1,9 @@
 import React from "react";
-import { Send, CheckCheck, Image as ImageIcon, Star, Target, ChevronRight } from "lucide-react";
+import { Send, CheckCheck, Image as ImageIcon, Star, Target, ChevronRight, Users2, MapPin } from "lucide-react";
 import Avatar from "../Avatar";
 import VerifiedBadge from "../VerifiedBadge";
 import { getProfileCompletion } from "../../lib/profileCompletion";
+import { categoryIcon, categoryLabel } from "../../lib/communities/communityConfig";
 import { primary, green, coral, gold, bg, muted } from "./theme";
 
 export default function ProfileTab({
@@ -19,6 +20,9 @@ export default function ProfileTab({
   favoritesCount = 0,
   onOpenFavorites = () => {},
   onOpenPreferences = () => {},
+  myCommunities = [],
+  myCommunitiesLoading = false,
+  onOpenCommunities = () => {},
 }) {
           const myPosts = posts.filter((p) => p.name === currentUser?.name);
           const completion = getProfileCompletion(currentUser, profilePhotos[currentUser?.id] || []);
@@ -101,7 +105,7 @@ export default function ProfileTab({
               </div>
 
               <div className="flex border-t" style={{ borderColor: "rgba(21,27,61,.08)" }}>
-                {[["posts", "Publications"], ["about", "À propos"]].map(([key, label]) => (
+                {[["posts", "Publications"], ["about", "À propos"], ["communities", "Mes communautés"]].map(([key, label]) => (
                   <button key={key} onClick={() => setProfileTab(key)} className="flex-1 py-3.5 text-sm font-bold relative" style={{ color: profileTab === key ? primary : muted }}>
                     {label}
                     {profileTab === key && <span className="absolute bottom-0 left-1/2 -translate-x-1/2 h-[3px] w-10 rounded-full" style={{ background: coral }} />}
@@ -109,7 +113,35 @@ export default function ProfileTab({
                 ))}
               </div>
 
-              {profileTab === "posts" ? (
+              {profileTab === "communities" ? (
+                <div className="p-4">
+                  {myCommunitiesLoading ? (
+                    <p className="text-sm text-center py-6" style={{ color: muted }}>Chargement...</p>
+                  ) : myCommunities.length === 0 ? (
+                    <div className="text-center py-6">
+                      <Users2 size={24} className="mx-auto mb-2" color={muted} />
+                      <p className="text-sm" style={{ color: muted }}>Tu n'as pas encore rejoint de communauté.</p>
+                      <button onClick={() => onOpenCommunities()} className="mt-3 px-4 py-2.5 rounded-xl font-bold text-sm" style={{ background: primary, color: "#fff" }}>Découvrir les communautés</button>
+                    </div>
+                  ) : (
+                    <div className="grid sm:grid-cols-2 gap-3">
+                      {myCommunities.map((c) => (
+                        <button key={c.id} onClick={() => onOpenCommunities(c.id)} className="text-left rounded-2xl p-4 flex items-center gap-3" style={{ background: bg }}>
+                          <div className="h-11 w-11 rounded-xl flex-shrink-0 flex items-center justify-center text-lg" style={{ background: c.cover_url ? `url(${c.cover_url}) center/cover` : `linear-gradient(150deg,${gold},${coral})` }}>
+                            {!c.cover_url && categoryIcon(c.category)}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="text-sm font-bold truncate" style={{ color: primary }}>{c.name}</div>
+                            <div className="text-[11px] truncate flex items-center gap-1" style={{ color: muted }}>
+                              {categoryLabel(c.category)}{c.city && <><MapPin size={9} /> {c.city}</>}
+                            </div>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : profileTab === "posts" ? (
                 myPosts.length === 0 ? (
                   <div className="p-10 text-center">
                     <ImageIcon size={26} className="mx-auto mb-2" color={muted} />

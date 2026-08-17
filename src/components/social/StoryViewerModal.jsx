@@ -1,5 +1,6 @@
 import React from "react";
 import { X, Send } from "lucide-react";
+import { useEscapeKey } from "../../hooks/useEscapeKey";
 import { primary } from "./theme";
 
 export default function StoryViewerModal({
@@ -13,9 +14,10 @@ export default function StoryViewerModal({
   setStoryReply,
   sendStoryReply,
 }) {
+  useEscapeKey(storyViewerIndex !== null, closeStoryViewer);
   if (storyViewerIndex === null || !stories[storyViewerIndex]) return null;
   return (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center" style={{ background: "#000" }}>
+        <div className="fixed inset-0 z-[70] flex items-center justify-center" role="dialog" aria-modal="true" aria-label={`Statut de ${stories[storyViewerIndex].name}`} style={{ background: "#000" }}>
           <style>{`
             @keyframes bbStoryBar { from { width: 0%; } to { width: 100%; } }
             .bb-story-bar-fill { animation: bbStoryBar 5s linear forwards; }
@@ -40,7 +42,7 @@ export default function StoryViewerModal({
                 {stories[storyViewerIndex].initial}
               </div>
               <div className="text-white text-sm font-bold flex-1">{stories[storyViewerIndex].name}</div>
-              <button onClick={closeStoryViewer} className="h-9 w-9 rounded-full bg-white/15 backdrop-blur flex items-center justify-center">
+              <button onClick={closeStoryViewer} aria-label="Fermer" className="h-9 w-9 rounded-full bg-white/15 backdrop-blur flex items-center justify-center">
                 <X size={18} color="#fff" />
               </button>
             </div>
@@ -82,7 +84,7 @@ export default function StoryViewerModal({
                     placeholder={`Répondre à ${stories[storyViewerIndex].name}...`}
                     className="flex-1 rounded-full px-4 py-2.5 text-sm text-white bg-white/15 backdrop-blur border border-white/25 outline-none placeholder-white/60"
                   />
-                  <button onClick={sendStoryReply} className="h-10 w-10 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: "#fff" }}>
+                  <button onClick={sendStoryReply} aria-label="Envoyer la réponse" className="h-10 w-10 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: "#fff" }}>
                     <Send size={16} color={primary} />
                   </button>
                 </>

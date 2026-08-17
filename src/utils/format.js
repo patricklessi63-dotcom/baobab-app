@@ -31,6 +31,17 @@ export function formatDayLabel(iso) {
   return d.toLocaleDateString("fr-CA", { day: "numeric", month: "long" });
 }
 
+export function messagePreviewLabel(m) {
+  switch (m?.kind) {
+    case "image": return "📷 Photo";
+    case "video": return "🎥 Vidéo";
+    case "audio": return "🎤 Message vocal";
+    case "file": return `📎 ${m.media_meta?.original_name || "Fichier"}`;
+    case "sticker": return "😊 Autocollant";
+    default: return m?.text || "";
+  }
+}
+
 export function formatEventWhen(iso) {
   if (!iso) return "";
   const d = new Date(iso);

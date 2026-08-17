@@ -1,6 +1,7 @@
 import React from "react";
 import { X, Image as ImageIcon, Camera } from "lucide-react";
 import Avatar from "../Avatar";
+import { useEscapeKey } from "../../hooks/useEscapeKey";
 import { primary, green, coral, bg, muted } from "./theme";
 
 export default function PostComposerModal({
@@ -17,16 +18,17 @@ export default function PostComposerModal({
   videoInputRef,
   publish,
 }) {
+  useEscapeKey(composer, () => setComposer(false));
   return (
     <>
       <input ref={photoInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => onMediaSelected(e, "photo")} />
       <input ref={videoInputRef} type="file" accept="video/*" className="hidden" onChange={(e) => onMediaSelected(e, "video")} />
       {composer && (
-        <div className="fixed inset-0 z-[60] flex items-end md:items-center justify-center p-0 md:p-5" style={{ background: "rgba(21,27,61,.55)", backdropFilter: "blur(5px)" }} onClick={() => setComposer(false)}>
+        <div className="fixed inset-0 z-[60] flex items-end md:items-center justify-center p-0 md:p-5" style={{ background: "rgba(21,27,61,.55)", backdropFilter: "blur(5px)" }} onClick={() => setComposer(false)} role="dialog" aria-modal="true" aria-label="Créer une publication">
           <div className="bg-white w-full max-w-xl rounded-t-[30px] md:rounded-[30px] p-5 md:p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between">
               <div><h2 className="text-xl font-black" style={{ color: primary }}>Créer une publication</h2><p className="text-xs mt-1" style={{ color: muted }}>Partage quelque chose d'utile, drôle ou inspirant.</p></div>
-              <button onClick={() => setComposer(false)} className="h-9 w-9 rounded-xl flex items-center justify-center" style={{ background: bg }}><X size={18} /></button>
+              <button onClick={() => setComposer(false)} aria-label="Fermer" className="h-9 w-9 rounded-xl flex items-center justify-center" style={{ background: bg }}><X size={18} /></button>
             </div>
             <div className="flex gap-3 mt-5">
               <Avatar name={currentUser?.name || "Toi"} url={currentUser?.avatar_url} size={40} />

@@ -2,6 +2,7 @@ import React from "react";
 import { X } from "lucide-react";
 import { primary, coral, muted, card } from "./theme";
 import { MATCH_WEIGHTS } from "../../lib/matching/matchingConfig";
+import { useEscapeKey } from "../../hooks/useEscapeKey";
 
 const CATEGORY_LABELS = {
   intentions: "❤️ Vos intentions communes",
@@ -13,12 +14,16 @@ const CATEGORY_LABELS = {
 };
 
 export default function MatchInfoModal({ open, onClose }) {
+  useEscapeKey(open, onClose);
   if (!open) return null;
   return (
     <div
       className="fixed inset-0 z-[80] flex items-end md:items-center justify-center p-0 md:p-5"
       style={{ background: "rgba(21,27,61,.55)", backdropFilter: "blur(5px)" }}
       onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Comment est calculée cette compatibilité"
     >
       <div className={`${card} w-full max-w-md rounded-t-[30px] md:rounded-[30px] p-6 max-h-[85vh] overflow-y-auto`} onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-3">

@@ -1,6 +1,7 @@
 import React from "react";
 import { ArrowLeft, MapPin, Flag, Briefcase, GraduationCap, Plane, Sparkles, Heart } from "lucide-react";
 import { C } from "../constants";
+import { useEscapeKey } from "../hooks/useEscapeKey";
 
 const FIELDS = [
   { key: "show_city", label: "Afficher ma ville", icon: MapPin },
@@ -13,13 +14,14 @@ const FIELDS = [
 ];
 
 export default function PrivacyFieldsModal({ open, onClose, onBack, currentUser, onToggleField }) {
+  useEscapeKey(open, onClose);
   if (!open) return null;
   return (
-    <div className="bb-fade-in fixed inset-0 flex items-end justify-center z-30" style={{ background: "rgba(20,29,56,0.55)", backdropFilter: "blur(3px)" }} onClick={onClose}>
+    <div className="bb-fade-in fixed inset-0 flex items-end justify-center z-30" style={{ background: "rgba(20,29,56,0.55)", backdropFilter: "blur(3px)" }} onClick={onClose} role="dialog" aria-modal="true" aria-label="Confidentialité des champs">
       <div className="bb-card p-6 w-full max-w-md" style={{ borderRadius: "20px 20px 0 0", maxHeight: "85vh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center gap-2 mb-1">
           {onBack && (
-            <button onClick={onBack} style={{ color: C.indigo }}><ArrowLeft size={16} /></button>
+            <button onClick={onBack} aria-label="Retour" style={{ color: C.indigo }}><ArrowLeft size={16} /></button>
           )}
           <div style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 20, color: C.indigo }}>
             Confidentialité des champs

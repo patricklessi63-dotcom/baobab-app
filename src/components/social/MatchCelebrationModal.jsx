@@ -2,8 +2,10 @@ import React from "react";
 import { Heart, MessageCircle } from "lucide-react";
 import Avatar from "../Avatar";
 import { C } from "../../constants";
+import { useEscapeKey } from "../../hooks/useEscapeKey";
 
 export default function MatchCelebrationModal({ match, currentUser, onStartChat, onDismiss }) {
+  useEscapeKey(Boolean(match), onDismiss);
   if (!match) return null;
   return (
     <div
@@ -12,8 +14,9 @@ export default function MatchCelebrationModal({ match, currentUser, onStartChat,
       role="dialog"
       aria-modal="true"
       aria-label="Nouvelle connexion"
+      onClick={onDismiss}
     >
-      <div className="bb-card p-8 max-w-sm w-full text-center" style={{ boxShadow: "var(--bb-shadow-lg)" }}>
+      <div className="bb-card p-8 max-w-sm w-full text-center" style={{ boxShadow: "var(--bb-shadow-lg)" }} onClick={(e) => e.stopPropagation()}>
         <div className="text-5xl mb-3" aria-hidden="true">🎉</div>
         <h2 style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 24, color: C.indigo }}>
           C'est un match !

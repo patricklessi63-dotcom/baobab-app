@@ -7,16 +7,13 @@ export const C = {
   ink: "#2B2420",
 };
 
-export const LOOKING_FOR = ["Relation sérieuse", "Amitié", "Je découvre"];
 export const EDUCATION_LEVELS = ["Secondaire", "Collégial / DEC", "Baccalauréat", "Maîtrise", "Doctorat", "Formation professionnelle"];
 export const HAS_CHILDREN_OPTIONS = ["Oui", "Non"];
 export const MAX_PHOTOS = 6;
 
 // ---------- Phase 3 — Profil + Onboarding ----------
 
-// "Ce que tu recherches" — multi-choix (remplace l'ancien LOOKING_FOR à choix
-// unique dans l'onboarding et l'édition de profil ; LOOKING_FOR reste utilisé
-// tel quel par CreateProfileForm.jsx, non branché après l'onboarding).
+// "Ce que tu recherches" — multi-choix (remplace l'ancien champ à choix unique).
 export const LOOKING_FOR_OPTIONS = [
   "❤️ Amour",
   "💍 Relation sérieuse",

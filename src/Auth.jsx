@@ -1,8 +1,9 @@
 import React, { useState } from "react";
-import { Loader2, Eye, EyeOff, Mail, Lock, ArrowLeft, MapPin, X, ShieldCheck, FileText, Info } from "lucide-react";
+import { Loader2, Eye, EyeOff, Mail, Lock, ArrowLeft, MapPin, X, ShieldCheck, FileText } from "lucide-react";
 import { supabase } from "./supabaseClient";
 import loginBackground from "./assets/baobab-canada-bg.svg";
 import { PrivacyPolicyContent, TermsOfServiceContent } from "./legalContent";
+import { useEscapeKey } from "./hooks/useEscapeKey";
 
 const C = {
   dusk: "#0F1526",
@@ -35,6 +36,7 @@ export default function Auth() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [legalView, setLegalView] = useState(null); // "privacy" | "terms" | null
+  useEscapeKey(Boolean(legalView), () => setLegalView(null));
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -248,15 +250,15 @@ export default function Auth() {
       </section>
 
       {legalView && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-6" style={{ background: "rgba(8,13,30,0.72)" }}>
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-6" style={{ background: "rgba(8,13,30,0.72)" }} onClick={() => setLegalView(null)} role="dialog" aria-modal="true" aria-label={legalView === "privacy" ? "Politique de confidentialité" : "Conditions d'utilisation"}>
           <div className="w-full sm:max-w-lg max-h-[88vh] sm:max-h-[80vh] flex flex-col rounded-t-[28px] sm:rounded-[24px] overflow-hidden"
-            style={{ background: C.dusk3, color: C.sand, paddingBottom: "env(safe-area-inset-bottom)" }}>
+            style={{ background: C.dusk3, color: C.sand, paddingBottom: "env(safe-area-inset-bottom)" }} onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between px-5 py-4 border-b flex-shrink-0" style={{ borderColor: "rgba(242,233,220,0.12)" }}>
               <div className="flex items-center gap-2 font-bold text-sm">
                 {legalView === "privacy" ? <ShieldCheck size={16} color={C.ochre} /> : <FileText size={16} color={C.ochre} />}
                 {legalView === "privacy" ? "Politique de confidentialité" : "Conditions d'utilisation"}
               </div>
-              <button onClick={() => setLegalView(null)} className="bb-tap h-9 w-9 flex items-center justify-center rounded-full" style={{ background: "rgba(242,233,220,0.1)" }}><X size={16} /></button>
+              <button onClick={() => setLegalView(null)} aria-label="Fermer" className="bb-tap h-9 w-9 flex items-center justify-center rounded-full" style={{ background: "rgba(242,233,220,0.1)" }}><X size={16} /></button>
             </div>
             <div className="overflow-y-auto px-5 py-4 text-xs leading-6" style={{ color: C.sandDim }}>
               {legalView === "privacy" ? <PrivacyPolicyContent /> : <TermsOfServiceContent />}

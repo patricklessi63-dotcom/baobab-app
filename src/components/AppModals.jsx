@@ -6,6 +6,7 @@ import Avatar from "./Avatar";
 import PrivacyFieldsModal from "./PrivacyFieldsModal";
 import ReportModal from "./social/ReportModal";
 import BlockConfirmModal from "./social/BlockConfirmModal";
+import { useEscapeKey } from "../hooks/useEscapeKey";
 
 export default function AppModals({
   reportTarget,
@@ -38,6 +39,11 @@ export default function AppModals({
 }) {
   const [blockedOpen, setBlockedOpen] = React.useState(false);
   const [privacyFieldsOpen, setPrivacyFieldsOpen] = React.useState(false);
+  useEscapeKey(settingsOpen, () => setSettingsOpen(false));
+  useEscapeKey(blockedOpen, () => setBlockedOpen(false));
+  useEscapeKey(privacyOpen, () => setPrivacyOpen(false));
+  useEscapeKey(termsOpen, () => setTermsOpen(false));
+  useEscapeKey(aboutOpen, () => setAboutOpen(false));
   return (
     <>
       {/* ---------- MODAL SIGNALEMENT ---------- */}
@@ -64,7 +70,7 @@ export default function AppModals({
 
       {/* ---------- MODAL PARAMÈTRES ---------- */}
       {settingsOpen && (
-        <div className="bb-fade-in fixed inset-0 flex items-end justify-center z-30" style={{ background: "rgba(20,29,56,0.55)", backdropFilter: "blur(3px)" }} onClick={() => setSettingsOpen(false)}>
+        <div className="bb-fade-in fixed inset-0 flex items-end justify-center z-30" style={{ background: "rgba(20,29,56,0.55)", backdropFilter: "blur(3px)" }} onClick={() => setSettingsOpen(false)} role="dialog" aria-modal="true" aria-label="Paramètres">
           <div className="bb-card p-6 w-full max-w-md" style={{ borderRadius: "20px 20px 0 0", maxHeight: "85vh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
             <div style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 20, color: C.indigo }} className="mb-4">
               Paramètres
@@ -138,7 +144,7 @@ export default function AppModals({
 
       {/* ---------- MODAL COMPTES BLOQUÉS ---------- */}
       {blockedOpen && (
-        <div className="bb-fade-in fixed inset-0 flex items-end justify-center z-30" style={{ background: "rgba(20,29,56,0.55)", backdropFilter: "blur(3px)" }} onClick={() => setBlockedOpen(false)}>
+        <div className="bb-fade-in fixed inset-0 flex items-end justify-center z-30" style={{ background: "rgba(20,29,56,0.55)", backdropFilter: "blur(3px)" }} onClick={() => setBlockedOpen(false)} role="dialog" aria-modal="true" aria-label="Comptes bloqués">
           <div className="bb-card p-6 w-full max-w-md" style={{ borderRadius: "20px 20px 0 0", maxHeight: "80vh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center gap-2 mb-1">
               <button onClick={() => { setBlockedOpen(false); setSettingsOpen(true); }} style={{ color: C.indigo }}><ArrowLeft size={16} /></button>
@@ -175,7 +181,7 @@ export default function AppModals({
 
       {/* ---------- MODAL POLITIQUE DE CONFIDENTIALITÉ ---------- */}
       {privacyOpen && (
-        <div className="bb-fade-in fixed inset-0 flex items-end justify-center z-30" style={{ background: "rgba(20,29,56,0.55)", backdropFilter: "blur(3px)" }} onClick={() => setPrivacyOpen(false)}>
+        <div className="bb-fade-in fixed inset-0 flex items-end justify-center z-30" style={{ background: "rgba(20,29,56,0.55)", backdropFilter: "blur(3px)" }} onClick={() => setPrivacyOpen(false)} role="dialog" aria-modal="true" aria-label="Politique de confidentialité">
           <div className="bb-card p-6 w-full max-w-md" style={{ borderRadius: "20px 20px 0 0", maxHeight: "80vh", overflowY: "auto", paddingBottom: "max(1.5rem, env(safe-area-inset-bottom))" }} onClick={(e) => e.stopPropagation()}>
             <div style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 20, color: C.indigo }} className="mb-3">
               Politique de confidentialité
@@ -192,7 +198,7 @@ export default function AppModals({
 
       {/* ---------- MODAL CONDITIONS D'UTILISATION ---------- */}
       {termsOpen && (
-        <div className="bb-fade-in fixed inset-0 flex items-end justify-center z-30" style={{ background: "rgba(20,29,56,0.55)", backdropFilter: "blur(3px)" }} onClick={() => setTermsOpen(false)}>
+        <div className="bb-fade-in fixed inset-0 flex items-end justify-center z-30" style={{ background: "rgba(20,29,56,0.55)", backdropFilter: "blur(3px)" }} onClick={() => setTermsOpen(false)} role="dialog" aria-modal="true" aria-label="Conditions d'utilisation">
           <div className="bb-card p-6 w-full max-w-md" style={{ borderRadius: "20px 20px 0 0", maxHeight: "80vh", overflowY: "auto", paddingBottom: "max(1.5rem, env(safe-area-inset-bottom))" }} onClick={(e) => e.stopPropagation()}>
             <div style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 20, color: C.indigo }} className="mb-3">
               Conditions d'utilisation
@@ -209,7 +215,7 @@ export default function AppModals({
 
       {/* ---------- MODAL À PROPOS ---------- */}
       {aboutOpen && (
-        <div className="bb-fade-in fixed inset-0 flex items-end justify-center z-30" style={{ background: "rgba(20,29,56,0.55)", backdropFilter: "blur(3px)" }} onClick={() => setAboutOpen(false)}>
+        <div className="bb-fade-in fixed inset-0 flex items-end justify-center z-30" style={{ background: "rgba(20,29,56,0.55)", backdropFilter: "blur(3px)" }} onClick={() => setAboutOpen(false)} role="dialog" aria-modal="true" aria-label="À propos">
           <div className="bb-card p-6 w-full max-w-md text-center" style={{ borderRadius: "20px 20px 0 0" }} onClick={(e) => e.stopPropagation()}>
             <div style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontWeight: 600, fontSize: 24, color: C.indigo }} className="mb-1">
               Baobab

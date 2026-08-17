@@ -1,8 +1,9 @@
 import React from "react";
 import ChipSelect from "../ChipSelect";
+import { useEscapeKey } from "../../hooks/useEscapeKey";
 import { primary, coral, muted, card } from "./theme";
 
-const CATEGORIES = [
+const DEFAULT_CATEGORIES = [
   { value: "harcelement", label: "Harcèlement" },
   { value: "spam", label: "Spam" },
   { value: "faux_profil", label: "Faux profil" },
@@ -23,10 +24,14 @@ export default function ReportModal({
   onSubmit,
   onBlockAlso,
   onDismissAfterSubmit,
+  categories = DEFAULT_CATEGORIES,
+  targetLabel,
 }) {
+  useEscapeKey(Boolean(target) && !submitted, onCancel);
   if (!target) return null;
 
-  const categoryLabel = CATEGORIES.find((c) => c.value === category)?.label || "";
+  const displayLabel = targetLabel || target.name;
+  const categoryLabel = categories.find((c) => c.value === category)?.label || "";
   const commentRequired = category === "autre";
   const canSubmit = Boolean(category) && (!commentRequired || reason.trim());
 
@@ -37,17 +42,18 @@ export default function ReportModal({
       onClick={submitted ? undefined : onCancel}
       role="dialog"
       aria-modal="true"
+      aria-label={submitted ? "Signalement envoyé" : `Signaler ${displayLabel}`}
     >
       <div className={`${card} p-6 max-w-sm w-full`} onClick={(e) => e.stopPropagation()}>
         {!submitted ? (
           <>
-            <h2 className="text-lg font-black" style={{ color: primary }}>Signaler {target.name}</h2>
+            <h2 className="text-lg font-black" style={{ color: primary }}>Signaler {displayLabel}</h2>
             <p className="text-sm mt-1 mb-3" style={{ color: muted }}>Choisis un motif — on examinera ton signalement.</p>
 
             <ChipSelect
-              options={CATEGORIES.map((c) => c.label)}
+              options={categories.map((c) => c.label)}
               value={categoryLabel}
-              onChange={(label) => setCategory(CATEGORIES.find((c) => c.label === label)?.value || "")}
+              onChange={(label) => setCategory(categories.find((c) => c.label === label)?.value || "")}
             />
 
             <textarea
@@ -76,18 +82,29 @@ export default function ReportModal({
         ) : (
           <>
             <h2 className="text-lg font-black" style={{ color: primary }}>Signalement envoyé</h2>
-            <p className="text-sm mt-2" style={{ color: muted }}>
-              Veux-tu aussi bloquer {target.name} ? Cette personne ne pourra
-              alors plus t'écrire ni voir ton profil.
-            </p>
-            <div className="flex gap-2 mt-4">
-              <button onClick={onDismissAfterSubmit} className="flex-1 py-2.5 rounded-full text-sm font-semibold" style={{ border: "1px solid rgba(21,27,61,.12)", color: primary }}>
-                Ne pas bloquer
-              </button>
-              <button onClick={() => onBlockAlso(target)} className="flex-1 py-2.5 rounded-full text-sm font-bold text-white" style={{ background: coral }}>
-                Bloquer
-              </button>
-            </div>
+            {onBlockAlso ? (
+              <>
+                <p className="text-sm mt-2" style={{ color: muted }}>
+                  Veux-tu aussi bloquer {displayLabel} ? Cette personne ne pourra
+                  alors plus t'écrire ni voir ton profil.
+                </p>
+                <div className="flex gap-2 mt-4">
+                  <button onClick={onDismissAfterSubmit} className="flex-1 py-2.5 rounded-full text-sm font-semibold" style={{ border: "1px solid rgba(21,27,61,.12)", color: primary }}>
+                    Ne pas bloquer
+                  </button>
+                  <button onClick={() => onBlockAlso(target)} className="flex-1 py-2.5 rounded-full text-sm font-bold text-white" style={{ background: coral }}>
+                    Bloquer
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="text-sm mt-2" style={{ color: muted }}>Merci, notre équipe va l'examiner.</p>
+                <button onClick={onDismissAfterSubmit} className="w-full mt-4 py-2.5 rounded-full text-sm font-bold text-white" style={{ background: primary }}>
+                  Fermer
+                </button>
+              </>
+            )}
           </>
         )}
       </div>

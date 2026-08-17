@@ -3,7 +3,7 @@ import { MessageCircle, Heart } from "lucide-react";
 import Avatar from "../Avatar";
 import VerifiedBadge from "../VerifiedBadge";
 import ConversationPane from "./ConversationPane";
-import { matchKey, formatMessageTime } from "../../utils/format";
+import { matchKey, formatMessageTime, messagePreviewLabel } from "../../utils/format";
 import { primary, green, coral, bg, muted, card, buttonBase } from "./theme";
 
 export default function MessagesTab({
@@ -23,6 +23,8 @@ export default function MessagesTab({
   setMessageDraft,
   broadcastTyping,
   sendMessage,
+  sendStickerMessage,
+  sendMediaMessage,
   retrySend,
   otherTyping,
   onOpenReport,
@@ -63,7 +65,7 @@ export default function MessagesTab({
           const key = matchKey(currentUser.id, m.id);
           const last = lastByKey[key];
           const unread = unreadByKey[key] || 0;
-          const preview = last ? (last.from_id === currentUser.id ? `Toi : ${last.text}` : last.text) : "Dites bonjour 👋";
+          const preview = last ? (last.from_id === currentUser.id ? `Toi : ${messagePreviewLabel(last)}` : messagePreviewLabel(last)) : "Dites bonjour 👋";
           return (
             <button
               key={m.id}
@@ -112,6 +114,8 @@ export default function MessagesTab({
         setMessageDraft={setMessageDraft}
         broadcastTyping={broadcastTyping}
         sendMessage={sendMessage}
+        sendStickerMessage={sendStickerMessage}
+        sendMediaMessage={sendMediaMessage}
         retrySend={retrySend}
         onBack={onBack}
         onOpenReport={onOpenReport}

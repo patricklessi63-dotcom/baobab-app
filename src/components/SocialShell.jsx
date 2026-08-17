@@ -1,14 +1,17 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Home, Heart, X, MessageCircle, LogOut, MoreVertical, Settings, UserRound, Search, Bell, Camera } from "lucide-react";
+import { Home, Heart, X, MessageCircle, LogOut, Settings, UserRound, Search, Bell, Camera, Users2 } from "lucide-react";
 import Avatar from "./Avatar";
 import { supabase } from "../supabaseClient";
-import { matchKey } from "../utils/format";
+import { matchKey, messagePreviewLabel } from "../utils/format";
+import { useClickOutside } from "../hooks/useClickOutside";
+import { useEscapeKey } from "../hooks/useEscapeKey";
 import { primary, green, coral, gold, bg, muted, buttonBase } from "./social/theme";
 import FeedTab from "./social/FeedTab";
 import DiscoverTab from "./social/DiscoverTab";
 import MessagesTab from "./social/MessagesTab";
 import StoriesTab from "./social/StoriesTab";
 import ProfileTab from "./social/ProfileTab";
+import CommunitiesTab from "./social/CommunitiesTab";
 import PostComposerModal from "./social/PostComposerModal";
 import StoryViewerModal from "./social/StoryViewerModal";
 import StoryComposerModal from "./social/StoryComposerModal";
@@ -28,6 +31,7 @@ export default function SocialShell({
   currentUser,
   setView,
   handleSignOut,
+  onError = () => {},
   candidates = [],
   getMatches = () => [],
   openChat = () => {},
@@ -49,6 +53,8 @@ export default function SocialShell({
   setMessageDraft = () => {},
   broadcastTyping = () => {},
   sendMessage = () => {},
+  sendStickerMessage = () => {},
+  sendMediaMessage = () => {},
   retrySend = () => {},
   otherTyping = false,
 }) {
@@ -61,10 +67,6 @@ export default function SocialShell({
   const [composerMedia, setComposerMedia] = useState(null);
   const [composerMediaKind, setComposerMediaKind] = useState("");
   const [posts, setPosts] = useState([]);
-  const [liked, setLiked] = useState({});
-  const [commentsByPost, setCommentsByPost] = useState({});
-  const [commenting, setCommenting] = useState(null);
-  const [commentDraft, setCommentDraft] = useState("");
   const [menu, setMenu] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -96,6 +98,16 @@ export default function SocialShell({
   const videoInputRef = useRef(null);
   const storyPhotoInputRef = useRef(null);
   const storyVideoInputRef = useRef(null);
+  const searchRef = useRef(null);
+  const notifRef = useRef(null);
+  const menuRef = useRef(null);
+
+  useClickOutside(searchRef, Boolean(search), () => setSearch(""));
+  useClickOutside(notifRef, notificationsOpen, () => setNotificationsOpen(false));
+  useClickOutside(menuRef, menu, () => setMenu(false));
+  useEscapeKey(notificationsOpen, () => setNotificationsOpen(false));
+  useEscapeKey(menu, () => setMenu(false));
+  useEscapeKey(Boolean(search), () => setSearch(""));
 
   useEffect(() => {
     if (!currentUser) return;
@@ -180,8 +192,11 @@ export default function SocialShell({
     return () => { alive = false; };
   }, [currentUser]);
 
+  const favoriteInFlightRef = useRef(new Set()); // profile.id en cours de bascule — évite un double clic = double insert/delete
+
   const toggleFavorite = async (profile) => {
-    if (!currentUser) return;
+    if (!currentUser || favoriteInFlightRef.current.has(profile.id)) return;
+    favoriteInFlightRef.current.add(profile.id);
     const isFav = favoriteIds.has(profile.id);
     setFavoriteIds((prev) => {
       const next = new Set(prev);
@@ -209,11 +224,17 @@ export default function SocialShell({
         isFav ? next.add(profile.id) : next.delete(profile.id);
         return next;
       });
+      onError("Impossible de mettre à jour tes favoris.");
+    } finally {
+      favoriteInFlightRef.current.delete(profile.id);
     }
   };
 
+  const eventAttendanceInFlightRef = useRef(new Set()); // event.id en cours de bascule — évite un double clic = double insert/delete
+
   const toggleEventAttendance = async (event) => {
-    if (!currentUser) return;
+    if (!currentUser || eventAttendanceInFlightRef.current.has(event.id)) return;
+    eventAttendanceInFlightRef.current.add(event.id);
     const attending = myEventIds.has(event.id);
     setMyEventIds((prev) => {
       const next = new Set(prev);
@@ -247,6 +268,9 @@ export default function SocialShell({
       setEvents((prev) => prev.map((ev) =>
         ev.id === event.id ? { ...ev, attendeeCount: ev.attendeeCount + (attending ? 1 : -1) } : ev
       ));
+      onError("Impossible de mettre à jour ta participation à l'événement.");
+    } finally {
+      eventAttendanceInFlightRef.current.delete(event.id);
     }
   };
 
@@ -314,7 +338,7 @@ export default function SocialShell({
     const keys = matchIdsKey.split(",").map((id) => matchKey(currentUser.id, id));
     supabase
       .from("messages")
-      .select("id, match_key, from_id, text, created_at, read_at")
+      .select("id, match_key, from_id, kind, text, media_path, media_meta, created_at, read_at")
       .in("match_key", keys)
       .order("created_at", { ascending: false })
       .limit(500)
@@ -349,7 +373,7 @@ export default function SocialShell({
         });
         if (m.from_id !== currentUser.id) {
           setUnreadByKey((prev) => ({ ...prev, [m.match_key]: (prev[m.match_key] || 0) + 1 }));
-          setRecentEvents((prev) => [{ type: "message", matchKey: m.match_key, preview: m.text, at: m.created_at }, ...prev].slice(0, 10));
+          setRecentEvents((prev) => [{ type: "message", matchKey: m.match_key, preview: messagePreviewLabel(m), at: m.created_at }, ...prev].slice(0, 10));
         }
       })
       .subscribe();
@@ -386,6 +410,81 @@ export default function SocialShell({
     return () => { alive = false; };
   }, [currentUser]);
 
+  // Notifications de communauté — table réelle et persistée (voir
+  // supabase-communities.sql), contrairement à recentEvents (session-local).
+  // "communityNotifications" alimente la LISTE affichée dans le menu (elle
+  // reste visible tant que le menu est ouvert, même une fois marquée lue) ;
+  // "unreadCommunityCount" pilote uniquement le badge, remis à zéro dès
+  // l'ouverture du menu sans faire disparaître la liste sous les yeux.
+  const [communityNotifications, setCommunityNotifications] = useState([]);
+  const [unreadCommunityCount, setUnreadCommunityCount] = useState(0);
+  useEffect(() => {
+    if (!currentUser) { setCommunityNotifications([]); setUnreadCommunityCount(0); return; }
+    let alive = true;
+    supabase
+      .from("notifications")
+      .select("id, type, community_id, target_type, target_id, read_at, created_at")
+      .eq("recipient_id", currentUser.id)
+      .is("read_at", null)
+      .order("created_at", { ascending: false })
+      .limit(20)
+      .then(({ data, error }) => {
+        if (!alive) return;
+        if (error) { console.error(error.message, error.code, error.details, error.hint); return; }
+        setCommunityNotifications(data || []);
+        setUnreadCommunityCount((data || []).length);
+      });
+    const channel = supabase
+      .channel(`notifications:${currentUser.id}`)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "notifications", filter: `recipient_id=eq.${currentUser.id}` }, (payload) => {
+        setCommunityNotifications((prev) => [payload.new, ...prev].slice(0, 20));
+        setUnreadCommunityCount((n) => n + 1);
+      })
+      .subscribe();
+    return () => { alive = false; supabase.removeChannel(channel); };
+  }, [currentUser]);
+
+  const communitiesBadgeCount = unreadCommunityCount;
+  const [openCommunityId, setOpenCommunityId] = useState(null);
+
+  // "Mes communautés" pour l'onglet Profil — communautés réellement
+  // rejointes (jamais inventées), rechargé à chaque retour sur l'onglet.
+  const [myCommunities, setMyCommunities] = useState([]);
+  const [myCommunitiesLoading, setMyCommunitiesLoading] = useState(false);
+  useEffect(() => {
+    if (!currentUser || tab !== "profile") return;
+    let alive = true;
+    setMyCommunitiesLoading(true);
+    supabase
+      .from("community_members")
+      .select("role, communities(id, name, category, city, cover_url, visibility)")
+      .eq("profile_id", currentUser.id)
+      .then(({ data, error }) => {
+        if (!alive) return;
+        if (error) { console.error(error.message, error.code, error.details, error.hint); setMyCommunitiesLoading(false); return; }
+        setMyCommunities((data || []).filter((r) => r.communities).map((r) => ({ ...r.communities, role: r.role })));
+        setMyCommunitiesLoading(false);
+      });
+    return () => { alive = false; };
+  }, [currentUser, tab]);
+
+  const markCommunityNotificationsRead = () => {
+    if (unreadCommunityCount === 0 || !currentUser) return;
+    const ids = communityNotifications.filter((n) => !n.read_at).map((n) => n.id);
+    setUnreadCommunityCount(0);
+    if (ids.length === 0) return;
+    supabase.from("notifications").update({ read_at: new Date().toISOString() }).in("id", ids).then(({ error }) => {
+      if (error) console.error(error.message, error.code, error.details, error.hint);
+    });
+  };
+
+  const NOTIFICATION_LABELS = {
+    join_request_received: "Nouvelle demande d'adhésion",
+    join_request_accepted: "Ta demande d'adhésion a été acceptée",
+    invite_received: "Tu as reçu une invitation",
+    report_received: "Nouveau signalement dans ta communauté",
+  };
+
   const totalUnreadMessages = Object.values(unreadByKey).reduce((sum, n) => sum + n, 0);
 
   const viewedProfile = viewedProfileId
@@ -395,8 +494,6 @@ export default function SocialShell({
     : null;
   const viewedProfileIsMatch = viewedProfile ? matches.some((m) => m.id === viewedProfile.id) : false;
   const favoriteProfiles = profiles.filter((p) => favoriteIds.has(p.id));
-
-  const firstName = currentUser?.name?.split(" ")[0] || "toi";
 
   // ---------- Page d'accueil : données dérivées du profil réel, sans appel Supabase additionnel ----------
   const growthStages = ["Graine", "Pousse", "Jeune baobab", "Baobab en croissance", "Baobab épanoui"];
@@ -431,11 +528,6 @@ export default function SocialShell({
     .slice(0, 4);
 
   const newArrivals = candidates.filter((p) => p.arrived_since && p.arrived_since.trim());
-
-  const filteredPosts = posts.filter((post) =>
-    !search.trim() ||
-    `${post.name} ${post.place} ${post.text}`.toLowerCase().includes(search.trim().toLowerCase())
-  );
 
   const filteredPeople = candidates.filter((p) =>
     !search.trim() ||
@@ -512,28 +604,6 @@ export default function SocialShell({
     setComposerMedia(file);
     setComposerMediaKind(kind);
     e.target.value = "";
-  };
-
-  const submitComment = (postId) => {
-    const text = commentDraft.trim();
-    if (!text) return;
-    setCommentsByPost((prev) => ({
-      ...prev,
-      [postId]: [...(prev[postId] || []), {
-        id: Date.now(),
-        name: currentUser?.name || "Toi",
-        text,
-      }],
-    }));
-    setCommentDraft("");
-  };
-
-  const sharePost = async (post) => {
-    const shareText = `${post.name} sur Baobab : ${post.text}`;
-    try {
-      if (navigator.share) await navigator.share({ title: "Baobab", text: shareText });
-      else await navigator.clipboard?.writeText(shareText);
-    } catch (_) {}
   };
 
   const pickStoryMedia = (kind) => {
@@ -668,11 +738,12 @@ export default function SocialShell({
   }, [storyViewerIndex]);
 
   const nav = [
-    ["feed", Home, "Accueil"],
-    ["discover", Heart, "Rencontres"],
-    ["matches", MessageCircle, "Messages"],
-    ["stories", Camera, "Statuts"],
-    ["profile", UserRound, "Profil"],
+    ["feed", Home, "Accueil", null],
+    ["discover", Heart, "Rencontres", null],
+    ["matches", MessageCircle, "Messages", () => totalUnreadMessages],
+    ["communities", Users2, "Communautés", () => communitiesBadgeCount],
+    ["stories", Camera, "Statuts", null],
+    ["profile", UserRound, "Profil", null],
   ];
 
   const goTab = (next) => {
@@ -703,7 +774,7 @@ export default function SocialShell({
             </div>
           </button>
 
-          <div className="flex-1 max-w-xl mx-auto relative">
+          <div ref={searchRef} className="flex-1 max-w-xl mx-auto relative">
             <div className="h-11 rounded-2xl flex items-center gap-2 px-4" style={{ background: bg, border: search ? `1px solid ${primary}22` : "1px solid transparent" }}>
               <Search size={18} color={muted} />
               <input
@@ -713,7 +784,7 @@ export default function SocialShell({
                 className="bg-transparent outline-none text-sm w-full"
                 placeholder="Rechercher une personne, une ville, une discussion…"
               />
-              {search && <button onClick={() => setSearch("")}><X size={16} color={muted} /></button>}
+              {search && <button onClick={() => setSearch("")} aria-label="Effacer la recherche"><X size={16} color={muted} /></button>}
             </div>
             {search && (
               <div className="absolute top-14 left-0 right-0 bg-white rounded-2xl border shadow-2xl p-2 z-50">
@@ -733,16 +804,17 @@ export default function SocialShell({
           </div>
 
           <div className="flex items-center gap-2 shrink-0 relative">
-            <button onClick={() => { setNotificationsOpen((v) => !v); setMenu(false); }} aria-label={`Notifications${totalUnreadMessages > 0 ? ` (${totalUnreadMessages} non lus)` : ""}`} className={`${buttonBase} h-11 w-11 rounded-2xl hidden sm:flex items-center justify-center relative focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1`} style={{ background: bg }}>
+            <div ref={notifRef} className="relative">
+            <button onClick={() => { setNotificationsOpen((v) => !v); setMenu(false); if (!notificationsOpen) markCommunityNotificationsRead(); }} aria-label={`Notifications${totalUnreadMessages > 0 ? ` (${totalUnreadMessages} non lus)` : ""}`} className={`${buttonBase} h-11 w-11 rounded-2xl hidden sm:flex items-center justify-center relative focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1`} style={{ background: bg }}>
               <Bell size={19} color={primary} />
-              {(totalUnreadMessages > 0 || incomingFavoritesCount > 0) && (
+              {(totalUnreadMessages > 0 || incomingFavoritesCount > 0 || communitiesBadgeCount > 0) && (
                 <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full" style={{ background: coral }} />
               )}
             </button>
             {notificationsOpen && (
               <div className="absolute right-12 top-14 w-80 bg-white rounded-2xl border shadow-2xl p-3 z-50">
                 <div className="flex items-center justify-between px-2 pb-2"><b>Notifications</b></div>
-                {recentEvents.length === 0 && incomingFavoritesCount === 0 ? (
+                {recentEvents.length === 0 && incomingFavoritesCount === 0 && communityNotifications.length === 0 ? (
                   <div className="p-6 text-center">
                     <Bell size={22} className="mx-auto mb-2" color={muted} />
                     <p className="text-xs" style={{ color: muted }}>Aucune notification pour l'instant.</p>
@@ -759,11 +831,18 @@ export default function SocialShell({
                         💬 {ev.preview}
                       </button>
                     ))}
+                    {communityNotifications.map((n) => (
+                      <button key={n.id} onClick={() => { setNotificationsOpen(false); goTab("communities"); }} className="text-left px-2 py-2.5 rounded-xl text-sm hover:bg-slate-50">
+                        🌍 {NOTIFICATION_LABELS[n.type] || "Nouvelle activité de communauté"}
+                      </button>
+                    ))}
                   </div>
                 )}
               </div>
             )}
-            <button onClick={() => { setMenu((v) => !v); setNotificationsOpen(false); }} className={`${buttonBase} h-11 w-11 rounded-2xl flex items-center justify-center text-white font-black`} style={{ background: primary }}>
+            </div>
+            <div ref={menuRef} className="relative">
+            <button onClick={() => { setMenu((v) => !v); setNotificationsOpen(false); }} aria-label="Menu du profil" className={`${buttonBase} h-11 w-11 rounded-2xl flex items-center justify-center text-white font-black`} style={{ background: primary }}>
               {(currentUser?.name || "T")[0].toUpperCase()}
             </button>
             {menu && (
@@ -778,6 +857,7 @@ export default function SocialShell({
                 <button onClick={() => { setMenu(false); handleSignOut(); }} className="w-full text-left rounded-xl px-3 py-3 text-sm" style={{ color: coral }}><LogOut size={16} className="inline mr-3" />Déconnexion</button>
               </div>
             )}
+            </div>
           </div>
         </div>
       </header>
@@ -859,6 +939,8 @@ export default function SocialShell({
             setMessageDraft={setMessageDraft}
             broadcastTyping={broadcastTyping}
             sendMessage={sendMessage}
+            sendStickerMessage={sendStickerMessage}
+            sendMediaMessage={sendMediaMessage}
             retrySend={retrySend}
             otherTyping={otherTyping}
             onOpenReport={setReportTarget}
@@ -885,26 +967,41 @@ export default function SocialShell({
             favoritesCount={favoriteProfiles.length}
             onOpenFavorites={() => setFavoritesOpen(true)}
             onOpenPreferences={() => setPreferencesOpen(true)}
+            myCommunities={myCommunities}
+            myCommunitiesLoading={myCommunitiesLoading}
+            onOpenCommunities={(id) => { setOpenCommunityId(id || null); goTab("communities"); }}
+          />
+        )}
+
+        {tab === "communities" && (
+          <CommunitiesTab
+            currentUser={currentUser}
+            onError={onError}
+            initialCommunityId={openCommunityId}
+            onConsumedInitial={() => setOpenCommunityId(null)}
           />
         )}
       </main>
 
 
       <nav className="fixed bottom-0 left-0 right-0 z-40 bb-glass border-t" style={{ borderColor: "rgba(21,27,61,.08)", paddingBottom: "env(safe-area-inset-bottom)" }}>
-        <div className="max-w-xl mx-auto grid grid-cols-5 px-2">
-          {nav.map(([key, Icon, label]) => (
-            <button key={key} onClick={() => goTab(key)} aria-label={key === "matches" && totalUnreadMessages > 0 ? `${label} (${totalUnreadMessages} non lus)` : label} className="py-3 flex flex-col items-center gap-1.5 rounded-2xl" style={{ minHeight: 48 }}>
-              <div className="h-7 w-9 flex items-center justify-center rounded-xl relative" style={{ background: tab === key ? "rgba(225,107,93,.11)" : "transparent" }}>
-                <Icon size={19} color={tab === key ? coral : muted} fill={tab === key && key === "discover" ? coral : "none"} />
-                {key === "matches" && totalUnreadMessages > 0 && (
-                  <span className="absolute -top-0.5 -right-0.5 h-4 min-w-4 px-1 rounded-full text-[9px] font-black text-white flex items-center justify-center" style={{ background: coral }}>
-                    {totalUnreadMessages}
-                  </span>
-                )}
-              </div>
-              <span className="text-[10px] font-black" style={{ color: tab === key ? primary : muted }}>{label}</span>
-            </button>
-          ))}
+        <div className="max-w-xl mx-auto grid grid-cols-6 px-2">
+          {nav.map(([key, Icon, label, getBadge]) => {
+            const badgeCount = getBadge ? getBadge() : 0;
+            return (
+              <button key={key} onClick={() => goTab(key)} aria-label={badgeCount > 0 ? `${label} (${badgeCount} non lus)` : label} className="py-3 flex flex-col items-center gap-1.5 rounded-2xl" style={{ minHeight: 48 }}>
+                <div className="h-7 w-9 flex items-center justify-center rounded-xl relative" style={{ background: tab === key ? "rgba(225,107,93,.11)" : "transparent" }}>
+                  <Icon size={19} color={tab === key ? coral : muted} fill={tab === key && key === "discover" ? coral : "none"} />
+                  {badgeCount > 0 && (
+                    <span className="absolute -top-0.5 -right-0.5 h-4 min-w-4 px-1 rounded-full text-[9px] font-black text-white flex items-center justify-center" style={{ background: coral }}>
+                      {badgeCount}
+                    </span>
+                  )}
+                </div>
+                <span className="text-[10px] font-black text-center leading-tight w-full" style={{ color: tab === key ? primary : muted, wordBreak: "break-word" }}>{label}</span>
+              </button>
+            );
+          })}
         </div>
       </nav>
       <PostComposerModal
