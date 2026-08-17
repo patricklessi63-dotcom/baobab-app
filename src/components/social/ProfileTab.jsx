@@ -1,9 +1,11 @@
 import React from "react";
-import { Send, CheckCheck, Image as ImageIcon, Star, Target, ChevronRight, Users2, MapPin } from "lucide-react";
+import { Send, CheckCheck, Image as ImageIcon, Star, Target, ChevronRight, Users2, MapPin, PartyPopper } from "lucide-react";
 import Avatar from "../Avatar";
 import VerifiedBadge from "../VerifiedBadge";
 import { getProfileCompletion } from "../../lib/profileCompletion";
 import { categoryIcon, categoryLabel } from "../../lib/communities/communityConfig";
+import { categoryIcon as eventCategoryIcon, categoryLabel as eventCategoryLabel } from "../../lib/events/eventConfig";
+import { formatEventWhen } from "../../utils/format";
 import { primary, green, coral, gold, bg, muted } from "./theme";
 
 export default function ProfileTab({
@@ -23,6 +25,9 @@ export default function ProfileTab({
   myCommunities = [],
   myCommunitiesLoading = false,
   onOpenCommunities = () => {},
+  myUpcomingEvents = [],
+  myUpcomingEventsLoading = false,
+  onOpenEvents = () => {},
 }) {
           const myPosts = posts.filter((p) => p.name === currentUser?.name);
           const completion = getProfileCompletion(currentUser, profilePhotos[currentUser?.id] || []);
@@ -105,7 +110,7 @@ export default function ProfileTab({
               </div>
 
               <div className="flex border-t" style={{ borderColor: "rgba(21,27,61,.08)" }}>
-                {[["posts", "Publications"], ["about", "À propos"], ["communities", "Mes communautés"]].map(([key, label]) => (
+                {[["posts", "Publications"], ["about", "À propos"], ["communities", "Mes communautés"], ["events", "Événements"]].map(([key, label]) => (
                   <button key={key} onClick={() => setProfileTab(key)} className="flex-1 py-3.5 text-sm font-bold relative" style={{ color: profileTab === key ? primary : muted }}>
                     {label}
                     {profileTab === key && <span className="absolute bottom-0 left-1/2 -translate-x-1/2 h-[3px] w-10 rounded-full" style={{ background: coral }} />}
@@ -134,6 +139,34 @@ export default function ProfileTab({
                             <div className="text-sm font-bold truncate" style={{ color: primary }}>{c.name}</div>
                             <div className="text-[11px] truncate flex items-center gap-1" style={{ color: muted }}>
                               {categoryLabel(c.category)}{c.city && <><MapPin size={9} /> {c.city}</>}
+                            </div>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : profileTab === "events" ? (
+                <div className="p-4">
+                  {myUpcomingEventsLoading ? (
+                    <p className="text-sm text-center py-6" style={{ color: muted }}>Chargement...</p>
+                  ) : myUpcomingEvents.length === 0 ? (
+                    <div className="text-center py-6">
+                      <PartyPopper size={24} className="mx-auto mb-2" color={muted} />
+                      <p className="text-sm" style={{ color: muted }}>Aucun événement à venir pour l'instant.</p>
+                      <button onClick={() => onOpenEvents()} className="mt-3 px-4 py-2.5 rounded-xl font-bold text-sm" style={{ background: primary, color: "#fff" }}>Découvrir les événements</button>
+                    </div>
+                  ) : (
+                    <div className="grid sm:grid-cols-2 gap-3">
+                      {myUpcomingEvents.map((ev) => (
+                        <button key={ev.id} onClick={() => onOpenEvents(ev.id)} className="text-left rounded-2xl p-4 flex items-center gap-3" style={{ background: bg }}>
+                          <div className="h-11 w-11 rounded-xl flex-shrink-0 flex items-center justify-center text-lg" style={{ background: ev.cover_url ? `url(${ev.cover_url}) center/cover` : `linear-gradient(150deg,${gold},${coral})` }}>
+                            {!ev.cover_url && eventCategoryIcon(ev.category)}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="text-sm font-bold truncate" style={{ color: primary }}>{ev.title}</div>
+                            <div className="text-[11px] truncate flex items-center gap-1" style={{ color: muted }}>
+                              {eventCategoryLabel(ev.category)} · {formatEventWhen(ev.event_date)}
                             </div>
                           </div>
                         </button>

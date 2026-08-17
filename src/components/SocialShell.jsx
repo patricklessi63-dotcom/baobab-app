@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Home, Heart, X, MessageCircle, LogOut, Settings, UserRound, Search, Bell, Camera, Users2 } from "lucide-react";
+import { Home, Heart, X, MessageCircle, LogOut, Settings, UserRound, Search, Bell, Camera, Users2, PartyPopper } from "lucide-react";
 import Avatar from "./Avatar";
 import { supabase } from "../supabaseClient";
 import { matchKey, messagePreviewLabel } from "../utils/format";
@@ -15,7 +15,7 @@ import CommunitiesTab from "./social/CommunitiesTab";
 import PostComposerModal from "./social/PostComposerModal";
 import StoryViewerModal from "./social/StoryViewerModal";
 import StoryComposerModal from "./social/StoryComposerModal";
-import EventComposerModal from "./social/EventComposerModal";
+import EventsTab from "./social/EventsTab";
 import PublicProfileModal from "./social/PublicProfileModal";
 import FavoritesModal from "./social/FavoritesModal";
 import MatchPreferencesModal from "./social/MatchPreferencesModal";
@@ -82,18 +82,8 @@ export default function SocialShell({
   const [storyViewerIndex, setStoryViewerIndex] = useState(null);
   const [viewedStories, setViewedStories] = useState({});
   const [storyReply, setStoryReply] = useState("");
-  const [events, setEvents] = useState([]);
-  const [myEventIds, setMyEventIds] = useState(new Set());
   const [viewedProfileId, setViewedProfileId] = useState(null);
   const [favoriteIds, setFavoriteIds] = useState(new Set());
-  const [eventComposer, setEventComposer] = useState(false);
-  const [eventTitle, setEventTitle] = useState("");
-  const [eventLocation, setEventLocation] = useState("");
-  const [eventDate, setEventDate] = useState("");
-  const [eventTime, setEventTime] = useState("");
-  const [eventDescription, setEventDescription] = useState("");
-  const [eventError, setEventError] = useState("");
-  const [eventSubmitting, setEventSubmitting] = useState(false);
   const photoInputRef = useRef(null);
   const videoInputRef = useRef(null);
   const storyPhotoInputRef = useRef(null);
@@ -152,35 +142,6 @@ export default function SocialShell({
     if (!currentUser) return;
     let alive = true;
     supabase
-      .from("events")
-      .select("id, title, description, location, event_date, event_attendees(count)")
-      .gte("event_date", new Date().toISOString())
-      .order("event_date", { ascending: true })
-      .limit(10)
-      .then(({ data, error }) => {
-        if (!alive) return;
-        if (error) { console.error(error.message, error.code, error.details, error.hint); return; }
-        setEvents((data || []).map((e) => ({
-          ...e,
-          attendeeCount: e.event_attendees?.[0]?.count || 0,
-        })));
-      });
-    supabase
-      .from("event_attendees")
-      .select("event_id")
-      .eq("profile_id", currentUser.id)
-      .then(({ data, error }) => {
-        if (!alive) return;
-        if (error) { console.error(error.message, error.code, error.details, error.hint); return; }
-        setMyEventIds(new Set((data || []).map((r) => r.event_id)));
-      });
-    return () => { alive = false; };
-  }, [currentUser]);
-
-  useEffect(() => {
-    if (!currentUser) return;
-    let alive = true;
-    supabase
       .from("favorites")
       .select("to_id")
       .eq("from_id", currentUser.id)
@@ -227,93 +188,6 @@ export default function SocialShell({
       onError("Impossible de mettre à jour tes favoris.");
     } finally {
       favoriteInFlightRef.current.delete(profile.id);
-    }
-  };
-
-  const eventAttendanceInFlightRef = useRef(new Set()); // event.id en cours de bascule — évite un double clic = double insert/delete
-
-  const toggleEventAttendance = async (event) => {
-    if (!currentUser || eventAttendanceInFlightRef.current.has(event.id)) return;
-    eventAttendanceInFlightRef.current.add(event.id);
-    const attending = myEventIds.has(event.id);
-    setMyEventIds((prev) => {
-      const next = new Set(prev);
-      attending ? next.delete(event.id) : next.add(event.id);
-      return next;
-    });
-    setEvents((prev) => prev.map((e) =>
-      e.id === event.id ? { ...e, attendeeCount: e.attendeeCount + (attending ? -1 : 1) } : e
-    ));
-    try {
-      if (attending) {
-        const { error } = await supabase
-          .from("event_attendees")
-          .delete()
-          .eq("event_id", event.id)
-          .eq("profile_id", currentUser.id);
-        if (error) throw error;
-      } else {
-        const { error } = await supabase
-          .from("event_attendees")
-          .insert({ event_id: event.id, profile_id: currentUser.id });
-        if (error) throw error;
-      }
-    } catch (e) {
-      console.error(e.message, e.code, e.details, e.hint);
-      setMyEventIds((prev) => {
-        const next = new Set(prev);
-        attending ? next.add(event.id) : next.delete(event.id);
-        return next;
-      });
-      setEvents((prev) => prev.map((ev) =>
-        ev.id === event.id ? { ...ev, attendeeCount: ev.attendeeCount + (attending ? 1 : -1) } : ev
-      ));
-      onError("Impossible de mettre à jour ta participation à l'événement.");
-    } finally {
-      eventAttendanceInFlightRef.current.delete(event.id);
-    }
-  };
-
-  const createEvent = async () => {
-    if (!currentUser) return;
-    const title = eventTitle.trim();
-    const location = eventLocation.trim();
-    if (!title || !location || !eventDate || !eventTime) return;
-    setEventSubmitting(true);
-    setEventError("");
-    try {
-      const eventDateTime = new Date(`${eventDate}T${eventTime}`);
-      if (Number.isNaN(eventDateTime.getTime()) || eventDateTime < new Date()) {
-        setEventError("Choisis une date et une heure dans le futur.");
-        setEventSubmitting(false);
-        return;
-      }
-      const { data, error } = await supabase
-        .from("events")
-        .insert({
-          title,
-          location,
-          description: eventDescription.trim() || null,
-          event_date: eventDateTime.toISOString(),
-          created_by: currentUser.id,
-        })
-        .select()
-        .single();
-      if (error) throw error;
-      setEvents((prev) => [...prev, { ...data, attendeeCount: 0 }].sort(
-        (a, b) => new Date(a.event_date) - new Date(b.event_date)
-      ));
-      setEventTitle("");
-      setEventLocation("");
-      setEventDate("");
-      setEventTime("");
-      setEventDescription("");
-      setEventComposer(false);
-    } catch (e) {
-      console.error(e.message, e.code, e.details, e.hint);
-      setEventError("Impossible de créer l'événement. Réessaie.");
-    } finally {
-      setEventSubmitting(false);
     }
   };
 
@@ -444,7 +318,13 @@ export default function SocialShell({
     return () => { alive = false; supabase.removeChannel(channel); };
   }, [currentUser]);
 
-  const communitiesBadgeCount = unreadCommunityCount;
+  // Les deux badges partagent le même compteur brut/mécanisme de remise à
+  // zéro (markCommunityNotificationsRead) — seule la répartition par
+  // target_type diffère pour savoir quel onglet allumer.
+  const unreadEventNotifications = communityNotifications.filter((n) => n.target_type === "event");
+  const unreadCommunityNotifications = communityNotifications.filter((n) => n.target_type !== "event");
+  const eventsBadgeCount = unreadCommunityCount > 0 ? unreadEventNotifications.length : 0;
+  const communitiesBadgeCount = unreadCommunityCount > 0 ? unreadCommunityNotifications.length : 0;
   const [openCommunityId, setOpenCommunityId] = useState(null);
 
   // "Mes communautés" pour l'onglet Profil — communautés réellement
@@ -468,6 +348,33 @@ export default function SocialShell({
     return () => { alive = false; };
   }, [currentUser, tab]);
 
+  // "Mes événements" pour l'onglet Profil — événements à venir réellement
+  // rejoints/organisés (jamais inventés), respecte profiles.show_upcoming_events.
+  const [myUpcomingEvents, setMyUpcomingEvents] = useState([]);
+  const [myUpcomingEventsLoading, setMyUpcomingEventsLoading] = useState(false);
+  const [openEventId, setOpenEventId] = useState(null);
+  useEffect(() => {
+    if (!currentUser || tab !== "profile" || currentUser.show_upcoming_events === false) { setMyUpcomingEvents([]); return; }
+    let alive = true;
+    setMyUpcomingEventsLoading(true);
+    supabase
+      .from("event_attendees")
+      .select("status, events(id, title, category, city, cover_url, event_date, canceled_at)")
+      .eq("profile_id", currentUser.id)
+      .in("status", ["going", "interested", "waitlisted"])
+      .then(({ data, error }) => {
+        if (!alive) return;
+        if (error) { console.error(error.message, error.code, error.details, error.hint); setMyUpcomingEventsLoading(false); return; }
+        const upcoming = (data || [])
+          .filter((r) => r.events && !r.events.canceled_at && new Date(r.events.event_date) >= new Date())
+          .map((r) => r.events)
+          .sort((a, b) => new Date(a.event_date) - new Date(b.event_date));
+        setMyUpcomingEvents(upcoming);
+        setMyUpcomingEventsLoading(false);
+      });
+    return () => { alive = false; };
+  }, [currentUser, tab]);
+
   const markCommunityNotificationsRead = () => {
     if (unreadCommunityCount === 0 || !currentUser) return;
     const ids = communityNotifications.filter((n) => !n.read_at).map((n) => n.id);
@@ -483,6 +390,14 @@ export default function SocialShell({
     join_request_accepted: "Ta demande d'adhésion a été acceptée",
     invite_received: "Tu as reçu une invitation",
     report_received: "Nouveau signalement dans ta communauté",
+    event_invite: "Tu as été invité(e) à un événement",
+    event_participation_confirmed: "Ta participation est confirmée",
+    event_updated: "Un événement auquel tu participes a changé",
+    event_cancelled: "Un événement auquel tu participes a été annulé",
+    event_reminder_24h: "Un événement commence dans 24h",
+    event_reminder_1h: "Un événement commence dans 1h",
+    event_report_received: "Nouveau signalement sur ton événement",
+    event_waitlist_promoted: "Tu es passé(e) de la liste d'attente à participant(e)",
   };
 
   const totalUnreadMessages = Object.values(unreadByKey).reduce((sum, n) => sum + n, 0);
@@ -742,6 +657,7 @@ export default function SocialShell({
     ["discover", Heart, "Rencontres", null],
     ["matches", MessageCircle, "Messages", () => totalUnreadMessages],
     ["communities", Users2, "Communautés", () => communitiesBadgeCount],
+    ["events", PartyPopper, "Événements", () => eventsBadgeCount],
     ["stories", Camera, "Statuts", null],
     ["profile", UserRound, "Profil", null],
   ];
@@ -807,7 +723,7 @@ export default function SocialShell({
             <div ref={notifRef} className="relative">
             <button onClick={() => { setNotificationsOpen((v) => !v); setMenu(false); if (!notificationsOpen) markCommunityNotificationsRead(); }} aria-label={`Notifications${totalUnreadMessages > 0 ? ` (${totalUnreadMessages} non lus)` : ""}`} className={`${buttonBase} h-11 w-11 rounded-2xl hidden sm:flex items-center justify-center relative focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1`} style={{ background: bg }}>
               <Bell size={19} color={primary} />
-              {(totalUnreadMessages > 0 || incomingFavoritesCount > 0 || communitiesBadgeCount > 0) && (
+              {(totalUnreadMessages > 0 || incomingFavoritesCount > 0 || communitiesBadgeCount > 0 || eventsBadgeCount > 0) && (
                 <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full" style={{ background: coral }} />
               )}
             </button>
@@ -832,8 +748,8 @@ export default function SocialShell({
                       </button>
                     ))}
                     {communityNotifications.map((n) => (
-                      <button key={n.id} onClick={() => { setNotificationsOpen(false); goTab("communities"); }} className="text-left px-2 py-2.5 rounded-xl text-sm hover:bg-slate-50">
-                        🌍 {NOTIFICATION_LABELS[n.type] || "Nouvelle activité de communauté"}
+                      <button key={n.id} onClick={() => { setNotificationsOpen(false); goTab(n.target_type === "event" ? "events" : "communities"); }} className="text-left px-2 py-2.5 rounded-xl text-sm hover:bg-slate-50">
+                        {n.target_type === "event" ? "🎉" : "🌍"} {NOTIFICATION_LABELS[n.type] || "Nouvelle activité"}
                       </button>
                     ))}
                   </div>
@@ -882,10 +798,6 @@ export default function SocialShell({
             handlePass={handlePass}
             nearbyMembers={nearbyMembers}
             newArrivals={newArrivals}
-            events={events}
-            myEventIds={myEventIds}
-            toggleEventAttendance={toggleEventAttendance}
-            setEventComposer={setEventComposer}
             communities={communities}
             matches={matches}
             openChat={openChat}
@@ -970,6 +882,9 @@ export default function SocialShell({
             myCommunities={myCommunities}
             myCommunitiesLoading={myCommunitiesLoading}
             onOpenCommunities={(id) => { setOpenCommunityId(id || null); goTab("communities"); }}
+            myUpcomingEvents={myUpcomingEvents}
+            myUpcomingEventsLoading={myUpcomingEventsLoading}
+            onOpenEvents={(id) => { setOpenEventId(id || null); goTab("events"); }}
           />
         )}
 
@@ -981,11 +896,20 @@ export default function SocialShell({
             onConsumedInitial={() => setOpenCommunityId(null)}
           />
         )}
+
+        {tab === "events" && (
+          <EventsTab
+            currentUser={currentUser}
+            onError={onError}
+            initialEventId={openEventId}
+            onConsumedInitial={() => setOpenEventId(null)}
+          />
+        )}
       </main>
 
 
       <nav className="fixed bottom-0 left-0 right-0 z-40 bb-glass border-t" style={{ borderColor: "rgba(21,27,61,.08)", paddingBottom: "env(safe-area-inset-bottom)" }}>
-        <div className="max-w-xl mx-auto grid grid-cols-6 px-2">
+        <div className="max-w-xl mx-auto grid grid-cols-7 px-2">
           {nav.map(([key, Icon, label, getBadge]) => {
             const badgeCount = getBadge ? getBadge() : 0;
             return (
@@ -1047,24 +971,6 @@ export default function SocialShell({
         storyPhotoInputRef={storyPhotoInputRef}
         storyVideoInputRef={storyVideoInputRef}
         addStory={addStory}
-      />
-
-      <EventComposerModal
-        eventComposer={eventComposer}
-        setEventComposer={setEventComposer}
-        eventTitle={eventTitle}
-        setEventTitle={setEventTitle}
-        eventLocation={eventLocation}
-        setEventLocation={setEventLocation}
-        eventDate={eventDate}
-        setEventDate={setEventDate}
-        eventTime={eventTime}
-        setEventTime={setEventTime}
-        eventDescription={eventDescription}
-        setEventDescription={setEventDescription}
-        eventError={eventError}
-        eventSubmitting={eventSubmitting}
-        createEvent={createEvent}
       />
 
       {viewedProfile && (

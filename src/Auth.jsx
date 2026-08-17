@@ -1,20 +1,15 @@
-import React, { useState } from "react";
-import { Loader2, Eye, EyeOff, Mail, Lock, ArrowLeft, MapPin, X, ShieldCheck, FileText } from "lucide-react";
+import React, { useEffect, useState } from "react";
+import { Loader2, Mail, ArrowLeft, MapPin, X, ShieldCheck, FileText, CheckCircle2, AlertTriangle, MailCheck } from "lucide-react";
 import { supabase } from "./supabaseClient";
 import loginBackground from "./assets/baobab-canada-bg.svg";
 import { PrivacyPolicyContent, TermsOfServiceContent } from "./legalContent";
 import { useEscapeKey } from "./hooks/useEscapeKey";
+import { C } from "./components/auth/authTheme";
+import PasswordField from "./components/auth/PasswordField";
+import PasswordStrengthMeter from "./components/auth/PasswordStrengthMeter";
+import { scorePassword, passwordMeetsMinimum } from "./lib/passwordStrength";
 
-const C = {
-  dusk: "#0F1526",
-  dusk3: "#232D52",
-  bark: "#8A6A52",
-  clay: "#C1613D",
-  ochre: "#D9A441",
-  acacia: "#8FAE86",
-  sand: "#F2E9DC",
-  sandDim: "rgba(242,233,220,0.72)",
-};
+const RESEND_COOLDOWN_S = 45;
 
 function BaobabIcon({ size = 34 }) {
   return (
@@ -27,38 +22,94 @@ function BaobabIcon({ size = 34 }) {
   );
 }
 
-export default function Auth() {
-  const [mode, setMode] = useState("signin");
+function isEmailNotConfirmed(err) {
+  return err?.code === "email_not_confirmed" || (err?.message || "").toLowerCase().includes("email not confirmed");
+}
+
+function traduireErreur(err) {
+  const code = err?.code;
+  const msg = err?.message || "";
+  if (code === "invalid_credentials" || msg.includes("Invalid login credentials"))
+    return "Email ou mot de passe incorrect.";
+  if (code === "user_already_exists" || msg.includes("User already registered"))
+    return "Un compte existe déjà avec cet email.";
+  if (code === "weak_password" || msg.includes("Password should be at least"))
+    return "Le mot de passe ne respecte pas les règles minimales.";
+  if (code === "validation_failed" || msg.includes("Unable to validate email address"))
+    return "Adresse email invalide.";
+  if (code === "over_email_send_rate_limit" || msg.includes("rate limit"))
+    return "Trop de tentatives. Réessaie dans quelques minutes.";
+  if (!navigator.onLine) return "Pas de connexion internet.";
+  return msg || "Une erreur est survenue.";
+}
+
+// Écran unique d'authentification (inscription/connexion/reset), étendu
+// avec les nouveaux modes du parcours de vérification email — un seul
+// composant, pas un deuxième système. justVerified/authLinkError arrivent
+// de App.jsx, qui détecte le retour d'un lien de confirmation/reset
+// (voir la détection dans App.jsx : ni un routeur ni un backend n'existent
+// dans ce projet, donc c'est le seul point d'entrée possible).
+export default function Auth({ justVerified = false, onAcknowledgeVerified = () => {}, authLinkError = null, onDismissLinkError = () => {} }) {
+  const [mode, setMode] = useState("signin"); // signin | signup | reset | check-email | unverified | link-error
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
+  const [passwordConfirm, setPasswordConfirm] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [legalView, setLegalView] = useState(null); // "privacy" | "terms" | null
+  const [resendCooldown, setResendCooldown] = useState(0);
+  const [resendLoading, setResendLoading] = useState(false);
   useEscapeKey(Boolean(legalView), () => setLegalView(null));
+
+  useEffect(() => {
+    if (authLinkError) setMode("link-error");
+  }, [authLinkError]);
+
+  useEffect(() => {
+    if (justVerified) onAcknowledgeVerified();
+  }, [justVerified]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const t = setInterval(() => setResendCooldown((s) => Math.max(0, s - 1)), 1000);
+    return () => clearInterval(t);
+  }, [resendCooldown > 0]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleSubmit(e) {
     e.preventDefault();
     setError("");
     setNotice("");
-    setLoading(true);
     const cleanEmail = email.trim();
 
+    if (mode === "signup") {
+      if (!passwordMeetsMinimum(scorePassword(password).checks)) {
+        setError("Ton mot de passe ne respecte pas encore toutes les règles minimales.");
+        return;
+      }
+      if (password !== passwordConfirm) {
+        setError("Les mots de passe ne correspondent pas.");
+        return;
+      }
+    }
+
+    setLoading(true);
     try {
       if (mode === "signup") {
         const { error: signUpError } = await supabase.auth.signUp({
-          email: cleanEmail, password,
+          email: cleanEmail,
+          password,
+          options: { emailRedirectTo: `${window.location.origin}/?verified=1` },
         });
         if (signUpError) throw signUpError;
-        setNotice("Compte créé ! Vérifie ta boîte mail pour confirmer ton adresse, puis connecte-toi.");
-        setMode("signin");
+        setMode("check-email");
+        setResendCooldown(RESEND_COOLDOWN_S);
       } else if (mode === "signin") {
         const { error: signInError } = await supabase.auth.signInWithPassword({
           email: cleanEmail, password,
         });
         if (signInError) throw signInError;
-      } else {
+      } else if (mode === "reset") {
         const { error: resetError } = await supabase.auth.resetPasswordForEmail(cleanEmail, {
           redirectTo: `${window.location.origin}/update-password`,
         });
@@ -66,28 +117,31 @@ export default function Auth() {
         setNotice("Email de réinitialisation envoyé, si ce compte existe.");
         setMode("signin");
       }
-    } catch (e) {
-      setError(traduireErreur(e));
+    } catch (err) {
+      if (mode === "signin" && isEmailNotConfirmed(err)) {
+        setMode("unverified");
+      } else {
+        setError(traduireErreur(err));
+      }
     } finally {
       setLoading(false);
     }
   }
 
-  function traduireErreur(err) {
-    const code = err?.code;
-    const msg = err?.message || "";
-    if (code === "invalid_credentials" || msg.includes("Invalid login credentials"))
-      return "Email ou mot de passe incorrect.";
-    if (code === "user_already_exists" || msg.includes("User already registered"))
-      return "Un compte existe déjà avec cet email.";
-    if (code === "weak_password" || msg.includes("Password should be at least"))
-      return "Le mot de passe doit contenir au moins 6 caractères.";
-    if (code === "validation_failed" || msg.includes("Unable to validate email address"))
-      return "Adresse email invalide.";
-    if (code === "over_email_send_rate_limit" || msg.includes("rate limit"))
-      return "Trop de tentatives. Réessaie dans quelques minutes.";
-    if (!navigator.onLine) return "Pas de connexion internet.";
-    return msg || "Une erreur est survenue.";
+  async function handleResend() {
+    if (resendCooldown > 0 || resendLoading || !email.trim()) return;
+    setResendLoading(true);
+    setError("");
+    try {
+      const { error: resendError } = await supabase.auth.resend({ type: "signup", email: email.trim() });
+      if (resendError) throw resendError;
+      setNotice("Un nouveau lien vient d'être envoyé.");
+      setResendCooldown(RESEND_COOLDOWN_S);
+    } catch (err) {
+      setError(traduireErreur(err));
+    } finally {
+      setResendLoading(false);
+    }
   }
 
   function switchMode(next) {
@@ -95,17 +149,28 @@ export default function Auth() {
     setError("");
     setNotice("");
     setPassword("");
-    setShowPassword(false);
+    setPasswordConfirm("");
+    if (authLinkError) onDismissLinkError();
   }
 
-  const title = mode === "signup" ? "Crée ton compte" :
-    mode === "reset" ? "Réinitialise ton mot de passe" : "Bienvenue sur Baobab";
+  const title = mode === "signup" ? "Crée ton compte"
+    : mode === "reset" ? "Réinitialise ton mot de passe"
+    : mode === "check-email" ? "Vérifie ton email"
+    : mode === "unverified" ? "Email non vérifié"
+    : mode === "link-error" ? (authLinkError === "otp_expired" ? "Lien expiré" : "Lien invalide")
+    : "Bienvenue sur Baobab";
 
-  const subtitle = mode === "signup"
-    ? "Rejoins une communauté d'immigrants au Canada."
-    : mode === "reset"
-    ? "Entre ton adresse email pour recevoir un nouveau lien."
+  const subtitle = mode === "signup" ? "Rejoins une communauté d'immigrants au Canada."
+    : mode === "reset" ? "Entre ton adresse email pour recevoir un nouveau lien."
+    : mode === "check-email" ? "Un lien de confirmation vient d'être envoyé."
+    : mode === "unverified" ? "Confirme ton adresse avant de te connecter."
+    : mode === "link-error" ? "Pas d'inquiétude, on peut t'en envoyer un autre."
     : "Rencontre, échange et crée des connexions avec des immigrants partout au Canada.";
+
+  const passwordCheckResult = scorePassword(password);
+  const confirmMatches = passwordConfirm.length > 0 && password === passwordConfirm;
+  const confirmMismatch = passwordConfirm.length > 0 && password !== passwordConfirm;
+  const signupReady = passwordMeetsMinimum(passwordCheckResult.checks) && password === passwordConfirm;
 
   return (
     <main className="bb-auth min-h-screen relative flex items-center justify-center overflow-hidden px-4 py-6 sm:px-6"
@@ -120,6 +185,10 @@ export default function Auth() {
         @keyframes bbFloat { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
         @keyframes bbShimmer { 0% { transform: translateX(-120%); } 100% { transform: translateX(220%); } }
         @keyframes bbCaret { 0%,45% { opacity: 1; } 50%,95% { opacity: 0; } 100% { opacity: 1; } }
+        @keyframes bbCheckPop { 0% { transform: scale(.5); opacity: 0; } 60% { transform: scale(1.12); opacity: 1; } 100% { transform: scale(1); opacity: 1; } }
+        @keyframes bbHaloPulse { 0% { box-shadow: 0 0 0 0 rgba(143,174,134,.35); } 100% { box-shadow: 0 0 0 22px rgba(143,174,134,0); } }
+        @keyframes bbShake { 10%,90% { transform: translateX(-1px); } 20%,80% { transform: translateX(2px); } 30%,50%,70% { transform: translateX(-4px); } 40%,60% { transform: translateX(4px); } }
+        @keyframes bbParticle { 0% { transform: translateY(0) translateX(0); opacity: 0; } 10% { opacity: .5; } 90% { opacity: .5; } 100% { transform: translateY(-70px) translateX(12px); opacity: 0; } }
         .bb-auth .bb-bg { animation: bbKenBurns 22s ease-in-out alternate infinite; }
         .bb-auth .bb-hero { animation: bbRise .8s cubic-bezier(.22,1,.36,1) both; }
         .bb-auth .bb-card { animation: bbRise .9s .12s cubic-bezier(.22,1,.36,1) both; }
@@ -132,6 +201,9 @@ export default function Auth() {
         .bb-auth .bb-submit::after { content:""; position:absolute; inset:0 auto 0 -40%; width:35%; background:linear-gradient(90deg,transparent,rgba(255,255,255,.28),transparent); transform:skewX(-18deg); animation:bbShimmer 3.8s ease-in-out infinite; }
         .bb-auth .bb-field { transition: transform .25s ease, border-color .25s ease, box-shadow .25s ease, background .25s ease; }
         .bb-auth .bb-field:focus-within { transform: translateY(-1px); border-color: rgba(217,164,65,.55) !important; box-shadow: 0 10px 30px rgba(0,0,0,.16), 0 0 0 3px rgba(217,164,65,.08); background: rgba(35,45,82,.92) !important; }
+        .bb-auth .bb-check-pop { animation: bbCheckPop .5s cubic-bezier(.22,1.4,.36,1) both, bbHaloPulse 1.6s ease-out .3s; }
+        .bb-auth .bb-alert-shake { animation: bbShake .4s linear; }
+        .bb-auth .bb-particle { position:absolute; border-radius:9999px; background:${C.ochre}; animation: bbParticle linear infinite; }
         .bb-auth input { font-size: 16px; }
         .bb-auth .bb-tap { min-height: 44px; }
         @media (prefers-reduced-motion: reduce) { .bb-auth * { animation: none !important; transition: none !important; } }
@@ -145,6 +217,15 @@ export default function Auth() {
 
       <div aria-hidden="true" className="absolute inset-0 md:hidden"
         style={{ background: "linear-gradient(180deg, rgba(8,13,30,0.20), rgba(8,13,30,0.58) 35%, rgba(8,13,30,0.96) 72%, rgba(8,13,30,1) 100%)" }} />
+
+      {/* Halo discret + particules très légères — décor uniquement, jamais lourd. */}
+      <div aria-hidden="true" className="absolute -top-32 right-[12%] h-72 w-72 rounded-full pointer-events-none hidden md:block"
+        style={{ background: `radial-gradient(circle, rgba(217,164,65,.16), transparent 70%)`, filter: "blur(10px)" }} />
+      <div aria-hidden="true" className="absolute inset-0 pointer-events-none overflow-hidden hidden lg:block">
+        {[18, 34, 52, 68, 81].map((left, i) => (
+          <span key={left} className="bb-particle" style={{ left: `${left}%`, bottom: "-10px", width: 3, height: 3, animationDuration: `${9 + i}s`, animationDelay: `${i * 1.6}s` }} />
+        ))}
+      </div>
 
       <div className="bb-hero relative z-10 hidden md:block w-full max-w-6xl mr-auto">
         <div className="max-w-lg pl-4 lg:pl-10">
@@ -178,64 +259,173 @@ export default function Auth() {
             </div>
           </div>
 
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
-            {title.split(" ").map((word, i) => <span key={`${word}-${i}`} className="bb-word mr-[.28em]" style={{ animationDelay: `${.28 + i * .055}s` }}>{word}</span>)}
-          </h1>
-          <p className="bb-hero mt-2 text-sm leading-6" style={{ color: C.sandDim }}>{subtitle}</p>
+          {/* Bandeau "email vérifié" — uniquement en mode signin, jamais après une connexion normale. */}
+          {mode === "signin" && justVerified && (
+            <div className="mb-5 rounded-2xl px-4 py-4 flex items-center gap-3" style={{ background: "rgba(143,174,134,0.14)", border: "1px solid rgba(143,174,134,0.28)" }}>
+              <span className="bb-check-pop flex-shrink-0 h-9 w-9 rounded-full flex items-center justify-center" style={{ background: "rgba(143,174,134,0.25)" }}>
+                <CheckCircle2 size={19} color={C.acacia} />
+              </span>
+              <div>
+                <div className="text-sm font-bold" style={{ color: C.acacia }}>Email vérifié</div>
+                <p className="text-xs mt-0.5" style={{ color: C.sandDim }}>Ton adresse a bien été vérifiée. Entre ton mot de passe pour continuer.</p>
+              </div>
+            </div>
+          )}
 
-          {error && <div role="alert" className="mt-5 rounded-2xl px-4 py-3 text-sm"
+          {mode !== "check-email" && mode !== "link-error" && (
+            <>
+              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
+                {title.split(" ").map((word, i) => <span key={`${word}-${i}`} className="bb-word mr-[.28em]" style={{ animationDelay: `${.28 + i * .055}s` }}>{word}</span>)}
+              </h1>
+              <p className="bb-hero mt-2 text-sm leading-6" style={{ color: C.sandDim }}>{subtitle}</p>
+            </>
+          )}
+
+          {error && <div role="alert" className="bb-alert-shake mt-5 rounded-2xl px-4 py-3 text-sm"
             style={{ background: "rgba(193,97,61,0.15)", color: "#F4A48C", border: "1px solid rgba(193,97,61,0.28)" }}>{error}</div>}
 
           {notice && <div role="status" className="mt-5 rounded-2xl px-4 py-3 text-sm"
             style={{ background: "rgba(143,174,134,0.15)", color: "#B9D5B2", border: "1px solid rgba(143,174,134,0.25)" }}>{notice}</div>}
 
-          <form onSubmit={handleSubmit} className="mt-6 flex flex-col gap-4">
-            <div>
-              <label htmlFor="email" className="mb-2 block text-xs font-semibold" style={{ color: C.sandDim }}>Adresse email</label>
-              <div className="bb-field flex items-center gap-3 rounded-2xl px-4"
-                style={{ background: "rgba(35,45,82,0.78)", border: "1px solid rgba(242,233,220,0.11)" }}>
-                <Mail size={17} color={C.sandDim} />
-                <input id="email" type="email" placeholder="exemple@email.com" value={email}
-                  onChange={(e) => setEmail(e.target.value)} required autoComplete="email" inputMode="email"
-                  className="min-w-0 flex-1 bg-transparent py-4 text-sm outline-none" style={{ color: C.sand }} />
+          {/* ---------- Lien mort (confirmation ou reset expiré/invalide) ---------- */}
+          {mode === "link-error" && (
+            <div className="mt-1">
+              <div className="flex items-center gap-3 mb-4">
+                <span className="flex-shrink-0 h-11 w-11 rounded-full flex items-center justify-center" style={{ background: "rgba(193,97,61,0.16)" }}>
+                  <AlertTriangle size={20} color="#F4A48C" />
+                </span>
+                <div>
+                  <h1 className="text-xl font-bold">{title}</h1>
+                  <p className="text-sm mt-0.5" style={{ color: C.sandDim }}>{subtitle}</p>
+                </div>
               </div>
-            </div>
-
-            {mode !== "reset" && <div>
-              <div className="mb-2 flex items-center justify-between">
-                <label htmlFor="password" className="text-xs font-semibold" style={{ color: C.sandDim }}>Mot de passe</label>
-                {mode === "signin" && <button type="button" onClick={() => switchMode("reset")} className="bb-tap text-xs font-semibold flex items-center" style={{ color: C.ochre }}>Mot de passe oublié ?</button>}
-              </div>
-              <div className="bb-field flex items-center gap-3 rounded-2xl px-4"
-                style={{ background: "rgba(35,45,82,0.78)", border: "1px solid rgba(242,233,220,0.11)" }}>
-                <Lock size={17} color={C.sandDim} />
-                <input id="password" type={showPassword ? "text" : "password"} placeholder="••••••••" value={password}
-                  onChange={(e) => setPassword(e.target.value)} required minLength={6}
-                  autoComplete={mode === "signup" ? "new-password" : "current-password"}
-                  className="min-w-0 flex-1 bg-transparent py-4 text-sm outline-none" style={{ color: C.sand }} />
-                <button type="button" aria-label={showPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"}
-                  onClick={() => setShowPassword((v) => !v)} className="bb-tap flex items-center justify-center flex-shrink-0" style={{ color: C.sandDim, width: 44, marginRight: -8 }}>
-                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              <div className="flex flex-col gap-2.5">
+                <button onClick={() => switchMode("reset")} className="bb-tap py-3.5 rounded-2xl text-sm font-bold text-white" style={{ background: `linear-gradient(135deg, ${C.clay}, #A94F30)` }}>
+                  Recevoir un nouveau lien
+                </button>
+                <button onClick={() => switchMode("signin")} className="bb-tap py-3 rounded-2xl text-sm font-semibold" style={{ color: C.sandDim }}>
+                  Retour à la connexion
                 </button>
               </div>
-            </div>}
+            </div>
+          )}
 
-            <button type="submit" disabled={loading}
-              className="bb-submit bb-tap mt-1 flex items-center justify-center gap-2 rounded-2xl py-4 text-sm font-bold transition-transform duration-200 active:scale-[0.98] hover:scale-[1.01] disabled:opacity-60"
-              style={{ background: `linear-gradient(135deg, ${C.clay}, #A94F30)`, color: "#FFF8EF", boxShadow: "0 14px 32px -10px rgba(193,97,61,.65)" }}>
-              {loading && <Loader2 size={17} className="animate-spin" />}
-              {mode === "signup" ? "Créer mon compte" : mode === "reset" ? "Envoyer le lien" : "Se connecter"}
-            </button>
-          </form>
+          {/* ---------- Vérifie ton email (juste après inscription) ---------- */}
+          {mode === "check-email" && (
+            <div className="mt-1">
+              <div className="flex items-center gap-3 mb-4">
+                <span className="flex-shrink-0 h-11 w-11 rounded-full flex items-center justify-center" style={{ background: "rgba(217,164,65,0.14)" }}>
+                  <MailCheck size={20} color={C.ochre} />
+                </span>
+                <div>
+                  <h1 className="text-xl font-bold">{title}</h1>
+                  <p className="text-sm mt-0.5" style={{ color: C.sandDim }}>Envoyé à <b style={{ color: C.sand }}>{email.trim()}</b></p>
+                </div>
+              </div>
+              <p className="text-sm leading-6" style={{ color: C.sandDim }}>
+                Ouvre l'email et clique sur le lien de confirmation. Tu pourras ensuite te connecter avec ton mot de passe.
+              </p>
+              <div className="mt-5 text-center text-xs" style={{ color: C.sandDim }}>
+                Tu n'as pas reçu l'email ?{" "}
+                <button onClick={handleResend} disabled={resendCooldown > 0 || resendLoading} className="bb-tap font-bold disabled:opacity-50" style={{ color: C.ochre }}>
+                  {resendLoading ? "Envoi..." : resendCooldown > 0 ? `Renvoyer (${resendCooldown}s)` : "Renvoyer le lien"}
+                </button>
+              </div>
+              <button onClick={() => switchMode("signin")} className="bb-tap mt-4 w-full inline-flex items-center justify-center gap-1 text-xs font-semibold" style={{ color: C.sandDim }}>
+                <ArrowLeft size={14} /> Retour à la connexion
+              </button>
+            </div>
+          )}
 
-          <div className="mt-6 text-center text-xs" style={{ color: C.sandDim }}>
-            {mode === "signin" && <span>Pas encore de compte ?{" "}
-              <button onClick={() => switchMode("signup")} className="bb-tap font-bold" style={{ color: C.ochre }}>Inscris-toi</button>
-            </span>}
-            {mode !== "signin" && <button onClick={() => switchMode("signin")} className="bb-tap inline-flex items-center gap-1 font-semibold" style={{ color: C.ochre }}>
-              <ArrowLeft size={14} /> Retour à la connexion
-            </button>}
-          </div>
+          {/* ---------- Email non vérifié (tentative de connexion bloquée) ---------- */}
+          {mode === "unverified" && (
+            <div className="mt-1">
+              <p className="text-sm leading-6" style={{ color: C.sandDim }}>
+                Confirme <b style={{ color: C.sand }}>{email.trim()}</b> avant de te connecter — vérifie ta boîte mail (et les spams).
+              </p>
+              <div className="mt-5 flex flex-col gap-2.5">
+                <button onClick={handleResend} disabled={resendCooldown > 0 || resendLoading} className="bb-tap py-3.5 rounded-2xl text-sm font-bold text-white disabled:opacity-60" style={{ background: `linear-gradient(135deg, ${C.clay}, #A94F30)` }}>
+                  {resendLoading ? "Envoi..." : resendCooldown > 0 ? `Renvoyer le lien (${resendCooldown}s)` : "Renvoyer le lien"}
+                </button>
+                <button onClick={() => switchMode("signup")} className="bb-tap py-3 rounded-2xl text-sm font-semibold" style={{ color: C.sandDim }}>
+                  Modifier mon email
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* ---------- Formulaire signin / signup / reset ---------- */}
+          {(mode === "signin" || mode === "signup" || mode === "reset") && (
+            <form onSubmit={handleSubmit} className="mt-6 flex flex-col gap-4">
+              <div>
+                <label htmlFor="email" className="mb-2 block text-xs font-semibold" style={{ color: C.sandDim }}>Adresse email</label>
+                <div className="bb-field flex items-center gap-3 rounded-2xl px-4"
+                  style={{ background: "rgba(35,45,82,0.78)", border: "1px solid rgba(242,233,220,0.11)" }}>
+                  <Mail size={17} color={C.sandDim} />
+                  <input id="email" type="email" placeholder="Ton adresse email" value={email}
+                    onChange={(e) => setEmail(e.target.value)} required autoComplete="email" inputMode="email"
+                    className="min-w-0 flex-1 bg-transparent py-4 text-sm outline-none" style={{ color: C.sand }} />
+                </div>
+              </div>
+
+              {mode === "signin" && (
+                <PasswordField
+                  id="password"
+                  label="Mot de passe"
+                  labelRight={<button type="button" onClick={() => switchMode("reset")} className="bb-tap text-xs font-semibold flex items-center" style={{ color: C.ochre }}>Mot de passe oublié ?</button>}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  autoComplete="current-password"
+                />
+              )}
+
+              {mode === "signup" && (
+                <>
+                  <PasswordField
+                    id="password"
+                    label="Mot de passe"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    autoComplete="new-password"
+                    minLength={8}
+                  />
+                  <PasswordStrengthMeter password={password} />
+                  <PasswordField
+                    id="password-confirm"
+                    label="Confirmer le mot de passe"
+                    value={passwordConfirm}
+                    onChange={(e) => setPasswordConfirm(e.target.value)}
+                    autoComplete="new-password"
+                    minLength={8}
+                    invalid={confirmMismatch}
+                  />
+                  {(confirmMatches || confirmMismatch) && (
+                    <p className="-mt-2.5 text-xs font-semibold flex items-center gap-1.5" style={{ color: confirmMatches ? C.acacia : "#F4A48C" }}>
+                      {confirmMatches ? "✓ Les mots de passe correspondent" : "⚠ Les mots de passe ne correspondent pas"}
+                    </p>
+                  )}
+                </>
+              )}
+
+              <button type="submit" disabled={loading || (mode === "signup" && !signupReady)}
+                className="bb-submit bb-tap mt-1 flex items-center justify-center gap-2 rounded-2xl py-4 text-sm font-bold transition-transform duration-200 active:scale-[0.98] hover:scale-[1.01] disabled:opacity-60"
+                style={{ background: `linear-gradient(135deg, ${C.clay}, #A94F30)`, color: "#FFF8EF", boxShadow: "0 14px 32px -10px rgba(193,97,61,.65)" }}>
+                {loading && <Loader2 size={17} className="animate-spin" />}
+                {loading ? (mode === "signup" ? "Création..." : mode === "reset" ? "Envoi..." : "Connexion...") : mode === "signup" ? "Créer mon compte" : mode === "reset" ? "Envoyer le lien" : "Se connecter"}
+              </button>
+            </form>
+          )}
+
+          {(mode === "signin" || mode === "signup" || mode === "reset") && (
+            <div className="mt-6 text-center text-xs" style={{ color: C.sandDim }}>
+              {mode === "signin" && <span>Pas encore de compte ?{" "}
+                <button onClick={() => switchMode("signup")} className="bb-tap font-bold" style={{ color: C.ochre }}>Inscris-toi</button>
+              </span>}
+              {mode !== "signin" && <button onClick={() => switchMode("signin")} className="bb-tap inline-flex items-center gap-1 font-semibold" style={{ color: C.ochre }}>
+                <ArrowLeft size={14} /> Retour à la connexion
+              </button>}
+            </div>
+          )}
 
           <div className="mt-7 border-t pt-5 text-center text-[10px]"
             style={{ borderColor: "rgba(242,233,220,0.10)", color: "rgba(242,233,220,0.42)" }}>

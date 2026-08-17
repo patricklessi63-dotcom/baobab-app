@@ -4,6 +4,7 @@ import { useSignedMediaUrl } from "../../hooks/useSignedMediaUrl";
 import { getSignedUrl } from "../../lib/signedUrlCache";
 import { formatFileSize } from "../../lib/mediaConstants";
 import { STICKER_GRADIENTS } from "../../lib/stickerData";
+import { formatEventWhen } from "../../utils/format";
 import MediaViewerModal from "./MediaViewerModal";
 import { primary, bg } from "./theme";
 
@@ -96,6 +97,22 @@ export default function MessageBubbleMedia({ m, isMine }) {
       >
         <span style={{ fontSize: 40, lineHeight: 1 }}>{m.media_meta?.emoji}</span>
         {m.media_meta?.caption && <span className="text-xs font-bold text-white text-center">{m.media_meta.caption}</span>}
+      </div>
+    );
+  }
+
+  if (m.kind === "event") {
+    const meta = m.media_meta || {};
+    return (
+      <div className="rounded-2xl overflow-hidden" style={{ maxWidth: 230, background: isMine ? "rgba(255,255,255,.14)" : "#fff", border: isMine ? "none" : "1px solid rgba(21,27,61,.08)" }}>
+        <div className="h-20 relative" style={{ background: meta.cover_url ? `url(${meta.cover_url}) center/cover` : "linear-gradient(150deg,#F2B84B,#E56B5D)" }} />
+        <div className="p-3">
+          <div className="text-[10px] font-black uppercase tracking-wider mb-1" style={{ opacity: 0.75 }}>🎉 Événement Baobab</div>
+          <div className="text-sm font-bold truncate">{meta.title || "Événement"}</div>
+          <div className="text-[11px] mt-0.5" style={{ opacity: 0.75 }}>
+            {meta.event_date ? formatEventWhen(meta.event_date) : ""}{meta.city ? ` · ${meta.city}` : ""}
+          </div>
+        </div>
       </div>
     );
   }

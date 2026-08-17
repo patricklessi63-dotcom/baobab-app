@@ -1,0 +1,57 @@
+import React from "react";
+import { X, Check } from "lucide-react";
+import Avatar from "../Avatar";
+import EmptyState from "../home/EmptyState";
+import { useEscapeKey } from "../../hooks/useEscapeKey";
+import { primary, coral, muted, card } from "./theme";
+
+// Source d'invitation = connexions mutuelles (likes croisés — il n'existe
+// pas de table "matches" dans ce schéma) + membres de la communauté
+// associée à l'événement, si applicable. Aucun autre graphe de contacts
+// n'existe dans l'app pour inviter plus largement.
+export default function EventInviteModal({ open, candidates = [], invitedIds = new Set(), sending, onInvite, onClose }) {
+  useEscapeKey(open, onClose);
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-[70] flex items-end md:items-center justify-center p-0 md:p-5" style={{ background: "rgba(21,27,61,.55)", backdropFilter: "blur(5px)" }} onClick={onClose} role="dialog" aria-modal="true" aria-label="Inviter des personnes">
+      <div className={`${card} bg-white w-full max-w-md rounded-t-[30px] md:rounded-[30px] p-6 max-h-[80vh] overflow-y-auto`} onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-black" style={{ color: primary }}>Inviter des personnes</h2>
+          <button onClick={onClose} aria-label="Fermer"><X /></button>
+        </div>
+
+        {candidates.length === 0 ? (
+          <EmptyState title="Personne à inviter pour l'instant." subtitle="Tes connexions mutuelles apparaîtront ici." />
+        ) : (
+          <div className="flex flex-col gap-1">
+            {candidates.map((p) => {
+              const invited = invitedIds.has(p.id);
+              return (
+                <div key={p.id} className="flex items-center gap-3 py-2">
+                  <Avatar name={p.name} url={p.avatar_url} size={38} />
+                  <span className="text-sm font-semibold flex-1 truncate">{p.name}</span>
+                  {invited ? (
+                    <span className="text-xs font-bold px-3 py-1.5 rounded-full flex items-center gap-1" style={{ background: "#EEF8F4", color: "#2F8F6B" }}>
+                      <Check size={12} /> Invité
+                    </span>
+                  ) : (
+                    <button
+                      onClick={() => onInvite(p)}
+                      disabled={sending}
+                      className="text-xs font-bold px-3.5 py-1.5 rounded-full text-white disabled:opacity-50"
+                      style={{ background: coral }}
+                    >
+                      Inviter
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+        <p className="text-[11px] mt-4" style={{ color: muted }}>Les invitations sont limitées pour éviter le spam.</p>
+      </div>
+    </div>
+  );
+}

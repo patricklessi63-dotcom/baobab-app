@@ -102,11 +102,43 @@ export default function App() {
     return () => clearTimeout(timer);
   }, [error]);
 
+  // Détecte le retour d'un lien de confirmation d'email ou d'un lien mort
+  // (Phase 7.5). Pas de routeur dans ce projet : le seul canal disponible
+  // est l'URL elle-même. "verified=1" (ajouté via emailRedirectTo dans
+  // Auth.jsx) reste dans le query string ; le token Supabase arrive
+  // séparément en #hash. Un lien mort (expiré/invalide) fait que Supabase
+  // ajoute #error=...&error_code=... au lieu d'établir une session.
+  const pendingVerifiedRef = useRef(false);
+  const [justVerified, setJustVerified] = useState(false);
+  const [authLinkError, setAuthLinkError] = useState(null);
+
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const hash = window.location.hash;
+    const verifiedFlag = params.get("verified") === "1";
+    let linkErrorCode = null;
+    if (hash && hash.includes("error=")) {
+      linkErrorCode = new URLSearchParams(hash.replace(/^#/, "")).get("error_code");
+    }
+    if (verifiedFlag) pendingVerifiedRef.current = true;
+    if (linkErrorCode) setAuthLinkError(linkErrorCode);
+    if (verifiedFlag || linkErrorCode) {
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+
     supabase.auth.getSession()
       .then(({ data }) => setSession(data.session ?? null))
       .catch(() => setSession(null));
     const { data: listener } = supabase.auth.onAuthStateChange((event, newSession) => {
+      // Ne JAMAIS laisser une confirmation d'email connecter automatiquement
+      // l'utilisateur : Supabase établit réellement une session (preuve que
+      // le lien était valide), mais on la referme aussitôt et on affiche
+      // "email vérifié, entre ton mot de passe" à la place.
+      if (event === "SIGNED_IN" && pendingVerifiedRef.current) {
+        pendingVerifiedRef.current = false;
+        supabase.auth.signOut().then(() => setJustVerified(true));
+        return;
+      }
       setSession(newSession);
       // Lien "mot de passe oublié" cliqué depuis l'email : Supabase authentifie
       // la session de récupération et émet cet événement.
@@ -869,7 +901,14 @@ export default function App() {
   }
 
   if (view === "auth") {
-    return <Auth />;
+    return (
+      <Auth
+        justVerified={justVerified}
+        onAcknowledgeVerified={() => setJustVerified(false)}
+        authLinkError={authLinkError}
+        onDismissLinkError={() => setAuthLinkError(null)}
+      />
+    );
   }
 
   if (view === "update-password") {

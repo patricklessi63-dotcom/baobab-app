@@ -1,5 +1,5 @@
 import React from "react";
-import { Calendar, Luggage } from "lucide-react";
+import { Luggage } from "lucide-react";
 import Avatar from "../Avatar";
 import HomeHeader from "../home/HomeHeader";
 import BaobabHero from "../home/BaobabHero";
@@ -8,9 +8,7 @@ import ConversationCard from "../home/ConversationCard";
 import CommunityCard from "../home/CommunityCard";
 import BaobabProgress from "../home/BaobabProgress";
 import EmptyState from "../home/EmptyState";
-import EventCard from "../home/EventCard";
 import { rankCandidates } from "../../lib/matching/matchingService";
-import { formatEventWhen } from "../../utils/format";
 import { primary, green, coral, gold, bg, muted, card } from "./theme";
 
 export default function FeedTab({
@@ -31,10 +29,6 @@ export default function FeedTab({
   handlePass,
   nearbyMembers,
   newArrivals,
-  events,
-  myEventIds,
-  toggleEventAttendance,
-  setEventComposer,
   communities,
   matches,
   openChat,
@@ -206,44 +200,18 @@ export default function FeedTab({
             )}
           </div>
 
-          {/* ---------- Événements ---------- */}
-          <div className="mb-5 mt-8 flex items-center justify-between gap-3">
-            <h2 className="text-xl font-black" style={{ color: primary }}>🎉 Événements</h2>
-            <button
-              onClick={() => setEventComposer(true)}
-              className="text-xs font-bold shrink-0 focus-visible:outline focus-visible:outline-2"
-              style={{ color: coral }}
-            >
-              + Créer un événement
+          {/* ---------- Événements — l'onglet dédié possède désormais tout
+              l'état/logique réel (recherche, filtres, création) ; ce bandeau
+              n'affiche aucune donnée dupliquée, juste un lien direct. ---------- */}
+          <div className={`${card} p-5 mt-8 flex items-center justify-between gap-3 flex-wrap`}>
+            <div>
+              <h2 className="text-lg font-black" style={{ color: primary }}>🎉 Événements Baobab</h2>
+              <p className="text-sm mt-1" style={{ color: muted }}>Découvre, participe, rencontre.</p>
+            </div>
+            <button onClick={() => goTab("events")} className="text-sm font-bold px-4 py-2.5 rounded-full text-white flex-shrink-0" style={{ background: coral }}>
+              Voir les événements →
             </button>
           </div>
-          {events.length === 0 ? (
-            <div className={`${card} p-2`}>
-              <EmptyState
-                icon={Calendar}
-                title="Les prochains événements Baobab arrivent bientôt."
-                actionLabel="Découvrir les communautés"
-                onAction={() => {
-                  const el = document.getElementById("bb-communities-section");
-                  el?.scrollIntoView({ behavior: "smooth", block: "start" });
-                }}
-              />
-            </div>
-          ) : (
-            <div className="grid sm:grid-cols-2 gap-3">
-              {events.map((ev) => (
-                <EventCard
-                  key={ev.id}
-                  title={ev.title}
-                  location={ev.location}
-                  when={formatEventWhen(ev.event_date)}
-                  attendeeCount={ev.attendeeCount}
-                  attending={myEventIds.has(ev.id)}
-                  onToggleAttendance={() => toggleEventAttendance(ev)}
-                />
-              ))}
-            </div>
-          )}
         </section>
 
         <aside className="space-y-5">

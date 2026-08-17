@@ -38,6 +38,7 @@ export function messagePreviewLabel(m) {
     case "audio": return "🎤 Message vocal";
     case "file": return `📎 ${m.media_meta?.original_name || "Fichier"}`;
     case "sticker": return "😊 Autocollant";
+    case "event": return `🎉 ${m.media_meta?.title || "Événement"}`;
     default: return m?.text || "";
   }
 }
