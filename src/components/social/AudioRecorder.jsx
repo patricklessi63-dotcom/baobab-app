@@ -62,10 +62,32 @@ export default function AudioRecorder({ hasDraft, onSendText, onSendAudio, onAct
     if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
       setState("error");
       setErrorMsg("Ton navigateur ne prend pas en charge l'enregistrement audio.");
-      setTimeout(() => setState("idle"), 4000);
+      setTimeout(() => setState("idle"), 6000);
       return;
     }
     setState("requesting");
+
+    // Si le micro a déjà été refusé une fois, le navigateur ne réaffiche
+    // plus la demande native automatiquement — inutile de rappeler
+    // getUserMedia (ça échouerait silencieusement de la même façon) :
+    // on le détecte via l'API Permissions (non supportée sur Safari/iOS,
+    // d'où le try/catch — dans ce cas on retombe sur l'appel direct
+    // ci-dessous, qui déclenchera la vraie demande native s'il y a lieu).
+    try {
+      if (navigator.permissions?.query) {
+        const status = await navigator.permissions.query({ name: "microphone" });
+        if (status.state === "denied") {
+          setErrorMsg("Le micro est bloqué pour Baobab. Ouvre les réglages de ton navigateur (icône 🔒 ou ⓘ à côté de l'adresse du site, ou Réglages > Safari/Chrome > Baobab) pour l'autoriser, puis réessaie.");
+          setState("error");
+          setTimeout(() => setState("idle"), 8000);
+          return;
+        }
+      }
+    } catch (_) {
+      // API Permissions indisponible pour "microphone" (courant sur
+      // Safari) — on continue, getUserMedia ci-dessous gère ce cas.
+    }
+
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
@@ -96,9 +118,13 @@ export default function AudioRecorder({ hasDraft, onSendText, onSendAudio, onAct
     } catch (e) {
       stopTracks();
       const denied = e?.name === "NotAllowedError" || e?.name === "SecurityError";
-      setErrorMsg(denied ? "Baobab n'a pas accès à ton microphone." : "Impossible de démarrer l'enregistrement.");
+      setErrorMsg(
+        denied
+          ? "Le micro est bloqué pour Baobab. Ouvre les réglages de ton navigateur (icône 🔒 ou ⓘ à côté de l'adresse du site) pour l'autoriser, puis réessaie."
+          : "Impossible de démarrer l'enregistrement."
+      );
       setState("error");
-      setTimeout(() => setState("idle"), 4000);
+      setTimeout(() => setState("idle"), 8000);
     }
   };
 
