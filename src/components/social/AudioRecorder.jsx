@@ -23,15 +23,30 @@ function formatDuration(ms) {
 // saisie : bouton micro si le brouillon texte est vide, bouton envoyer
 // sinon. Une fois l'enregistrement démarré, prend toute la largeur de la
 // barre (le parent masque textarea/emoji/pièce jointe via onActiveChange).
+// Vérifie l'état de permission via l'API Permissions (best-effort — non
+// supportée sur Safari/iOS, jamais la source de vérité : getUserMedia()
+// reste le seul appel qui compte réellement).
+async function queryMicPermission() {
+  if (!navigator.permissions?.query) return "prompt";
+  try {
+    const status = await navigator.permissions.query({ name: "microphone" });
+    return status.state; // "granted" | "denied" | "prompt"
+  } catch {
+    return "prompt";
+  }
+}
+
 export default function AudioRecorder({ hasDraft, onSendText, onSendAudio, onActiveChange }) {
   const [state, setState] = useState("idle"); // idle | recording | preview | error
   const [elapsed, setElapsed] = useState(0);
   const [errorMsg, setErrorMsg] = useState("");
   const [playing, setPlaying] = useState(false);
 
-  // Popup d'accès micro — voir MicPermissionModal.jsx.
+  // Popup d'accès micro — voir MicPermissionModal.jsx. "ask" = petite
+  // confirmation avant le premier essai, "blocked" = le navigateur a déjà
+  // refusé (aide repliée par défaut).
   const [permissionOpen, setPermissionOpen] = useState(false);
-  const [permissionBlocked, setPermissionBlocked] = useState(false);
+  const [permissionPhase, setPermissionPhase] = useState("ask");
   const [permissionRequesting, setPermissionRequesting] = useState(false);
 
   const streamRef = useRef(null);
@@ -93,46 +108,65 @@ export default function AudioRecorder({ hasDraft, onSendText, onSendAudio, onAct
     }, 200);
   };
 
-  // Ouvre la popup d'accès au micro (bouton micro de la barre de saisie).
-  const openMicPrompt = () => {
-    if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
-      setState("error");
-      setErrorMsg("Ton navigateur ne prend pas en charge l'enregistrement audio.");
-      setTimeout(() => setState("idle"), 6000);
-      return;
-    }
-    setPermissionBlocked(false);
-    setPermissionOpen(true);
+  const showInlineError = (msg) => {
+    setPermissionOpen(false);
+    setErrorMsg(msg);
+    setState("error");
+    setTimeout(() => setState("idle"), 6000);
   };
 
-  // Bouton "Autoriser l'accès" / "Réessayer" de la popup — c'est CET appel,
-  // dans un gestionnaire de clic, qui déclenche la vraie demande native du
-  // navigateur ("Autoriser l'accès au micro ?") si elle n'a jamais été
-  // posée. Si le micro a déjà été refusé, aucun bouton d'un site web ne
-  // peut forcer cette popup native à réapparaître (règle de sécurité du
-  // navigateur) — on bascule alors la popup vers les instructions.
-  const handleAllow = async () => {
+  // C'est CET appel, dans un gestionnaire de clic (jamais au chargement de
+  // la page), qui déclenche la vraie demande native du navigateur si elle
+  // n'a jamais été posée. Si le micro a déjà été refusé, aucun bouton d'un
+  // site web ne peut forcer cette popup native à réapparaître (règle de
+  // sécurité du navigateur) — on bascule alors vers la vue "bloqué".
+  const requestMic = async () => {
     setPermissionRequesting(true);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       setPermissionOpen(false);
       beginRecording(stream);
     } catch (e) {
-      const denied = e?.name === "NotAllowedError" || e?.name === "SecurityError";
-      if (denied) {
-        setPermissionBlocked(true);
-      } else {
-        setPermissionOpen(false);
-        setErrorMsg("Impossible de démarrer l'enregistrement.");
-        setState("error");
-        setTimeout(() => setState("idle"), 6000);
+      switch (e?.name) {
+        case "NotAllowedError":
+        case "SecurityError":
+          setPermissionPhase("blocked");
+          setPermissionOpen(true);
+          break;
+        case "NotFoundError":
+          showInlineError("Aucun microphone n'a été détecté.");
+          break;
+        case "NotReadableError":
+          showInlineError("Le microphone est utilisé ou inaccessible.");
+          break;
+        default:
+          showInlineError("Impossible de démarrer l'enregistrement.");
       }
     } finally {
       setPermissionRequesting(false);
     }
   };
 
-  const closeMicPrompt = () => setPermissionOpen(false);
+  // Bouton micro de la barre de saisie. Si la permission est déjà accordée
+  // (API Permissions, best-effort), on enregistre directement sans aucune
+  // popup. Si elle est déjà refusée, on saute la petite confirmation et on
+  // va droit à la vue "bloqué". Sinon, petite confirmation avant le premier
+  // vrai appel à getUserMedia().
+  const openMicPrompt = async () => {
+    if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
+      showInlineError("Ton navigateur ne prend pas en charge l'enregistrement audio.");
+      return;
+    }
+    const permState = await queryMicPermission();
+    if (permState === "granted") {
+      requestMic();
+      return;
+    }
+    setPermissionPhase(permState === "denied" ? "blocked" : "ask");
+    setPermissionOpen(true);
+  };
+
+  const dismissMicPrompt = () => setPermissionOpen(false);
 
   const stopRecording = () => {
     clearInterval(timerRef.current);
@@ -172,10 +206,10 @@ export default function AudioRecorder({ hasDraft, onSendText, onSendAudio, onAct
   const permissionModal = (
     <MicPermissionModal
       open={permissionOpen}
-      blocked={permissionBlocked}
+      phase={permissionPhase}
       requesting={permissionRequesting}
-      onAllow={handleAllow}
-      onClose={closeMicPrompt}
+      onAllow={requestMic}
+      onDismiss={dismissMicPrompt}
     />
   );
 
