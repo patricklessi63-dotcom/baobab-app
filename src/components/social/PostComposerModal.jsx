@@ -2,6 +2,7 @@ import React from "react";
 import { X, Image as ImageIcon, Camera } from "lucide-react";
 import Avatar from "../Avatar";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
+import AiSuggestButton from "../ai/AiSuggestButton";
 import { primary, green, coral, bg, muted } from "./theme";
 
 export default function PostComposerModal({
@@ -32,7 +33,18 @@ export default function PostComposerModal({
             </div>
             <div className="flex gap-3 mt-5">
               <Avatar name={currentUser?.name || "Toi"} url={currentUser?.avatar_url} size={40} />
-              <textarea autoFocus value={draft} onChange={(e) => setDraft(e.target.value)} className="flex-1 min-h-32 rounded-2xl p-4 outline-none resize-none" style={{ background: bg }} placeholder="Écris ton message..." />
+              <div className="flex-1">
+                <textarea autoFocus value={draft} onChange={(e) => setDraft(e.target.value)} className="w-full min-h-32 rounded-2xl p-4 outline-none resize-none" style={{ background: bg }} placeholder="Écris ton message..." />
+                {currentUser?.ai_suggestions_enabled !== false && (
+                  <AiSuggestButton
+                    action="improve_post"
+                    label="Améliorer mon texte"
+                    buildPayload={() => ({ text: draft })}
+                    onApply={setDraft}
+                    disabled={!draft.trim()}
+                  />
+                )}
+              </div>
             </div>
             {composerMedia && <div className="mt-3 rounded-2xl overflow-hidden bg-black max-h-56">{composerMediaKind === "video" ? <video src={URL.createObjectURL(composerMedia)} controls className="w-full max-h-56 object-contain" /> : <img src={URL.createObjectURL(composerMedia)} alt="" className="w-full max-h-56 object-contain" />}</div>}
             <div className="grid grid-cols-2 gap-2 mt-3">

@@ -1,0 +1,13 @@
+{
+  "name": "Baobab",
+  "short_name": "Baobab",
+  "description": "Rencontres et communauté pour les immigrants au Canada.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#F8F5EF",
+  "theme_color": "#1E2A4F",
+  "lang": "fr",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

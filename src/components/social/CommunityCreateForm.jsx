@@ -1,8 +1,9 @@
 import React, { useState } from "react";
-import { ImagePlus } from "lucide-react";
+import { ImagePlus, Sparkles, Loader2 } from "lucide-react";
 import ChipSelect from "../ChipSelect";
 import { supabase } from "../../supabaseClient";
 import { COMMUNITY_CATEGORIES, COMMUNITY_VISIBILITY } from "../../lib/communities/communityConfig";
+import { invokeAI } from "../../lib/ai/aiClient";
 import { primary, coral, muted, bg } from "./theme";
 
 const NAME_MAX = 80;
@@ -17,6 +18,33 @@ export default function CommunityCreateForm({ currentUser, onCreated, onCancel, 
   const [coverFile, setCoverFile] = useState(null);
   const [coverPreview, setCoverPreview] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [aiIdea, setAiIdea] = useState("");
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiSuggestion, setAiSuggestion] = useState(null);
+  const [aiError, setAiError] = useState("");
+
+  // Suggestion IA (item 20) — résultat à 3 champs (nom/description/
+  // catégorie), donc géré ici plutôt que par le AiSuggestButton générique
+  // (conçu pour un champ texte unique). Ne remplit jamais rien sans clic
+  // explicite sur "Utiliser".
+  const handleAiSuggest = async () => {
+    if (!aiIdea.trim()) return;
+    setAiLoading(true);
+    setAiError("");
+    setAiSuggestion(null);
+    const { data, error } = await invokeAI("suggest_community", { text: aiIdea.trim() });
+    setAiLoading(false);
+    if (error) { setAiError(error); return; }
+    if (!data?.name) { setAiError("Réponse IA invalide, réessaie."); return; }
+    setAiSuggestion(data);
+  };
+  const applyAiSuggestion = () => {
+    if (!aiSuggestion) return;
+    setName((aiSuggestion.name || "").slice(0, NAME_MAX));
+    setDescription((aiSuggestion.description || "").slice(0, DESCRIPTION_MAX));
+    if (COMMUNITY_CATEGORIES.some((c) => c.value === aiSuggestion.category)) setCategory(aiSuggestion.category);
+    setAiSuggestion(null);
+  };
 
   const onPickCover = (e) => {
     const file = e.target.files?.[0];
@@ -70,6 +98,35 @@ export default function CommunityCreateForm({ currentUser, onCreated, onCancel, 
           <input type="file" accept="image/*" className="hidden" onChange={onPickCover} />
         </label>
       </label>
+
+      {currentUser?.ai_suggestions_enabled !== false && (
+        <div className="rounded-2xl p-3.5" style={{ background: "#FFF9F0", border: "1px solid rgba(242,184,75,.3)" }}>
+          <div className="text-[10px] font-black uppercase tracking-wider flex items-center gap-1" style={{ color: "#A5761F" }}>
+            <Sparkles size={11} /> Suggestion IA
+          </div>
+          {aiSuggestion ? (
+            <>
+              <p className="text-sm font-bold mt-1.5" style={{ color: primary }}>{aiSuggestion.name}</p>
+              <p className="text-xs mt-0.5" style={{ color: muted }}>{aiSuggestion.description}</p>
+              <div className="flex gap-2 mt-2.5">
+                <button type="button" onClick={() => setAiSuggestion(null)} className="flex-1 py-2 rounded-xl text-xs font-bold" style={{ background: bg, color: primary }}>Annuler</button>
+                <button type="button" onClick={applyAiSuggestion} className="flex-1 py-2 rounded-xl text-xs font-bold text-white" style={{ background: coral }}>Utiliser</button>
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="text-xs mt-1.5" style={{ color: muted }}>Décris ton idée en quelques mots, l'IA propose un nom, une description et une catégorie.</p>
+              <div className="flex gap-2 mt-2">
+                <input value={aiIdea} onChange={(e) => setAiIdea(e.target.value)} placeholder="Ex : club de course pour nouveaux arrivants à Montréal" className="flex-1 rounded-xl px-3 py-2 text-xs outline-none" style={{ background: "#fff" }} />
+                <button type="button" onClick={handleAiSuggest} disabled={aiLoading || !aiIdea.trim()} className="px-3 py-2 rounded-xl text-xs font-bold text-white disabled:opacity-50 flex items-center gap-1" style={{ background: coral }}>
+                  {aiLoading ? <Loader2 size={12} className="animate-spin" /> : "Suggérer"}
+                </button>
+              </div>
+              {aiError && <p className="text-[11px] mt-1.5" style={{ color: coral }}>{aiError}</p>}
+            </>
+          )}
+        </div>
+      )}
 
       <label className="block">
         <span className="text-xs font-bold" style={{ color: muted }}>Nom *</span>

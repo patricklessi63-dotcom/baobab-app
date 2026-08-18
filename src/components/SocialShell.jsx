@@ -1,30 +1,59 @@
-import React, { useState, useEffect, useRef } from "react";
-import { Home, Heart, X, MessageCircle, LogOut, Settings, UserRound, Search, Bell, Camera, Users2, PartyPopper } from "lucide-react";
+import React, { useState, useEffect, useRef, Suspense, lazy } from "react";
+import { Home, Heart, X, MessageCircle, LogOut, Settings, Cog, UserRound, Search, Bell, Camera, Users2, PartyPopper } from "lucide-react";
 import Avatar from "./Avatar";
 import { supabase } from "../supabaseClient";
 import { matchKey, messagePreviewLabel } from "../utils/format";
 import { useClickOutside } from "../hooks/useClickOutside";
 import { useEscapeKey } from "../hooks/useEscapeKey";
 import { primary, green, coral, gold, bg, muted, buttonBase } from "./social/theme";
+import Skeleton from "./Skeleton";
 import FeedTab from "./social/FeedTab";
 import DiscoverTab from "./social/DiscoverTab";
 import MessagesTab from "./social/MessagesTab";
 import StoriesTab from "./social/StoriesTab";
 import ProfileTab from "./social/ProfileTab";
-import CommunitiesTab from "./social/CommunitiesTab";
 import PostComposerModal from "./social/PostComposerModal";
 import StoryViewerModal from "./social/StoryViewerModal";
 import StoryComposerModal from "./social/StoryComposerModal";
-import EventsTab from "./social/EventsTab";
 import PublicProfileModal from "./social/PublicProfileModal";
 import FavoritesModal from "./social/FavoritesModal";
 import MatchPreferencesModal from "./social/MatchPreferencesModal";
+import { validateMediaFile } from "../lib/mediaValidation";
+
+// Chargées à la demande (item 27 de l'audit Phase 10) : ces 3 onglets sont
+// visités moins souvent que Fil/Découverte/Messages/Profil au démarrage de
+// session, et Premium notamment n'a aucune raison d'alourdir le chunk
+// principal pour les utilisateurs qui ne l'ouvrent jamais.
+const CommunitiesTab = lazy(() => import("./social/CommunitiesTab"));
+const EventsTab = lazy(() => import("./social/EventsTab"));
+const PremiumPage = lazy(() => import("./premium/PremiumPage"));
+
+function TabLoadingFallback() {
+  return (
+    <div className="max-w-xl mx-auto px-4 py-8">
+      <Skeleton rows={4} height={80} gap={16} />
+    </div>
+  );
+}
 
 const STORY_COLORS = ["#E56B5D", "#2F8F6B", "#5667A9", "#F2B84B", "#C1613D", "#1E2A4F"];
 function colorForProfile(id) {
   let hash = 0;
   for (let i = 0; i < String(id).length; i++) hash = (hash * 31 + String(id).charCodeAt(i)) >>> 0;
   return STORY_COLORS[hash % STORY_COLORS.length];
+}
+
+// Onglet du fil ouvert par défaut selon l'objectif d'usage choisi à
+// l'onboarding (Phase 12a) — "Rencontre" garde le comportement historique
+// (Pour toi), sinon on ouvre directement sur l'onglet le plus pertinent
+// pour un premier "time to value".
+function defaultFeedTab(usageGoals) {
+  const goals = usageGoals || "";
+  const wantsRencontre = goals.includes("Rencontre");
+  if (wantsRencontre) return "pourtoi";
+  if (goals.includes("Communauté")) return "communautes";
+  if (goals.includes("Événements")) return "local";
+  return "pourtoi";
 }
 
 export default function SocialShell({
@@ -42,6 +71,7 @@ export default function SocialShell({
   openEditProfile = () => setView("editProfile"),
   setReportTarget = () => {},
   handleBlock = () => {},
+  blockedIds = new Set(),
   profiles = [],
   handleSavePreferences = () => {},
   activeMatch = null,
@@ -57,11 +87,13 @@ export default function SocialShell({
   sendMediaMessage = () => {},
   retrySend = () => {},
   otherTyping = false,
+  setSettingsOpen = () => {},
 }) {
   const [favoritesOpen, setFavoritesOpen] = useState(false);
   const [preferencesOpen, setPreferencesOpen] = useState(false);
   const [tab, setTab] = useState("feed");
   const [profileTab, setProfileTab] = useState("posts");
+  const [feedTab, setFeedTab] = useState(() => defaultFeedTab(currentUser?.usage_goals));
   const [composer, setComposer] = useState(false);
   const [draft, setDraft] = useState("");
   const [composerMedia, setComposerMedia] = useState(null);
@@ -69,6 +101,11 @@ export default function SocialShell({
   const [posts, setPosts] = useState([]);
   const [menu, setMenu] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [notifCategory, setNotifCategory] = useState("all");
+  const NOTIF_CATEGORIES = [
+    ["all", "Tout"], ["messages", "Messages"], ["dating", "Rencontres"],
+    ["communities", "Communautés"], ["events", "Événements"], ["follows", "Abonnés"],
+  ];
   const [search, setSearch] = useState("");
   const [stories, setStories] = useState([
     { name: "Votre statut", initial: "+", own: true, color: "#151B3D" },
@@ -191,6 +228,75 @@ export default function SocialShell({
     }
   };
 
+  const [followingIds, setFollowingIds] = useState(new Set()); // qui JE suis
+  const [followerIds, setFollowerIds] = useState(new Set()); // qui ME suit
+  // Profils complets récupérés via jointure directe sur "follows" (pas un
+  // filtrage du cache local "profiles", plafonné à 500 lignes — un profil
+  // suivi/suiveur hors de ce cache ne doit jamais disparaître silencieusement
+  // des listes "Suivis"/"Mon réseau").
+  const [followedProfilesRaw, setFollowedProfilesRaw] = useState([]);
+  const [followerProfilesRaw, setFollowerProfilesRaw] = useState([]);
+
+  useEffect(() => {
+    if (!currentUser) return;
+    let alive = true;
+    Promise.all([
+      supabase.from("follows").select("to_id, profile:to_id(id,name,avatar_url,city,age,looking_for,email_verified,phone_verified)").eq("from_id", currentUser.id).limit(2000),
+      supabase.from("follows").select("from_id, profile:from_id(id,name,avatar_url,city,age,looking_for,email_verified,phone_verified)").eq("to_id", currentUser.id).limit(2000),
+    ]).then(([followingRes, followersRes]) => {
+      if (!alive) return;
+      if (followingRes.error) console.error(followingRes.error.message, followingRes.error.code, followingRes.error.details, followingRes.error.hint);
+      else {
+        setFollowingIds(new Set((followingRes.data || []).map((r) => r.to_id)));
+        setFollowedProfilesRaw((followingRes.data || []).map((r) => r.profile).filter(Boolean));
+      }
+      if (followersRes.error) console.error(followersRes.error.message, followersRes.error.code, followersRes.error.details, followersRes.error.hint);
+      else {
+        setFollowerIds(new Set((followersRes.data || []).map((r) => r.from_id)));
+        setFollowerProfilesRaw((followersRes.data || []).map((r) => r.profile).filter(Boolean));
+      }
+    });
+    return () => { alive = false; };
+  }, [currentUser]);
+
+  const followInFlightRef = useRef(new Set());
+
+  const toggleFollow = async (profile) => {
+    if (!currentUser || followInFlightRef.current.has(profile.id)) return;
+    followInFlightRef.current.add(profile.id);
+    const isFollowing = followingIds.has(profile.id);
+    setFollowingIds((prev) => {
+      const next = new Set(prev);
+      isFollowing ? next.delete(profile.id) : next.add(profile.id);
+      return next;
+    });
+    try {
+      if (isFollowing) {
+        const { error } = await supabase
+          .from("follows")
+          .delete()
+          .eq("from_id", currentUser.id)
+          .eq("to_id", profile.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from("follows")
+          .insert({ from_id: currentUser.id, to_id: profile.id });
+        if (error) throw error;
+      }
+    } catch (e) {
+      console.error(e.message, e.code, e.details, e.hint);
+      setFollowingIds((prev) => {
+        const next = new Set(prev);
+        isFollowing ? next.add(profile.id) : next.delete(profile.id);
+        return next;
+      });
+      onError("Impossible de mettre à jour ton abonnement.");
+    } finally {
+      followInFlightRef.current.delete(profile.id);
+    }
+  };
+
   const [swipeX, setSwipeX] = useState(0);
   const [swiping, setSwiping] = useState(false);
   const [swipeExit, setSwipeExit] = useState(null); // "like" | "pass" | null
@@ -297,7 +403,7 @@ export default function SocialShell({
     let alive = true;
     supabase
       .from("notifications")
-      .select("id, type, community_id, target_type, target_id, read_at, created_at")
+      .select("id, type, community_id, target_type, target_id, read_at, created_at, actor:actor_id(name, avatar_url)")
       .eq("recipient_id", currentUser.id)
       .is("read_at", null)
       .order("created_at", { ascending: false })
@@ -318,13 +424,15 @@ export default function SocialShell({
     return () => { alive = false; supabase.removeChannel(channel); };
   }, [currentUser]);
 
-  // Les deux badges partagent le même compteur brut/mécanisme de remise à
-  // zéro (markCommunityNotificationsRead) — seule la répartition par
+  // Les badges partagent le même compteur brut/mécanisme de remise à zéro
+  // (markCommunityNotificationsRead) — seule la répartition par
   // target_type diffère pour savoir quel onglet allumer.
   const unreadEventNotifications = communityNotifications.filter((n) => n.target_type === "event");
-  const unreadCommunityNotifications = communityNotifications.filter((n) => n.target_type !== "event");
+  const unreadFollowNotifications = communityNotifications.filter((n) => n.target_type === "profile");
+  const unreadCommunityNotifications = communityNotifications.filter((n) => n.target_type !== "event" && n.target_type !== "profile");
   const eventsBadgeCount = unreadCommunityCount > 0 ? unreadEventNotifications.length : 0;
   const communitiesBadgeCount = unreadCommunityCount > 0 ? unreadCommunityNotifications.length : 0;
+  const followsBadgeCount = unreadCommunityCount > 0 ? unreadFollowNotifications.length : 0;
   const [openCommunityId, setOpenCommunityId] = useState(null);
 
   // "Mes communautés" pour l'onglet Profil — communautés réellement
@@ -398,17 +506,40 @@ export default function SocialShell({
     event_reminder_1h: "Un événement commence dans 1h",
     event_report_received: "Nouveau signalement sur ton événement",
     event_waitlist_promoted: "Tu es passé(e) de la liste d'attente à participant(e)",
+    new_follower: "Nouvel abonné",
   };
 
   const totalUnreadMessages = Object.values(unreadByKey).reduce((sum, n) => sum + n, 0);
 
+  const [fetchedViewedProfile, setFetchedViewedProfile] = useState(null);
+
+  useEffect(() => {
+    const localHit = viewedProfileId
+      ? profiles.find((p) => p.id === viewedProfileId) || [...candidates, ...matches].find((p) => p.id === viewedProfileId)
+      : null;
+    if (!viewedProfileId || localHit) { setFetchedViewedProfile(null); return; }
+    let alive = true;
+    supabase.from("profiles").select("*").eq("id", viewedProfileId).maybeSingle().then(({ data, error }) => {
+      if (!alive) return;
+      if (error) { console.error(error.message, error.code, error.details, error.hint); return; }
+      setFetchedViewedProfile(data);
+    });
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewedProfileId]);
+
   const viewedProfile = viewedProfileId
     ? profiles.find((p) => p.id === viewedProfileId)
       || [...candidates, ...matches].find((p) => p.id === viewedProfileId)
+      || fetchedViewedProfile
       || null
     : null;
   const viewedProfileIsMatch = viewedProfile ? matches.some((m) => m.id === viewedProfile.id) : false;
   const favoriteProfiles = profiles.filter((p) => favoriteIds.has(p.id));
+  // Un blocage (dans un sens ou l'autre) retire immédiatement le profil de
+  // ces listes, même si la relation "follows" existe toujours en base.
+  const followedProfiles = followedProfilesRaw.filter((p) => !blockedIds.has(p.id));
+  const followerProfiles = followerProfilesRaw.filter((p) => !blockedIds.has(p.id));
 
   // ---------- Page d'accueil : données dérivées du profil réel, sans appel Supabase additionnel ----------
   const growthStages = ["Graine", "Pousse", "Jeune baobab", "Baobab en croissance", "Baobab épanoui"];
@@ -526,18 +657,21 @@ export default function SocialShell({
     else storyVideoInputRef.current?.click();
   };
 
-  const onStoryMediaSelected = (e, kind) => {
+  const onStoryMediaSelected = async (e, kind) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (kind === "video" && file.size > 25 * 1024 * 1024) {
-      setStoryMediaError("Vidéo trop volumineuse (25 Mo max).");
-      e.target.value = "";
+    e.target.value = "";
+    // Même validation réelle (MIME déclaré + signature binaire) que la
+    // messagerie riche — les statuts n'avaient auparavant aucun contrôle
+    // pour les photos, et seulement une taille pour les vidéos.
+    const { ok, error } = await validateMediaFile(file, kind === "photo" ? "image" : "video");
+    if (!ok) {
+      setStoryMediaError(error);
       return;
     }
     setStoryMediaError("");
     setStoryMedia(file);
     setStoryMediaKind(kind);
-    e.target.value = "";
   };
 
   const uploadStoryMedia = async (profileId, file) => {
@@ -721,15 +855,29 @@ export default function SocialShell({
 
           <div className="flex items-center gap-2 shrink-0 relative">
             <div ref={notifRef} className="relative">
-            <button onClick={() => { setNotificationsOpen((v) => !v); setMenu(false); if (!notificationsOpen) markCommunityNotificationsRead(); }} aria-label={`Notifications${totalUnreadMessages > 0 ? ` (${totalUnreadMessages} non lus)` : ""}`} className={`${buttonBase} h-11 w-11 rounded-2xl hidden sm:flex items-center justify-center relative focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1`} style={{ background: bg }}>
+            <button onClick={() => { setNotificationsOpen((v) => !v); setMenu(false); }} aria-label={`Notifications${totalUnreadMessages > 0 ? ` (${totalUnreadMessages} non lus)` : ""}`} className={`${buttonBase} h-11 w-11 rounded-2xl hidden sm:flex items-center justify-center relative focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1`} style={{ background: bg }}>
               <Bell size={19} color={primary} />
-              {(totalUnreadMessages > 0 || incomingFavoritesCount > 0 || communitiesBadgeCount > 0 || eventsBadgeCount > 0) && (
+              {(totalUnreadMessages > 0 || incomingFavoritesCount > 0 || communitiesBadgeCount > 0 || eventsBadgeCount > 0 || followsBadgeCount > 0) && (
                 <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full" style={{ background: coral }} />
               )}
             </button>
             {notificationsOpen && (
-              <div className="absolute right-12 top-14 w-80 bg-white rounded-2xl border shadow-2xl p-3 z-50">
-                <div className="flex items-center justify-between px-2 pb-2"><b>Notifications</b></div>
+              <div className="absolute right-12 top-14 w-96 bg-white rounded-2xl border shadow-2xl p-3 z-50">
+                <div className="flex items-center justify-between px-2 pb-2">
+                  <b>Notifications</b>
+                  {unreadCommunityCount > 0 && (
+                    <button onClick={markCommunityNotificationsRead} className="text-xs font-bold focus-visible:outline focus-visible:outline-2" style={{ color: coral }}>
+                      Tout marquer comme lu
+                    </button>
+                  )}
+                </div>
+                <div className="flex gap-1 overflow-x-auto pb-2 px-2 -mx-2" style={{ scrollbarWidth: "none" }}>
+                  {NOTIF_CATEGORIES.map(([key, label]) => (
+                    <button key={key} onClick={() => setNotifCategory(key)} aria-pressed={notifCategory === key} className="shrink-0 px-3 py-1.5 rounded-full text-xs font-bold focus-visible:outline focus-visible:outline-2" style={{ background: notifCategory === key ? primary : bg, color: notifCategory === key ? "#fff" : muted }}>
+                      {label}
+                    </button>
+                  ))}
+                </div>
                 {recentEvents.length === 0 && incomingFavoritesCount === 0 && communityNotifications.length === 0 ? (
                   <div className="p-6 text-center">
                     <Bell size={22} className="mx-auto mb-2" color={muted} />
@@ -737,19 +885,29 @@ export default function SocialShell({
                   </div>
                 ) : (
                   <div className="flex flex-col gap-1 max-h-72 overflow-y-auto">
-                    {incomingFavoritesCount > 0 && (
+                    {incomingFavoritesCount > 0 && (notifCategory === "all" || notifCategory === "dating") && (
                       <div className="px-2 py-2.5 rounded-xl text-sm" style={{ background: "#FFF3D6" }}>
                         ⭐ {incomingFavoritesCount} personne{incomingFavoritesCount > 1 ? "s" : ""} t'a{incomingFavoritesCount > 1 ? "" : ""} ajouté en favori.
                       </div>
                     )}
-                    {recentEvents.map((ev, i) => (
-                      <button key={i} onClick={() => { setNotificationsOpen(false); goTab("matches"); }} className="text-left px-2 py-2.5 rounded-xl text-sm hover:bg-slate-50">
+                    {(notifCategory === "all" || notifCategory === "messages") && recentEvents.map((ev, i) => (
+                      <button key={i} onClick={() => { setNotificationsOpen(false); goTab("matches"); }} className="text-left px-2 py-2.5 rounded-xl text-sm hover:bg-slate-50 focus-visible:outline focus-visible:outline-2">
                         💬 {ev.preview}
                       </button>
                     ))}
-                    {communityNotifications.map((n) => (
-                      <button key={n.id} onClick={() => { setNotificationsOpen(false); goTab(n.target_type === "event" ? "events" : "communities"); }} className="text-left px-2 py-2.5 rounded-xl text-sm hover:bg-slate-50">
-                        {n.target_type === "event" ? "🎉" : "🌍"} {NOTIFICATION_LABELS[n.type] || "Nouvelle activité"}
+                    {(notifCategory === "all" || notifCategory === "follows") && unreadFollowNotifications.map((n) => (
+                      <button key={n.id} onClick={() => { setNotificationsOpen(false); setViewedProfileId(n.target_id); }} className="text-left px-2 py-2.5 rounded-xl text-sm hover:bg-slate-50 focus-visible:outline focus-visible:outline-2">
+                        👤 {n.actor?.name ? `${n.actor.name} a commencé à te suivre` : NOTIFICATION_LABELS.new_follower}
+                      </button>
+                    ))}
+                    {(notifCategory === "all" || notifCategory === "communities") && unreadCommunityNotifications.map((n) => (
+                      <button key={n.id} onClick={() => { setNotificationsOpen(false); goTab("communities"); }} className="text-left px-2 py-2.5 rounded-xl text-sm hover:bg-slate-50 focus-visible:outline focus-visible:outline-2">
+                        🌍 {NOTIFICATION_LABELS[n.type] || "Nouvelle activité"}
+                      </button>
+                    ))}
+                    {(notifCategory === "all" || notifCategory === "events") && unreadEventNotifications.map((n) => (
+                      <button key={n.id} onClick={() => { setNotificationsOpen(false); goTab("events"); }} className="text-left px-2 py-2.5 rounded-xl text-sm hover:bg-slate-50 focus-visible:outline focus-visible:outline-2">
+                        🎉 {NOTIFICATION_LABELS[n.type] || "Nouvelle activité"}
                       </button>
                     ))}
                   </div>
@@ -770,6 +928,7 @@ export default function SocialShell({
                 <button onClick={() => { goTab("profile"); }} className="w-full text-left rounded-xl px-3 py-3 text-sm hover:bg-slate-50"><UserRound size={16} className="inline mr-3" />Mon profil</button>
                 <button onClick={() => { goTab("discover"); }} className="w-full text-left rounded-xl px-3 py-3 text-sm hover:bg-slate-50"><Heart size={16} className="inline mr-3" />Découvrir</button>
                 <button onClick={() => { setMenu(false); openEditProfile(); }} className="w-full text-left rounded-xl px-3 py-3 text-sm hover:bg-slate-50"><Settings size={16} className="inline mr-3" />Modifier mon profil</button>
+                <button onClick={() => { setMenu(false); setSettingsOpen(true); }} className="w-full text-left rounded-xl px-3 py-3 text-sm hover:bg-slate-50"><Cog size={16} className="inline mr-3" />Réglages</button>
                 <button onClick={() => { setMenu(false); handleSignOut(); }} className="w-full text-left rounded-xl px-3 py-3 text-sm" style={{ color: coral }}><LogOut size={16} className="inline mr-3" />Déconnexion</button>
               </div>
             )}
@@ -803,6 +962,10 @@ export default function SocialShell({
             openChat={openChat}
             goTab={goTab}
             setSearch={setSearch}
+            feedTab={feedTab}
+            setFeedTab={setFeedTab}
+            followedProfiles={followedProfiles}
+            profilePhotos={profilePhotos}
           />
         )}
 
@@ -830,6 +993,7 @@ export default function SocialShell({
             setReportTarget={setReportTarget}
             handleBlock={handleBlock}
             openChat={openChat}
+            goTab={goTab}
           />
         )}
 
@@ -885,25 +1049,42 @@ export default function SocialShell({
             myUpcomingEvents={myUpcomingEvents}
             myUpcomingEventsLoading={myUpcomingEventsLoading}
             onOpenEvents={(id) => { setOpenEventId(id || null); goTab("events"); }}
+            followingProfiles={followedProfiles}
+            followerProfiles={followerProfiles}
+            followingIds={followingIds}
+            onToggleFollow={toggleFollow}
+            onViewProfile={(p) => setViewedProfileId(p.id)}
+            onError={onError}
           />
         )}
 
         {tab === "communities" && (
-          <CommunitiesTab
-            currentUser={currentUser}
-            onError={onError}
-            initialCommunityId={openCommunityId}
-            onConsumedInitial={() => setOpenCommunityId(null)}
-          />
+          <Suspense fallback={<TabLoadingFallback />}>
+            <CommunitiesTab
+              currentUser={currentUser}
+              onError={onError}
+              initialCommunityId={openCommunityId}
+              onConsumedInitial={() => setOpenCommunityId(null)}
+              blockedIds={blockedIds}
+            />
+          </Suspense>
         )}
 
         {tab === "events" && (
-          <EventsTab
-            currentUser={currentUser}
-            onError={onError}
-            initialEventId={openEventId}
-            onConsumedInitial={() => setOpenEventId(null)}
-          />
+          <Suspense fallback={<TabLoadingFallback />}>
+            <EventsTab
+              currentUser={currentUser}
+              onError={onError}
+              initialEventId={openEventId}
+              onConsumedInitial={() => setOpenEventId(null)}
+            />
+          </Suspense>
+        )}
+
+        {tab === "premium" && (
+          <Suspense fallback={<TabLoadingFallback />}>
+            <PremiumPage currentUser={currentUser} onBack={() => goTab("profile")} onError={onError} />
+          </Suspense>
         )}
       </main>
 
@@ -980,9 +1161,11 @@ export default function SocialShell({
           onClose={() => setViewedProfileId(null)}
           isMatch={viewedProfileIsMatch}
           isFavorite={favoriteIds.has(viewedProfile.id)}
+          isFollowing={followingIds.has(viewedProfile.id)}
           onLike={viewedProfileIsMatch ? null : (p) => { handleLike(p); setViewedProfileId(null); }}
           onMessage={(p) => { setViewedProfileId(null); openChat(p); }}
           onToggleFavorite={toggleFavorite}
+          onToggleFollow={toggleFollow}
           onReport={(p) => { setViewedProfileId(null); setReportTarget(p); }}
           onBlock={(p) => { setViewedProfileId(null); handleBlock(p); }}
         />

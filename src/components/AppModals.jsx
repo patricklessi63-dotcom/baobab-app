@@ -1,9 +1,10 @@
 import React from "react";
-import { Circle, Bell, Moon, Shield, Info, ArrowLeft, ShieldCheck, Smartphone, UserX } from "lucide-react";
+import { Circle, Bell, Moon, Shield, Info, ArrowLeft, ShieldCheck, Smartphone, UserX, AlertTriangle } from "lucide-react";
 import { C } from "../constants";
 import { PrivacyPolicyContent, TermsOfServiceContent } from "../legalContent";
 import Avatar from "./Avatar";
 import PrivacyFieldsModal from "./PrivacyFieldsModal";
+import DeleteAccountModal from "./DeleteAccountModal";
 import ReportModal from "./social/ReportModal";
 import BlockConfirmModal from "./social/BlockConfirmModal";
 import { useEscapeKey } from "../hooks/useEscapeKey";
@@ -36,9 +37,11 @@ export default function AppModals({
   setTermsOpen,
   aboutOpen,
   setAboutOpen,
+  onAccountDeleted = () => {},
 }) {
   const [blockedOpen, setBlockedOpen] = React.useState(false);
   const [privacyFieldsOpen, setPrivacyFieldsOpen] = React.useState(false);
+  const [deleteAccountOpen, setDeleteAccountOpen] = React.useState(false);
   useEscapeKey(settingsOpen, () => setSettingsOpen(false));
   useEscapeKey(blockedOpen, () => setBlockedOpen(false));
   useEscapeKey(privacyOpen, () => setPrivacyOpen(false));
@@ -126,6 +129,11 @@ export default function AppModals({
               <span className="flex items-center gap-2 text-sm"><Info size={14} color={C.indigo} /> Conditions d'utilisation</span>
               <ArrowLeft size={14} style={{ transform: "rotate(180deg)", color: "rgba(43,36,32,0.35)" }} />
             </button>
+            <div className="text-[11px] font-black uppercase tracking-wider mt-4" style={{ color: C.clay }}>Zone de danger</div>
+            <button onClick={() => { setSettingsOpen(false); setDeleteAccountOpen(true); }} className="w-full flex items-center gap-2 py-3" style={{ borderTop: "1px solid rgba(43,36,32,0.08)", minHeight: 44, color: C.clay }}>
+              <AlertTriangle size={14} /> <span className="text-sm font-semibold">Supprimer mon compte</span>
+            </button>
+
             <button onClick={() => setSettingsOpen(false)} className="w-full mt-4 py-3 rounded-full text-sm font-semibold" style={{ border: "1px solid rgba(43,36,32,0.15)", color: C.ink, minHeight: 44 }}>
               Fermer
             </button>
@@ -140,6 +148,13 @@ export default function AppModals({
         onBack={() => { setPrivacyFieldsOpen(false); setSettingsOpen(true); }}
         currentUser={currentUser}
         onToggleField={onToggleField}
+      />
+
+      {/* ---------- MODAL SUPPRESSION DE COMPTE ---------- */}
+      <DeleteAccountModal
+        open={deleteAccountOpen}
+        onClose={() => setDeleteAccountOpen(false)}
+        onDeleted={onAccountDeleted}
       />
 
       {/* ---------- MODAL COMPTES BLOQUÉS ---------- */}

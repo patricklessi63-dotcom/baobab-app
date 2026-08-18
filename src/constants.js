@@ -11,6 +11,15 @@ export const EDUCATION_LEVELS = ["Secondaire", "Collégial / DEC", "Baccalauréa
 export const HAS_CHILDREN_OPTIONS = ["Oui", "Non"];
 export const MAX_PHOTOS = 6;
 
+// ---------- Phase 12a — Bienvenue + objectif d'usage ----------
+
+// "Qu'est-ce que tu recherches sur Baobab ?" — étape 1 de l'onboarding,
+// multi-choix. Volontairement séparé de LOOKING_FOR_OPTIONS ci-dessous
+// (intentions romantiques, utilisées par le moteur de matching) : celui-ci
+// sert uniquement à personnaliser l'écran d'accueil (quel onglet du fil
+// ouvrir en premier), jamais le score de compatibilité.
+export const USAGE_GOAL_OPTIONS = ["❤️ Rencontre", "🤝 Amitié", "🌍 Communauté", "🎉 Événements", "💼 Networking"];
+
 // ---------- Phase 3 — Profil + Onboarding ----------
 
 // "Ce que tu recherches" — multi-choix (remplace l'ancien champ à choix unique).
@@ -70,7 +79,7 @@ export const LANGUAGES_OPTIONS = [
 ];
 export const LANGUAGE_LEVELS = ["Débutant", "Intermédiaire", "Avancé", "Courant"];
 
-export const ONBOARDING_STEP_COUNT = 9;
+export const ONBOARDING_STEP_COUNT = 10;
 
 // ---------- Phase 4 — Baobab Match ----------
 export const MATCH_DISTANCE_OPTIONS = ["Ma ville uniquement", "Ma ville ou mon pays", "Peu importe"];

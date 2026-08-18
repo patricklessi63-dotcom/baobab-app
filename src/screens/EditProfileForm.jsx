@@ -7,6 +7,8 @@ import {
   RELATIONSHIP_NEEDS_OPTIONS, INTERESTS_OPTIONS, LANGUAGES_OPTIONS, LANGUAGE_LEVELS, MAX_PHOTOS,
 } from "../constants";
 import ChipSelect from "../components/ChipSelect";
+import AiSuggestButton from "../components/ai/AiSuggestButton";
+import { validateMediaFile } from "../lib/mediaValidation";
 
 function hasIntimateIntent(lookingFor) {
   return (lookingFor || []).some((v) => v.includes("Amour") || v.includes("Relation sérieuse"));
@@ -27,6 +29,7 @@ export default function EditProfileForm({
   handleNewPhotosSelected,
   savingProfile,
   handleSaveProfile,
+  onError = () => {},
 }) {
   const set = (patch) => setEditForm({ ...editForm, ...patch });
   const languagesDetail = editForm.languagesDetail || [];
@@ -69,9 +72,12 @@ export default function EditProfileForm({
           type="file"
           accept="image/*"
           className="hidden"
-          onChange={(e) => {
+          onChange={async (e) => {
             const file = e.target.files?.[0];
+            e.target.value = "";
             if (!file) return;
+            const { ok, error } = await validateMediaFile(file, "image");
+            if (!ok) { onError(error); return; }
             setCoverFile(file);
             const reader = new FileReader();
             reader.onload = () => setCoverPreview(reader.result);
@@ -86,7 +92,7 @@ export default function EditProfileForm({
             {existingPhotos.map((photo) => (
               <div key={photo.id} style={{ position: "relative" }}>
                 <img src={photo.url} alt="Photo" style={{ width: 72, height: 72, borderRadius: "var(--bb-radius-sm)", objectFit: "cover", boxShadow: "var(--bb-shadow-sm)" }} />
-                <button type="button" onClick={() => removeExistingPhoto(photo)}
+                <button type="button" onClick={() => removeExistingPhoto(photo)} aria-label="Supprimer la photo"
                   style={{ position: "absolute", top: -6, right: -6, width: 20, height: 20, borderRadius: "50%", background: C.indigo, color: "#fff", fontSize: 12, display: "flex", alignItems: "center", justifyContent: "center" }}>
                   ×
                 </button>
@@ -95,7 +101,7 @@ export default function EditProfileForm({
             {newPhotoPreviews.map((src, i) => (
               <div key={`new-${i}`} style={{ position: "relative" }}>
                 <img src={src} alt={`Nouvelle photo ${i + 1}`} style={{ width: 72, height: 72, borderRadius: "var(--bb-radius-sm)", objectFit: "cover", boxShadow: "var(--bb-shadow-sm)" }} />
-                <button type="button" onClick={() => removeNewPhotoFile(i)}
+                <button type="button" onClick={() => removeNewPhotoFile(i)} aria-label="Supprimer la nouvelle photo"
                   style={{ position: "absolute", top: -6, right: -6, width: 20, height: 20, borderRadius: "50%", background: C.indigo, color: "#fff", fontSize: 12, display: "flex", alignItems: "center", justifyContent: "center" }}>
                   ×
                 </button>
@@ -116,8 +122,8 @@ export default function EditProfileForm({
         <p className="text-xs font-semibold" style={{ color: "rgba(43,36,32,0.55)" }}>Identité</p>
         <input placeholder="Prénom" value={editForm.name} onChange={(e) => set({ name: e.target.value })}
           className="bb-input w-full text-sm" />
-        <label className="text-xs" style={{ color: "rgba(43,36,32,0.5)" }}>Date de naissance (jamais affichée publiquement)</label>
-        <input type="date" value={editForm.birthDate} onChange={(e) => set({ birthDate: e.target.value })}
+        <label htmlFor="edit-birth-date" className="text-xs" style={{ color: "rgba(43,36,32,0.5)" }}>Date de naissance (jamais affichée publiquement)</label>
+        <input id="edit-birth-date" type="date" value={editForm.birthDate} onChange={(e) => set({ birthDate: e.target.value })}
           className="bb-input w-full text-sm" />
 
         <p className="text-xs font-semibold mt-2" style={{ color: "rgba(43,36,32,0.55)" }}>Localisation</p>
@@ -209,6 +215,15 @@ export default function EditProfileForm({
 
         <textarea placeholder="Une courte bio..." value={editForm.bio} onChange={(e) => set({ bio: e.target.value })}
           rows={3} className="bb-input w-full text-sm" />
+        {currentUser?.ai_suggestions_enabled !== false && (
+          <AiSuggestButton
+            action="improve_bio"
+            label="Améliorer ma bio"
+            buildPayload={() => ({ text: editForm.bio || "" })}
+            onApply={(text) => set({ bio: text })}
+            disabled={!(editForm.bio || "").trim()}
+          />
+        )}
 
         <button type="submit" disabled={savingProfile} className="bb-btn bb-btn-primary mt-2 py-3 rounded-full font-semibold text-sm">
           {savingProfile ? "Enregistrement..." : "Enregistrer les modifications"}

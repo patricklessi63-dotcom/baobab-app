@@ -1,0 +1,31 @@
+import React from "react";
+import { C, USAGE_GOAL_OPTIONS } from "../../../constants";
+import ChipSelect from "../../../components/ChipSelect";
+
+export function isStep0Valid(draft) {
+  return Array.isArray(draft.usageGoals) && draft.usageGoals.length >= 1;
+}
+
+export default function Step0Welcome({ draft, update }) {
+  return (
+    <div className="flex flex-col gap-3">
+      <h2 style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 24, color: C.indigo }}>
+        Bienvenue sur Baobab 🌍
+      </h2>
+      <p className="text-sm" style={{ color: "rgba(43,36,32,0.6)" }}>
+        L'espace pour rencontrer des personnes, rejoindre des communautés et
+        vivre des expériences ensemble.
+      </p>
+
+      <p className="text-xs font-semibold mt-2" style={{ color: "rgba(43,36,32,0.55)" }}>
+        Qu'est-ce que tu recherches ? Choisis autant d'options que nécessaire.
+      </p>
+      <ChipSelect
+        options={USAGE_GOAL_OPTIONS}
+        value={draft.usageGoals}
+        onChange={(v) => update({ usageGoals: v })}
+        multi
+      />
+    </div>
+  );
+}

@@ -5,9 +5,20 @@ import ChipSelect from "../ChipSelect";
 import MatchCard from "./MatchCard";
 import MatchInfoModal from "./MatchInfoModal";
 import EmptyState from "../home/EmptyState";
+import Paywall from "../premium/Paywall";
 import { computeMatch, rankCandidates } from "../../lib/matching/matchingService";
-import { LOOKING_FOR_OPTIONS } from "../../constants";
+import { usePremiumStatus } from "../../lib/premium/usePremiumStatus";
+import { useHiddenRecommendations } from "../../lib/useHiddenRecommendations";
+import { LOOKING_FOR_OPTIONS, INTERESTS_OPTIONS, LANGUAGES_OPTIONS } from "../../constants";
 import { primary, green, coral, gold, bg, muted, card, buttonBase } from "./theme";
+
+const ACTIVE_RECENTLY_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
+
+function isActiveRecently(p) {
+  if (p.is_online) return true;
+  if (!p.last_seen) return false;
+  return Date.now() - new Date(p.last_seen).getTime() < ACTIVE_RECENTLY_WINDOW_MS;
+}
 
 const SORT_OPTIONS = ["✨ Pertinence", "📍 Proximité", "❤️ Intentions", "🆕 Nouveaux"];
 const GRID_PAGE_SIZE = 12;
@@ -35,13 +46,19 @@ export default function DiscoverTab({
   setReportTarget = () => {},
   handleBlock = () => {},
   openChat = () => {},
+  goTab = () => {},
 }) {
   const [infoOpen, setInfoOpen] = useState(false);
   const [mode, setMode] = useState("pile");
   const [sort, setSort] = useState(SORT_OPTIONS[0]);
   const [cityFilter, setCityFilter] = useState("");
   const [intentionFilter, setIntentionFilter] = useState([]);
+  const [interestFilter, setInterestFilter] = useState([]);
+  const [languageFilter, setLanguageFilter] = useState([]);
+  const [activeRecentlyFilter, setActiveRecentlyFilter] = useState(false);
   const [visibleCount, setVisibleCount] = useState(GRID_PAGE_SIZE);
+  const { isPremium } = usePremiumStatus(currentUser);
+  const { hiddenIds, hide: hideProfile } = useHiddenRecommendations(currentUser, "profile");
 
   const cityOptions = useMemo(
     () => Array.from(new Set(filteredPeople.map((p) => (p.city || "").trim()).filter(Boolean))).sort(),
@@ -50,14 +67,27 @@ export default function DiscoverTab({
 
   const filteredForGrid = useMemo(() => {
     return filteredPeople.filter((p) => {
+      if (hiddenIds.has(p.id)) return false;
       if (cityFilter && (p.city || "").trim() !== cityFilter) return false;
       if (intentionFilter.length > 0) {
         const theirs = (p.looking_for || "").split(",").map((s) => s.trim());
         if (!intentionFilter.some((f) => theirs.includes(f))) return false;
       }
+      // Filtres avancés (Premium) — les contrôles restent masqués derrière
+      // le paywall pour un compte gratuit, donc ces états restent à leur
+      // valeur par défaut (vide/faux) et ce filtrage reste un no-op pour eux.
+      if (interestFilter.length > 0) {
+        const theirs = (p.interests || "").split(",").map((s) => s.trim());
+        if (!interestFilter.some((f) => theirs.includes(f))) return false;
+      }
+      if (languageFilter.length > 0) {
+        const theirs = (p.languages || "").split(",").map((s) => s.trim());
+        if (!languageFilter.some((f) => theirs.includes(f))) return false;
+      }
+      if (activeRecentlyFilter && !isActiveRecently(p)) return false;
       return true;
     });
-  }, [filteredPeople, cityFilter, intentionFilter]);
+  }, [filteredPeople, hiddenIds, cityFilter, intentionFilter, interestFilter, languageFilter, activeRecentlyFilter]);
 
   const ranked = useMemo(() => rankCandidates(currentUser, filteredForGrid), [currentUser, filteredForGrid]);
 
@@ -262,13 +292,35 @@ export default function DiscoverTab({
                       <ChipSelect options={LOOKING_FOR_OPTIONS} value={intentionFilter} onChange={setIntentionFilter} multi />
                     </div>
 
+                    {isPremium ? (
+                      <div className={`${card} p-4 mb-4`}>
+                        <span className="text-xs font-black uppercase tracking-wider flex items-center gap-1.5" style={{ color: muted }}>💎 Filtres avancés</span>
+                        <div className="text-xs font-black uppercase tracking-wider mt-3 mb-1.5" style={{ color: muted }}>Centres d'intérêt</div>
+                        <ChipSelect options={INTERESTS_OPTIONS} value={interestFilter} onChange={setInterestFilter} multi />
+                        <div className="text-xs font-black uppercase tracking-wider mt-3 mb-1.5" style={{ color: muted }}>Langues parlées</div>
+                        <ChipSelect options={LANGUAGES_OPTIONS} value={languageFilter} onChange={setLanguageFilter} multi />
+                        <label className="flex items-center gap-2 mt-3.5 text-sm font-semibold" style={{ color: primary }}>
+                          <input type="checkbox" checked={activeRecentlyFilter} onChange={(e) => setActiveRecentlyFilter(e.target.checked)} />
+                          Actif·ve récemment uniquement
+                        </label>
+                      </div>
+                    ) : (
+                      <div className="mb-4">
+                        <Paywall
+                          title="Filtres de recherche avancés"
+                          description="Affine Découverte par centres d'intérêt, langues parlées et activité récente."
+                          onDiscover={() => goTab("premium")}
+                        />
+                      </div>
+                    )}
+
                     {sorted.length === 0 ? (
                       <div className={`${card} p-10`}>
                         <EmptyState
                           title="Aucun profil ne correspond à ces critères pour l'instant."
                           subtitle="Élargis tes préférences pour voir plus de monde."
                           actionLabel="Réinitialiser les filtres"
-                          onAction={() => { setCityFilter(""); setIntentionFilter([]); }}
+                          onAction={() => { setCityFilter(""); setIntentionFilter([]); setInterestFilter([]); setLanguageFilter([]); setActiveRecentlyFilter(false); }}
                         />
                       </div>
                     ) : (
@@ -290,6 +342,7 @@ export default function DiscoverTab({
                               onToggleFavorite={toggleFavorite}
                               onReport={(target) => setReportTarget(target)}
                               onBlock={handleBlock}
+                              onHide={(p) => hideProfile(p.id)}
                               onViewProfile={onViewProfile}
                             />
                           ))}

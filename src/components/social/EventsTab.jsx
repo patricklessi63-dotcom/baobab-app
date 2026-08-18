@@ -14,6 +14,7 @@ import EmptyState from "../home/EmptyState";
 import { SkeletonCard } from "../Skeleton";
 import { rankEvents } from "../../lib/events/recommendations";
 import { EVENT_REPORT_CATEGORIES } from "../../lib/events/eventConfig";
+import { trackActivation } from "../../lib/trackActivation";
 import { primary, coral, muted, bg, card } from "./theme";
 
 const PAGE_SIZE = 20;
@@ -295,7 +296,10 @@ export default function EventsTab({ currentUser, onError, initialEventId, onCons
       const { data, error } = await supabase.rpc("join_event", { p_event_id: ev.id });
       if (error) throw error;
       setMyStatuses((s) => ({ ...s, [ev.id]: data.status }));
-      if (data.status === "going") adjustParticipantCount(ev.id, 1);
+      if (data.status === "going") {
+        adjustParticipantCount(ev.id, 1);
+        trackActivation(currentUser.id, "event_joined");
+      }
     } catch (e) {
       console.error(e);
       onError("Impossible de rejoindre cet événement.");
@@ -466,7 +470,11 @@ export default function EventsTab({ currentUser, onError, initialEventId, onCons
       setInvitedIds((s) => new Set(s).add(profile.id));
     } catch (e) {
       console.error(e);
-      onError(e.message?.includes("invitations") ? e.message : "Impossible d'envoyer cette invitation.");
+      // code Postgres 23505 = contrainte unique (deja invite) — seul cas ou
+      // un message plus specifique que le message generique est affiche ;
+      // toute autre erreur (RLS, reseau...) reste un message francais fixe,
+      // jamais le texte brut renvoye par la base.
+      onError(e.code === "23505" ? "Cette personne est déjà invitée." : "Impossible d'envoyer cette invitation.");
     } finally {
       setInviteSending(false);
     }

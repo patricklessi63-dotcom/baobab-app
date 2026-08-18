@@ -6,6 +6,7 @@ import { C, EDUCATION_LEVELS, HAS_CHILDREN_OPTIONS, MAX_PHOTOS } from "./constan
 import { matchKey } from "./utils/format";
 import SocialShell from "./components/SocialShell";
 import AppModals from "./components/AppModals";
+import ConnectivityBanner from "./components/ConnectivityBanner";
 import EditProfileForm from "./screens/EditProfileForm";
 import UpdatePasswordScreen from "./screens/UpdatePasswordScreen";
 import OnboardingWizard from "./screens/onboarding/OnboardingWizard";
@@ -15,6 +16,7 @@ import { filterCandidatesByPreferences } from "./lib/matching/matchingService";
 import { validateMediaFile } from "./lib/mediaValidation";
 import { uploadWithProgress } from "./lib/uploadWithProgress";
 import { MEDIA_BUCKET, extFromMime } from "./lib/mediaConstants";
+import { trackActivation } from "./lib/trackActivation";
 
 export default function App() {
   const [session, setSession] = useState(undefined); // undefined = pas encore vérifié, null = pas connecté
@@ -68,7 +70,13 @@ export default function App() {
   const loadAll = useCallback(async () => {
     try {
       const [profRes, likeRes, passRes, blockRes, photoRes] = await Promise.all([
-        supabase.from("profiles").select("*").order("created_at", { ascending: true }),
+        // Plafonné (item 12/13 de l'audit Phase 10) : charger la table
+        // "profiles" en entier sans limite était le plus gros risque de
+        // scalabilité identifié — un vrai tri/pagination côté serveur
+        // demanderait de déplacer rankCandidates() côté serveur (hors
+        // périmètre de cette phase), donc ce plafond borne le pire cas
+        // sans changer le comportement de classement actuel.
+        supabase.from("profiles").select("*").order("created_at", { ascending: true }).limit(500),
         supabase.from("likes").select("from_id,to_id"),
         supabase.from("passes").select("from_id,to_id"),
         supabase.from("blocks").select("from_id,to_id"),
@@ -383,17 +391,27 @@ export default function App() {
   }
 
   // ---- Sélection de photos pendant la création du profil ----
-  function handlePhotosSelected(e) {
+  // Même validation réelle (MIME déclaré + signature binaire + taille) que
+  // la messagerie riche — auparavant seul l'allowlist du bucket Storage
+  // protégeait ce chemin, sans retour clair à l'utilisateur en cas de rejet.
+  async function handlePhotosSelected(e) {
     const room = MAX_PHOTOS - photoFiles.length;
     const files = Array.from(e.target.files || []).slice(0, Math.max(room, 0));
+    e.target.value = "";
     if (files.length === 0) return;
-    setPhotoFiles((prev) => [...prev, ...files].slice(0, MAX_PHOTOS));
-    files.forEach((file) => {
+    const validFiles = [];
+    for (const file of files) {
+      const { ok, error } = await validateMediaFile(file, "image");
+      if (ok) validFiles.push(file);
+      else setError(error);
+    }
+    if (validFiles.length === 0) return;
+    setPhotoFiles((prev) => [...prev, ...validFiles].slice(0, MAX_PHOTOS));
+    validFiles.forEach((file) => {
       const reader = new FileReader();
       reader.onload = () => setPhotoPreviews((prev) => [...prev, reader.result].slice(0, MAX_PHOTOS));
       reader.readAsDataURL(file);
     });
-    e.target.value = "";
   }
 
   function removePhotoFile(idx) {
@@ -439,18 +457,25 @@ export default function App() {
     setView("editProfile");
   }
 
-  function handleNewPhotosSelected(e) {
+  async function handleNewPhotosSelected(e) {
     const total = existingPhotos.length + newPhotoFiles.length;
     const room = MAX_PHOTOS - total;
     const files = Array.from(e.target.files || []).slice(0, Math.max(room, 0));
+    e.target.value = "";
     if (files.length === 0) return;
-    setNewPhotoFiles((prev) => [...prev, ...files]);
-    files.forEach((file) => {
+    const validFiles = [];
+    for (const file of files) {
+      const { ok, error } = await validateMediaFile(file, "image");
+      if (ok) validFiles.push(file);
+      else setError(error);
+    }
+    if (validFiles.length === 0) return;
+    setNewPhotoFiles((prev) => [...prev, ...validFiles]);
+    validFiles.forEach((file) => {
       const reader = new FileReader();
       reader.onload = () => setNewPhotoPreviews((prev) => [...prev, reader.result]);
       reader.readAsDataURL(file);
     });
-    e.target.value = "";
   }
 
   function removeNewPhotoFile(idx) {
@@ -463,6 +488,14 @@ export default function App() {
       const { error: delError } = await supabase.from("profile_photos").delete().eq("id", photo.id);
       if (delError) throw delError;
       setExistingPhotos((prev) => prev.filter((p) => p.id !== photo.id));
+      // Nettoyage réel du fichier Storage — sans ça, chaque suppression de
+      // photo laissait un fichier orphelin permanent dans le bucket public.
+      const marker = "/avatars/";
+      const idx = photo.url?.indexOf(marker);
+      if (idx !== -1 && idx !== undefined) {
+        const storagePath = decodeURIComponent(photo.url.slice(idx + marker.length));
+        supabase.storage.from("avatars").remove([storagePath]).catch(() => {});
+      }
     } catch (e) {
       console.error(e);
       setError("Impossible de supprimer cette photo.");
@@ -547,6 +580,7 @@ export default function App() {
       setCoverFile(null);
       setCoverPreview("");
       setError("");
+      trackActivation(data.id, "profile_completed");
       setView("feed");
     } catch (e) {
       console.error("handleSaveProfile error:", e?.message, "| code:", e?.code, "| details:", e?.details, "| hint:", e?.hint);
@@ -574,6 +608,16 @@ export default function App() {
     ? profiles.filter((p) => blockPairs.some((b) => b.from_id === currentUser.id && b.to_id === p.id))
     : [];
 
+  // Les deux sens du blocage — utilisé pour filtrer toute liste montrant des
+  // profils (suivis/abonnés inclus), pas seulement le blocage que j'ai fait.
+  const blockedIds = new Set(
+    currentUser
+      ? blockPairs
+          .filter((b) => b.from_id === currentUser.id || b.to_id === currentUser.id)
+          .map((b) => (b.from_id === currentUser.id ? b.to_id : b.from_id))
+      : []
+  );
+
   async function handleLike(target) {
     if (!currentUser) return;
     if (hasLiked(currentUser.id, target.id) || likeInFlightRef.current.has(target.id)) return;
@@ -584,8 +628,10 @@ export default function App() {
         .insert({ from_id: currentUser.id, to_id: target.id });
       if (likeError) throw likeError;
       setLikePairs((k) => [...k, { from_id: currentUser.id, to_id: target.id }]);
+      trackActivation(currentUser.id, "first_like");
       if (hasLiked(target.id, currentUser.id)) {
         setMatchNotice(target);
+        trackActivation(currentUser.id, "first_match");
       }
     } catch (e) {
       console.error(e);
@@ -700,6 +746,7 @@ export default function App() {
         const withoutRealtimeDupe = m.filter((msg) => msg.id !== data.id);
         return withoutRealtimeDupe.map((msg) => (msg.id === tempId ? data : msg));
       });
+      trackActivation(currentUser.id, "first_message");
       return true;
     } catch (e) {
       console.error(e);
@@ -918,6 +965,7 @@ export default function App() {
   if (currentUser && ["feed", "stories", "profile", "discover", "matches"].includes(view)) {
     return (
       <>
+        <ConnectivityBanner />
         <SocialShell
           currentUser={currentUser}
           setView={setView}
@@ -933,6 +981,7 @@ export default function App() {
           openEditProfile={openEditProfile}
           setReportTarget={setReportTarget}
           handleBlock={requestBlock}
+          blockedIds={blockedIds}
           profiles={profiles}
           handleSavePreferences={handleSavePreferences}
           activeMatch={activeMatch}
@@ -948,6 +997,7 @@ export default function App() {
           sendMediaMessage={sendMediaMessage}
           retrySend={retrySend}
           otherTyping={otherTyping}
+          setSettingsOpen={setSettingsOpen}
         />
         {matchNotice && (
           <MatchCelebrationModal
@@ -996,6 +1046,7 @@ export default function App() {
           setTermsOpen={setTermsOpen}
           aboutOpen={aboutOpen}
           setAboutOpen={setAboutOpen}
+          onAccountDeleted={handleSignOut}
         />
       </>
     );
@@ -1003,6 +1054,7 @@ export default function App() {
 
   return (
     <div className="bb-app min-h-screen flex flex-col relative overflow-x-hidden" style={{ fontFamily: "'Manrope', system-ui, sans-serif", color: C.ink }}>
+      <ConnectivityBanner />
       <style>{`
         @keyframes bbGenericDrift { from { transform: scale(1.02); } to { transform: scale(1.06) translate3d(-1%, -1%, 0); } }
         .bb-generic-bg { animation: bbGenericDrift 26s ease-in-out alternate infinite; }
@@ -1065,6 +1117,7 @@ export default function App() {
             handleNewPhotosSelected={handleNewPhotosSelected}
             savingProfile={savingProfile}
             handleSaveProfile={handleSaveProfile}
+            onError={setError}
           />
         )}
 
@@ -1098,6 +1151,7 @@ export default function App() {
         setTermsOpen={setTermsOpen}
         aboutOpen={aboutOpen}
         setAboutOpen={setAboutOpen}
+        onAccountDeleted={handleSignOut}
       />
 
     </div>

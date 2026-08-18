@@ -12,6 +12,7 @@ import { useClickOutside } from "../../hooks/useClickOutside";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
 import EmojiPicker from "./EmojiPicker";
 import MessageMediaPicker from "./MessageMediaPicker";
+import AiConversationSuggestions from "../ai/AiConversationSuggestions";
 import AudioRecorder from "./AudioRecorder";
 import MessageBubbleMedia from "./MessageBubbleMedia";
 import ChatDropZone from "./ChatDropZone";
@@ -232,6 +233,9 @@ export default function ConversationPane({
           />
         )}
         {!recorderActive && (
+          <AiConversationSuggestions currentUser={currentUser} match={activeMatch} onPick={(text) => setMessageDraft(text)} />
+        )}
+        {!recorderActive && (
           <textarea
             value={messageDraft}
             onChange={(e) => { setMessageDraft(e.target.value); broadcastTyping(); }}
@@ -241,6 +245,7 @@ export default function ConversationPane({
             placeholder="Écris un message..."
             aria-label="Écrire un message"
             rows={1}
+            maxLength={4000}
             className="flex-1 text-sm rounded-2xl px-4 py-3 outline-none resize-none"
             style={{ background: bg, fontSize: 16, maxHeight: 120 }}
           />

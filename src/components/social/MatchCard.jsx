@@ -1,5 +1,5 @@
 import React from "react";
-import { Heart, X, MessageCircle, Star, Flag, Ban } from "lucide-react";
+import { Heart, X, MessageCircle, Star, Flag, Ban, EyeOff } from "lucide-react";
 import Avatar from "../Avatar";
 import VerifiedBadge from "../VerifiedBadge";
 import { primary, green, coral, gold, bg, muted, card } from "./theme";
@@ -15,6 +15,7 @@ export default function MatchCard({
   onToggleFavorite,
   onReport,
   onBlock,
+  onHide,
   onViewProfile,
 }) {
   const compatColor = match.level === "high" ? green : match.level === "medium" ? gold : muted;
@@ -102,6 +103,11 @@ export default function MatchCard({
           {onBlock && (
             <button onClick={() => onBlock(profile)} className="text-[11px] font-semibold flex items-center gap-1 focus-visible:outline focus-visible:outline-2" style={{ color: muted }}>
               <Ban size={12} /> Bloquer
+            </button>
+          )}
+          {onHide && (
+            <button onClick={() => onHide(profile)} className="text-[11px] font-semibold flex items-center gap-1 focus-visible:outline focus-visible:outline-2" style={{ color: muted }}>
+              <EyeOff size={12} /> Masquer
             </button>
           )}
         </div>

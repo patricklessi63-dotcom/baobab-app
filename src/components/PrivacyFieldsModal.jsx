@@ -1,5 +1,5 @@
 import React from "react";
-import { ArrowLeft, MapPin, Flag, Briefcase, GraduationCap, Plane, Sparkles, Heart } from "lucide-react";
+import { ArrowLeft, MapPin, Flag, Briefcase, GraduationCap, Plane, Sparkles, Heart, Wand2 } from "lucide-react";
 import { C } from "../constants";
 import { useEscapeKey } from "../hooks/useEscapeKey";
 
@@ -11,6 +11,13 @@ const FIELDS = [
   { key: "show_canada_journey", label: "Afficher mon parcours Canada", icon: Plane },
   { key: "show_life_project", label: "Afficher mon projet de vie", icon: Heart },
   { key: "show_interests", label: "Afficher mes centres d'intérêt", icon: Sparkles },
+];
+
+// Personnalisation (Phase 9) — utilise handleToggleField, déjà générique
+// pour n'importe quelle colonne "profiles" (aucune nouvelle plomberie).
+const PERSONALIZATION_FIELDS = [
+  { key: "personalization_enabled", label: "Recommandations personnalisées", icon: Sparkles },
+  { key: "ai_suggestions_enabled", label: "Suggestions IA (bio, publications, conversations…)", icon: Wand2 },
 ];
 
 export default function PrivacyFieldsModal({ open, onClose, onBack, currentUser, onToggleField }) {
@@ -43,6 +50,20 @@ export default function PrivacyFieldsModal({ open, onClose, onBack, currentUser,
             />
           </label>
         ))}
+
+        <div className="mt-4 mb-1 text-xs font-black uppercase tracking-wider" style={{ color: "rgba(43,36,32,0.5)" }}>Personnalisation</div>
+        {PERSONALIZATION_FIELDS.map(({ key, label, icon: Icon }) => (
+          <label key={key} className="flex items-center justify-between py-2.5" style={{ borderTop: "1px solid rgba(43,36,32,0.08)", minHeight: 44 }}>
+            <div className="flex items-center gap-2 text-sm"><Icon size={14} color={C.indigo} /> {label}</div>
+            <input
+              type="checkbox"
+              checked={currentUser?.[key] !== false}
+              onChange={(e) => onToggleField?.(key, e.target.checked)}
+              style={{ width: 18, height: 18 }}
+            />
+          </label>
+        ))}
+
         <button onClick={onClose} className="w-full mt-4 py-3 rounded-full text-sm font-semibold" style={{ border: "1px solid rgba(43,36,32,0.15)", color: C.ink, minHeight: 44 }}>
           Fermer
         </button>

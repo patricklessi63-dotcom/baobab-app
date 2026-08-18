@@ -40,6 +40,7 @@ export const COMMUNITY_REPORT_CATEGORIES = [
   { value: "spam", label: "Spam" },
   { value: "contenu_inapproprie", label: "Contenu inapproprié" },
   { value: "arnaque", label: "Arnaque" },
+  { value: "usurpation", label: "Usurpation d'identité" },
   { value: "autre", label: "Autre" },
 ];
 

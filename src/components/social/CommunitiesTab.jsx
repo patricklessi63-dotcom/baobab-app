@@ -11,6 +11,7 @@ import EmptyState from "../home/EmptyState";
 import { SkeletonCard } from "../Skeleton";
 import { rankCommunities } from "../../lib/communities/recommendations";
 import { COMMUNITY_REPORT_CATEGORIES } from "../../lib/communities/communityConfig";
+import { trackActivation } from "../../lib/trackActivation";
 import { primary, coral, muted, bg, card } from "./theme";
 
 const PAGE_SIZE = 20;
@@ -29,7 +30,7 @@ function withMemberCount(rows) {
   return (rows || []).map((c) => ({ ...c, memberCount: c.community_members?.[0]?.count || 0 }));
 }
 
-export default function CommunitiesTab({ currentUser, onError, onCommunitiesChanged, initialCommunityId, onConsumedInitial }) {
+export default function CommunitiesTab({ currentUser, onError, onCommunitiesChanged, initialCommunityId, onConsumedInitial, blockedIds = new Set() }) {
   const [view, setView] = useState("list"); // list | detail | create
   const [selectedId, setSelectedId] = useState(null);
 
@@ -146,8 +147,9 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
         .eq("community_id", id)
         .order("created_at", { ascending: false });
       if (error) throw error;
-      setPosts(data || []);
-      const ids = (data || []).map((p) => p.id);
+      const visiblePosts = (data || []).filter((p) => !blockedIds.has(p.author_id));
+      setPosts(visiblePosts);
+      const ids = visiblePosts.map((p) => p.id);
       if (ids.length > 0) {
         const [likesRes, commentsRes] = await Promise.all([
           supabase.from("community_post_likes").select("post_id, profile_id").in("post_id", ids),
@@ -183,7 +185,7 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
         .eq("community_id", id)
         .order("joined_at", { ascending: true });
       if (error) throw error;
-      setMembers(data || []);
+      setMembers((data || []).filter((m) => !blockedIds.has(m.profile_id)));
     } catch (e) {
       console.error(e);
       onError("Impossible de charger les membres.");
@@ -264,6 +266,7 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
         setMyMemberships((m) => ({ ...m, [comm.id]: "member" }));
         adjustMemberCount(comm.id, 1);
         onCommunitiesChanged?.();
+        trackActivation(currentUser.id, "community_joined");
       } else if (comm.visibility === "private") {
         const { error } = await supabase.from("community_join_requests").insert({ community_id: comm.id, profile_id: currentUser.id });
         if (error) throw error;
@@ -377,7 +380,7 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
         .from("community_comments").select("*, profiles(name, avatar_url)")
         .eq("post_id", postId).order("created_at", { ascending: true });
       if (error) throw error;
-      setCommentsByPost((c) => ({ ...c, [postId]: { items: data || [] } }));
+      setCommentsByPost((c) => ({ ...c, [postId]: { items: (data || []).filter((cm) => !blockedIds.has(cm.author_id)) } }));
     } catch (e) {
       console.error(e);
       onError("Impossible de charger les commentaires.");

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { X, ChevronLeft, ChevronRight, Heart, MessageCircle, Star, Flag, Ban } from "lucide-react";
+import { X, ChevronLeft, ChevronRight, Heart, MessageCircle, UserPlus, UserCheck, Star, Flag, Ban } from "lucide-react";
 import Avatar from "../Avatar";
 import VerifiedBadge from "../VerifiedBadge";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
@@ -26,9 +26,11 @@ export default function PublicProfileModal({
   onClose,
   isMatch = false,
   isFavorite = false,
+  isFollowing = false,
   onLike,
   onMessage,
   onToggleFavorite,
+  onToggleFollow,
   onReport,
   onBlock,
 }) {
@@ -70,10 +72,10 @@ export default function PublicProfileModal({
               <img src={gallery[photoIdx]} alt={profile.name} className="w-full h-full object-cover" />
               {gallery.length > 1 && (
                 <>
-                  <button onClick={prev} aria-label="Photo précédente" className="absolute left-2 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full bg-black/40 text-white flex items-center justify-center">
+                  <button onClick={prev} aria-label="Photo précédente" className="absolute left-2 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full bg-black/40 text-white flex items-center justify-center focus-visible:outline focus-visible:outline-2">
                     <ChevronLeft size={18} />
                   </button>
-                  <button onClick={next} aria-label="Photo suivante" className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full bg-black/40 text-white flex items-center justify-center">
+                  <button onClick={next} aria-label="Photo suivante" className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full bg-black/40 text-white flex items-center justify-center focus-visible:outline focus-visible:outline-2">
                     <ChevronRight size={18} />
                   </button>
                   <div className="absolute bottom-2 left-0 right-0 flex justify-center gap-1">
@@ -89,7 +91,7 @@ export default function PublicProfileModal({
               <Avatar name={profile.name} url={profile.avatar_url} size={88} />
             </div>
           )}
-          <button onClick={onClose} aria-label="Fermer" className="absolute top-3 right-3 h-8 w-8 rounded-full bg-black/40 text-white flex items-center justify-center">
+          <button onClick={onClose} aria-label="Fermer" className="absolute top-3 right-3 h-8 w-8 rounded-full bg-black/40 text-white flex items-center justify-center focus-visible:outline focus-visible:outline-2">
             <X size={16} />
           </button>
         </div>
@@ -133,27 +135,37 @@ export default function PublicProfileModal({
 
           <div className="flex items-center gap-2 mt-5 flex-wrap">
             {onLike && (
-              <button onClick={() => onLike(profile)} className="flex-1 min-w-[100px] rounded-full py-2.5 text-sm font-bold text-white flex items-center justify-center gap-1.5" style={{ background: coral }}>
+              <button onClick={() => onLike(profile)} className="flex-1 min-w-[100px] rounded-full py-2.5 text-sm font-bold text-white flex items-center justify-center gap-1.5 focus-visible:outline focus-visible:outline-2" style={{ background: coral }}>
                 <Heart size={15} /> J'aime
               </button>
             )}
             {isMatch && onMessage && (
-              <button onClick={() => onMessage(profile)} className="flex-1 min-w-[100px] rounded-full py-2.5 text-sm font-bold flex items-center justify-center gap-1.5" style={{ background: bg, color: primary }}>
+              <button onClick={() => onMessage(profile)} className="flex-1 min-w-[100px] rounded-full py-2.5 text-sm font-bold flex items-center justify-center gap-1.5 focus-visible:outline focus-visible:outline-2" style={{ background: bg, color: primary }}>
                 <MessageCircle size={15} /> Message
               </button>
             )}
+            {onToggleFollow && (
+              <button
+                onClick={() => onToggleFollow(profile)}
+                aria-pressed={isFollowing}
+                className="flex-1 min-w-[100px] rounded-full py-2.5 text-sm font-bold flex items-center justify-center gap-1.5 focus-visible:outline focus-visible:outline-2"
+                style={{ background: isFollowing ? bg : primary, color: isFollowing ? primary : "#fff" }}
+              >
+                {isFollowing ? <UserCheck size={15} /> : <UserPlus size={15} />} {isFollowing ? "Abonné(e)" : "Suivre"}
+              </button>
+            )}
             {onToggleFavorite && (
-              <button onClick={() => onToggleFavorite(profile)} aria-pressed={isFavorite} aria-label={isFavorite ? `Retirer ${profile.name} des favoris` : `Ajouter ${profile.name} aux favoris`} className="h-10 w-10 rounded-full flex items-center justify-center shrink-0" style={{ background: isFavorite ? "#FFF3D6" : bg }}>
+              <button onClick={() => onToggleFavorite(profile)} aria-pressed={isFavorite} aria-label={isFavorite ? `Retirer ${profile.name} des favoris` : `Ajouter ${profile.name} aux favoris`} className="h-10 w-10 rounded-full flex items-center justify-center shrink-0 focus-visible:outline focus-visible:outline-2" style={{ background: isFavorite ? "#FFF3D6" : bg }}>
                 <Star size={16} color={isFavorite ? gold : muted} fill={isFavorite ? gold : "none"} />
               </button>
             )}
             {onReport && (
-              <button onClick={() => onReport(profile)} aria-label="Signaler" className="h-10 w-10 rounded-full flex items-center justify-center shrink-0" style={{ background: bg }}>
+              <button onClick={() => onReport(profile)} aria-label="Signaler" className="h-10 w-10 rounded-full flex items-center justify-center shrink-0 focus-visible:outline focus-visible:outline-2" style={{ background: bg }}>
                 <Flag size={15} color={muted} />
               </button>
             )}
             {onBlock && (
-              <button onClick={() => onBlock(profile)} aria-label="Bloquer" className="h-10 w-10 rounded-full flex items-center justify-center shrink-0" style={{ background: bg }}>
+              <button onClick={() => onBlock(profile)} aria-label="Bloquer" className="h-10 w-10 rounded-full flex items-center justify-center shrink-0 focus-visible:outline focus-visible:outline-2" style={{ background: bg }}>
                 <Ban size={15} color={muted} />
               </button>
             )}

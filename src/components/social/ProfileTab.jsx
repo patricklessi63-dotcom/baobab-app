@@ -1,11 +1,14 @@
-import React from "react";
+import React, { useState } from "react";
 import { Send, CheckCheck, Image as ImageIcon, Star, Target, ChevronRight, Users2, MapPin, PartyPopper } from "lucide-react";
 import Avatar from "../Avatar";
 import VerifiedBadge from "../VerifiedBadge";
+import EmptyState from "../home/EmptyState";
 import { getProfileCompletion } from "../../lib/profileCompletion";
 import { categoryIcon, categoryLabel } from "../../lib/communities/communityConfig";
 import { categoryIcon as eventCategoryIcon, categoryLabel as eventCategoryLabel } from "../../lib/events/eventConfig";
 import { formatEventWhen } from "../../utils/format";
+import { usePremiumStatus } from "../../lib/premium/usePremiumStatus";
+import { openBillingPortal } from "../../lib/premium/checkout";
 import { primary, green, coral, gold, bg, muted } from "./theme";
 
 export default function ProfileTab({
@@ -28,7 +31,26 @@ export default function ProfileTab({
   myUpcomingEvents = [],
   myUpcomingEventsLoading = false,
   onOpenEvents = () => {},
+  followingProfiles = [],
+  followerProfiles = [],
+  followingIds = new Set(),
+  onToggleFollow = () => {},
+  onViewProfile = () => {},
+  onError = () => {},
 }) {
+          const { isPremium, subscription } = usePremiumStatus(currentUser);
+          const [managingSubscription, setManagingSubscription] = useState(false);
+          const [networkView, setNetworkView] = useState("following");
+          const handleManageSubscription = async () => {
+            setManagingSubscription(true);
+            try {
+              await openBillingPortal();
+            } catch (e) {
+              console.error(e);
+              onError(e.message);
+              setManagingSubscription(false);
+            }
+          };
           const myPosts = posts.filter((p) => p.name === currentUser?.name);
           const completion = getProfileCompletion(currentUser, profilePhotos[currentUser?.id] || []);
           const isComplete = completion.percent >= 100;
@@ -110,7 +132,7 @@ export default function ProfileTab({
               </div>
 
               <div className="flex border-t" style={{ borderColor: "rgba(21,27,61,.08)" }}>
-                {[["posts", "Publications"], ["about", "À propos"], ["communities", "Mes communautés"], ["events", "Événements"]].map(([key, label]) => (
+                {[["posts", "Publications"], ["about", "À propos"], ["network", "Mon réseau"], ["communities", "Mes communautés"], ["events", "Événements"], ["premium", "Abonnement"]].map(([key, label]) => (
                   <button key={key} onClick={() => setProfileTab(key)} className="flex-1 py-3.5 text-sm font-bold relative" style={{ color: profileTab === key ? primary : muted }}>
                     {label}
                     {profileTab === key && <span className="absolute bottom-0 left-1/2 -translate-x-1/2 h-[3px] w-10 rounded-full" style={{ background: coral }} />}
@@ -118,7 +140,42 @@ export default function ProfileTab({
                 ))}
               </div>
 
-              {profileTab === "communities" ? (
+              {profileTab === "network" ? (
+                <div className="p-4">
+                  <div className="flex gap-2 mb-4">
+                    {[["following", `Abonnements (${followingProfiles.length})`], ["followers", `Abonnés (${followerProfiles.length})`]].map(([key, label]) => (
+                      <button key={key} onClick={() => setNetworkView(key)} aria-pressed={networkView === key} className="flex-1 py-2.5 rounded-xl text-sm font-bold focus-visible:outline focus-visible:outline-2" style={{ background: networkView === key ? primary : bg, color: networkView === key ? "#fff" : muted }}>
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                  {(networkView === "following" ? followingProfiles : followerProfiles).length === 0 ? (
+                    <EmptyState
+                      icon={Users2}
+                      title={networkView === "following" ? "Tu ne suis personne pour l'instant." : "Personne ne te suit encore."}
+                      actionLabel={networkView === "following" ? "Découvrir des profils" : undefined}
+                      onAction={networkView === "following" ? () => goTab("discover") : undefined}
+                    />
+                  ) : (
+                    <div className="flex flex-col gap-2">
+                      {(networkView === "following" ? followingProfiles : followerProfiles).map((p) => (
+                        <div key={p.id} className="flex items-center gap-3 p-2.5 rounded-xl" style={{ background: bg }}>
+                          <button onClick={() => onViewProfile(p)} className="flex items-center gap-3 flex-1 min-w-0 text-left focus-visible:outline focus-visible:outline-2">
+                            <Avatar name={p.name} url={p.avatar_url} size={44} />
+                            <div className="min-w-0">
+                              <div className="text-sm font-bold truncate">{p.name}{p.age ? `, ${p.age}` : ""}</div>
+                              {p.city && <div className="text-xs truncate" style={{ color: muted }}>{p.city}</div>}
+                            </div>
+                          </button>
+                          <button onClick={() => onToggleFollow(p)} aria-pressed={followingIds.has(p.id)} className="px-3 py-2 rounded-full text-xs font-bold shrink-0 focus-visible:outline focus-visible:outline-2" style={{ background: followingIds.has(p.id) ? "#fff" : primary, color: followingIds.has(p.id) ? primary : "#fff" }}>
+                            {followingIds.has(p.id) ? "Abonné(e)" : "Suivre"}
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : profileTab === "communities" ? (
                 <div className="p-4">
                   {myCommunitiesLoading ? (
                     <p className="text-sm text-center py-6" style={{ color: muted }}>Chargement...</p>
@@ -171,6 +228,32 @@ export default function ProfileTab({
                           </div>
                         </button>
                       ))}
+                    </div>
+                  )}
+                </div>
+              ) : profileTab === "premium" ? (
+                <div className="p-5">
+                  {isPremium ? (
+                    <div className="rounded-2xl p-4" style={{ background: "linear-gradient(180deg, #FFF9F0, #FFF3E8)" }}>
+                      <div className="flex items-center gap-2">
+                        <span style={{ fontSize: 20 }}>💎</span>
+                        <span className="text-sm font-black" style={{ color: primary }}>Baobab Premium actif</span>
+                      </div>
+                      <p className="text-sm mt-2" style={{ color: muted }}>
+                        Plan {subscription?.plan === "yearly" ? "annuel" : "mensuel"}
+                        {subscription?.current_period_end && ` — renouvellement le ${new Date(subscription.current_period_end).toLocaleDateString("fr-CA")}`}
+                        {subscription?.cancel_at_period_end && " (annulation programmée à cette date)"}
+                      </p>
+                      <button onClick={handleManageSubscription} disabled={managingSubscription} className="mt-3 px-4 py-2.5 rounded-xl font-bold text-sm disabled:opacity-60" style={{ background: primary, color: "#fff" }}>
+                        {managingSubscription ? "Ouverture..." : "Gérer mon abonnement"}
+                      </button>
+                      <p className="text-[11px] mt-2" style={{ color: muted }}>Annulation, moyen de paiement et factures — géré directement par Stripe, en dehors de Baobab.</p>
+                    </div>
+                  ) : (
+                    <div className="text-center py-6">
+                      <span style={{ fontSize: 28 }}>💎</span>
+                      <p className="text-sm mt-2" style={{ color: muted }}>Tu es sur le plan gratuit.</p>
+                      <button onClick={() => goTab("premium")} className="mt-3 px-4 py-2.5 rounded-xl font-bold text-sm" style={{ background: primary, color: "#fff" }}>Découvrir Premium</button>
                     </div>
                   )}
                 </div>

@@ -6,6 +6,7 @@ import { EVENT_CATEGORIES, EVENT_VISIBILITY } from "../../lib/events/eventConfig
 import { validateMediaFile } from "../../lib/mediaValidation";
 import { extFromMime } from "../../lib/mediaConstants";
 import { uploadWithProgress } from "../../lib/uploadWithProgress";
+import AiSuggestButton from "../ai/AiSuggestButton";
 import { primary, coral, muted, bg } from "./theme";
 
 const TITLE_MAX = 80;
@@ -125,6 +126,15 @@ export default function EventCreateForm({ currentUser, onCreated, onCancel, onEr
         <span className="text-xs font-bold" style={{ color: muted }}>Description</span>
         <textarea value={description} onChange={(e) => setDescription(e.target.value.slice(0, DESCRIPTION_MAX))} placeholder="Quelques mots sur l'événement…" rows={3} className="mt-1.5 w-full rounded-xl px-3.5 py-2.5 text-sm outline-none resize-none" style={{ background: bg }} />
         <span className="text-[11px]" style={{ color: muted }}>{description.length}/{DESCRIPTION_MAX}</span>
+        {currentUser?.ai_suggestions_enabled !== false && (
+          <AiSuggestButton
+            action="improve_event_description"
+            label="Améliorer la description"
+            buildPayload={() => ({ title, text: description })}
+            onApply={(text) => setDescription(text.slice(0, DESCRIPTION_MAX))}
+            disabled={!description.trim()}
+          />
+        )}
       </label>
 
       <div>

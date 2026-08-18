@@ -8,6 +8,7 @@ export default function Avatar({ name, size = 44, url }) {
       <img
         src={url}
         alt={name}
+        loading="lazy"
         style={{
           width: size,
           height: size,

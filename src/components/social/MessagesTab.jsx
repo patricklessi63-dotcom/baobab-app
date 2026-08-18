@@ -2,6 +2,7 @@ import React from "react";
 import { MessageCircle, Heart } from "lucide-react";
 import Avatar from "../Avatar";
 import VerifiedBadge from "../VerifiedBadge";
+import EmptyState from "../home/EmptyState";
 import ConversationPane from "./ConversationPane";
 import { matchKey, formatMessageTime, messagePreviewLabel } from "../../utils/format";
 import { primary, green, coral, bg, muted, card, buttonBase } from "./theme";
@@ -45,11 +46,14 @@ export default function MessagesTab({
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-[11px] font-black uppercase tracking-wider" style={{ background: "#EEF8F4", color: green }}><MessageCircle size={13} /> Connexions réciproques</div>
           <h1 className="text-3xl font-black mt-3" style={{ color: primary }}>Messages</h1>
         </div>
-        <div className={`${card} p-10 text-center`}>
-          <div className="h-16 w-16 rounded-2xl mx-auto flex items-center justify-center" style={{ background: "#FFF3F1" }}><Heart size={28} color={coral} /></div>
-          <h2 className="text-xl font-black mt-4" style={{ color: primary }}>Tes conversations apparaîtront ici.</h2>
-          <p className="text-sm mt-2 max-w-md mx-auto" style={{ color: muted }}>Découvre de nouvelles personnes sur Baobab.</p>
-          <button onClick={() => goTab("discover")} className="mt-5 px-5 py-3 rounded-xl text-white font-bold">Découvrir</button>
+        <div className={`${card} p-10`}>
+          <EmptyState
+            icon={Heart}
+            title="Tes conversations apparaîtront ici."
+            subtitle="Découvre de nouvelles personnes sur Baobab."
+            actionLabel="Découvrir"
+            onAction={() => goTab("discover")}
+          />
         </div>
       </section>
     );

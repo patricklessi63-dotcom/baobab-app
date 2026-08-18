@@ -1,15 +1,72 @@
-import React from "react";
-import { Luggage } from "lucide-react";
+import React, { useEffect, useMemo, useState } from "react";
+import { Luggage, ThumbsUp, ThumbsDown, Users, X } from "lucide-react";
 import Avatar from "../Avatar";
 import HomeHeader from "../home/HomeHeader";
 import BaobabHero from "../home/BaobabHero";
 import ProfileCard from "../home/ProfileCard";
 import ConversationCard from "../home/ConversationCard";
 import CommunityCard from "../home/CommunityCard";
+import CommunityGroupCard from "./CommunityGroupCard";
+import EventCard from "./EventCard";
 import BaobabProgress from "../home/BaobabProgress";
 import EmptyState from "../home/EmptyState";
+import { supabase } from "../../supabaseClient";
 import { rankCandidates } from "../../lib/matching/matchingService";
+import { rankCommunities } from "../../lib/communities/recommendations";
+import { rankEvents } from "../../lib/events/recommendations";
+import { getProfileCompletion } from "../../lib/profileCompletion";
 import { primary, green, coral, gold, bg, muted, card } from "./theme";
+
+// "Pour toi" communautés/événements (item 7/13/14) — lecture seule ici :
+// réutilise les vraies fonctions de classement déjà écrites en Phases 6-7
+// (rankCommunities/rankEvents), aucun nouveau moteur de score. Cliquer une
+// carte amène vers l'onglet complet, où vivent déjà rejoindre/participer —
+// pas dupliqué ici pour ne pas répéter cette logique à un 3e endroit.
+function useFeedRecommendations(currentUser) {
+  const [communities, setCommunities] = useState([]);
+  const [events, setEvents] = useState([]);
+
+  useEffect(() => {
+    if (!currentUser) return;
+    let alive = true;
+
+    (async () => {
+      const [{ data: comm }, { data: myComm }, { data: hiddenComm }] = await Promise.all([
+        supabase.from("communities").select("*, community_members(count)").order("created_at", { ascending: false }).limit(20),
+        supabase.from("community_members").select("community_id").eq("profile_id", currentUser.id),
+        supabase.from("hidden_recommendations").select("target_id").eq("profile_id", currentUser.id).eq("target_type", "community"),
+      ]);
+      if (!alive) return;
+      const joinedIds = new Set((myComm || []).map((r) => r.community_id));
+      const hiddenIds = new Set((hiddenComm || []).map((r) => r.target_id));
+      const candidates = (comm || [])
+        .filter((c) => !joinedIds.has(c.id) && !hiddenIds.has(c.id))
+        .map((c) => ({ ...c, memberCount: c.community_members?.[0]?.count || 0 }));
+      setCommunities(rankCommunities(currentUser, candidates).filter((r) => r.score > 0).slice(0, 6).map((r) => r.community));
+    })();
+
+    (async () => {
+      const [{ data: ev }, { data: myAttend }, { data: hiddenEv }] = await Promise.all([
+        supabase.from("events").select("*, event_participant_count").is("canceled_at", null).eq("visibility", "public").gte("event_date", new Date().toISOString()).order("event_date", { ascending: true }).limit(20),
+        supabase.from("event_attendees").select("event_id").eq("profile_id", currentUser.id),
+        supabase.from("hidden_recommendations").select("target_id").eq("profile_id", currentUser.id).eq("target_type", "event"),
+      ]);
+      if (!alive) return;
+      const attendingIds = new Set((myAttend || []).map((r) => r.event_id));
+      const hiddenIds = new Set((hiddenEv || []).map((r) => r.target_id));
+      const candidates = (ev || [])
+        .filter((e) => !attendingIds.has(e.id) && !hiddenIds.has(e.id))
+        .map((e) => ({ ...e, participantCount: e.event_participant_count || 0 }));
+      setEvents(rankEvents(currentUser, candidates).filter((r) => r.score > 0).slice(0, 6).map((r) => r.event));
+    })();
+
+    return () => { alive = false; };
+  }, [currentUser?.id]);
+
+  return { recommendedCommunities: communities, recommendedEvents: events };
+}
+
+const FEED_TABS = [["pourtoi", "Pour toi"], ["suivis", "Suivis"], ["communautes", "Communautés"], ["local", "Local"]];
 
 export default function FeedTab({
   currentUser,
@@ -34,13 +91,60 @@ export default function FeedTab({
   openChat,
   goTab,
   setSearch,
+  feedTab = "pourtoi",
+  setFeedTab = () => {},
+  followedProfiles = [],
+  profilePhotos = {},
 }) {
-  const rankedForYou = rankCandidates(currentUser, candidates);
-  const rankedNearby = rankCandidates(currentUser, nearbyMembers);
-  const rankedNewArrivals = rankCandidates(currentUser, newArrivals);
+  // Réglage "Recommandations personnalisées" (item 5/33) — si désactivé,
+  // les listes restent affichées mais sans classement par score : effet
+  // réel, pas cosmétique (rankCandidates n'est simplement pas appelée).
+  const personalized = currentUser?.personalization_enabled !== false;
+  const neutralRank = (list) => list.map((profile) => ({ profile, match: { score: 0, level: "neutral", reasons: [], commonInterests: [] } }));
+  const rankedForYou = personalized ? rankCandidates(currentUser, candidates) : neutralRank(candidates);
+  const rankedNearby = personalized ? rankCandidates(currentUser, nearbyMembers) : neutralRank(nearbyMembers);
+  const rankedNewArrivals = personalized ? rankCandidates(currentUser, newArrivals) : neutralRank(newArrivals);
+  const { recommendedCommunities, recommendedEvents } = useFeedRecommendations(personalized ? currentUser : null);
+
+  // Nudge de complétion de profil (Phase 12a) — réutilise le système A
+  // (src/lib/profileCompletion.js), déjà affiché dans ProfileTab.jsx, pas
+  // le "stade de croissance" de BaobabHero ci-dessus qui sert un autre but
+  // (gamification). Fermeture mémorisée par profil pour ne pas la
+  // remontrer une fois écartée.
+  const completion = getProfileCompletion(currentUser, profilePhotos[currentUser?.id] || []);
+  const nudgeDismissKey = currentUser?.id ? `bb_completion_nudge_dismissed_${currentUser.id}` : null;
+  const [nudgeDismissed, setNudgeDismissed] = useState(() => nudgeDismissKey ? localStorage.getItem(nudgeDismissKey) === "1" : true);
+  const dismissNudge = () => {
+    if (nudgeDismissKey) localStorage.setItem(nudgeDismissKey, "1");
+    setNudgeDismissed(true);
+  };
+  const showCompletionNudge = !nudgeDismissed && completion.percent < 80 && completion.tips.length > 0;
+
+  const [feedbackSent, setFeedbackSent] = useState(false);
+  const sendFeedback = async (helpful) => {
+    if (!currentUser || feedbackSent) return;
+    setFeedbackSent(true);
+    const { error } = await supabase.from("recommendation_feedback").insert({ profile_id: currentUser.id, target_type: "profile", target_id: null, helpful });
+    if (error) console.error(error.message, error.code, error.details, error.hint);
+  };
   return (
     <div className="max-w-6xl mx-auto">
       <HomeHeader currentUser={currentUser} />
+
+      {showCompletionNudge && (
+        <div className={`${card} p-4 mb-6 flex items-center gap-3`}>
+          <div className="flex-1 min-w-0">
+            <b className="text-sm" style={{ color: primary }}>Profil à {completion.percent}%</b>
+            <p className="text-xs mt-0.5 truncate" style={{ color: muted }}>{completion.tips[0]}</p>
+          </div>
+          <button onClick={openEditProfile} className="shrink-0 text-xs font-bold px-3 py-1.5 rounded-full text-white focus-visible:outline focus-visible:outline-2" style={{ background: coral }}>
+            Compléter
+          </button>
+          <button onClick={dismissNudge} aria-label="Fermer" className="shrink-0 p-1 rounded-full focus-visible:outline focus-visible:outline-2" style={{ color: muted }}>
+            <X size={16} />
+          </button>
+        </div>
+      )}
 
       {/* ---------- Statuts ---------- */}
       <div className="flex gap-4 overflow-x-auto pb-1 mb-7 -mx-1 px-1" style={{ scrollbarWidth: "none" }}>
@@ -91,8 +195,19 @@ export default function FeedTab({
         onCompleteProfile={openEditProfile}
       />
 
+      <div className="flex border-b mb-6" style={{ borderColor: "rgba(21,27,61,.08)" }}>
+        {FEED_TABS.map(([key, label]) => (
+          <button key={key} onClick={() => setFeedTab(key)} role="tab" aria-selected={feedTab === key} className="flex-1 py-3 text-sm font-bold relative focus-visible:outline focus-visible:outline-2" style={{ color: feedTab === key ? primary : muted }}>
+            {label}
+            {feedTab === key && <span className="absolute bottom-0 left-1/2 -translate-x-1/2 h-[3px] w-10 rounded-full" style={{ background: coral }} />}
+          </button>
+        ))}
+      </div>
+
       <div className="grid xl:grid-cols-[minmax(0,1fr)_330px] gap-7">
         <section className="min-w-0">
+          {feedTab === "pourtoi" && (
+          <>
           {/* ---------- Pour toi ---------- */}
           <div className="mb-5">
             <h2 className="text-xl font-black" style={{ color: primary }}>✨ Pour toi</h2>
@@ -126,10 +241,52 @@ export default function FeedTab({
                 ))}
               </div>
             )}
+            {candidates.length > 0 && (
+              <div className="flex items-center justify-end gap-2 mt-4 pt-3" style={{ borderTop: "1px solid rgba(21,27,61,.06)" }}>
+                <span className="text-xs" style={{ color: muted }}>{feedbackSent ? "Merci pour ton retour !" : "Ces suggestions te conviennent-elles ?"}</span>
+                {!feedbackSent && (
+                  <>
+                    <button onClick={() => sendFeedback(true)} aria-label="Oui, ces suggestions me conviennent" className="h-7 w-7 rounded-full flex items-center justify-center focus-visible:outline focus-visible:outline-2" style={{ background: bg }}><ThumbsUp size={13} color={muted} /></button>
+                    <button onClick={() => sendFeedback(false)} aria-label="Non, ces suggestions ne me conviennent pas" className="h-7 w-7 rounded-full flex items-center justify-center focus-visible:outline focus-visible:outline-2" style={{ background: bg }}><ThumbsDown size={13} color={muted} /></button>
+                  </>
+                )}
+              </div>
+            )}
           </div>
+          </>
+          )}
 
+          {feedTab === "suivis" && (
+          <>
+          {/* ---------- Suivis ---------- */}
+          <div className="mb-5">
+            <h2 className="text-xl font-black" style={{ color: primary }}>👥 Suivis</h2>
+            <p className="text-sm mt-1" style={{ color: muted }}>Les profils que tu suis.</p>
+          </div>
+          <div className={`${card} p-5`}>
+            {followedProfiles.length === 0 ? (
+              <EmptyState
+                icon={Users}
+                title="Tu ne suis personne pour l'instant."
+                subtitle="Suis des profils pour les retrouver ici facilement."
+                actionLabel="Découvrir des profils"
+                onAction={() => goTab("discover")}
+              />
+            ) : (
+              <div className="flex gap-3 overflow-x-auto pb-1 -mx-1 px-1" style={{ scrollbarWidth: "none" }}>
+                {followedProfiles.map((p) => (
+                  <ProfileCard key={p.id} profile={p} highlight="looking_for" onLike={handleLike} />
+                ))}
+              </div>
+            )}
+          </div>
+          </>
+          )}
+
+          {feedTab === "local" && (
+          <>
           {/* ---------- Autour de toi ---------- */}
-          <div className="mb-5 mt-8">
+          <div className="mb-5">
             <h2 className="text-xl font-black" style={{ color: primary }}>📍 Autour de toi</h2>
             <p className="text-sm mt-1" style={{ color: muted }}>Découvre les personnes et activités proches de toi.</p>
           </div>
@@ -170,7 +327,11 @@ export default function FeedTab({
               </div>
             )}
           </div>
+          </>
+          )}
 
+          {feedTab === "pourtoi" && (
+          <>
           {/* ---------- Nouveaux au Canada ---------- */}
           <div className="mb-5 mt-8">
             <h2 className="text-xl font-black" style={{ color: primary }}>🧳 Nouveaux au Canada</h2>
@@ -199,6 +360,47 @@ export default function FeedTab({
               </div>
             )}
           </div>
+          </>
+          )}
+
+          {feedTab === "communautes" && recommendedCommunities.length > 0 && (
+            <>
+              <div className="mb-5">
+                <h2 className="text-xl font-black" style={{ color: primary }}>🌍 Communautés pour toi</h2>
+                <p className="text-sm mt-1" style={{ color: muted }}>Selon tes centres d'intérêt et ta ville.</p>
+              </div>
+              <div className="flex gap-3 overflow-x-auto pb-1 -mx-1 px-1" style={{ scrollbarWidth: "none" }}>
+                {recommendedCommunities.map((c) => (
+                  <div key={c.id} className="w-56 flex-shrink-0">
+                    <CommunityGroupCard community={c} memberCount={c.memberCount} joined={false} pending={false} onView={() => goTab("communities")} onJoin={() => goTab("communities")} />
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+          {feedTab === "communautes" && recommendedCommunities.length === 0 && (
+            <div className={`${card} p-5`}>
+              <EmptyState title="Aucune communauté recommandée pour l'instant." subtitle="Complète tes centres d'intérêt et ta ville pour de meilleures suggestions." />
+            </div>
+          )}
+
+          {feedTab === "local" && (
+          <>
+          {recommendedEvents.length > 0 && (
+            <>
+              <div className="mb-5">
+                <h2 className="text-xl font-black" style={{ color: primary }}>🎉 Événements pour toi</h2>
+                <p className="text-sm mt-1" style={{ color: muted }}>Plusieurs de tes centres d'intérêt correspondent.</p>
+              </div>
+              <div className="flex gap-3 overflow-x-auto pb-1 -mx-1 px-1" style={{ scrollbarWidth: "none" }}>
+                {recommendedEvents.map((ev) => (
+                  <div key={ev.id} className="w-56 flex-shrink-0">
+                    <EventCard event={ev} participantCount={ev.participantCount} onView={() => goTab("events")} />
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
 
           {/* ---------- Événements — l'onglet dédié possède désormais tout
               l'état/logique réel (recherche, filtres, création) ; ce bandeau
@@ -212,6 +414,8 @@ export default function FeedTab({
               Voir les événements →
             </button>
           </div>
+          </>
+          )}
         </section>
 
         <aside className="space-y-5">
