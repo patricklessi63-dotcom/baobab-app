@@ -49,8 +49,8 @@ function traduireErreur(err) {
 // de App.jsx, qui détecte le retour d'un lien de confirmation/reset
 // (voir la détection dans App.jsx : ni un routeur ni un backend n'existent
 // dans ce projet, donc c'est le seul point d'entrée possible).
-export default function Auth({ justVerified = false, onAcknowledgeVerified = () => {}, authLinkError = null, onDismissLinkError = () => {} }) {
-  const [mode, setMode] = useState("signin"); // signin | signup | reset | check-email | unverified | link-error
+export default function Auth({ justVerified = false, onAcknowledgeVerified = () => {}, authLinkError = null, onDismissLinkError = () => {}, initialMode = "signin", onGoHome = () => {} }) {
+  const [mode, setMode] = useState(initialMode); // signin | signup | reset | check-email | unverified | link-error
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [passwordConfirm, setPasswordConfirm] = useState("");
@@ -248,7 +248,7 @@ export default function Auth({ justVerified = false, onAcknowledgeVerified = () 
           style={{ background: "rgba(15,21,38,0.80)", border: "1px solid rgba(242,233,220,0.16)",
             boxShadow: "0 30px 90px rgba(0,0,0,0.52)", backdropFilter: "blur(22px)", WebkitBackdropFilter: "blur(22px)" }}>
 
-          <div className="flex items-center gap-3 mb-6">
+          <button type="button" onClick={onGoHome} className="flex items-center gap-3 mb-6 text-left">
             <div className="bb-brand-icon flex h-12 w-12 items-center justify-center rounded-2xl"
               style={{ background: "rgba(217,164,65,0.12)", border: "1px solid rgba(217,164,65,0.25)" }}>
               <BaobabIcon />
@@ -257,7 +257,7 @@ export default function Auth({ justVerified = false, onAcknowledgeVerified = () 
               <div style={{ fontFamily: "Fraunces, serif", fontStyle: "italic", fontWeight: 600, fontSize: 28, lineHeight: 1 }}>Baobab</div>
               <div className="mt-1" style={{ fontSize: 9, letterSpacing: "0.22em", color: C.sandDim }}>BY LESSI PATRICK</div>
             </div>
-          </div>
+          </button>
 
           {/* Bandeau "email vérifié" — uniquement en mode signin, jamais après une connexion normale. */}
           {mode === "signin" && justVerified && (

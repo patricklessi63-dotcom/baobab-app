@@ -1,10 +1,44 @@
+// Source unique de vérité pour les couleurs de l'app — anciennement
+// dispersée en 3 palettes incompatibles (constants.js, auth/authTheme.js,
+// social/theme.js). Les deux autres fichiers sont désormais de simples
+// ré-exports de ce module (voir leur en-tête). Un jeton de couleur n'est
+// jamais dupliqué en dur ailleurs : voir chaque composant pour l'import.
 export const C = {
+  // --- Chrome applicatif / onboarding / édition de profil ---
   indigo: "#1E2A4F",
   indigoDeep: "#141D38",
   clay: "#C1613D",
   ochre: "#D9A441",
   sand: "#F2E9DC",
   ink: "#2B2420",
+
+  // --- Écrans pré-connexion (auth, landing, pages légales) ---
+  dusk: "#0F1526",
+  dusk3: "#232D52",
+  bark: "#8A6A52",
+  acacia: "#8FAE86",
+  sandDim: "rgba(242,233,220,0.72)",
+
+  // --- Coquille sociale post-connexion (fil, découverte, messages...) ---
+  primary: "#151B3D",
+  green: "#2F8F6B",
+  coral: "#E56B5D",
+  gold: "#F2B84B",
+
+  // --- Nouvelles valeurs canoniques : remplacent 2 tons froids qui
+  // détonnaient avec le reste de la palette (gris bleuté vs. chaud) ---
+  bg: "#FAF7F2",
+  muted: "rgba(43,36,32,0.6)",
+
+  // --- Promues depuis des littéraux orphelins ailleurs dans le code,
+  // valeurs inchangées — juste nommées pour éviter la dérive future ---
+  dangerBg: "#FCE8E0",
+  goldTint: "#FFF9F0",
+  goldTintDeep: "#FFF3E8",
+  goldText: "#A5761F",
+  online: "#27C56D",
+  offline: "#B9BEC9",
+  verified: "#3897F0",
 };
 
 export const EDUCATION_LEVELS = ["Secondaire", "Collégial / DEC", "Baccalauréat", "Maîtrise", "Doctorat", "Formation professionnelle"];

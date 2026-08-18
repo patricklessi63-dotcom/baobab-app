@@ -22,6 +22,8 @@ export default function EditProfileForm({
   currentUser,
   setCoverFile,
   setCoverPreview,
+  coverRemoved,
+  setCoverRemoved,
   existingPhotos,
   removeExistingPhoto,
   newPhotoPreviews,
@@ -52,39 +54,52 @@ export default function EditProfileForm({
         Modifier mon profil
       </h2>
 
-      <label className="cursor-pointer block mb-4" style={{ position: "relative" }}>
-        <div
-          className="w-full rounded-2xl flex items-center justify-center"
-          style={{
-            height: 120,
-            background: coverPreview || currentUser?.cover_url
-              ? `url(${coverPreview || currentUser.cover_url}) center/cover`
-              : `linear-gradient(150deg, ${C.ochre}, ${C.clay} 55%, ${C.indigo} 130%)`,
-          }}
-        >
-          {!coverPreview && !currentUser?.cover_url && (
-            <span className="text-xs font-semibold flex items-center gap-1.5" style={{ color: "#fff" }}>
-              <Camera size={14} /> Ajouter une photo de couverture
-            </span>
-          )}
-        </div>
-        <input
-          type="file"
-          accept="image/*"
-          className="hidden"
-          onChange={async (e) => {
-            const file = e.target.files?.[0];
-            e.target.value = "";
-            if (!file) return;
-            const { ok, error } = await validateMediaFile(file, "image");
-            if (!ok) { onError(error); return; }
-            setCoverFile(file);
-            const reader = new FileReader();
-            reader.onload = () => setCoverPreview(reader.result);
-            reader.readAsDataURL(file);
-          }}
-        />
-      </label>
+      <div className="mb-4" style={{ position: "relative" }}>
+        <label className="cursor-pointer block">
+          <div
+            className="w-full rounded-2xl flex items-center justify-center"
+            style={{
+              height: 120,
+              background: !coverRemoved && (coverPreview || currentUser?.cover_url)
+                ? `url(${coverPreview || currentUser.cover_url}) center/cover`
+                : `linear-gradient(150deg, ${C.ochre}, ${C.clay} 55%, ${C.indigo} 130%)`,
+            }}
+          >
+            {coverRemoved || (!coverPreview && !currentUser?.cover_url) ? (
+              <span className="text-xs font-semibold flex items-center gap-1.5" style={{ color: "#fff" }}>
+                <Camera size={14} /> Ajouter une photo de couverture
+              </span>
+            ) : null}
+          </div>
+          <input
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={async (e) => {
+              const file = e.target.files?.[0];
+              e.target.value = "";
+              if (!file) return;
+              const { ok, error } = await validateMediaFile(file, "image");
+              if (!ok) { onError(error); return; }
+              setCoverFile(file);
+              setCoverRemoved(false);
+              const reader = new FileReader();
+              reader.onload = () => setCoverPreview(reader.result);
+              reader.readAsDataURL(file);
+            }}
+          />
+        </label>
+        {!coverRemoved && (coverPreview || currentUser?.cover_url) && (
+          <button
+            type="button"
+            onClick={() => { setCoverFile(null); setCoverPreview(""); setCoverRemoved(true); }}
+            aria-label="Supprimer la photo de couverture"
+            style={{ position: "absolute", top: 8, right: 8, width: 26, height: 26, borderRadius: "50%", background: C.indigo, color: "#fff", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center" }}
+          >
+            ×
+          </button>
+        )}
+      </div>
 
       <form onSubmit={handleSaveProfile} className="flex flex-col gap-3">
         <div className="mb-2">

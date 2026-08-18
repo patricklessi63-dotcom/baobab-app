@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { ImagePlus } from "lucide-react";
 import ChipSelect from "../ChipSelect";
 import { supabase } from "../../supabaseClient";
-import { EVENT_CATEGORIES } from "../../lib/events/eventConfig";
+import { EVENT_CATEGORIES, CANADA_TIMEZONE_OPTIONS, closestCanadaTimezone } from "../../lib/events/eventConfig";
 import { validateMediaFile } from "../../lib/mediaValidation";
 import { extFromMime } from "../../lib/mediaConstants";
 import { uploadWithProgress } from "../../lib/uploadWithProgress";
@@ -38,6 +38,14 @@ export default function EventEditForm({ event, onSaved, onCancel, onError }) {
   const [city, setCity] = useState(event.city || "");
   const [location, setLocation] = useState(event.location || "");
   const [maxParticipants, setMaxParticipants] = useState(event.max_participants || "");
+  const [timezone, setTimezone] = useState(() => {
+    if (event.timezone) return event.timezone;
+    try {
+      return closestCanadaTimezone(Intl.DateTimeFormat().resolvedOptions().timeZone);
+    } catch {
+      return "America/Toronto";
+    }
+  });
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -84,6 +92,7 @@ export default function EventEditForm({ event, onSaved, onCancel, onError }) {
           city: city.trim(),
           location: location.trim() || null,
           max_participants: maxParticipants ? Number(maxParticipants) : null,
+          timezone: timezone || null,
           updated_at: new Date().toISOString(),
         })
         .eq("id", event.id)
@@ -140,6 +149,13 @@ export default function EventEditForm({ event, onSaved, onCancel, onError }) {
           <input type="time" value={time} onChange={(e) => setTime(e.target.value)} className="mt-1.5 w-full rounded-xl px-3.5 py-2.5 text-sm outline-none" style={{ background: bg }} />
         </label>
       </div>
+
+      <label className="block">
+        <span className="text-xs font-bold" style={{ color: muted }}>Fuseau horaire</span>
+        <select value={timezone} onChange={(e) => setTimezone(e.target.value)} className="mt-1.5 w-full rounded-xl px-3.5 py-2.5 text-sm outline-none" style={{ background: bg }}>
+          {CANADA_TIMEZONE_OPTIONS.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+        </select>
+      </label>
 
       <label className="block">
         <span className="text-xs font-bold" style={{ color: muted }}>Durée (minutes, optionnel)</span>

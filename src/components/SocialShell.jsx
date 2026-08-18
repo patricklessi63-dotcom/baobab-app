@@ -1,18 +1,16 @@
 import React, { useState, useEffect, useRef, Suspense, lazy } from "react";
-import { Home, Heart, X, MessageCircle, LogOut, Settings, Cog, UserRound, Search, Bell, Camera, Users2, PartyPopper } from "lucide-react";
+import { Home, Heart, X, MessageCircle, LogOut, Settings, Cog, UserRound, Search, Bell, Users2, PartyPopper } from "lucide-react";
 import Avatar from "./Avatar";
 import { supabase } from "../supabaseClient";
-import { matchKey, messagePreviewLabel } from "../utils/format";
+import { matchKey } from "../utils/format";
 import { useClickOutside } from "../hooks/useClickOutside";
 import { useEscapeKey } from "../hooks/useEscapeKey";
-import { primary, green, coral, gold, bg, muted, buttonBase } from "./social/theme";
+import { primary, coral, gold, bg, muted, buttonBase } from "./social/theme";
 import Skeleton from "./Skeleton";
 import FeedTab from "./social/FeedTab";
 import DiscoverTab from "./social/DiscoverTab";
 import MessagesTab from "./social/MessagesTab";
-import StoriesTab from "./social/StoriesTab";
 import ProfileTab from "./social/ProfileTab";
-import PostComposerModal from "./social/PostComposerModal";
 import StoryViewerModal from "./social/StoryViewerModal";
 import StoryComposerModal from "./social/StoryComposerModal";
 import PublicProfileModal from "./social/PublicProfileModal";
@@ -41,6 +39,22 @@ function colorForProfile(id) {
   let hash = 0;
   for (let i = 0; i < String(id).length; i++) hash = (hash * 31 + String(id).charCodeAt(i)) >>> 0;
   return STORY_COLORS[hash % STORY_COLORS.length];
+}
+
+// Recherche insensible aux accents/casse, support multi-mots (chaque mot
+// doit apparaître quelque part, dans n'importe quel ordre) — corrige un
+// bug identifié à l'audit (l'ancienne comparaison .includes() ratait
+// "patrick" pour "Patrick" accentué ailleurs, et ne trouvait jamais deux
+// mots dans le désordre).
+const DIACRITICS_RE = /\p{Diacritic}/gu;
+function normalizeForSearch(text) {
+  return (text || "").normalize("NFD").replace(DIACRITICS_RE, "").toLowerCase();
+}
+function matchesSearch(profile, query) {
+  const words = normalizeForSearch(query).split(/\s+/).filter(Boolean);
+  if (words.length === 0) return true;
+  const haystack = normalizeForSearch(`${profile.name} ${profile.city || ""} ${profile.country || ""} ${profile.occupation || ""}`);
+  return words.every((w) => haystack.includes(w));
 }
 
 // Onglet du fil ouvert par défaut selon l'objectif d'usage choisi à
@@ -94,11 +108,6 @@ export default function SocialShell({
   const [tab, setTab] = useState("feed");
   const [profileTab, setProfileTab] = useState("posts");
   const [feedTab, setFeedTab] = useState(() => defaultFeedTab(currentUser?.usage_goals));
-  const [composer, setComposer] = useState(false);
-  const [draft, setDraft] = useState("");
-  const [composerMedia, setComposerMedia] = useState(null);
-  const [composerMediaKind, setComposerMediaKind] = useState("");
-  const [posts, setPosts] = useState([]);
   const [menu, setMenu] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [notifCategory, setNotifCategory] = useState("all");
@@ -108,7 +117,7 @@ export default function SocialShell({
   ];
   const [search, setSearch] = useState("");
   const [stories, setStories] = useState([
-    { name: "Votre statut", initial: "+", own: true, color: "#151B3D" },
+    { name: "Votre statut", initial: "+", own: true, color: primary },
   ]);
   const [storyComposer, setStoryComposer] = useState(false);
   const [storyText, setStoryText] = useState("");
@@ -121,8 +130,6 @@ export default function SocialShell({
   const [storyReply, setStoryReply] = useState("");
   const [viewedProfileId, setViewedProfileId] = useState(null);
   const [favoriteIds, setFavoriteIds] = useState(new Set());
-  const photoInputRef = useRef(null);
-  const videoInputRef = useRef(null);
   const storyPhotoInputRef = useRef(null);
   const storyVideoInputRef = useRef(null);
   const searchRef = useRef(null);
@@ -308,7 +315,6 @@ export default function SocialShell({
 
   const [lastByKey, setLastByKey] = useState({});
   const [unreadByKey, setUnreadByKey] = useState({});
-  const [recentEvents, setRecentEvents] = useState([]);
 
   // Aperçu du dernier message + compte de non-lus par conversation — une
   // seule requête bornée, sans nouvelle table (voir plan Phase 5).
@@ -353,7 +359,6 @@ export default function SocialShell({
         });
         if (m.from_id !== currentUser.id) {
           setUnreadByKey((prev) => ({ ...prev, [m.match_key]: (prev[m.match_key] || 0) + 1 }));
-          setRecentEvents((prev) => [{ type: "message", matchKey: m.match_key, preview: messagePreviewLabel(m), at: m.created_at }, ...prev].slice(0, 10));
         }
       })
       .subscribe();
@@ -390,8 +395,10 @@ export default function SocialShell({
     return () => { alive = false; };
   }, [currentUser]);
 
-  // Notifications de communauté — table réelle et persistée (voir
-  // supabase-communities.sql), contrairement à recentEvents (session-local).
+  // Notifications — table réelle et persistée (voir supabase-communities.sql,
+  // supabase-notifications-persistence.sql), couvre désormais aussi
+  // like/match/message (auparavant "recentEvents", un state React local
+  // perdu au rechargement — retiré, remplacé par ce même mécanisme).
   // "communityNotifications" alimente la LISTE affichée dans le menu (elle
   // reste visible tant que le menu est ouvert, même une fois marquée lue) ;
   // "unreadCommunityCount" pilote uniquement le badge, remis à zéro dès
@@ -425,11 +432,23 @@ export default function SocialShell({
   }, [currentUser]);
 
   // Les badges partagent le même compteur brut/mécanisme de remise à zéro
-  // (markCommunityNotificationsRead) — seule la répartition par
-  // target_type diffère pour savoir quel onglet allumer.
-  const unreadEventNotifications = communityNotifications.filter((n) => n.target_type === "event");
-  const unreadFollowNotifications = communityNotifications.filter((n) => n.target_type === "profile");
-  const unreadCommunityNotifications = communityNotifications.filter((n) => n.target_type !== "event" && n.target_type !== "profile");
+  // (markCommunityNotificationsRead) — répartition par "type" explicite
+  // (pas par target_type) : new_follower/new_like/new_match partagent
+  // tous target_type="profile", donc seul le type permet de les distinguer.
+  // Filtrage par préférences de notifications — appliqué à l'affichage
+  // seulement (les lignes restent écrites en base, voir décision de
+  // périmètre du rapport final). Une clé absente = catégorie activée.
+  const notifPrefs = currentUser?.notification_preferences || {};
+  const prefEnabled = (key) => notifPrefs[key] !== false;
+  const unreadEventNotifications = prefEnabled("events") ? communityNotifications.filter((n) => n.target_type === "event") : [];
+  const unreadFollowNotifications = prefEnabled("follows") ? communityNotifications.filter((n) => n.type === "new_follower") : [];
+  const unreadDatingNotifications = communityNotifications.filter((n) =>
+    (n.type === "new_like" && prefEnabled("likes")) || (n.type === "new_match" && prefEnabled("match"))
+  );
+  const unreadMessageNotifications = prefEnabled("messages") ? communityNotifications.filter((n) => n.type === "new_message") : [];
+  const unreadCommunityNotifications = prefEnabled("communities") ? communityNotifications.filter((n) =>
+    n.target_type !== "event" && n.type !== "new_follower" && n.type !== "new_like" && n.type !== "new_match" && n.type !== "new_message"
+  ) : [];
   const eventsBadgeCount = unreadCommunityCount > 0 ? unreadEventNotifications.length : 0;
   const communitiesBadgeCount = unreadCommunityCount > 0 ? unreadCommunityNotifications.length : 0;
   const followsBadgeCount = unreadCommunityCount > 0 ? unreadFollowNotifications.length : 0;
@@ -507,6 +526,11 @@ export default function SocialShell({
     event_report_received: "Nouveau signalement sur ton événement",
     event_waitlist_promoted: "Tu es passé(e) de la liste d'attente à participant(e)",
     new_follower: "Nouvel abonné",
+    new_like: "T'a aimé(e)",
+    new_match: "C'est un match !",
+    new_message: "Nouveau message",
+    post_liked: "A aimé ta publication",
+    post_commented: "A commenté ta publication",
   };
 
   const totalUnreadMessages = Object.values(unreadByKey).reduce((sum, n) => sum + n, 0);
@@ -535,6 +559,17 @@ export default function SocialShell({
       || null
     : null;
   const viewedProfileIsMatch = viewedProfile ? matches.some((m) => m.id === viewedProfile.id) : false;
+
+  // Ouvre directement la conversation depuis une notification "new_message"
+  // — même résolution locale-puis-réseau que viewedProfile ci-dessus, mais
+  // enchaîne sur openChat au lieu d'ouvrir la modale de profil.
+  async function openChatWithProfileId(id) {
+    const local = profiles.find((p) => p.id === id) || candidates.find((p) => p.id === id) || matches.find((p) => p.id === id);
+    if (local) { openChat(local); return; }
+    const { data, error } = await supabase.from("profiles").select("*").eq("id", id).maybeSingle();
+    if (error) { console.error(error.message, error.code, error.details, error.hint); return; }
+    if (data) openChat(data);
+  }
   const favoriteProfiles = profiles.filter((p) => favoriteIds.has(p.id));
   // Un blocage (dans un sens ou l'autre) retire immédiatement le profil de
   // ces listes, même si la relation "follows" existe toujours en base.
@@ -575,10 +610,19 @@ export default function SocialShell({
 
   const newArrivals = candidates.filter((p) => p.arrived_since && p.arrived_since.trim());
 
-  const filteredPeople = candidates.filter((p) =>
-    !search.trim() ||
-    `${p.name} ${p.city || ""} ${p.country || ""} ${p.occupation || ""}`.toLowerCase().includes(search.trim().toLowerCase())
-  );
+  // Filtre la pile de découverte par la recherche (comportement existant,
+  // inchangé de portée — reste borné à candidates) — voir searchResults
+  // plus bas pour la recherche globale du menu déroulant de l'en-tête.
+  const filteredPeople = candidates.filter((p) => matchesSearch(p, search));
+
+  // Recherche globale (en-tête) — corrige le bug identifié à l'audit :
+  // l'ancienne recherche ne portait que sur le pool de matching restant
+  // (candidates), donc un profil déjà liké/matché/hors préférences était
+  // introuvable même en tapant son nom exact. Ici : tous les profils
+  // connus (cache déjà chargé), moins soi-même et les bloqués.
+  const searchResults = search.trim()
+    ? profiles.filter((p) => p.id !== currentUser?.id && !blockedIds.has(p.id) && matchesSearch(p, search))
+    : [];
 
   const topPerson = filteredPeople[0] || null;
   const topPhotos = topPerson
@@ -615,41 +659,6 @@ export default function SocialShell({
     if (swipeX > 110) decideSwipe("like");
     else if (swipeX < -110) decideSwipe("pass");
     else setSwipeX(0);
-  };
-
-  const publish = () => {
-    if (!draft.trim() && !composerMedia) return;
-    const next = {
-      id: Date.now(),
-      name: currentUser?.name || "Toi",
-      initial: (currentUser?.name || "T")[0].toUpperCase(),
-      place: currentUser?.city || "Canada",
-      time: "à l'instant",
-      text: draft.trim() || "Nouveau partage sur Baobab ✨",
-      likes: 0,
-      color: green,
-      media: Boolean(composerMedia),
-      mediaUrl: composerMedia ? URL.createObjectURL(composerMedia) : null,
-      mediaKind: composerMediaKind,
-    };
-    setPosts((prev) => [next, ...prev]);
-    setDraft("");
-    setComposerMedia(null);
-    setComposerMediaKind("");
-    setComposer(false);
-  };
-
-  const pickMedia = (kind) => {
-    if (kind === "photo") photoInputRef.current?.click();
-    else videoInputRef.current?.click();
-  };
-
-  const onMediaSelected = (e, kind) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setComposerMedia(file);
-    setComposerMediaKind(kind);
-    e.target.value = "";
   };
 
   const pickStoryMedia = (kind) => {
@@ -792,7 +801,6 @@ export default function SocialShell({
     ["matches", MessageCircle, "Messages", () => totalUnreadMessages],
     ["communities", Users2, "Communautés", () => communitiesBadgeCount],
     ["events", PartyPopper, "Événements", () => eventsBadgeCount],
-    ["stories", Camera, "Statuts", null],
     ["profile", UserRound, "Profil", null],
   ];
 
@@ -813,7 +821,7 @@ export default function SocialShell({
         .bb-glass { background: rgba(255,255,255,.78) !important; backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); }
         @media (prefers-reduced-motion: reduce) { .bb-app * { animation: none !important; transition: none !important; } }
       `}</style>
-      <div aria-hidden="true" className="fixed inset-0 z-0 pointer-events-none" style={{ background: "#F7F8FA" }} />
+      <div aria-hidden="true" className="fixed inset-0 z-0 pointer-events-none" style={{ background: bg }} />
       <header className="sticky top-0 z-40 border-b bb-glass" style={{ borderColor: "rgba(21,27,61,.08)" }}>
         <div className="max-w-7xl mx-auto px-4 lg:px-8 h-[74px] flex items-center gap-4">
           <button onClick={() => goTab("feed")} className="flex items-center gap-3 shrink-0">
@@ -839,16 +847,13 @@ export default function SocialShell({
             {search && (
               <div className="absolute top-14 left-0 right-0 bg-white rounded-2xl border shadow-2xl p-2 z-50">
                 <div className="px-3 py-2 text-[11px] font-black uppercase tracking-wider" style={{ color: muted }}>Personnes</div>
-                {filteredPeople.slice(0, 4).map((p) => (
-                  <button key={p.id} onClick={() => { goTab("discover"); }} className="w-full flex items-center gap-3 p-2.5 rounded-xl hover:bg-slate-50 text-left">
+                {searchResults.slice(0, 8).map((p) => (
+                  <button key={p.id} onClick={() => { setSearch(""); setViewedProfileId(p.id); }} className="w-full flex items-center gap-3 p-2.5 rounded-xl hover:bg-slate-50 text-left">
                     <Avatar name={p.name} url={p.avatar_url} size={38} />
                     <div className="min-w-0"><div className="text-sm font-bold truncate">{p.name}, {p.age}</div><div className="text-xs" style={{ color: muted }}>{p.city || "Canada"} · {p.country || "Afrique"}</div></div>
                   </button>
                 ))}
-                {filteredPeople.length === 0 && <div className="px-3 py-3 text-sm" style={{ color: muted }}>Aucun profil trouvé.</div>}
-                <div className="border-t mt-1 pt-1">
-                  <button onClick={() => goTab("feed")} className="w-full text-left px-3 py-2 text-xs font-bold" style={{ color: primary }}>Voir les résultats dans le fil →</button>
-                </div>
+                {searchResults.length === 0 && <div className="px-3 py-3 text-sm" style={{ color: muted }}>Aucun profil trouvé.</div>}
               </div>
             )}
           </div>
@@ -878,7 +883,7 @@ export default function SocialShell({
                     </button>
                   ))}
                 </div>
-                {recentEvents.length === 0 && incomingFavoritesCount === 0 && communityNotifications.length === 0 ? (
+                {incomingFavoritesCount === 0 && communityNotifications.length === 0 ? (
                   <div className="p-6 text-center">
                     <Bell size={22} className="mx-auto mb-2" color={muted} />
                     <p className="text-xs" style={{ color: muted }}>Aucune notification pour l'instant.</p>
@@ -890,9 +895,14 @@ export default function SocialShell({
                         ⭐ {incomingFavoritesCount} personne{incomingFavoritesCount > 1 ? "s" : ""} t'a{incomingFavoritesCount > 1 ? "" : ""} ajouté en favori.
                       </div>
                     )}
-                    {(notifCategory === "all" || notifCategory === "messages") && recentEvents.map((ev, i) => (
-                      <button key={i} onClick={() => { setNotificationsOpen(false); goTab("matches"); }} className="text-left px-2 py-2.5 rounded-xl text-sm hover:bg-slate-50 focus-visible:outline focus-visible:outline-2">
-                        💬 {ev.preview}
+                    {(notifCategory === "all" || notifCategory === "dating") && unreadDatingNotifications.map((n) => (
+                      <button key={n.id} onClick={() => { setNotificationsOpen(false); setViewedProfileId(n.target_id); }} className="text-left px-2 py-2.5 rounded-xl text-sm hover:bg-slate-50 focus-visible:outline focus-visible:outline-2">
+                        {n.type === "new_match" ? "💞" : "❤️"} {n.actor?.name ? `${n.actor.name} — ${n.type === "new_match" ? NOTIFICATION_LABELS.new_match : NOTIFICATION_LABELS.new_like}` : (NOTIFICATION_LABELS[n.type] || "Nouvelle activité")}
+                      </button>
+                    ))}
+                    {(notifCategory === "all" || notifCategory === "messages") && unreadMessageNotifications.map((n) => (
+                      <button key={n.id} onClick={() => { setNotificationsOpen(false); openChatWithProfileId(n.target_id); }} className="text-left px-2 py-2.5 rounded-xl text-sm hover:bg-slate-50 focus-visible:outline focus-visible:outline-2">
+                        💬 {n.actor?.name ? `Nouveau message de ${n.actor.name}` : NOTIFICATION_LABELS.new_message}
                       </button>
                     ))}
                     {(notifCategory === "all" || notifCategory === "follows") && unreadFollowNotifications.map((n) => (
@@ -966,6 +976,8 @@ export default function SocialShell({
             setFeedTab={setFeedTab}
             followedProfiles={followedProfiles}
             profilePhotos={profilePhotos}
+            blockedIds={blockedIds}
+            onError={onError}
           />
         )}
 
@@ -1024,20 +1036,14 @@ export default function SocialShell({
           />
         )}
 
-        {tab === "stories" && (
-          <StoriesTab stories={stories} viewedStories={viewedStories} openStory={openStory} setStoryComposer={setStoryComposer} />
-        )}
-
         {tab === "profile" && (
           <ProfileTab
             currentUser={currentUser}
-            posts={posts}
             openEditProfile={openEditProfile}
             matches={matches}
             candidates={candidates}
             profileTab={profileTab}
             setProfileTab={setProfileTab}
-            setComposer={setComposer}
             goTab={goTab}
             profilePhotos={profilePhotos}
             favoritesCount={favoriteProfiles.length}
@@ -1109,20 +1115,6 @@ export default function SocialShell({
           })}
         </div>
       </nav>
-      <PostComposerModal
-        composer={composer}
-        setComposer={setComposer}
-        currentUser={currentUser}
-        draft={draft}
-        setDraft={setDraft}
-        composerMedia={composerMedia}
-        composerMediaKind={composerMediaKind}
-        pickMedia={pickMedia}
-        onMediaSelected={onMediaSelected}
-        photoInputRef={photoInputRef}
-        videoInputRef={videoInputRef}
-        publish={publish}
-      />
 
       <StoryViewerModal
         storyViewerIndex={storyViewerIndex}

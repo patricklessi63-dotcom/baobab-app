@@ -1,6 +1,6 @@
 import React, { useState, useRef } from "react";
 import { Sparkles } from "lucide-react";
-import { coral, muted, bg } from "../social/theme";
+import { coral, muted, bg, goldText } from "../social/theme";
 import { useClickOutside } from "../../hooks/useClickOutside";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
 
@@ -29,7 +29,7 @@ export default function AiConversationSuggestions() {
       </button>
       {open && (
         <div className="absolute bottom-14 left-0 w-72 bg-white rounded-2xl border shadow-2xl p-3 z-20">
-          <div className="text-[10px] font-black uppercase tracking-wider flex items-center gap-1 mb-2" style={{ color: "#A5761F" }}>
+          <div className="text-[10px] font-black uppercase tracking-wider flex items-center gap-1 mb-2" style={{ color: goldText }}>
             <Sparkles size={11} /> Suggestions IA
           </div>
           <p className="text-xs" style={{ color: muted }}>Bientôt disponible ✨</p>

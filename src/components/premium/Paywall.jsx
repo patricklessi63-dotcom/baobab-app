@@ -1,5 +1,5 @@
 import React from "react";
-import { primary, coral, muted, card } from "../social/theme";
+import { primary, coral, muted, card, goldTint, goldTintDeep } from "../social/theme";
 
 // Paywall réutilisable — barrière d'UX (pas de sécurité, la donnée
 // derrière reste déjà lisible ; c'est juste la commodité de filtrage qui
@@ -7,7 +7,7 @@ import { primary, coral, muted, card } from "../social/theme";
 // dorés, juste un rappel discret + un seul bouton d'action.
 export default function Paywall({ title = "Fonction Premium", description, onDiscover }) {
   return (
-    <div className={`${card} p-6 text-center`} style={{ background: "linear-gradient(180deg, #FFF9F0, #FFF3E8)" }}>
+    <div className={`${card} p-6 text-center`} style={{ background: `linear-gradient(180deg, ${goldTint}, ${goldTintDeep})` }}>
       <div className="h-11 w-11 rounded-2xl mx-auto flex items-center justify-center" style={{ background: "rgba(242,184,75,.18)" }}>
         <span style={{ fontSize: 20 }}>💎</span>
       </div>

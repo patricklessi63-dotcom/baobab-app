@@ -4,6 +4,7 @@ import { C } from "../constants";
 import { PrivacyPolicyContent, TermsOfServiceContent } from "../legalContent";
 import Avatar from "./Avatar";
 import PrivacyFieldsModal from "./PrivacyFieldsModal";
+import NotificationPreferencesModal from "./NotificationPreferencesModal";
 import DeleteAccountModal from "./DeleteAccountModal";
 import ReportModal from "./social/ReportModal";
 import BlockConfirmModal from "./social/BlockConfirmModal";
@@ -29,6 +30,7 @@ export default function AppModals({
   currentUser,
   onToggleOnlineStatus,
   onToggleField,
+  onUpdateNotificationPreference,
   blockedProfiles = [],
   onUnblock,
   privacyOpen,
@@ -37,14 +39,16 @@ export default function AppModals({
   setTermsOpen,
   aboutOpen,
   setAboutOpen,
-  onAccountDeleted = () => {},
+  onAccountDeletionRequested = () => {},
 }) {
   const [blockedOpen, setBlockedOpen] = React.useState(false);
   const [privacyFieldsOpen, setPrivacyFieldsOpen] = React.useState(false);
+  const [notificationPrefsOpen, setNotificationPrefsOpen] = React.useState(false);
   const [deleteAccountOpen, setDeleteAccountOpen] = React.useState(false);
   useEscapeKey(settingsOpen, () => setSettingsOpen(false));
   useEscapeKey(blockedOpen, () => setBlockedOpen(false));
   useEscapeKey(privacyOpen, () => setPrivacyOpen(false));
+  useEscapeKey(notificationPrefsOpen, () => setNotificationPrefsOpen(false));
   useEscapeKey(termsOpen, () => setTermsOpen(false));
   useEscapeKey(aboutOpen, () => setAboutOpen(false));
   return (
@@ -81,7 +85,7 @@ export default function AppModals({
 
             <div className="text-[11px] font-black uppercase tracking-wider mt-2" style={{ color: "rgba(43,36,32,0.4)" }}>Confidentialité</div>
             <label className="flex items-center justify-between py-2.5" style={{ borderTop: "1px solid rgba(43,36,32,0.08)", minHeight: 44 }}>
-              <div className="flex items-center gap-2 text-sm"><Circle size={14} color={C.acacia || C.ochre} /> Statut en ligne visible</div>
+              <div className="flex items-center gap-2 text-sm"><Circle size={14} color={C.acacia} /> Statut en ligne visible</div>
               <input
                 type="checkbox"
                 checked={currentUser?.show_online_status !== false}
@@ -89,10 +93,10 @@ export default function AppModals({
                 style={{ width: 18, height: 18 }}
               />
             </label>
-            <label className="flex items-center justify-between py-2.5" style={{ borderTop: "1px solid rgba(43,36,32,0.08)", minHeight: 44 }}>
-              <div className="flex items-center gap-2 text-sm"><Bell size={14} color={C.ochre} /> Notifications</div>
-              <input type="checkbox" defaultChecked style={{ width: 18, height: 18 }} />
-            </label>
+            <button onClick={() => { setSettingsOpen(false); setNotificationPrefsOpen(true); }} className="w-full flex items-center justify-between py-2.5" style={{ borderTop: "1px solid rgba(43,36,32,0.08)", minHeight: 44 }}>
+              <span className="flex items-center gap-2 text-sm"><Bell size={14} color={C.ochre} /> Notifications</span>
+              <ArrowLeft size={14} style={{ transform: "rotate(180deg)", color: "rgba(43,36,32,0.35)" }} />
+            </button>
             <div className="flex items-center justify-between py-2.5" style={{ borderTop: "1px solid rgba(43,36,32,0.08)" }}>
               <div className="flex items-center gap-2 text-sm"><Moon size={14} color={C.indigo} /> Mode sombre</div>
               <span className="text-xs" style={{ color: "rgba(43,36,32,0.4)" }}>Bientôt</span>
@@ -111,8 +115,8 @@ export default function AppModals({
 
             <div className="text-[11px] font-black uppercase tracking-wider mt-4" style={{ color: "rgba(43,36,32,0.4)" }}>Baobab Protect</div>
             <div className="flex items-center justify-between py-2.5" style={{ borderTop: "1px solid rgba(43,36,32,0.08)" }}>
-              <div className="flex items-center gap-2 text-sm"><ShieldCheck size={14} color={currentUser?.email_verified ? "#3897F0" : C.ink} /> Email vérifié</div>
-              <span className="text-xs font-bold" style={{ color: currentUser?.email_verified ? "#3897F0" : "rgba(43,36,32,0.4)" }}>
+              <div className="flex items-center gap-2 text-sm"><ShieldCheck size={14} color={currentUser?.email_verified ? C.verified : C.ink} /> Email vérifié</div>
+              <span className="text-xs font-bold" style={{ color: currentUser?.email_verified ? C.verified : "rgba(43,36,32,0.4)" }}>
                 {currentUser?.email_verified ? "Vérifié" : "Non vérifié"}
               </span>
             </div>
@@ -150,11 +154,21 @@ export default function AppModals({
         onToggleField={onToggleField}
       />
 
+      {/* ---------- MODAL PRÉFÉRENCES DE NOTIFICATIONS ---------- */}
+      <NotificationPreferencesModal
+        open={notificationPrefsOpen}
+        onClose={() => setNotificationPrefsOpen(false)}
+        onBack={() => { setNotificationPrefsOpen(false); setSettingsOpen(true); }}
+        currentUser={currentUser}
+        onUpdatePreference={onUpdateNotificationPreference}
+      />
+
       {/* ---------- MODAL SUPPRESSION DE COMPTE ---------- */}
       <DeleteAccountModal
         open={deleteAccountOpen}
         onClose={() => setDeleteAccountOpen(false)}
-        onDeleted={onAccountDeleted}
+        currentUser={currentUser}
+        onRequested={() => { setDeleteAccountOpen(false); onAccountDeletionRequested(); }}
       />
 
       {/* ---------- MODAL COMPTES BLOQUÉS ---------- */}

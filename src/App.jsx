@@ -7,6 +7,7 @@ import { matchKey } from "./utils/format";
 import SocialShell from "./components/SocialShell";
 import AppModals from "./components/AppModals";
 import ConnectivityBanner from "./components/ConnectivityBanner";
+import AccountDeletionBanner from "./components/AccountDeletionBanner";
 import EditProfileForm from "./screens/EditProfileForm";
 import UpdatePasswordScreen from "./screens/UpdatePasswordScreen";
 import OnboardingWizard from "./screens/onboarding/OnboardingWizard";
@@ -17,10 +18,18 @@ import { validateMediaFile } from "./lib/mediaValidation";
 import { uploadWithProgress } from "./lib/uploadWithProgress";
 import { MEDIA_BUCKET, extFromMime } from "./lib/mediaConstants";
 import { trackActivation } from "./lib/trackActivation";
+import { usePathname } from "./hooks/usePathname";
+import LandingPage from "./screens/public/LandingPage";
+import AboutPage from "./screens/public/AboutPage";
+import PrivacyPage from "./screens/public/PrivacyPage";
+import TermsPage from "./screens/public/TermsPage";
+
+const PUBLIC_ONLY_PATHS = new Set(["/connexion", "/inscription", "/a-propos", "/confidentialite", "/conditions"]);
 
 export default function App() {
   const [session, setSession] = useState(undefined); // undefined = pas encore vérifié, null = pas connecté
   const [view, setView] = useState("loading"); // loading | form | feed | discover | matches | stories
+  const { pathname, navigate } = usePathname();
   const [profiles, setProfiles] = useState([]);
   const [currentUser, setCurrentUser] = useState(null);
   const [likePairs, setLikePairs] = useState([]); // [{from_id, to_id}]
@@ -48,6 +57,7 @@ export default function App() {
   const [aboutOpen, setAboutOpen] = useState(false);
   const [coverFile, setCoverFile] = useState(null);
   const [coverPreview, setCoverPreview] = useState("");
+  const [coverRemoved, setCoverRemoved] = useState(false);
   const [otherTyping, setOtherTyping] = useState(false);
   const typingChannelRef = useRef(null);
   const typingTimeoutRef = useRef(null);
@@ -213,10 +223,11 @@ export default function App() {
       setCurrentUser(null);
       return;
     }
+    if (PUBLIC_ONLY_PATHS.has(window.location.pathname)) navigate("/");
     loadAll().then(() => {
       setView("checking-profile");
     });
-  }, [session, loadAll]);
+  }, [session, loadAll]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (view !== "checking-profile") return;
@@ -234,6 +245,14 @@ export default function App() {
       setView("onboarding");
     }
   }, [view, profiles, session]);
+
+  function handleAccountDeletionRequested() {
+    setCurrentUser((u) => (u ? { ...u, deletion_requested_at: new Date().toISOString() } : u));
+  }
+
+  function handleCancelAccountDeletion() {
+    setCurrentUser((u) => (u ? { ...u, deletion_requested_at: null } : u));
+  }
 
   async function handleSignOut() {
     await supabase.auth.signOut();
@@ -329,6 +348,21 @@ export default function App() {
       if (toggleError) throw toggleError;
     } catch (e) {
       console.error(e);
+    }
+  }
+
+  async function handleUpdateNotificationPreference(category, enabled) {
+    if (!currentUser) return;
+    const nextPrefs = { ...(currentUser.notification_preferences || {}), [category]: enabled };
+    setCurrentUser((u) => (u ? { ...u, notification_preferences: nextPrefs } : u));
+    try {
+      const { error: prefError } = await supabase
+        .from("profiles")
+        .update({ notification_preferences: nextPrefs })
+        .eq("id", currentUser.id);
+      if (prefError) throw prefError;
+    } catch (e) {
+      console.error(e.message, e.code, e.details, e.hint);
     }
   }
 
@@ -454,6 +488,7 @@ export default function App() {
     setNewPhotoPreviews([]);
     setCoverFile(null);
     setCoverPreview("");
+    setCoverRemoved(false);
     setView("editProfile");
   }
 
@@ -533,7 +568,17 @@ export default function App() {
       const newAvatarUrl = allPhotos[0]?.url || null;
 
       let coverUrl = currentUser.cover_url || null;
-      if (coverFile) {
+      if (coverRemoved) {
+        // Même nettoyage Storage que removeExistingPhoto — sans ça, le
+        // fichier de couverture restait orphelin dans le bucket public.
+        const marker = "/avatars/";
+        const idx = currentUser.cover_url?.indexOf(marker);
+        if (idx !== -1 && idx !== undefined) {
+          const storagePath = decodeURIComponent(currentUser.cover_url.slice(idx + marker.length));
+          supabase.storage.from("avatars").remove([storagePath]).catch(() => {});
+        }
+        coverUrl = null;
+      } else if (coverFile) {
         coverUrl = await uploadPhoto(session.user.id, coverFile, "cover");
       }
 
@@ -579,6 +624,7 @@ export default function App() {
       setProfilePhotos((pp) => ({ ...pp, [data.id]: allPhotos }));
       setCoverFile(null);
       setCoverPreview("");
+      setCoverRemoved(false);
       setError("");
       trackActivation(data.id, "profile_completed");
       setView("feed");
@@ -948,8 +994,17 @@ export default function App() {
   }
 
   if (view === "auth") {
+    const showAuthForm = justVerified || authLinkError || pathname === "/connexion" || pathname === "/inscription";
+    if (!showAuthForm) {
+      if (pathname === "/a-propos") return <AboutPage navigate={navigate} />;
+      if (pathname === "/confidentialite") return <PrivacyPage navigate={navigate} />;
+      if (pathname === "/conditions") return <TermsPage navigate={navigate} />;
+      return <LandingPage onLogin={() => navigate("/connexion")} onSignup={() => navigate("/inscription")} navigate={navigate} />;
+    }
     return (
       <Auth
+        initialMode={pathname === "/inscription" ? "signup" : "signin"}
+        onGoHome={() => navigate("/")}
         justVerified={justVerified}
         onAcknowledgeVerified={() => setJustVerified(false)}
         authLinkError={authLinkError}
@@ -966,6 +1021,7 @@ export default function App() {
     return (
       <>
         <ConnectivityBanner />
+        <AccountDeletionBanner currentUser={currentUser} onCancelled={handleCancelAccountDeletion} />
         <SocialShell
           currentUser={currentUser}
           setView={setView}
@@ -1008,12 +1064,12 @@ export default function App() {
           />
         )}
         {successNotice && (
-          <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[95] px-4 py-3 rounded-2xl text-sm font-semibold text-white shadow-xl" style={{ background: "#151B3D" }}>
+          <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[95] px-4 py-3 rounded-2xl text-sm font-semibold text-white shadow-xl" style={{ background: C.primary }}>
             {successNotice}
           </div>
         )}
         {error && (
-          <div role="alert" className="fixed top-4 left-1/2 -translate-x-1/2 z-[95] flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-semibold shadow-xl max-w-[92vw]" style={{ background: "#fce8e0", color: C.clay }}>
+          <div role="alert" className="fixed top-4 left-1/2 -translate-x-1/2 z-[95] flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-semibold shadow-xl max-w-[92vw]" style={{ background: C.dangerBg, color: C.clay }}>
             <span>{error}</span>
             <button onClick={() => setError("")} aria-label="Fermer le message d'erreur" className="text-xs font-bold underline flex-shrink-0">Fermer</button>
           </div>
@@ -1038,6 +1094,7 @@ export default function App() {
           currentUser={currentUser}
           onToggleOnlineStatus={handleToggleOnlineStatus}
           onToggleField={handleToggleField}
+          onUpdateNotificationPreference={handleUpdateNotificationPreference}
           blockedProfiles={blockedProfiles}
           onUnblock={handleUnblock}
           privacyOpen={privacyOpen}
@@ -1046,7 +1103,7 @@ export default function App() {
           setTermsOpen={setTermsOpen}
           aboutOpen={aboutOpen}
           setAboutOpen={setAboutOpen}
-          onAccountDeleted={handleSignOut}
+          onAccountDeletionRequested={handleAccountDeletionRequested}
         />
       </>
     );
@@ -1055,13 +1112,14 @@ export default function App() {
   return (
     <div className="bb-app min-h-screen flex flex-col relative overflow-x-hidden" style={{ fontFamily: "'Manrope', system-ui, sans-serif", color: C.ink }}>
       <ConnectivityBanner />
+      <AccountDeletionBanner currentUser={currentUser} onCancelled={handleCancelAccountDeletion} />
       <style>{`
         @keyframes bbGenericDrift { from { transform: scale(1.02); } to { transform: scale(1.06) translate3d(-1%, -1%, 0); } }
         .bb-generic-bg { animation: bbGenericDrift 26s ease-in-out alternate infinite; }
         .bb-generic-glass { background: rgba(255,255,255,.82) !important; backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); }
         @media (prefers-reduced-motion: reduce) { .bb-app * { animation: none !important; transition: none !important; } }
       `}</style>
-      <div aria-hidden="true" className="fixed inset-0 z-0 pointer-events-none" style={{ background: "#F7F8FA" }} />
+      <div aria-hidden="true" className="fixed inset-0 z-0 pointer-events-none" style={{ background: C.sand }} />
       {/* Header */}
       <div className="relative z-20 flex items-center justify-between px-5 py-4 bb-generic-glass" style={{ borderBottom: `1px solid rgba(43,36,32,0.08)`, boxShadow: "0 1px 0 rgba(20,29,56,0.02)", position: "sticky", top: 0, zIndex: 10 }}>
         <div className="flex items-center gap-2">
@@ -1075,7 +1133,7 @@ export default function App() {
       </div>
 
       {error && (
-        <div className="relative z-20 mx-5 mt-3 text-sm px-3 py-2 rounded-lg" style={{ background: "#fce8e0", color: C.clay }}>
+        <div className="relative z-20 mx-5 mt-3 text-sm px-3 py-2 rounded-lg" style={{ background: C.dangerBg, color: C.clay }}>
           {error}
         </div>
       )}
@@ -1110,6 +1168,8 @@ export default function App() {
             currentUser={currentUser}
             setCoverFile={setCoverFile}
             setCoverPreview={setCoverPreview}
+            coverRemoved={coverRemoved}
+            setCoverRemoved={setCoverRemoved}
             existingPhotos={existingPhotos}
             removeExistingPhoto={removeExistingPhoto}
             newPhotoPreviews={newPhotoPreviews}
@@ -1143,6 +1203,7 @@ export default function App() {
         currentUser={currentUser}
         onToggleOnlineStatus={handleToggleOnlineStatus}
         onToggleField={handleToggleField}
+        onUpdateNotificationPreference={handleUpdateNotificationPreference}
         blockedProfiles={blockedProfiles}
         onUnblock={handleUnblock}
         privacyOpen={privacyOpen}
@@ -1151,7 +1212,7 @@ export default function App() {
         setTermsOpen={setTermsOpen}
         aboutOpen={aboutOpen}
         setAboutOpen={setAboutOpen}
-        onAccountDeleted={handleSignOut}
+        onAccountDeletionRequested={handleAccountDeletionRequested}
       />
 
     </div>

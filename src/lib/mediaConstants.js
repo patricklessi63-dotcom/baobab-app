@@ -3,6 +3,7 @@
 // couleurs C.* — périmètre différent).
 
 export const MEDIA_BUCKET = "chat-media";
+export const POST_MEDIA_BUCKET = "post-media";
 
 export const MEDIA_LIMITS = {
   image: {

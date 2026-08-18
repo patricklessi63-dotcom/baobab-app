@@ -1,6 +1,6 @@
 import React from "react";
 import { X } from "lucide-react";
-import { primary, coral, muted, card } from "./theme";
+import { primary, coral, muted, card, bg } from "./theme";
 import { MATCH_WEIGHTS } from "../../lib/matching/matchingConfig";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
 
@@ -39,7 +39,7 @@ export default function MatchInfoModal({ open, onClose }) {
 
         <ul className="mt-4 space-y-2">
           {Object.entries(MATCH_WEIGHTS).map(([key, weight]) => (
-            <li key={key} className="flex items-center justify-between text-sm rounded-xl px-3 py-2" style={{ background: "#F5F6FA" }}>
+            <li key={key} className="flex items-center justify-between text-sm rounded-xl px-3 py-2" style={{ background: bg }}>
               <span>{CATEGORY_LABELS[key]}</span>
               <span className="font-bold" style={{ color: coral }}>{weight}%</span>
             </li>

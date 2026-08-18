@@ -1,7 +1,7 @@
 import React from "react";
 import { Heart, X, MessageCircle } from "lucide-react";
 import VerifiedBadge from "../VerifiedBadge";
-import { coral, gold, green, muted } from "../social/theme";
+import { coral, gold, green, muted, bg } from "../social/theme";
 
 export default function ProfileCard({
   profile,
@@ -75,7 +75,7 @@ export default function ProfileCard({
                 onClick={() => onPass(profile)}
                 aria-label={`Passer le profil de ${profile.name}`}
                 className="flex-1 rounded-lg py-2.5 flex items-center justify-center transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1"
-                style={{ background: "#F5F6FA", color: muted }}
+                style={{ background: bg, color: muted }}
               >
                 <X size={14} aria-hidden="true" />
               </button>

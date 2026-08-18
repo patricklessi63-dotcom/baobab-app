@@ -87,7 +87,10 @@ export default function PublicProfileModal({
               )}
             </div>
           ) : (
-            <div className="h-40 flex items-center justify-center" style={{ background: bg }}>
+            <div
+              className="h-40 flex items-center justify-center"
+              style={profile.cover_url ? { background: `url(${profile.cover_url}) center/cover` } : { background: bg }}
+            >
               <Avatar name={profile.name} url={profile.avatar_url} size={88} />
             </div>
           )}

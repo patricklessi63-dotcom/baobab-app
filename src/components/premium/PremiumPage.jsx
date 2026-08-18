@@ -3,7 +3,7 @@ import { ArrowLeft, Check } from "lucide-react";
 import { PREMIUM_PLANS, PREMIUM_FEATURES } from "../../lib/premium/premiumConfig";
 import { startCheckout } from "../../lib/premium/checkout";
 import { usePremiumStatus } from "../../lib/premium/usePremiumStatus";
-import { primary, coral, gold, green, muted, bg, card } from "../social/theme";
+import { primary, coral, gold, green, muted, bg, card, goldText } from "../social/theme";
 
 // Page complète (pas une modale), montée comme un onglet sans icône de
 // nav dédiée — cohérente avec l'identité visuelle Baobab existante
@@ -34,7 +34,7 @@ export default function PremiumPage({ currentUser, onBack, onError }) {
       </button>
 
       <div className="text-center mb-8">
-        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-[11px] font-black uppercase tracking-wider" style={{ background: "rgba(242,184,75,.16)", color: "#A5761F" }}>
+        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-[11px] font-black uppercase tracking-wider" style={{ background: "rgba(242,184,75,.16)", color: goldText }}>
           💎 Baobab Premium
         </div>
         <h1 className="text-3xl md:text-4xl font-black mt-3" style={{ color: primary }}>Plus de possibilités pour créer de vraies connexions.</h1>

@@ -5,7 +5,7 @@ import EventCommentsSection from "./EventCommentsSection";
 import EventPhotoGallery from "./EventPhotoGallery";
 import EmptyState from "../home/EmptyState";
 import Skeleton from "../Skeleton";
-import { categoryIcon, categoryLabel, reportCategoryLabel } from "../../lib/events/eventConfig";
+import { categoryIcon, categoryLabel, reportCategoryLabel, timezoneLabel } from "../../lib/events/eventConfig";
 import { isEventStaff } from "../../lib/events/permissions";
 import { downloadIcs, googleCalendarUrl } from "../../lib/events/calendarExport";
 import { formatEventWhen } from "../../utils/format";
@@ -91,7 +91,7 @@ export default function EventDetailView({
               </div>
               <div className="flex items-center gap-3 mt-1.5 text-xs flex-wrap" style={{ color: muted }}>
                 <span>{categoryIcon(event.category)} {categoryLabel(event.category)}</span>
-                <span className="flex items-center gap-1"><Calendar size={11} /> {formatEventWhen(event.event_date)}</span>
+                <span className="flex items-center gap-1"><Calendar size={11} /> {formatEventWhen(event.event_date, event.timezone)}{event.timezone ? ` (${timezoneLabel(event.timezone)})` : ""}</span>
                 {event.duration_minutes && <span className="flex items-center gap-1"><Clock size={11} /> {durationLabel(event.duration_minutes)}</span>}
               </div>
               <div className="flex items-center gap-3 mt-1 text-xs flex-wrap" style={{ color: muted }}>

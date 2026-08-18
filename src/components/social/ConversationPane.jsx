@@ -16,7 +16,7 @@ import AiConversationSuggestions from "../ai/AiConversationSuggestions";
 import AudioRecorder from "./AudioRecorder";
 import MessageBubbleMedia from "./MessageBubbleMedia";
 import ChatDropZone from "./ChatDropZone";
-import { primary, coral, bg, muted } from "./theme";
+import { primary, coral, bg, muted, online, offline } from "./theme";
 
 function MessageText({ text }) {
   return (

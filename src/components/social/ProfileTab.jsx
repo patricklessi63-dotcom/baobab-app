@@ -1,8 +1,10 @@
-import React, { useState } from "react";
-import { Send, CheckCheck, Image as ImageIcon, Star, Target, ChevronRight, Users2, MapPin, PartyPopper } from "lucide-react";
+import React, { useEffect, useState } from "react";
+import { Send, CheckCheck, Star, Target, ChevronRight, Users2, MapPin, PartyPopper } from "lucide-react";
 import Avatar from "../Avatar";
 import VerifiedBadge from "../VerifiedBadge";
 import EmptyState from "../home/EmptyState";
+import PostsFeed from "./PostsFeed";
+import { supabase } from "../../supabaseClient";
 import { getProfileCompletion } from "../../lib/profileCompletion";
 import { categoryIcon, categoryLabel } from "../../lib/communities/communityConfig";
 import { categoryIcon as eventCategoryIcon, categoryLabel as eventCategoryLabel } from "../../lib/events/eventConfig";
@@ -13,13 +15,11 @@ import { primary, green, coral, gold, bg, muted } from "./theme";
 
 export default function ProfileTab({
   currentUser,
-  posts,
   openEditProfile,
   matches,
   candidates,
   profileTab,
   setProfileTab,
-  setComposer,
   goTab,
   profilePhotos = {},
   favoritesCount = 0,
@@ -51,7 +51,14 @@ export default function ProfileTab({
               setManagingSubscription(false);
             }
           };
-          const myPosts = posts.filter((p) => p.name === currentUser?.name);
+          const [myPostsCount, setMyPostsCount] = useState(0);
+          useEffect(() => {
+            if (!currentUser?.id) return;
+            let alive = true;
+            supabase.from("posts").select("id", { count: "exact", head: true }).eq("author_id", currentUser.id)
+              .then(({ count }) => { if (alive) setMyPostsCount(count || 0); });
+            return () => { alive = false; };
+          }, [currentUser?.id]);
           const completion = getProfileCompletion(currentUser, profilePhotos[currentUser?.id] || []);
           const isComplete = completion.percent >= 100;
           const aboutRows = [
@@ -72,8 +79,17 @@ export default function ProfileTab({
   return (
           <section className="max-w-3xl mx-auto">
             <div className="bg-white rounded-[32px] overflow-hidden border shadow-[0_18px_60px_rgba(21,27,61,.08)]">
-              <div className="h-40 md:h-52 relative" style={{ background: `linear-gradient(135deg,${primary},#2B3766 50%,${green})` }}>
-                <div className="absolute inset-0 opacity-20 text-[150px] leading-none flex items-center justify-center">🌍</div>
+              <div
+                className="h-40 md:h-52 relative"
+                style={
+                  currentUser?.cover_url
+                    ? { background: `url(${currentUser.cover_url}) center/cover` }
+                    : { background: `linear-gradient(135deg,${primary},#2B3766 50%,${green})` }
+                }
+              >
+                {!currentUser?.cover_url && (
+                  <div className="absolute inset-0 opacity-20 text-[150px] leading-none flex items-center justify-center">🌍</div>
+                )}
                 <div className="absolute right-4 top-4 flex gap-2">
                   <button onClick={() => { navigator.share ? navigator.share({ title: "Baobab", text: `Découvre le profil de ${currentUser?.name} sur Baobab` }) : navigator.clipboard?.writeText(window.location.href); }} className="h-9 w-9 rounded-xl bg-white/15 backdrop-blur flex items-center justify-center border border-white/15">
                     <Send size={15} color="#fff" />
@@ -116,7 +132,7 @@ export default function ProfileTab({
                 )}
 
                 <div className="grid grid-cols-3 gap-3 mt-6">
-                  {[[matches.length, "Matchs"], [myPosts.length, "Publications"], [candidates.length, "Profils à découvrir"]].map(([value, label]) => <div key={label} className="rounded-2xl p-4 text-center" style={{ background: bg }}><b className="text-xl" style={{ color: primary }}>{value}</b><div className="text-[11px] mt-1" style={{ color: muted }}>{label}</div></div>)}
+                  {[[matches.length, "Matchs"], [myPostsCount, "Publications"], [candidates.length, "Profils à découvrir"]].map(([value, label]) => <div key={label} className="rounded-2xl p-4 text-center" style={{ background: bg }}><b className="text-xl" style={{ color: primary }}>{value}</b><div className="text-[11px] mt-1" style={{ color: muted }}>{label}</div></div>)}
                 </div>
 
                 <div className="flex gap-3 mt-4">
@@ -258,34 +274,7 @@ export default function ProfileTab({
                   )}
                 </div>
               ) : profileTab === "posts" ? (
-                myPosts.length === 0 ? (
-                  <div className="p-10 text-center">
-                    <ImageIcon size={26} className="mx-auto mb-2" color={muted} />
-                    <p className="text-sm mb-3" style={{ color: muted }}>Pas encore de publication.</p>
-                    <button onClick={() => setComposer(true)} className="px-4 py-2.5 rounded-xl font-bold text-sm" style={{ background: primary, color: "#fff" }}>Créer ma première publication</button>
-                  </div>
-                ) : (
-                  <div className="p-3">
-                    <button onClick={() => setComposer(true)} className="w-full mb-3 py-2.5 rounded-xl font-bold text-sm" style={{ background: bg, color: primary }}>+ Nouvelle publication</button>
-                    <div className="grid grid-cols-3 gap-0.5">
-                      {myPosts.map((p) => (
-                        <div key={p.id} className="aspect-square relative overflow-hidden">
-                          {p.mediaUrl ? (
-                            p.mediaKind === "video" ? (
-                              <video src={p.mediaUrl} className="w-full h-full object-cover" />
-                            ) : (
-                              <img src={p.mediaUrl} alt="" className="w-full h-full object-cover" />
-                            )
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center p-3 text-center" style={{ background: `linear-gradient(150deg,${primary},${p.color})` }}>
-                              <span className="text-white text-[11px] font-semibold leading-4 line-clamp-4">{p.text}</span>
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )
+                <PostsFeed currentUser={currentUser} authorId={currentUser?.id} layout="grid" onError={onError} />
               ) : (
                 <div className="p-6">
                   {aboutRows.length === 0 ? (

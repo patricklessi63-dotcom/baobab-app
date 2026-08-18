@@ -45,6 +45,29 @@ export const EVENT_ATTENDANCE_STATUS = [
   { value: "waitlisted", label: "Sur liste d'attente" },
 ];
 
+// Les 6 fuseaux horaires officiels du Canada — un événement organisé pour
+// un public canadien reste dans cette liste, jamais une liste mondiale.
+export const CANADA_TIMEZONE_OPTIONS = [
+  { value: "America/St_Johns", label: "Terre-Neuve (HNT)" },
+  { value: "America/Halifax", label: "Atlantique (HNA)" },
+  { value: "America/Toronto", label: "Est (HNE)" },
+  { value: "America/Winnipeg", label: "Centre (HNC)" },
+  { value: "America/Edmonton", label: "Rocheuses (HNR)" },
+  { value: "America/Vancouver", label: "Pacifique (HNP)" },
+];
+
+export function timezoneLabel(value) {
+  return CANADA_TIMEZONE_OPTIONS.find((t) => t.value === value)?.label || value || "";
+}
+
+// Fuseau canadien le plus proche du fuseau détecté du navigateur (repli sur
+// "America/Toronto" si l'utilisateur navigue hors Canada) — utilisé comme
+// valeur par défaut à la création d'un événement.
+export function closestCanadaTimezone(detected) {
+  if (CANADA_TIMEZONE_OPTIONS.some((t) => t.value === detected)) return detected;
+  return "America/Toronto";
+}
+
 export function categoryLabel(value) {
   return EVENT_CATEGORIES.find((c) => c.value === value)?.label || value;
 }

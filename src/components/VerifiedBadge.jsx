@@ -1,8 +1,8 @@
 import React from "react";
 import { ShieldCheck } from "lucide-react";
-import { C } from "../constants";
+import { verified } from "./social/theme";
 
-export default function VerifiedBadge({ emailVerified, phoneVerified, size = 14, color = "#3897F0" }) {
+export default function VerifiedBadge({ emailVerified, phoneVerified, size = 14, color = verified }) {
   if (!emailVerified && !phoneVerified) return null;
 
   const title = phoneVerified

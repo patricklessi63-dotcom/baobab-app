@@ -43,11 +43,16 @@ export function messagePreviewLabel(m) {
   }
 }
 
-export function formatEventWhen(iso) {
+export function formatEventWhen(iso, timezone) {
   if (!iso) return "";
   const d = new Date(iso);
-  const weekday = d.toLocaleDateString("fr-CA", { weekday: "long" });
+  const tzOpt = timezone ? { timeZone: timezone } : undefined;
+  const weekday = d.toLocaleDateString("fr-CA", { weekday: "long", ...tzOpt });
   const label = weekday.charAt(0).toUpperCase() + weekday.slice(1);
-  const time = d.toLocaleTimeString("fr-CA", { hour: "numeric", minute: d.getMinutes() ? "2-digit" : undefined });
+  // getMinutes() lit l'heure locale du navigateur — insuffisant si "timezone"
+  // diffère (ex. décalage :30 à Terre-Neuve) : on lit la minute réellement
+  // affichée dans le fuseau cible pour décider de l'afficher ou non.
+  const minutePart = new Intl.DateTimeFormat("fr-CA", { minute: "numeric", ...tzOpt }).format(d);
+  const time = d.toLocaleTimeString("fr-CA", { hour: "numeric", minute: minutePart !== "0" ? "2-digit" : undefined, ...tzOpt });
   return `${label} ${time}`;
 }

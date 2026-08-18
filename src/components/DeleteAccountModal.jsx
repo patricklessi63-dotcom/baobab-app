@@ -2,12 +2,14 @@ import React, { useState } from "react";
 import { AlertTriangle, X } from "lucide-react";
 import { C } from "../constants";
 import { useEscapeKey } from "../hooks/useEscapeKey";
-import { deleteAccountPermanently } from "../lib/deleteAccount";
+import { requestAccountDeletion } from "../lib/deleteAccount";
 
-// Confirmation explicite par saisie de texte — irréversible, jamais
-// déclenché par un simple clic accidentel (item 33 : pas de bouton
-// trompeur, pas de case pré-cochée).
-export default function DeleteAccountModal({ open, onClose, onDeleted }) {
+// Confirmation explicite par saisie de texte — jamais déclenché par un
+// simple clic accidentel (item 33 : pas de bouton trompeur, pas de case
+// pré-cochée). Depuis le délai de grâce de 7 jours, cette action n'est
+// plus la suppression elle-même — juste la demande, annulable (voir
+// AccountDeletionBanner.jsx).
+export default function DeleteAccountModal({ open, onClose, currentUser, onRequested }) {
   const [confirmText, setConfirmText] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -15,14 +17,15 @@ export default function DeleteAccountModal({ open, onClose, onDeleted }) {
   if (!open) return null;
 
   const ready = confirmText.trim().toUpperCase() === "SUPPRIMER";
+  const deletionDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toLocaleDateString("fr-CA", { year: "numeric", month: "long", day: "numeric" });
 
   const handleDelete = async () => {
-    if (!ready || loading) return;
+    if (!ready || loading || !currentUser) return;
     setLoading(true);
     setError("");
     try {
-      await deleteAccountPermanently();
-      onDeleted();
+      await requestAccountDeletion(currentUser.id);
+      onRequested();
     } catch (e) {
       setError(e.message);
       setLoading(false);
@@ -40,7 +43,7 @@ export default function DeleteAccountModal({ open, onClose, onDeleted }) {
           <button onClick={onClose} aria-label="Fermer"><X size={18} /></button>
         </div>
         <p className="text-sm mb-3" style={{ color: "rgba(43,36,32,0.7)" }}>
-          Cette action est définitive. Ton profil, tes photos, tes matchs, tes messages, tes communautés, tes événements et ton abonnement seront supprimés. Impossible à annuler.
+          Ton compte sera définitivement supprimé le {deletionDate} (dans 7 jours) — profil, photos, matchs, messages, communautés, événements et abonnement inclus. Tu pourras annuler à tout moment avant cette date.
         </p>
         <label className="block mb-3">
           <span className="text-xs font-bold" style={{ color: "rgba(43,36,32,0.6)" }}>Tape SUPPRIMER pour confirmer</span>
@@ -48,7 +51,7 @@ export default function DeleteAccountModal({ open, onClose, onDeleted }) {
         </label>
         {error && <p role="alert" className="text-sm mb-3" style={{ color: C.clay }}>{error}</p>}
         <button onClick={handleDelete} disabled={!ready || loading} className="w-full py-3 rounded-full text-sm font-bold text-white disabled:opacity-40" style={{ background: C.clay, minHeight: 44 }}>
-          {loading ? "Suppression..." : "Supprimer définitivement mon compte"}
+          {loading ? "Enregistrement..." : "Programmer la suppression dans 7 jours"}
         </button>
         <button onClick={onClose} className="w-full mt-2 py-3 rounded-full text-sm font-semibold" style={{ border: "1px solid rgba(43,36,32,0.15)", color: C.ink, minHeight: 44 }}>
           Annuler

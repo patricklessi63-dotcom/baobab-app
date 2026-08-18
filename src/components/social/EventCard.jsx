@@ -1,6 +1,6 @@
 import React from "react";
 import { MapPin, Users, Lock, Users2 } from "lucide-react";
-import { categoryIcon, categoryLabel } from "../../lib/events/eventConfig";
+import { categoryIcon, categoryLabel, timezoneLabel } from "../../lib/events/eventConfig";
 import { formatEventWhen } from "../../utils/format";
 import { primary, green, coral, gold, bg, muted, card } from "./theme";
 
@@ -41,7 +41,9 @@ export default function EventCard({ event, participantCount = 0, status, onView 
       </div>
       <div className="p-4">
         <h3 className="text-sm font-black truncate" style={{ color: primary }}>{event.title}</h3>
-        <div className="text-xs mt-1" style={{ color: muted }}>{formatEventWhen(event.event_date)}</div>
+        <div className="text-xs mt-1" style={{ color: muted }}>
+          {formatEventWhen(event.event_date, event.timezone)}{event.timezone ? ` · ${timezoneLabel(event.timezone)}` : ""}
+        </div>
         <div className="flex items-center justify-between mt-3">
           <div className="flex items-center gap-3 text-[11px]" style={{ color: muted }}>
             {event.city && <span className="flex items-center gap-1"><MapPin size={11} /> {event.city}</span>}
