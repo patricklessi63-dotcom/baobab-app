@@ -4,7 +4,8 @@ import ChipSelect from "../ChipSelect";
 import { supabase } from "../../supabaseClient";
 import { COMMUNITY_CATEGORIES, COMMUNITY_VISIBILITY } from "../../lib/communities/communityConfig";
 import { invokeAI } from "../../lib/ai/aiClient";
-import { primary, coral, muted, bg } from "./theme";
+import { beginCriticalOperation, endCriticalOperation } from "../../lib/criticalOperationGuard";
+import { primary, coral, muted, bg, goldTint, goldText, primaryRgb } from "./theme";
 
 const NAME_MAX = 80;
 const DESCRIPTION_MAX = 300;
@@ -58,6 +59,7 @@ export default function CommunityCreateForm({ currentUser, onCreated, onCancel, 
   const handleSubmit = async () => {
     if (!canSubmit || !currentUser) return;
     setSubmitting(true);
+    beginCriticalOperation(); // évite que la déconnexion auto par inactivité (App.jsx) coupe un upload/création en cours
     try {
       let coverUrl = null;
       if (coverFile) {
@@ -85,6 +87,7 @@ export default function CommunityCreateForm({ currentUser, onCreated, onCancel, 
       console.error(e);
       onError?.("Impossible de créer la communauté. Réessaie.");
     } finally {
+      endCriticalOperation();
       setSubmitting(false);
     }
   };
@@ -100,8 +103,8 @@ export default function CommunityCreateForm({ currentUser, onCreated, onCancel, 
       </label>
 
       {currentUser?.ai_suggestions_enabled !== false && (
-        <div className="rounded-2xl p-3.5" style={{ background: "#FFF9F0", border: "1px solid rgba(242,184,75,.3)" }}>
-          <div className="text-[10px] font-black uppercase tracking-wider flex items-center gap-1" style={{ color: "#A5761F" }}>
+        <div className="rounded-2xl p-3.5" style={{ background: goldTint, border: "1px solid rgba(242,184,75,.3)" }}>
+          <div className="text-[10px] font-black uppercase tracking-wider flex items-center gap-1" style={{ color: goldText }}>
             <Sparkles size={11} /> Suggestion IA
           </div>
           {aiSuggestion ? (
@@ -192,7 +195,7 @@ export default function CommunityCreateForm({ currentUser, onCreated, onCancel, 
       </div>
 
       <div className="flex gap-2 mt-2">
-        <button onClick={onCancel} className="flex-1 py-3 rounded-full text-sm font-semibold" style={{ border: "1px solid rgba(21,27,61,.12)", color: primary }}>
+        <button onClick={onCancel} className="flex-1 py-3 rounded-full text-sm font-semibold" style={{ border: `1px solid rgba(${primaryRgb},.12)`, color: primary }}>
           Annuler
         </button>
         <button onClick={handleSubmit} disabled={!canSubmit} className="flex-1 py-3 rounded-full text-sm font-bold text-white disabled:opacity-40" style={{ background: coral }}>

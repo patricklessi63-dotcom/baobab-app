@@ -7,7 +7,7 @@ import { validateMediaFile } from "../../lib/mediaValidation";
 import { extFromMime } from "../../lib/mediaConstants";
 import { uploadWithProgress } from "../../lib/uploadWithProgress";
 import AiSuggestButton from "../ai/AiSuggestButton";
-import { primary, coral, muted, bg } from "./theme";
+import { primary, coral, muted, bg, primaryRgb } from "./theme";
 
 const TITLE_MAX = 80;
 const DESCRIPTION_MAX = 500;
@@ -223,10 +223,10 @@ export default function EventCreateForm({ currentUser, onCreated, onCancel, onEr
         </label>
       )}
 
-      {error && <p className="text-xs" style={{ color: coral }}>{error}</p>}
+      {error && <p role="alert" className="text-xs" style={{ color: coral }}>{error}</p>}
 
       <div className="flex gap-2 mt-2">
-        <button onClick={onCancel} className="flex-1 py-3 rounded-full text-sm font-semibold" style={{ border: "1px solid rgba(21,27,61,.12)", color: primary }}>
+        <button onClick={onCancel} className="flex-1 py-3 rounded-full text-sm font-semibold" style={{ border: `1px solid rgba(${primaryRgb},.12)`, color: primary }}>
           Annuler
         </button>
         <button onClick={handleSubmit} disabled={!canSubmit} className="flex-1 py-3 rounded-full text-sm font-bold text-white disabled:opacity-40" style={{ background: coral }}>

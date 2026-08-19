@@ -2,10 +2,11 @@ import React from "react";
 import { MessageCircle, Heart } from "lucide-react";
 import Avatar from "../Avatar";
 import VerifiedBadge from "../VerifiedBadge";
+import FounderBadge from "../FounderBadge";
 import EmptyState from "../home/EmptyState";
 import ConversationPane from "./ConversationPane";
 import { matchKey, formatMessageTime, messagePreviewLabel } from "../../utils/format";
-import { primary, green, coral, bg, muted, card, buttonBase } from "./theme";
+import { primary, green, coral, bg, muted, card, buttonBase, online, offline, body, primaryRgb } from "./theme";
 
 export default function MessagesTab({
   matches,
@@ -61,7 +62,7 @@ export default function MessagesTab({
 
   const ConversationList = (
     <div className={`${card} overflow-hidden flex flex-col ${activeMatch ? "hidden md:flex" : "flex"}`} style={{ maxHeight: "calc(100vh - 180px)" }}>
-      <div className="p-4 shrink-0" style={{ borderBottom: "1px solid rgba(21,27,61,.08)" }}>
+      <div className="p-4 shrink-0" style={{ borderBottom: `1px solid rgba(${primaryRgb},.08)` }}>
         <h1 className="text-lg font-black" style={{ color: primary }}>💬 Messages</h1>
       </div>
       <div className="overflow-y-auto flex-1">
@@ -76,19 +77,19 @@ export default function MessagesTab({
               onClick={() => onSelectMatch(m)}
               aria-label={`Ouvrir la conversation avec ${m.name}${unread > 0 ? `, ${unread} message${unread > 1 ? "s" : ""} non lu${unread > 1 ? "s" : ""}` : ""}`}
               className={`${buttonBase} w-full p-3.5 flex items-center gap-3 text-left focus-visible:outline focus-visible:outline-2`}
-              style={{ background: activeMatch?.id === m.id ? bg : "transparent", borderBottom: "1px solid rgba(21,27,61,.05)" }}
+              style={{ background: activeMatch?.id === m.id ? bg : "transparent", borderBottom: `1px solid rgba(${primaryRgb},.05)` }}
             >
               <div className="relative flex-shrink-0">
                 <Avatar name={m.name} url={m.avatar_url} size={50} />
-                <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white" style={{ background: m.is_online ? "#27C56D" : "#B9BEC9" }} />
+                <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white" style={{ background: m.is_online ? online : offline }} />
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-sm font-bold truncate flex items-center gap-1.5">{m.name}<VerifiedBadge emailVerified={m.email_verified} phoneVerified={m.phone_verified} size={12} /></span>
+                  <span className="text-sm font-bold truncate flex items-center gap-1.5">{m.name}<VerifiedBadge emailVerified={m.email_verified} phoneVerified={m.phone_verified} size={12} /><FounderBadge isFounder={m.is_founder} size={12} /></span>
                   {last && <span className="text-[10px] shrink-0" style={{ color: muted }}>{formatMessageTime(last.created_at)}</span>}
                 </div>
                 <div className="flex items-center justify-between gap-2 mt-0.5">
-                  <span className="text-xs truncate" style={{ color: unread > 0 ? "#20243A" : muted, fontWeight: unread > 0 ? 700 : 400 }}>{preview}</span>
+                  <span className="text-xs truncate" style={{ color: unread > 0 ? body : muted, fontWeight: unread > 0 ? 700 : 400 }}>{preview}</span>
                   {unread > 0 && (
                     <span className="text-[10px] font-black text-white rounded-full h-5 min-w-5 px-1.5 flex items-center justify-center shrink-0" style={{ background: coral }}>
                       {unread}

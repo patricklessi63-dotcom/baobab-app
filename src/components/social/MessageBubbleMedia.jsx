@@ -6,7 +6,7 @@ import { formatFileSize } from "../../lib/mediaConstants";
 import { STICKER_GRADIENTS } from "../../lib/stickerData";
 import { formatEventWhen } from "../../utils/format";
 import MediaViewerModal from "./MediaViewerModal";
-import { primary, bg } from "./theme";
+import { primary, bg, body, primaryRgb } from "./theme";
 
 function useLocalOrSignedUrl(m) {
   const localUrl = useMemo(() => (m._file ? URL.createObjectURL(m._file) : null), [m._file]);
@@ -104,7 +104,7 @@ export default function MessageBubbleMedia({ m, isMine }) {
   if (m.kind === "event") {
     const meta = m.media_meta || {};
     return (
-      <div className="rounded-2xl overflow-hidden" style={{ maxWidth: 230, background: isMine ? "rgba(255,255,255,.14)" : "#fff", border: isMine ? "none" : "1px solid rgba(21,27,61,.08)" }}>
+      <div className="rounded-2xl overflow-hidden" style={{ maxWidth: 230, background: isMine ? "rgba(255,255,255,.14)" : "#fff", border: isMine ? "none" : `1px solid rgba(${primaryRgb},.08)` }}>
         <div className="h-20 relative" style={{ background: meta.cover_url ? `url(${meta.cover_url}) center/cover` : "linear-gradient(150deg,#F2B84B,#E56B5D)" }} />
         <div className="p-3">
           <div className="text-[10px] font-black uppercase tracking-wider mb-1" style={{ opacity: 0.75 }}>🎉 Événement Baobab</div>
@@ -149,7 +149,7 @@ export default function MessageBubbleMedia({ m, isMine }) {
 
   if (m.kind === "audio") {
     return (
-      <div className="relative" style={{ color: isMine ? "#F7F8FA" : "#20243A" }}>
+      <div className="relative" style={{ color: isMine ? bg : body }}>
         <AudioPlayer src={url} />
         <UploadProgress progress={progress} />
       </div>
@@ -159,7 +159,7 @@ export default function MessageBubbleMedia({ m, isMine }) {
   // file
   return (
     <div className="relative flex items-center gap-2.5 min-w-[200px]">
-      <div className="h-10 w-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: isMine ? "rgba(255,255,255,.15)" : "rgba(21,27,61,.08)" }}>
+      <div className="h-10 w-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: isMine ? "rgba(255,255,255,.15)" : `rgba(${primaryRgb},.08)` }}>
         <FileText size={18} color={isMine ? "#fff" : primary} />
       </div>
       <div className="min-w-0 flex-1">
@@ -167,7 +167,7 @@ export default function MessageBubbleMedia({ m, isMine }) {
         <div className="text-[11px]" style={{ opacity: 0.75 }}>{formatFileSize(m.media_meta?.size)}</div>
       </div>
       {!uploading && (
-        <button type="button" onClick={openFile} disabled={resolvingFile} aria-label="Ouvrir le fichier" className="h-8 w-8 rounded-full flex items-center justify-center flex-shrink-0 disabled:opacity-50" style={{ background: isMine ? "rgba(255,255,255,.18)" : "rgba(21,27,61,.08)" }}>
+        <button type="button" onClick={openFile} disabled={resolvingFile} aria-label="Ouvrir le fichier" className="h-8 w-8 rounded-full flex items-center justify-center flex-shrink-0 disabled:opacity-50" style={{ background: isMine ? "rgba(255,255,255,.18)" : `rgba(${primaryRgb},.08)` }}>
           <Download size={14} color={isMine ? "#fff" : primary} />
         </button>
       )}

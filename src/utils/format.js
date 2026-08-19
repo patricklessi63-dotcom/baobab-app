@@ -2,6 +2,14 @@ export function matchKey(a, b) {
   return [a, b].sort().join("__");
 }
 
+// Réglage exclusif fondateur (PrivacyFieldsModal, currentUser.is_founder
+// uniquement) — non disponible dans les réglages des autres utilisateurs,
+// donc profile.show_birth_year vaut toujours true/undefined pour eux :
+// aucun changement de comportement pour le reste de l'app.
+export function visibleAge(profile) {
+  return profile?.show_birth_year === false ? null : profile?.age;
+}
+
 export function formatLastSeen(iso) {
   if (!iso) return "Statut inconnu";
   const diffMs = Date.now() - new Date(iso).getTime();

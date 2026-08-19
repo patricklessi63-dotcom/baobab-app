@@ -3,7 +3,7 @@ import { Check, X, Flag } from "lucide-react";
 import Avatar from "../Avatar";
 import EmptyState from "../home/EmptyState";
 import { categoryLabelForReport } from "../../lib/communities/communityConfig";
-import { primary, green, coral, muted, bg, card } from "./theme";
+import { primary, green, coral, muted, bg, card, primaryRgb } from "./theme";
 
 const REPORT_TARGET_LABEL = { post: "une publication", comment: "un commentaire", member: "un membre", community: "la communauté" };
 
@@ -55,7 +55,7 @@ export default function CommunityAdminPanel({ joinRequests = [], reports = [], o
                 </div>
                 {rep.reason && <p className="text-xs mt-1" style={{ color: muted }}>{rep.reason}</p>}
                 <div className="flex gap-2 mt-2.5">
-                  <button onClick={() => onDismissReport(rep)} className="flex-1 text-xs font-bold py-2 rounded-full" style={{ border: "1px solid rgba(21,27,61,.15)", color: primary }}>
+                  <button onClick={() => onDismissReport(rep)} className="flex-1 text-xs font-bold py-2 rounded-full" style={{ border: `1px solid rgba(${primaryRgb},.15)`, color: primary }}>
                     Ignorer
                   </button>
                   <button onClick={() => onResolveReport(rep)} className="flex-1 text-xs font-bold py-2 rounded-full text-white" style={{ background: coral }}>

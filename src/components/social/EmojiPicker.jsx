@@ -3,7 +3,7 @@ import { Smile, Search, X } from "lucide-react";
 import { useClickOutside } from "../../hooks/useClickOutside";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
 import { EMOJI_CATEGORIES, searchEmojis } from "../../lib/emojiData";
-import { primary, bg, muted, card } from "./theme";
+import { primary, bg, muted, card, primaryRgb } from "./theme";
 
 const RECENTS_MAX = 24;
 
@@ -72,7 +72,7 @@ export default function EmojiPicker({ onPick, currentUserId }) {
           className={`${card} overflow-hidden`}
           style={{ position: "absolute", bottom: 48, left: 0, width: "min(320px, calc(100vw - 32px))", maxWidth: "calc(100vw - 32px)", zIndex: 20 }}
         >
-          <div className="p-2.5" style={{ borderBottom: "1px solid rgba(21,27,61,.08)" }}>
+          <div className="p-2.5" style={{ borderBottom: `1px solid rgba(${primaryRgb},.08)` }}>
             <div className="flex items-center gap-2 rounded-xl px-3 py-2" style={{ background: bg }}>
               <Search size={14} color={muted} />
               <input
@@ -91,7 +91,7 @@ export default function EmojiPicker({ onPick, currentUserId }) {
           </div>
 
           {!query && (
-            <div className="flex overflow-x-auto px-2 pt-2 gap-1" style={{ borderBottom: "1px solid rgba(21,27,61,.08)" }}>
+            <div className="flex overflow-x-auto px-2 pt-2 gap-1" style={{ borderBottom: `1px solid rgba(${primaryRgb},.08)` }}>
               {EMOJI_CATEGORIES.map((cat) => (
                 <button
                   key={cat.id}

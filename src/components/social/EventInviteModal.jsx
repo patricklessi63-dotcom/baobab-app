@@ -3,7 +3,7 @@ import { X, Check } from "lucide-react";
 import Avatar from "../Avatar";
 import EmptyState from "../home/EmptyState";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
-import { primary, coral, muted, card } from "./theme";
+import { primary, coral, muted, card, primaryRgb } from "./theme";
 
 // Source d'invitation = connexions mutuelles (likes croisés — il n'existe
 // pas de table "matches" dans ce schéma) + membres de la communauté
@@ -14,7 +14,7 @@ export default function EventInviteModal({ open, candidates = [], invitedIds = n
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-end md:items-center justify-center p-0 md:p-5" style={{ background: "rgba(21,27,61,.55)", backdropFilter: "blur(5px)" }} onClick={onClose} role="dialog" aria-modal="true" aria-label="Inviter des personnes">
+    <div className="fixed inset-0 z-[70] flex items-end md:items-center justify-center p-0 md:p-5" style={{ background: `rgba(${primaryRgb},.55)`, backdropFilter: "blur(5px)" }} onClick={onClose} role="dialog" aria-modal="true" aria-label="Inviter des personnes">
       <div className={`${card} bg-white w-full max-w-md rounded-t-[30px] md:rounded-[30px] p-6 max-h-[80vh] overflow-y-auto`} onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-black" style={{ color: primary }}>Inviter des personnes</h2>

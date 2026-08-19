@@ -15,7 +15,7 @@ import { SkeletonCard } from "../Skeleton";
 import { rankEvents } from "../../lib/events/recommendations";
 import { EVENT_REPORT_CATEGORIES } from "../../lib/events/eventConfig";
 import { trackActivation } from "../../lib/trackActivation";
-import { primary, coral, muted, bg, card } from "./theme";
+import { primary, coral, muted, bg, card, primaryRgb } from "./theme";
 
 const PAGE_SIZE = 20;
 const PHOTO_URL_EXPIRY = 60 * 60 * 24 * 30; // 30 jours — assez pour une galerie, régénéré à chaque chargement
@@ -611,7 +611,7 @@ export default function EventsTab({ currentUser, onError, initialEventId, onCons
         />
 
         {shareOpen && (
-          <div className="fixed inset-0 z-[70] flex items-end md:items-center justify-center p-0 md:p-5" style={{ background: "rgba(21,27,61,.55)", backdropFilter: "blur(5px)" }} onClick={() => setShareOpen(false)} role="dialog" aria-modal="true" aria-label="Partager dans une conversation">
+          <div className="fixed inset-0 z-[70] flex items-end md:items-center justify-center p-0 md:p-5" style={{ background: `rgba(${primaryRgb},.55)`, backdropFilter: "blur(5px)" }} onClick={() => setShareOpen(false)} role="dialog" aria-modal="true" aria-label="Partager dans une conversation">
             <div className={`${card} bg-white w-full max-w-md rounded-t-[30px] md:rounded-[30px] p-6 max-h-[80vh] overflow-y-auto`} onClick={(e) => e.stopPropagation()}>
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-black" style={{ color: primary }}>Partager dans une conversation</h2>

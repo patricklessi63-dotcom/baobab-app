@@ -246,7 +246,7 @@ export default function OnboardingWizard({
       </div>
 
       {error && (
-        <p className="text-sm mt-3 px-3 py-2 rounded-lg" style={{ background: "#fce8e0", color: C.clay }}>{error}</p>
+        <p className="text-sm mt-3 px-3 py-2 rounded-lg" style={{ background: C.dangerBg, color: C.clay }}>{error}</p>
       )}
 
       <button

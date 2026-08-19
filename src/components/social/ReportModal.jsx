@@ -1,7 +1,7 @@
 import React from "react";
 import ChipSelect from "../ChipSelect";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
-import { primary, coral, muted, card } from "./theme";
+import { primary, coral, muted, card, primaryRgb } from "./theme";
 
 const DEFAULT_CATEGORIES = [
   { value: "harcelement", label: "Harcèlement" },
@@ -38,7 +38,7 @@ export default function ReportModal({
   return (
     <div
       className="fixed inset-0 z-[85] flex items-center justify-center p-5"
-      style={{ background: "rgba(21,27,61,.55)", backdropFilter: "blur(4px)" }}
+      style={{ background: `rgba(${primaryRgb},.55)`, backdropFilter: "blur(4px)" }}
       onClick={submitted ? undefined : onCancel}
       role="dialog"
       aria-modal="true"
@@ -62,11 +62,11 @@ export default function ReportModal({
               rows={3}
               placeholder={commentRequired ? "Explique brièvement pourquoi (obligatoire pour \"Autre\")..." : "Commentaire (facultatif)..."}
               className="w-full p-3 rounded-lg text-sm mt-3"
-              style={{ border: "1px solid rgba(21,27,61,.12)" }}
+              style={{ border: `1px solid rgba(${primaryRgb},.12)` }}
             />
 
             <div className="flex gap-2 mt-4">
-              <button onClick={onCancel} className="flex-1 py-2.5 rounded-full text-sm font-semibold" style={{ border: "1px solid rgba(21,27,61,.12)", color: primary }}>
+              <button onClick={onCancel} className="flex-1 py-2.5 rounded-full text-sm font-semibold" style={{ border: `1px solid rgba(${primaryRgb},.12)`, color: primary }}>
                 Annuler
               </button>
               <button
@@ -89,7 +89,7 @@ export default function ReportModal({
                   alors plus t'écrire ni voir ton profil.
                 </p>
                 <div className="flex gap-2 mt-4">
-                  <button onClick={onDismissAfterSubmit} className="flex-1 py-2.5 rounded-full text-sm font-semibold" style={{ border: "1px solid rgba(21,27,61,.12)", color: primary }}>
+                  <button onClick={onDismissAfterSubmit} className="flex-1 py-2.5 rounded-full text-sm font-semibold" style={{ border: `1px solid rgba(${primaryRgb},.12)`, color: primary }}>
                     Ne pas bloquer
                   </button>
                   <button onClick={() => onBlockAlso(target)} className="flex-1 py-2.5 rounded-full text-sm font-bold text-white" style={{ background: coral }}>

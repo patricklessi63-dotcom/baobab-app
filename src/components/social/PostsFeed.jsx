@@ -8,6 +8,7 @@ import EmptyState from "../home/EmptyState";
 import { validateMediaFile } from "../../lib/mediaValidation";
 import { uploadWithProgress } from "../../lib/uploadWithProgress";
 import { POST_MEDIA_BUCKET, extFromMime } from "../../lib/mediaConstants";
+import { beginCriticalOperation, endCriticalOperation } from "../../lib/criticalOperationGuard";
 import { primary, coral, muted, bg, card } from "./theme";
 
 const PAGE_SIZE = 20;
@@ -106,6 +107,7 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
   const publish = async () => {
     if ((!draft.trim() && !composerMedia) || !currentUser || publishingRef.current) return;
     publishingRef.current = true;
+    beginCriticalOperation();
     try {
       const body = draft.trim() || PLACEHOLDER_BODY;
       const { data: inserted, error } = await supabase
@@ -143,6 +145,7 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
       onError("Impossible de publier. Réessaie.");
     } finally {
       publishingRef.current = false;
+      endCriticalOperation();
     }
   };
 

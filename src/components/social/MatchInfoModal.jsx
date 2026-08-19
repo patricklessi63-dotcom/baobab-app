@@ -1,6 +1,6 @@
 import React from "react";
 import { X } from "lucide-react";
-import { primary, coral, muted, card, bg } from "./theme";
+import { primary, coral, muted, card, bg, body, primaryRgb } from "./theme";
 import { MATCH_WEIGHTS } from "../../lib/matching/matchingConfig";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
 
@@ -19,7 +19,7 @@ export default function MatchInfoModal({ open, onClose }) {
   return (
     <div
       className="fixed inset-0 z-[80] flex items-end md:items-center justify-center p-0 md:p-5"
-      style={{ background: "rgba(21,27,61,.55)", backdropFilter: "blur(5px)" }}
+      style={{ background: `rgba(${primaryRgb},.55)`, backdropFilter: "blur(5px)" }}
       onClick={onClose}
       role="dialog"
       aria-modal="true"
@@ -31,7 +31,7 @@ export default function MatchInfoModal({ open, onClose }) {
           <button onClick={onClose} aria-label="Fermer"><X /></button>
         </div>
 
-        <p className="text-sm" style={{ color: "#20243A" }}>
+        <p className="text-sm" style={{ color: body }}>
           C'est une estimation basée sur vos profils, pas une garantie ni un
           algorithme d'intelligence artificielle. Baobab compare uniquement
           les informations que tu as choisi de renseigner :
@@ -54,7 +54,7 @@ export default function MatchInfoModal({ open, onClose }) {
           certitude : c'est toujours toi qui décides.
         </p>
 
-        <button onClick={onClose} className="w-full mt-5 py-3 rounded-full text-sm font-semibold" style={{ border: "1px solid rgba(43,36,32,0.15)", color: "#20243A" }}>
+        <button onClick={onClose} className="w-full mt-5 py-3 rounded-full text-sm font-semibold" style={{ border: "1px solid rgba(43,36,32,0.15)", color: body }}>
           Fermer
         </button>
       </div>

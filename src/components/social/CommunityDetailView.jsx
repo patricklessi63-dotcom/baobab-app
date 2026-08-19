@@ -8,7 +8,7 @@ import EmptyState from "../home/EmptyState";
 import Skeleton from "../Skeleton";
 import { categoryIcon, categoryLabel } from "../../lib/communities/communityConfig";
 import { isStaff, canPost } from "../../lib/communities/permissions";
-import { primary, green, coral, gold, muted, bg, card } from "./theme";
+import { primary, green, coral, gold, muted, bg, card, body, primaryRgb } from "./theme";
 
 const SUB_TABS = [["about", "À propos"], ["posts", "Publications"], ["members", "Membres"]];
 
@@ -89,12 +89,12 @@ export default function CommunityDetailView({
             </div>
           </div>
 
-          {community.description && <p className="text-sm mt-3" style={{ color: "#20243A" }}>{community.description}</p>}
+          {community.description && <p className="text-sm mt-3" style={{ color: body }}>{community.description}</p>}
 
           <div className="mt-4">
             {viewerRole ? (
               viewerRole !== "owner" && (
-                <button onClick={() => onLeave(community)} className="px-4 py-2.5 rounded-full text-sm font-bold" style={{ border: "1px solid rgba(21,27,61,.15)", color: primary }}>
+                <button onClick={() => onLeave(community)} className="px-4 py-2.5 rounded-full text-sm font-bold" style={{ border: `1px solid rgba(${primaryRgb},.15)`, color: primary }}>
                   Quitter la communauté
                 </button>
               )
@@ -127,7 +127,7 @@ export default function CommunityDetailView({
 
       <div className="mt-4">
         {subTab === "about" && (
-          <div className={`${card} p-5 text-sm`} style={{ color: "#20243A" }}>
+          <div className={`${card} p-5 text-sm`} style={{ color: body }}>
             <p>{community.description || "Aucune description pour l'instant."}</p>
             {community.creatorName && <p className="mt-3 text-xs" style={{ color: muted }}>Créée par {community.creatorName}</p>}
           </div>
@@ -141,7 +141,7 @@ export default function CommunityDetailView({
           ) : (
             <div className={`${card} p-5`}>
               {canPost(viewerRole) && (
-                <div className="pb-4 mb-1" style={{ borderBottom: "1px solid rgba(21,27,61,.06)" }}>
+                <div className="pb-4 mb-1" style={{ borderBottom: `1px solid rgba(${primaryRgb},.06)` }}>
                   <CommunityPostComposer currentUser={currentUser} draft={postDraft} setDraft={setPostDraft} onSubmit={onSubmitPost} submitting={postSubmitting} />
                 </div>
               )}

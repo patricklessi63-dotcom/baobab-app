@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Heart, MessageCircle, Flag, Trash2, Pencil, Check, X } from "lucide-react";
 import Avatar from "../Avatar";
 import { formatMessageTime, formatDayLabel } from "../../utils/format";
-import { primary, coral, muted, bg } from "./theme";
+import { primary, coral, muted, bg, primaryRgb } from "./theme";
 
 const MAX_LENGTH = 4000;
 
@@ -54,7 +54,7 @@ export default function PostCard({
   };
 
   return (
-    <div className="py-4" style={{ borderBottom: "1px solid rgba(21,27,61,.06)" }}>
+    <div className="py-4" style={{ borderBottom: `1px solid rgba(${primaryRgb},.06)` }}>
       <div className="flex items-start gap-3">
         <Avatar name={author.name} url={author.avatar_url} size={38} />
         <div className="flex-1 min-w-0">

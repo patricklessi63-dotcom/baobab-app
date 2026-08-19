@@ -8,6 +8,8 @@ import SocialShell from "./components/SocialShell";
 import AppModals from "./components/AppModals";
 import ConnectivityBanner from "./components/ConnectivityBanner";
 import AccountDeletionBanner from "./components/AccountDeletionBanner";
+import SessionExpiryBanner from "./components/SessionExpiryBanner";
+import { isCriticalOperationActive } from "./lib/criticalOperationGuard";
 import EditProfileForm from "./screens/EditProfileForm";
 import UpdatePasswordScreen from "./screens/UpdatePasswordScreen";
 import OnboardingWizard from "./screens/onboarding/OnboardingWizard";
@@ -36,9 +38,11 @@ export default function App() {
   const [passPairs, setPassPairs] = useState([]); // [{from_id, to_id}]
   const likeInFlightRef = useRef(new Set()); // to_id en cours d'envoi — évite un double clic = double insert
   const passInFlightRef = useRef(new Set());
+  const [sessionExpiryWarning, setSessionExpiryWarning] = useState(false);
   const [matchNotice, setMatchNotice] = useState(null);
   const [activeMatch, setActiveMatch] = useState(null);
   const [messages, setMessages] = useState([]);
+  const messagesRef = useRef(messages); // lu par l'effet d'inactivité sans le forcer à se réabonner à chaque message
   const [messageDraft, setMessageDraft] = useState("");
   const [error, setError] = useState("");
   const [blockPairs, setBlockPairs] = useState([]); // [{from_id, to_id}] — blocages faits par moi
@@ -79,7 +83,12 @@ export default function App() {
 
   const loadAll = useCallback(async () => {
     try {
-      const [profRes, likeRes, passRes, blockRes, photoRes] = await Promise.all([
+      // Phase 1 : session + profiles + photos en parallèle. getSession() est
+      // relu ici (plutôt que de fermer sur le state "session" du composant)
+      // car loadAll a des deps [] pour rester une référence stable — fermer
+      // sur "session" produirait un closure figé sur sa toute première valeur.
+      const [sessionRes, profRes, photoRes] = await Promise.all([
+        supabase.auth.getSession(),
         // Plafonné (item 12/13 de l'audit Phase 10) : charger la table
         // "profiles" en entier sans limite était le plus gros risque de
         // scalabilité identifié — un vrai tri/pagination côté serveur
@@ -87,16 +96,48 @@ export default function App() {
         // périmètre de cette phase), donc ce plafond borne le pire cas
         // sans changer le comportement de classement actuel.
         supabase.from("profiles").select("*").order("created_at", { ascending: true }).limit(500),
-        supabase.from("likes").select("from_id,to_id"),
-        supabase.from("passes").select("from_id,to_id"),
-        supabase.from("blocks").select("from_id,to_id"),
-        supabase.from("profile_photos").select("*").order("position", { ascending: true }),
+        // Plafonné pour la même raison que "profiles" (borne le pire cas
+        // sans dépendre des 500 profils déjà résolus, chargés en parallèle).
+        // Trié par profile_id d'abord : 500 profils × MAX_PHOTOS(6) = 3000
+        // au maximum théorique, donc une troncature reste possible en
+        // bordure — trier uniquement par "position" rendrait alors la coupe
+        // arbitraire (un sous-ensemble différent de photos à chaque reload) ;
+        // trier par profile_id la rend déterministe (toujours les mêmes
+        // profils tronqués, jamais un mélange aléatoire de photos).
+        supabase.from("profile_photos").select("*").order("profile_id", { ascending: true }).order("position", { ascending: true }).limit(3200),
       ]);
       if (profRes.error) throw profRes.error;
+      if (photoRes.error) throw photoRes.error;
+
+      // likes/passes/blocks n'étaient filtrés par personne (audit complémentaire
+      // post-palette) : contrairement à "profiles" déjà plafonné ci-dessus,
+      // ces 3 tables croissent indéfiniment avec l'activité de TOUS les
+      // utilisateurs, pas seulement la sienne. hasLiked/hasPassed/hasBlocked
+      // (plus bas) ne sont jamais appelées qu'avec currentUser.id comme l'une
+      // des deux extrémités — donc ne charger que les lignes qui l'impliquent,
+      // via son profile.id. Dérivé du lot déjà chargé (profRes) au lieu d'une
+      // requête dédiée : le cas courant (compte parmi les 500 premiers
+      // profils) ne coûte alors aucun aller-retour réseau supplémentaire.
+      const authUserId = sessionRes.data?.session?.user?.id;
+      let myProfileId = authUserId ? (profRes.data || []).find((p) => p.user_id === authUserId)?.id || null : null;
+      if (authUserId && !myProfileId) {
+        const { data: ownProfile } = await supabase.from("profiles").select("id").eq("user_id", authUserId).maybeSingle();
+        myProfileId = ownProfile?.id || null;
+      }
+      const relFilter = myProfileId ? `from_id.eq.${myProfileId},to_id.eq.${myProfileId}` : null;
+      let likeQuery = supabase.from("likes").select("from_id,to_id");
+      let passQuery = supabase.from("passes").select("from_id,to_id");
+      let blockQuery = supabase.from("blocks").select("from_id,to_id");
+      if (relFilter) {
+        likeQuery = likeQuery.or(relFilter);
+        passQuery = passQuery.or(relFilter);
+        blockQuery = blockQuery.or(relFilter);
+      }
+
+      const [likeRes, passRes, blockRes] = await Promise.all([likeQuery, passQuery, blockQuery]);
       if (likeRes.error) throw likeRes.error;
       if (passRes.error) throw passRes.error;
       if (blockRes.error) throw blockRes.error;
-      if (photoRes.error) throw photoRes.error;
       setProfiles(profRes.data || []);
       setLikePairs(likeRes.data || []);
       setPassPairs(passRes.data || []);
@@ -215,6 +256,76 @@ export default function App() {
     };
   }, [session?.user?.id, currentUser?.show_online_status]);
 
+  // Déconnexion automatique après inactivité. Effet séparé du heartbeat
+  // ci-dessus (volontairement non fusionné, pour ne pas risquer de casser
+  // la présence en ligne). 13 min → bandeau d'avertissement, 15 min → déconnexion
+  // forcée, sauf opération critique en cours (message/upload/publication) :
+  // dans ce cas on revérifie toutes les 5s plutôt que d'interrompre.
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
+
+  useEffect(() => {
+    if (!session?.user?.id) return;
+
+    const WARNING_MS = 13 * 60 * 1000;
+    const LOGOUT_MS = 15 * 60 * 1000;
+    let warningTimer = null;
+    let logoutTimer = null;
+    let recheckTimer = null;
+    let cancelled = false;
+
+    // messagesRef (pas messages) : un message entrant ne doit pas être traité
+    // comme de l'activité de CET utilisateur ni relancer les timers — seul
+    // messagesRef.current est lu (jamais dans les deps de cet effet), pour
+    // qu'un message reçu pendant une absence n'interrompe pas le compte à
+    // rebours vers la déconnexion.
+    const hasInFlightActivity = () =>
+      likeInFlightRef.current.size > 0 ||
+      passInFlightRef.current.size > 0 ||
+      messagesRef.current.some((m) => m._status === "sending" || m._status === "uploading") ||
+      isCriticalOperationActive();
+
+    const forceLogout = () => {
+      if (cancelled) return;
+      if (hasInFlightActivity()) {
+        recheckTimer = setTimeout(forceLogout, 5000);
+        return;
+      }
+      handleSignOut().then(() => navigate("/connexion"));
+    };
+
+    const scheduleTimers = () => {
+      clearTimeout(warningTimer);
+      clearTimeout(logoutTimer);
+      clearTimeout(recheckTimer);
+      setSessionExpiryWarning(false);
+      warningTimer = setTimeout(() => setSessionExpiryWarning(true), WARNING_MS);
+      logoutTimer = setTimeout(forceLogout, LOGOUT_MS);
+    };
+
+    const activityEvents = ["mousemove", "keydown", "mousedown", "touchstart", "scroll"];
+    activityEvents.forEach((evt) => document.addEventListener(evt, scheduleTimers));
+    scheduleTimers();
+
+    return () => {
+      cancelled = true;
+      clearTimeout(warningTimer);
+      clearTimeout(logoutTimer);
+      clearTimeout(recheckTimer);
+      activityEvents.forEach((evt) => document.removeEventListener(evt, scheduleTimers));
+    };
+  }, [session?.user?.id]);
+
+  // Partagé par les deux rendus de <SessionExpiryBanner> plus bas (vue
+  // "checking-profile" et vue normale) — un simple événement "mousedown"
+  // suffit, capté par le même listener que l'activité réelle de l'effet
+  // ci-dessus.
+  const handleStayConnected = () => {
+    setSessionExpiryWarning(false);
+    document.dispatchEvent(new Event("mousedown"));
+  };
+
   // Une fois connecté, charger les données et retrouver (ou non) son propre profil
   useEffect(() => {
     if (session === undefined) return; // vérification en cours
@@ -273,6 +384,22 @@ export default function App() {
         p.id !== currentUser.id &&
         hasLiked(currentUser.id, p.id) &&
         hasLiked(p.id, currentUser.id) &&
+        !hasBlocked(currentUser.id, p.id) &&
+        !hasBlocked(p.id, currentUser.id)
+    );
+  }, [profiles, likePairs, blockPairs, currentUser]);
+
+  // "Qui m'a aimé" (avantage Premium) : m'a aimé, mais pas encore réciproque
+  // — dès que handleLike() est appelé dessus, hasLiked() devient vrai des
+  // deux côtés et le profil bascule naturellement dans getMatches() au
+  // prochain rendu (aucune action "confirmer le match" séparée nécessaire).
+  const getAdmirers = useCallback(() => {
+    if (!currentUser) return [];
+    return profiles.filter(
+      (p) =>
+        p.id !== currentUser.id &&
+        hasLiked(p.id, currentUser.id) &&
+        !hasLiked(currentUser.id, p.id) &&
         !hasBlocked(currentUser.id, p.id) &&
         !hasBlocked(p.id, currentUser.id)
     );
@@ -687,6 +814,27 @@ export default function App() {
     }
   }
 
+  async function handleUnlike(target) {
+    if (!currentUser) return;
+    if (!hasLiked(currentUser.id, target.id) || likeInFlightRef.current.has(target.id)) return;
+    if (hasLiked(target.id, currentUser.id)) return; // déjà matché : le unlike n'est pas proposé ici
+    likeInFlightRef.current.add(target.id);
+    try {
+      const { error: unlikeError } = await supabase
+        .from("likes")
+        .delete()
+        .eq("from_id", currentUser.id)
+        .eq("to_id", target.id);
+      if (unlikeError) throw unlikeError;
+      setLikePairs((k) => k.filter((l) => !(l.from_id === currentUser.id && l.to_id === target.id)));
+    } catch (e) {
+      console.error(e);
+      setError("Impossible de retirer ce like.");
+    } finally {
+      likeInFlightRef.current.delete(target.id);
+    }
+  }
+
   async function handlePass(target) {
     if (!currentUser) return;
     if (passInFlightRef.current.has(target.id)) return;
@@ -826,6 +974,34 @@ export default function App() {
     }]);
     setMessageDraft("");
     sendMessageText(text, tempId);
+  }
+
+  // Utilisé pour répondre à une story (SocialShell) : contrairement à
+  // sendMessage() ci-dessus, ne dépend pas de l'état activeMatch déjà à jour
+  // (setActiveMatch est asynchrone — le lire juste après l'avoir appelé
+  // donnerait l'ancienne valeur). openChat() charge d'abord la conversation
+  // cible avant qu'on y ajoute le message.
+  async function sendMessageTo(targetProfile, text) {
+    const trimmed = text.trim();
+    if (!currentUser || !targetProfile || !trimmed) return;
+    await openChat(targetProfile);
+    const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    setMessages((m) => [...m, {
+      id: tempId,
+      match_key: matchKey(currentUser.id, targetProfile.id),
+      from_id: currentUser.id,
+      kind: "text",
+      text: trimmed,
+      media_path: null,
+      media_meta: null,
+      created_at: new Date().toISOString(),
+      read_at: null,
+      _status: "sending",
+    }]);
+    await insertMessageRow(
+      { match_key: matchKey(currentUser.id, targetProfile.id), from_id: currentUser.id, kind: "text", text: trimmed },
+      tempId
+    );
   }
 
   // Un sticker n'implique jamais d'upload — la carte affichée dans le
@@ -1022,6 +1198,10 @@ export default function App() {
       <>
         <ConnectivityBanner />
         <AccountDeletionBanner currentUser={currentUser} onCancelled={handleCancelAccountDeletion} />
+        <SessionExpiryBanner
+          visible={sessionExpiryWarning}
+          onStayConnected={handleStayConnected}
+        />
         <SocialShell
           currentUser={currentUser}
           setView={setView}
@@ -1029,9 +1209,12 @@ export default function App() {
           onError={setError}
           candidates={candidates}
           getMatches={getMatches}
+          getAdmirers={getAdmirers}
           openChat={openChat}
           closeChat={closeChat}
           handleLike={handleLike}
+          handleUnlike={handleUnlike}
+          hasLiked={hasLiked}
           handlePass={handlePass}
           profilePhotos={profilePhotos}
           openEditProfile={openEditProfile}
@@ -1049,6 +1232,7 @@ export default function App() {
           setMessageDraft={setMessageDraft}
           broadcastTyping={broadcastTyping}
           sendMessage={sendMessage}
+          sendMessageTo={sendMessageTo}
           sendStickerMessage={sendStickerMessage}
           sendMediaMessage={sendMediaMessage}
           retrySend={retrySend}
@@ -1113,6 +1297,10 @@ export default function App() {
     <div className="bb-app min-h-screen flex flex-col relative overflow-x-hidden" style={{ fontFamily: "'Manrope', system-ui, sans-serif", color: C.ink }}>
       <ConnectivityBanner />
       <AccountDeletionBanner currentUser={currentUser} onCancelled={handleCancelAccountDeletion} />
+      <SessionExpiryBanner
+        visible={sessionExpiryWarning}
+        onStayConnected={handleStayConnected}
+      />
       <style>{`
         @keyframes bbGenericDrift { from { transform: scale(1.02); } to { transform: scale(1.06) translate3d(-1%, -1%, 0); } }
         .bb-generic-bg { animation: bbGenericDrift 26s ease-in-out alternate infinite; }

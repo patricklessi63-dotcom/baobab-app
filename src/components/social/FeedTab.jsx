@@ -16,7 +16,7 @@ import { rankCandidates } from "../../lib/matching/matchingService";
 import { rankCommunities } from "../../lib/communities/recommendations";
 import { rankEvents } from "../../lib/events/recommendations";
 import { getProfileCompletion } from "../../lib/profileCompletion";
-import { primary, green, coral, gold, bg, muted, card } from "./theme";
+import { primary, green, coral, gold, bg, muted, card, body, primaryRgb } from "./theme";
 
 // "Pour toi" communautés/événements (item 7/13/14) — lecture seule ici :
 // réutilise les vraies fonctions de classement déjà écrites en Phases 6-7
@@ -185,7 +185,7 @@ export default function FeedTab({
                   </button>
                 )}
               </div>
-              <span className="text-[11px] font-semibold truncate w-full text-center" style={{ color: seen ? muted : "#20243A" }}>{s.own ? "Ton statut" : s.name}</span>
+              <span className="text-[11px] font-semibold truncate w-full text-center" style={{ color: seen ? muted : body }}>{s.own ? "Ton statut" : s.name}</span>
             </div>
           );
         })}
@@ -198,7 +198,7 @@ export default function FeedTab({
         onCompleteProfile={openEditProfile}
       />
 
-      <div className="flex border-b mb-6" style={{ borderColor: "rgba(21,27,61,.08)" }}>
+      <div className="flex border-b mb-6" style={{ borderColor: `rgba(${primaryRgb},.08)` }}>
         {FEED_TABS.map(([key, label]) => (
           <button key={key} onClick={() => setFeedTab(key)} role="tab" aria-selected={feedTab === key} className="flex-1 py-3 text-sm font-bold relative focus-visible:outline focus-visible:outline-2" style={{ color: feedTab === key ? primary : muted }}>
             {label}
@@ -245,7 +245,7 @@ export default function FeedTab({
               </div>
             )}
             {candidates.length > 0 && (
-              <div className="flex items-center justify-end gap-2 mt-4 pt-3" style={{ borderTop: "1px solid rgba(21,27,61,.06)" }}>
+              <div className="flex items-center justify-end gap-2 mt-4 pt-3" style={{ borderTop: `1px solid rgba(${primaryRgb},.06)` }}>
                 <span className="text-xs" style={{ color: muted }}>{feedbackSent ? "Merci pour ton retour !" : "Ces suggestions te conviennent-elles ?"}</span>
                 {!feedbackSent && (
                   <>

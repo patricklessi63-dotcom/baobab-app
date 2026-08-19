@@ -2,8 +2,10 @@ import React, { useState } from "react";
 import { X, ChevronLeft, ChevronRight, Heart, MessageCircle, UserPlus, UserCheck, Star, Flag, Ban } from "lucide-react";
 import Avatar from "../Avatar";
 import VerifiedBadge from "../VerifiedBadge";
+import FounderBadge from "../FounderBadge";
+import { visibleAge } from "../../utils/format";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
-import { primary, green, coral, gold, bg, muted, card } from "./theme";
+import { primary, green, coral, gold, bg, muted, card, body, primaryRgb } from "./theme";
 
 // Allow-list explicite des champs affichés — jamais de spread {...profile},
 // jamais d'email/user_id/id bruts rendus.
@@ -14,7 +16,7 @@ function Row({ icon, label, children }) {
       <span className="text-base leading-none mt-0.5" aria-hidden="true">{icon}</span>
       <div className="min-w-0">
         <div className="text-[11px] font-bold uppercase tracking-wide" style={{ color: muted }}>{label}</div>
-        <div className="text-sm mt-0.5" style={{ color: "#20243A" }}>{children}</div>
+        <div className="text-sm mt-0.5" style={{ color: body }}>{children}</div>
       </div>
     </div>
   );
@@ -27,7 +29,9 @@ export default function PublicProfileModal({
   isMatch = false,
   isFavorite = false,
   isFollowing = false,
+  isLiked = false,
   onLike,
+  onUnlike,
   onMessage,
   onToggleFavorite,
   onToggleFollow,
@@ -56,7 +60,7 @@ export default function PublicProfileModal({
   return (
     <div
       className="fixed inset-0 z-[70] flex items-end md:items-center justify-center p-0 md:p-5"
-      style={{ background: "rgba(21,27,61,.55)", backdropFilter: "blur(5px)" }}
+      style={{ background: `rgba(${primaryRgb},.55)`, backdropFilter: "blur(5px)" }}
       onClick={onClose}
       role="dialog"
       aria-modal="true"
@@ -64,6 +68,7 @@ export default function PublicProfileModal({
     >
       <div
         className={`${card} w-full max-w-md rounded-t-[30px] md:rounded-[30px] max-h-[92vh] overflow-y-auto`}
+        style={profile.is_founder ? { borderColor: gold, borderWidth: 2, boxShadow: `0 0 0 1px ${gold}` } : undefined}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="relative">
@@ -101,8 +106,9 @@ export default function PublicProfileModal({
 
         <div className="p-5">
           <div className="flex items-center gap-2">
-            <h2 className="text-xl font-black" style={{ color: primary }}>{profile.name}{profile.age ? `, ${profile.age}` : ""}</h2>
+            <h2 className="text-xl font-black" style={{ color: primary }}>{profile.name}{visibleAge(profile) ? `, ${visibleAge(profile)}` : ""}</h2>
             <VerifiedBadge emailVerified={profile.email_verified} phoneVerified={profile.phone_verified} />
+            <FounderBadge isFounder={profile.is_founder} />
           </div>
 
           {(showCity && profile.city) && (
@@ -137,9 +143,14 @@ export default function PublicProfileModal({
           </div>
 
           <div className="flex items-center gap-2 mt-5 flex-wrap">
-            {onLike && (
+            {onLike && !isLiked && (
               <button onClick={() => onLike(profile)} className="flex-1 min-w-[100px] rounded-full py-2.5 text-sm font-bold text-white flex items-center justify-center gap-1.5 focus-visible:outline focus-visible:outline-2" style={{ background: coral }}>
                 <Heart size={15} /> J'aime
+              </button>
+            )}
+            {onUnlike && isLiked && (
+              <button onClick={() => onUnlike(profile)} className="flex-1 min-w-[100px] rounded-full py-2.5 text-sm font-bold flex items-center justify-center gap-1.5 focus-visible:outline focus-visible:outline-2" style={{ background: bg, color: coral }}>
+                <Heart size={15} fill={coral} /> Je ne l'aime plus
               </button>
             )}
             {isMatch && onMessage && (

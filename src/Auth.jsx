@@ -4,12 +4,19 @@ import { supabase } from "./supabaseClient";
 import loginBackground from "./assets/baobab-canada-bg.svg";
 import { PrivacyPolicyContent, TermsOfServiceContent } from "./legalContent";
 import { useEscapeKey } from "./hooks/useEscapeKey";
+import { useCountdown } from "./hooks/useCountdown";
 import { C } from "./components/auth/authTheme";
 import PasswordField from "./components/auth/PasswordField";
 import PasswordStrengthMeter from "./components/auth/PasswordStrengthMeter";
 import { scorePassword, passwordMeetsMinimum } from "./lib/passwordStrength";
 
 const RESEND_COOLDOWN_S = 45;
+const RESET_COOLDOWN_S = 45;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function isValidEmail(value) {
+  return EMAIL_RE.test(value.trim());
+}
 
 function BaobabIcon({ size = 34 }) {
   return (
@@ -32,13 +39,15 @@ function traduireErreur(err) {
   if (code === "invalid_credentials" || msg.includes("Invalid login credentials"))
     return "Email ou mot de passe incorrect.";
   if (code === "user_already_exists" || msg.includes("User already registered"))
-    return "Un compte existe déjà avec cet email.";
+    return "Cette adresse email est déjà associée à un compte Baobab.";
   if (code === "weak_password" || msg.includes("Password should be at least"))
     return "Le mot de passe ne respecte pas les règles minimales.";
   if (code === "validation_failed" || msg.includes("Unable to validate email address"))
-    return "Adresse email invalide.";
+    return "Veuillez entrer une adresse email valide.";
   if (code === "over_email_send_rate_limit" || msg.includes("rate limit"))
     return "Trop de tentatives. Réessaie dans quelques minutes.";
+  if (msg.toLowerCase().includes("already confirmed"))
+    return "Cette adresse est déjà vérifiée. Tu peux te connecter directement.";
   if (!navigator.onLine) return "Pas de connexion internet.";
   return msg || "Une erreur est survenue.";
 }
@@ -58,8 +67,12 @@ export default function Auth({ justVerified = false, onAcknowledgeVerified = () 
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [legalView, setLegalView] = useState(null); // "privacy" | "terms" | null
-  const [resendCooldown, setResendCooldown] = useState(0);
   const [resendLoading, setResendLoading] = useState(false);
+  const [signupEmailExists, setSignupEmailExists] = useState(false);
+  // Deux cooldowns distincts (reset password vs renvoi de confirmation sont
+  // deux flux séparés) mais un seul mécanisme de compte à rebours partagé.
+  const [resendCooldown, setResendCooldown] = useCountdown();
+  const [resetCooldown, setResetCooldown] = useCountdown();
   useEscapeKey(Boolean(legalView), () => setLegalView(null));
 
   useEffect(() => {
@@ -70,17 +83,17 @@ export default function Auth({ justVerified = false, onAcknowledgeVerified = () 
     if (justVerified) onAcknowledgeVerified();
   }, [justVerified]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  useEffect(() => {
-    if (resendCooldown <= 0) return;
-    const t = setInterval(() => setResendCooldown((s) => Math.max(0, s - 1)), 1000);
-    return () => clearInterval(t);
-  }, [resendCooldown > 0]); // eslint-disable-line react-hooks/exhaustive-deps
-
   async function handleSubmit(e) {
     e.preventDefault();
     setError("");
     setNotice("");
+    setSignupEmailExists(false);
     const cleanEmail = email.trim();
+
+    if (!isValidEmail(cleanEmail)) {
+      setError("Veuillez entrer une adresse email valide.");
+      return;
+    }
 
     if (mode === "signup") {
       if (!passwordMeetsMinimum(scorePassword(password).checks)) {
@@ -92,6 +105,11 @@ export default function Auth({ justVerified = false, onAcknowledgeVerified = () 
         return;
       }
     }
+
+    // Coupe-circuit local (en plus du rate limit serveur de Supabase) :
+    // un clic répété sur "Envoyer le lien" pendant le cooldown ne doit
+    // jamais déclencher un nouvel envoi.
+    if (mode === "reset" && resetCooldown > 0) return;
 
     setLoading(true);
     try {
@@ -115,11 +133,15 @@ export default function Auth({ justVerified = false, onAcknowledgeVerified = () 
         });
         if (resetError) throw resetError;
         setNotice("Email de réinitialisation envoyé, si ce compte existe.");
+        setResetCooldown(RESET_COOLDOWN_S);
         setMode("signin");
       }
     } catch (err) {
       if (mode === "signin" && isEmailNotConfirmed(err)) {
         setMode("unverified");
+      } else if (mode === "signup" && (err?.code === "user_already_exists" || (err?.message || "").includes("User already registered"))) {
+        setSignupEmailExists(true);
+        setError(traduireErreur(err));
       } else {
         setError(traduireErreur(err));
       }
@@ -129,7 +151,11 @@ export default function Auth({ justVerified = false, onAcknowledgeVerified = () 
   }
 
   async function handleResend() {
-    if (resendCooldown > 0 || resendLoading || !email.trim()) return;
+    if (resendCooldown > 0 || resendLoading) return;
+    if (!isValidEmail(email)) {
+      setError("Veuillez entrer une adresse email valide.");
+      return;
+    }
     setResendLoading(true);
     setError("");
     try {
@@ -148,6 +174,7 @@ export default function Auth({ justVerified = false, onAcknowledgeVerified = () 
     setMode(next);
     setError("");
     setNotice("");
+    setSignupEmailExists(false);
     setPassword("");
     setPasswordConfirm("");
     if (authLinkError) onDismissLinkError();
@@ -284,6 +311,19 @@ export default function Auth({ justVerified = false, onAcknowledgeVerified = () 
           {error && <div role="alert" className="bb-alert-shake mt-5 rounded-2xl px-4 py-3 text-sm"
             style={{ background: "rgba(193,97,61,0.15)", color: "#F4A48C", border: "1px solid rgba(193,97,61,0.28)" }}>{error}</div>}
 
+          {/* Email déjà utilisé à l'inscription : proposer directement les deux issues
+              plutôt que de laisser l'utilisateur retaper son email lui-même. */}
+          {error && mode === "signup" && signupEmailExists && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button type="button" onClick={() => switchMode("signin")} className="bb-tap rounded-xl px-3.5 py-2 text-xs font-bold text-white" style={{ background: `linear-gradient(135deg, ${C.clay}, #A94F30)` }}>
+                Se connecter
+              </button>
+              <button type="button" onClick={() => switchMode("reset")} className="bb-tap rounded-xl px-3.5 py-2 text-xs font-semibold" style={{ color: C.ochre, border: "1px solid rgba(217,164,65,0.35)" }}>
+                Mot de passe oublié ?
+              </button>
+            </div>
+          )}
+
           {notice && <div role="status" className="mt-5 rounded-2xl px-4 py-3 text-sm"
             style={{ background: "rgba(143,174,134,0.15)", color: "#B9D5B2", border: "1px solid rgba(143,174,134,0.25)" }}>{notice}</div>}
 
@@ -407,12 +447,20 @@ export default function Auth({ justVerified = false, onAcknowledgeVerified = () 
                 </>
               )}
 
-              <button type="submit" disabled={loading || (mode === "signup" && !signupReady)}
+              <button type="submit" disabled={loading || (mode === "signup" && !signupReady) || (mode === "reset" && resetCooldown > 0)}
                 className="bb-submit bb-tap mt-1 flex items-center justify-center gap-2 rounded-2xl py-4 text-sm font-bold transition-transform duration-200 active:scale-[0.98] hover:scale-[1.01] disabled:opacity-60"
                 style={{ background: `linear-gradient(135deg, ${C.clay}, #A94F30)`, color: "#FFF8EF", boxShadow: "0 14px 32px -10px rgba(193,97,61,.65)" }}>
                 {loading && <Loader2 size={17} className="animate-spin" />}
-                {loading ? (mode === "signup" ? "Création..." : mode === "reset" ? "Envoi..." : "Connexion...") : mode === "signup" ? "Créer mon compte" : mode === "reset" ? "Envoyer le lien" : "Se connecter"}
+                {loading ? (mode === "signup" ? "Création..." : mode === "reset" ? "Envoi..." : "Connexion...")
+                  : mode === "signup" ? "Créer mon compte"
+                  : mode === "reset" ? (resetCooldown > 0 ? `Renvoyer (${resetCooldown}s)` : "Envoyer le lien")
+                  : "Se connecter"}
               </button>
+              {mode === "reset" && resetCooldown > 0 && (
+                <p className="-mt-1.5 text-center text-xs" style={{ color: C.sandDim }}>
+                  Un nouvel email pourra être envoyé dans {resetCooldown}s.
+                </p>
+              )}
             </form>
           )}
 

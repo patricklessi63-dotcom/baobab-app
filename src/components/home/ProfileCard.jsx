@@ -1,7 +1,9 @@
 import React from "react";
 import { Heart, X, MessageCircle } from "lucide-react";
 import VerifiedBadge from "../VerifiedBadge";
-import { coral, gold, green, muted, bg } from "../social/theme";
+import FounderBadge from "../FounderBadge";
+import { visibleAge } from "../../utils/format";
+import { coral, gold, green, muted, bg, primaryRgb } from "../social/theme";
 
 export default function ProfileCard({
   profile,
@@ -24,7 +26,9 @@ export default function ProfileCard({
   return (
     <div
       className="group shrink-0 w-40 rounded-2xl overflow-hidden border bg-white transition-transform duration-200 hover:-translate-y-1 focus-within:-translate-y-1 motion-reduce:transition-none motion-reduce:hover:translate-y-0"
-      style={{ borderColor: "rgba(21,27,61,.08)" }}
+      style={profile.is_founder
+        ? { borderColor: gold, borderWidth: 2, boxShadow: `0 0 0 1px ${gold}` }
+        : { borderColor: `rgba(${primaryRgb},.08)` }}
     >
       <div className="h-28 relative overflow-hidden" style={{ background: `linear-gradient(150deg,${gold},${coral})` }}>
         {profile.avatar_url ? (
@@ -37,6 +41,11 @@ export default function ProfileCard({
         ) : (
           <div className="absolute inset-0 flex items-center justify-center text-3xl" aria-hidden="true">🌍</div>
         )}
+        {profile.is_founder && (
+          <span className="absolute top-2 left-2 h-6 w-6 rounded-full bg-white/90 flex items-center justify-center">
+            <FounderBadge isFounder size={13} />
+          </span>
+        )}
         {hasVerification && (
           <span className="absolute top-2 right-2 h-6 w-6 rounded-full bg-white/90 flex items-center justify-center">
             <VerifiedBadge emailVerified={profile.email_verified} phoneVerified={profile.phone_verified} size={13} />
@@ -45,7 +54,7 @@ export default function ProfileCard({
         {typeof compatibilityScore === "number" && (
           <span
             className="absolute top-2 left-2 px-2 py-0.5 rounded-full text-[10px] font-black text-white"
-            style={{ background: "rgba(21,27,61,.55)", backdropFilter: "blur(4px)" }}
+            style={{ background: `rgba(${primaryRgb},.55)`, backdropFilter: "blur(4px)" }}
             title="Compatibilité estimée — pas une garantie"
           >
             ~{compatibilityScore}%
@@ -54,7 +63,7 @@ export default function ProfileCard({
       </div>
 
       <div className="p-3">
-        <div className="text-sm font-bold truncate">{profile.name}{profile.age ? `, ${profile.age}` : ""}</div>
+        <div className="text-sm font-bold truncate">{profile.name}{visibleAge(profile) ? `, ${visibleAge(profile)}` : ""}</div>
         {profile.city && <div className="text-[11px] truncate mt-0.5" style={{ color: muted }}>{profile.city}</div>}
         {highlightText && <div className="text-[11px] mt-1 truncate" style={{ color: coral }}>{highlightText}</div>}
         {commonInterestsCount > 0 && (

@@ -3,7 +3,7 @@ import { Send, Trash2 } from "lucide-react";
 import Avatar from "../Avatar";
 import EmptyState from "../home/EmptyState";
 import Skeleton from "../Skeleton";
-import { primary, coral, muted, bg } from "./theme";
+import { primary, coral, muted, bg, body, primaryRgb } from "./theme";
 
 // Discussion légère liée à l'événement — table event_comments dédiée,
 // pas une extension de la messagerie 1:1 (voir rapport final pour le
@@ -15,7 +15,7 @@ export default function EventCommentsSection({ comments = [], loading, canPost, 
   return (
     <div>
       {canPost && (
-        <div className="flex items-center gap-2 pb-4 mb-3" style={{ borderBottom: "1px solid rgba(21,27,61,.06)" }}>
+        <div className="flex items-center gap-2 pb-4 mb-3" style={{ borderBottom: `1px solid rgba(${primaryRgb},.06)` }}>
           <input
             value={draft}
             onChange={(e) => setDraft(e.target.value.slice(0, 1000))}
@@ -50,7 +50,7 @@ export default function EventCommentsSection({ comments = [], loading, canPost, 
                 <Avatar name={profile.name} url={profile.avatar_url} size={32} />
                 <div className="min-w-0 flex-1">
                   <div className="text-xs font-bold" style={{ color: primary }}>{profile.name || "Utilisateur"}</div>
-                  <p className="text-sm mt-0.5 whitespace-pre-wrap break-words" style={{ color: "#20243A" }}>{c.body}</p>
+                  <p className="text-sm mt-0.5 whitespace-pre-wrap break-words" style={{ color: body }}>{c.body}</p>
                 </div>
                 {canDelete && (
                   <button onClick={() => onDelete(c)} aria-label="Supprimer ce message" className="flex-shrink-0" style={{ color: muted }}>

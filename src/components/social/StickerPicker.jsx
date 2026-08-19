@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { STICKER_CATEGORIES, STICKER_GRADIENTS } from "../../lib/stickerData";
-import { primary, muted } from "./theme";
+import { primary, muted, primaryRgb } from "./theme";
 
 // Contenu de sélection de stickers — sans chrome de popover ni bouton
 // déclencheur propre (contrairement à EmojiPicker) : ce composant est
@@ -21,7 +21,7 @@ export default function StickerPicker({ onPick }) {
             aria-label={cat.label}
             aria-pressed={activeCategory === cat.id}
             className="h-9 w-9 flex-shrink-0 flex items-center justify-center rounded-lg text-base"
-            style={{ background: activeCategory === cat.id ? "rgba(21,27,61,.06)" : "transparent" }}
+            style={{ background: activeCategory === cat.id ? `rgba(${primaryRgb},.06)` : "transparent" }}
           >
             {cat.icon}
           </button>

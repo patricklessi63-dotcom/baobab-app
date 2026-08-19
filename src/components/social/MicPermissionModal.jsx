@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Mic, MicOff, Copy, Check } from "lucide-react";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
-import { primary, coral, muted, bg, card } from "./theme";
+import { primary, coral, muted, bg, card, body, primaryRgb } from "./theme";
 
 // Détecte le navigateur pour adapter les 4 lignes d'aide "Comment
 // autoriser" — jamais de faux bouton qui prétendrait ouvrir les réglages
@@ -85,7 +85,7 @@ export default function MicPermissionModal({ open, phase, requesting, onAllow, o
   return (
     <div
       className="fixed inset-0 z-[90] flex items-center justify-center p-5"
-      style={{ background: "rgba(21,27,61,.5)", backdropFilter: "blur(4px)" }}
+      style={{ background: `rgba(${primaryRgb},.5)`, backdropFilter: "blur(4px)" }}
       onClick={onDismiss}
       role="dialog"
       aria-modal="true"
@@ -134,7 +134,7 @@ export default function MicPermissionModal({ open, phase, requesting, onAllow, o
                 Comment autoriser ?
               </button>
             ) : (
-              <div className="text-left mt-3 rounded-2xl p-3.5 flex flex-col gap-2" style={{ background: bg, color: "#20243A" }}>
+              <div className="text-left mt-3 rounded-2xl p-3.5 flex flex-col gap-2" style={{ background: bg, color: body }}>
                 {GUIDE === "android-chrome" && (
                   <button
                     type="button"

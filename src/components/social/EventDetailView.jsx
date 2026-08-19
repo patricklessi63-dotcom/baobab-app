@@ -9,7 +9,7 @@ import { categoryIcon, categoryLabel, reportCategoryLabel, timezoneLabel } from 
 import { isEventStaff } from "../../lib/events/permissions";
 import { downloadIcs, googleCalendarUrl } from "../../lib/events/calendarExport";
 import { formatEventWhen } from "../../utils/format";
-import { primary, green, coral, gold, muted, bg, card } from "./theme";
+import { primary, green, coral, gold, muted, bg, card, body, primaryRgb } from "./theme";
 
 const SUB_TABS = [["about", "À propos"], ["discussion", "Discussion"], ["participants", "Participants"], ["photos", "Photos"]];
 
@@ -76,7 +76,7 @@ export default function EventDetailView({
       <div className={`${card} overflow-hidden`}>
         <div className="h-40 relative" style={{ background: event.cover_url ? `url(${event.cover_url}) center/cover` : `linear-gradient(150deg,${gold},${coral})` }}>
           {canceled && (
-            <div className="absolute inset-0 flex items-center justify-center" style={{ background: "rgba(21,27,61,.55)" }}>
+            <div className="absolute inset-0 flex items-center justify-center" style={{ background: `rgba(${primaryRgb},.55)` }}>
               <span className="text-white font-black text-sm px-4 py-2 rounded-full" style={{ background: coral }}>❌ Événement annulé</span>
             </div>
           )}
@@ -141,7 +141,7 @@ export default function EventDetailView({
             </div>
           </div>
 
-          {event.description && <p className="text-sm mt-3 whitespace-pre-wrap" style={{ color: "#20243A" }}>{event.description}</p>}
+          {event.description && <p className="text-sm mt-3 whitespace-pre-wrap" style={{ color: body }}>{event.description}</p>}
 
           {!canceled && (
             <div className="mt-4 flex items-center gap-2 flex-wrap">
@@ -188,7 +188,7 @@ export default function EventDetailView({
 
       <div className="mt-4">
         {subTab === "about" && (
-          <div className={`${card} p-5 text-sm`} style={{ color: "#20243A" }}>
+          <div className={`${card} p-5 text-sm`} style={{ color: body }}>
             <p>{event.description || "Aucune description pour l'instant."}</p>
             {event.organizerName && <p className="mt-3 text-xs" style={{ color: muted }}>Organisé par {event.organizerName}</p>}
           </div>
@@ -255,7 +255,7 @@ export default function EventDetailView({
                     <div className="text-sm font-semibold" style={{ color: primary }}>{reportCategoryLabel(rep.category)}</div>
                     {rep.reason && <p className="text-xs mt-1" style={{ color: muted }}>{rep.reason}</p>}
                     <div className="flex gap-2 mt-2.5">
-                      <button onClick={() => onDismissReport(rep)} className="flex-1 text-xs font-bold py-2 rounded-full" style={{ border: "1px solid rgba(21,27,61,.15)", color: primary }}>Ignorer</button>
+                      <button onClick={() => onDismissReport(rep)} className="flex-1 text-xs font-bold py-2 rounded-full" style={{ border: `1px solid rgba(${primaryRgb},.15)`, color: primary }}>Ignorer</button>
                       <button onClick={() => onResolveReport(rep)} className="flex-1 text-xs font-bold py-2 rounded-full text-white" style={{ background: coral }}>Traiter</button>
                     </div>
                   </div>

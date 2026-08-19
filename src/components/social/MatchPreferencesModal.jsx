@@ -3,7 +3,7 @@ import { X } from "lucide-react";
 import ChipSelect from "../ChipSelect";
 import { MATCH_DISTANCE_OPTIONS } from "../../constants";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
-import { primary, coral, bg, muted, card } from "./theme";
+import { primary, coral, bg, muted, card, primaryRgb } from "./theme";
 
 export default function MatchPreferencesModal({ open, onClose, currentUser, onSave }) {
   const [ageMin, setAgeMin] = useState(18);
@@ -36,7 +36,7 @@ export default function MatchPreferencesModal({ open, onClose, currentUser, onSa
   return (
     <div
       className="fixed inset-0 z-[70] flex items-end md:items-center justify-center p-0 md:p-5"
-      style={{ background: "rgba(21,27,61,.55)", backdropFilter: "blur(5px)" }}
+      style={{ background: `rgba(${primaryRgb},.55)`, backdropFilter: "blur(5px)" }}
       onClick={onClose}
       role="dialog"
       aria-modal="true"

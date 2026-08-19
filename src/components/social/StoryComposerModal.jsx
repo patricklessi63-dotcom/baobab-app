@@ -1,7 +1,7 @@
 import React from "react";
 import { X, Image as ImageIcon, Camera } from "lucide-react";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
-import { primary, green, coral, bg } from "./theme";
+import { primary, green, coral, bg, primaryRgb } from "./theme";
 
 export default function StoryComposerModal({
   storyComposer,
@@ -26,7 +26,7 @@ export default function StoryComposerModal({
       <input ref={storyPhotoInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => onStoryMediaSelected(e, "photo")} />
       <input ref={storyVideoInputRef} type="file" accept="video/*" className="hidden" onChange={(e) => onStoryMediaSelected(e, "video")} />
       {storyComposer && (
-        <div className="fixed inset-0 z-[60] flex items-end md:items-center justify-center p-0 md:p-5" style={{ background: "rgba(21,27,61,.55)", backdropFilter: "blur(5px)" }} onClick={() => setStoryComposer(false)} role="dialog" aria-modal="true" aria-label="Nouveau statut">
+        <div className="fixed inset-0 z-[60] flex items-end md:items-center justify-center p-0 md:p-5" style={{ background: `rgba(${primaryRgb},.55)`, backdropFilter: "blur(5px)" }} onClick={() => setStoryComposer(false)} role="dialog" aria-modal="true" aria-label="Nouveau statut">
           <div className="bg-white w-full max-w-md rounded-t-[30px] md:rounded-[30px] p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between"><h2 className="text-xl font-black" style={{ color: primary }}>Nouveau statut</h2><button onClick={() => setStoryComposer(false)} aria-label="Fermer"><X /></button></div>
             <textarea autoFocus value={storyText} onChange={(e) => setStoryText(e.target.value)} className="mt-5 w-full min-h-28 rounded-2xl p-4 outline-none resize-none" style={{ background: bg }} placeholder="Une pensée, une bonne nouvelle, un moment de ta journée…" />

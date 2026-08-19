@@ -1,7 +1,7 @@
 import React from "react";
 import { MessageCircle } from "lucide-react";
 import { computeMatch } from "../../lib/matching/matchingService";
-import { primary, bg } from "./theme";
+import { primary, bg, body, primaryRgb } from "./theme";
 
 // Génère jusqu'à 3 suggestions d'ouverture, uniquement à partir de données
 // réellement communes entre les deux profils (jamais inventées). Repli sur
@@ -51,7 +51,7 @@ export default function ConversationStarters({ currentUser, match, onPick }) {
           key={s}
           onClick={() => onPick(s)}
           className="text-left text-xs px-3.5 py-3 rounded-2xl transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1"
-          style={{ background: bg, color: "#20243A", border: "1px solid rgba(21,27,61,.06)" }}
+          style={{ background: bg, color: body, border: `1px solid rgba(${primaryRgb},.06)` }}
         >
           {s}
         </button>

@@ -1,6 +1,6 @@
 import React, { useRef, useState } from "react";
 import { Upload } from "lucide-react";
-import { primary } from "./theme";
+import { primary, primaryRgb } from "./theme";
 
 // Enveloppe le conteneur de liste de messages avec un glisser-déposer
 // desktop uniquement. Compteur de survol imbriqué pour éviter le
@@ -45,7 +45,7 @@ export default function ChatDropZone({ onDropFile, children }) {
       {dragActive && (
         <div
           className="hidden md:flex absolute inset-2 rounded-2xl flex-col items-center justify-center gap-2 pointer-events-none"
-          style={{ background: "rgba(21,27,61,.06)", border: `2px dashed ${primary}` }}
+          style={{ background: `rgba(${primaryRgb},.06)`, border: `2px dashed ${primary}` }}
         >
           <Upload size={28} color={primary} />
           <span className="text-sm font-bold" style={{ color: primary }}>Dépose ton fichier ici</span>

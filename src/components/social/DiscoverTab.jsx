@@ -1,6 +1,8 @@
 import React, { useMemo, useState } from "react";
 import { Heart, X, Info } from "lucide-react";
 import VerifiedBadge from "../VerifiedBadge";
+import FounderBadge from "../FounderBadge";
+import { visibleAge } from "../../utils/format";
 import ChipSelect from "../ChipSelect";
 import MatchCard from "./MatchCard";
 import MatchInfoModal from "./MatchInfoModal";
@@ -10,7 +12,7 @@ import { computeMatch, rankCandidates } from "../../lib/matching/matchingService
 import { usePremiumStatus } from "../../lib/premium/usePremiumStatus";
 import { useHiddenRecommendations } from "../../lib/useHiddenRecommendations";
 import { LOOKING_FOR_OPTIONS, INTERESTS_OPTIONS, LANGUAGES_OPTIONS } from "../../constants";
-import { primary, green, coral, gold, bg, muted, card, buttonBase } from "./theme";
+import { primary, green, coral, gold, bg, muted, card, buttonBase, online, body, primaryRgb } from "./theme";
 
 const ACTIVE_RECENTLY_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
 
@@ -169,7 +171,7 @@ export default function DiscoverTab({
                       onPointerCancel={onSwipeEnd}
                       onPointerLeave={() => swiping && onSwipeEnd()}
                     >
-                      <div className="h-[500px] relative overflow-hidden" style={{ background: photo ? `linear-gradient(180deg,rgba(21,27,61,.05) 35%,rgba(21,27,61,.88)),url(${photo}) center/cover` : `linear-gradient(145deg,${primary},${green},${gold})` }}>
+                      <div className="h-[500px] relative overflow-hidden" style={{ background: photo ? `linear-gradient(180deg,rgba(${primaryRgb},.05) 35%,rgba(${primaryRgb},.88)),url(${photo}) center/cover` : `linear-gradient(145deg,${primary},${green},${gold})` }}>
                         {!photo && <div className="absolute inset-0 flex items-center justify-center text-8xl">🌍</div>}
 
                         {photos.length > 1 && (
@@ -193,8 +195,8 @@ export default function DiscoverTab({
                           {p.country && <span className="px-3 py-1.5 rounded-full bg-white/15 backdrop-blur-md text-white text-[11px] font-bold">🌍 {p.country}</span>}
                         </div>
 
-                        <div className="absolute top-16 left-6 border-4 rounded-2xl px-3 py-1 z-10" style={{ borderColor: "#27C56D", transform: `rotate(-14deg)`, opacity: likeOpacity }}>
-                          <span className="text-lg font-black tracking-widest" style={{ color: "#27C56D" }}>OUI</span>
+                        <div className="absolute top-16 left-6 border-4 rounded-2xl px-3 py-1 z-10" style={{ borderColor: online, transform: `rotate(-14deg)`, opacity: likeOpacity }}>
+                          <span className="text-lg font-black tracking-widest" style={{ color: online }}>OUI</span>
                         </div>
                         <div className="absolute top-16 right-6 border-4 rounded-2xl px-3 py-1 z-10" style={{ borderColor: coral, transform: `rotate(14deg)`, opacity: passOpacity }}>
                           <span className="text-lg font-black tracking-widest" style={{ color: coral }}>PASSER</span>
@@ -206,8 +208,9 @@ export default function DiscoverTab({
                             onClick={() => onViewProfile(p)}
                             className="text-3xl font-black flex items-center gap-2 text-left"
                           >
-                            {p.name}, {p.age}
+                            {p.name}{visibleAge(p) ? `, ${visibleAge(p)}` : ""}
                             <VerifiedBadge emailVerified={p.email_verified} phoneVerified={p.phone_verified} size={20} color="#fff" />
+                            <FounderBadge isFounder={p.is_founder} size={20} />
                           </button>
                           <p className="text-xs text-white/60 mt-0.5">Toucher le nom pour voir le profil complet</p>
                           <div className="text-sm text-white/75 mt-1">📍 {p.city || "Canada"} · {p.occupation || "Nouveau membre"}</div>
@@ -237,7 +240,7 @@ export default function DiscoverTab({
                               </div>
                               <ul className="space-y-1">
                                 {compat.reasons.map((r, i) => (
-                                  <li key={i} className="text-xs flex items-start gap-1.5" style={{ color: "#20243A" }}>
+                                  <li key={i} className="text-xs flex items-start gap-1.5" style={{ color: body }}>
                                     <span style={{ color: green }}>✓</span>{r}
                                   </li>
                                 ))}
@@ -255,8 +258,8 @@ export default function DiscoverTab({
                         })()}
 
                         <div className="flex items-center justify-center gap-5">
-                          <button onPointerDown={(e) => e.stopPropagation()} onClick={() => decideSwipe("pass")} className={`${buttonBase} h-16 w-16 rounded-full border-2 flex items-center justify-center bg-white`} style={{ borderColor: "#E5E7EF" }}><X size={28} color={muted} /></button>
-                          <button onPointerDown={(e) => e.stopPropagation()} onClick={() => decideSwipe("like")} className={`${buttonBase} h-[72px] w-[72px] rounded-full text-white flex items-center justify-center shadow-xl`} style={{ background: `linear-gradient(135deg,${coral},#D94F70)` }}><Heart size={30} fill="white" /></button>
+                          <button aria-label="Passer ce profil" onPointerDown={(e) => e.stopPropagation()} onClick={() => decideSwipe("pass")} className={`${buttonBase} h-16 w-16 rounded-full border-2 flex items-center justify-center bg-white`} style={{ borderColor: "#E5E7EF" }}><X size={28} color={muted} /></button>
+                          <button aria-label="Aimer ce profil" onPointerDown={(e) => e.stopPropagation()} onClick={() => decideSwipe("like")} className={`${buttonBase} h-[72px] w-[72px] rounded-full text-white flex items-center justify-center shadow-xl`} style={{ background: `linear-gradient(135deg,${coral},#D94F70)` }}><Heart size={30} fill="white" /></button>
                         </div>
                         <div className="text-center text-[11px] mt-3" style={{ color: muted }}>♥ Oui si tu veux faire connaissance · × Passer</div>
                       </div>

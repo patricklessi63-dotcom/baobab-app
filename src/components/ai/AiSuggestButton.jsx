@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Sparkles, Loader2 } from "lucide-react";
 import { invokeAI } from "../../lib/ai/aiClient";
-import { primary, coral, bg, goldTint, goldText } from "../social/theme";
+import { primary, coral, bg, goldTint, goldText, body } from "../social/theme";
 
 // Bouton réutilisable "✨ Améliorer avec l'IA" pour un champ texte unique
 // (bio/publication/description d'événement) — n'écrit JAMAIS
@@ -29,7 +29,7 @@ export default function AiSuggestButton({ action, buildPayload, onApply, label =
         <div className="text-[10px] font-black uppercase tracking-wider flex items-center gap-1" style={{ color: goldText }}>
           <Sparkles size={11} /> Suggestion IA
         </div>
-        <p className="text-sm mt-1.5 whitespace-pre-wrap" style={{ color: primary }}>{suggestion}</p>
+        <p className="text-sm mt-1.5 whitespace-pre-wrap" style={{ color: body }}>{suggestion}</p>
         <div className="flex gap-2 mt-3">
           <button type="button" onClick={() => setSuggestion("")} className="flex-1 py-2 rounded-xl text-xs font-bold" style={{ background: bg, color: primary }}>Annuler</button>
           <button type="button" onClick={() => { onApply(suggestion); setSuggestion(""); }} className="flex-1 py-2 rounded-xl text-xs font-bold text-white" style={{ background: coral }}>Utiliser</button>

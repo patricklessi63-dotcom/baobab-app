@@ -25,10 +25,18 @@ export const C = {
   coral: "#E56B5D",
   gold: "#F2B84B",
 
-  // --- Nouvelles valeurs canoniques : remplacent 2 tons froids qui
+  // --- Nouvelles valeurs canoniques : remplacent des tons froids qui
   // détonnaient avec le reste de la palette (gris bleuté vs. chaud) ---
   bg: "#FAF7F2",
-  muted: "rgba(43,36,32,0.6)",
+  // 0.6 échouait au contraste AA (≈4.07:1) sur le nouveau fond "bg" (audit
+  // complémentaire post-palette). 0.72 reprend la même opacité déjà établie
+  // pour "sandDim" — cohérent visuellement, contraste largement au-dessus
+  // du seuil 4.5:1.
+  muted: "rgba(43,36,32,0.72)",
+  // "body" : nuance de texte de corps distincte de "primary" (utilisée pour
+  // titres/icônes), déjà répétée en dur ~15 fois dans social/ — convention
+  // de fait promue en jeton nommé, valeur inchangée.
+  body: "#20243A",
 
   // --- Promues depuis des littéraux orphelins ailleurs dans le code,
   // valeurs inchangées — juste nommées pour éviter la dérive future ---
@@ -40,6 +48,16 @@ export const C = {
   offline: "#B9BEC9",
   verified: "#3897F0",
 };
+
+// Triplet RGB de "primary", dérivé de son hex (jamais dupliqué en dur) —
+// ~70 endroits dans social/ utilisent rgba(21,27,61,X) à des opacités
+// variables (bordures/scrims/ombres) : `rgba(${primaryRgb},X)` les relie
+// tous à la même source au lieu d'un littéral copié-collé indépendant.
+function hexToRgbTriplet(hex) {
+  const n = parseInt(hex.slice(1), 16);
+  return `${(n >> 16) & 255},${(n >> 8) & 255},${n & 255}`;
+}
+export const primaryRgb = hexToRgbTriplet(C.primary);
 
 export const EDUCATION_LEVELS = ["Secondaire", "Collégial / DEC", "Baccalauréat", "Maîtrise", "Doctorat", "Formation professionnelle"];
 export const HAS_CHILDREN_OPTIONS = ["Oui", "Non"];

@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Ban } from "lucide-react";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
-import { primary, coral, muted, card } from "./theme";
+import { primary, coral, muted, card, primaryRgb } from "./theme";
 
 export default function BlockConfirmModal({ target, onCancel, onConfirm }) {
   const [confirming, setConfirming] = useState(false);
@@ -17,7 +17,7 @@ export default function BlockConfirmModal({ target, onCancel, onConfirm }) {
   return (
     <div
       className="fixed inset-0 z-[85] flex items-center justify-center p-5"
-      style={{ background: "rgba(21,27,61,.55)", backdropFilter: "blur(4px)" }}
+      style={{ background: `rgba(${primaryRgb},.55)`, backdropFilter: "blur(4px)" }}
       onClick={confirming ? undefined : onCancel}
       role="dialog"
       aria-modal="true"
@@ -33,7 +33,7 @@ export default function BlockConfirmModal({ target, onCancel, onConfirm }) {
           sera pas informée que tu l'as bloquée.
         </p>
         <div className="flex gap-2 mt-5">
-          <button onClick={onCancel} disabled={confirming} className="flex-1 py-2.5 rounded-full text-sm font-semibold disabled:opacity-50" style={{ border: "1px solid rgba(21,27,61,.12)", color: primary }}>
+          <button onClick={onCancel} disabled={confirming} className="flex-1 py-2.5 rounded-full text-sm font-semibold disabled:opacity-50" style={{ border: `1px solid rgba(${primaryRgb},.12)`, color: primary }}>
             Annuler
           </button>
           <button onClick={handleConfirm} disabled={confirming} className="flex-1 py-2.5 rounded-full text-sm font-bold text-white disabled:opacity-50" style={{ background: coral }}>

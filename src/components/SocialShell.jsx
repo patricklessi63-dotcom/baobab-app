@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useRef, Suspense, lazy } from "react";
-import { Home, Heart, X, MessageCircle, LogOut, Settings, Cog, UserRound, Search, Bell, Users2, PartyPopper } from "lucide-react";
+import { Home, Heart, X, MessageCircle, LogOut, Settings, Cog, UserRound, Search, Bell, Users2, PartyPopper, Megaphone } from "lucide-react";
 import Avatar from "./Avatar";
 import { supabase } from "../supabaseClient";
-import { matchKey } from "../utils/format";
+import { matchKey, visibleAge } from "../utils/format";
 import { useClickOutside } from "../hooks/useClickOutside";
 import { useEscapeKey } from "../hooks/useEscapeKey";
-import { primary, coral, gold, bg, muted, buttonBase } from "./social/theme";
+import { primary, coral, gold, bg, muted, buttonBase, body, primaryRgb } from "./social/theme";
 import Skeleton from "./Skeleton";
 import FeedTab from "./social/FeedTab";
 import DiscoverTab from "./social/DiscoverTab";
@@ -15,8 +15,12 @@ import StoryViewerModal from "./social/StoryViewerModal";
 import StoryComposerModal from "./social/StoryComposerModal";
 import PublicProfileModal from "./social/PublicProfileModal";
 import FavoritesModal from "./social/FavoritesModal";
+import AdmirersModal from "./social/AdmirersModal";
 import MatchPreferencesModal from "./social/MatchPreferencesModal";
 import { validateMediaFile } from "../lib/mediaValidation";
+import { beginCriticalOperation, endCriticalOperation } from "../lib/criticalOperationGuard";
+import { trackBetaEvent } from "../lib/trackBetaEvent";
+import BetaFeedbackModal from "./social/BetaFeedbackModal";
 
 // Chargées à la demande (item 27 de l'audit Phase 10) : ces 3 onglets sont
 // visités moins souvent que Fil/Découverte/Messages/Profil au démarrage de
@@ -77,9 +81,12 @@ export default function SocialShell({
   onError = () => {},
   candidates = [],
   getMatches = () => [],
+  getAdmirers = () => [],
   openChat = () => {},
   closeChat = () => {},
   handleLike = () => {},
+  handleUnlike = () => {},
+  hasLiked = () => false,
   handlePass = () => {},
   profilePhotos = {},
   openEditProfile = () => setView("editProfile"),
@@ -97,6 +104,7 @@ export default function SocialShell({
   setMessageDraft = () => {},
   broadcastTyping = () => {},
   sendMessage = () => {},
+  sendMessageTo = () => {},
   sendStickerMessage = () => {},
   sendMediaMessage = () => {},
   retrySend = () => {},
@@ -104,8 +112,16 @@ export default function SocialShell({
   setSettingsOpen = () => {},
 }) {
   const [favoritesOpen, setFavoritesOpen] = useState(false);
+  const [admirersOpen, setAdmirersOpen] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [preferencesOpen, setPreferencesOpen] = useState(false);
   const [tab, setTab] = useState("feed");
+  // Suivi d'écran minimal (Phase 2 — beta privée) : un événement répété par
+  // changement d'onglet, jamais bloquant (voir trackBetaEvent).
+  useEffect(() => {
+    if (currentUser?.id) trackBetaEvent(currentUser.id, "screen_view", { screen: tab });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab, currentUser?.id]);
   const [profileTab, setProfileTab] = useState("posts");
   const [feedTab, setFeedTab] = useState(() => defaultFeedTab(currentUser?.usage_goals));
   const [menu, setMenu] = useState(false);
@@ -312,6 +328,7 @@ export default function SocialShell({
 
   const matches = getMatches();
   const matchIdsKey = matches.map((m) => m.id).sort().join(",");
+  const admirers = getAdmirers();
 
   const [lastByKey, setLastByKey] = useState({});
   const [unreadByKey, setUnreadByKey] = useState({});
@@ -385,12 +402,12 @@ export default function SocialShell({
     let alive = true;
     supabase
       .from("favorites")
-      .select("from_id")
+      .select("from_id", { count: "exact", head: true })
       .eq("to_id", currentUser.id)
-      .then(({ data, error }) => {
+      .then(({ count, error }) => {
         if (!alive) return;
         if (error) { console.error(error.message, error.code, error.details, error.hint); return; }
-        setIncomingFavoritesCount((data || []).length);
+        setIncomingFavoritesCount(count || 0);
       });
     return () => { alive = false; };
   }, [currentUser]);
@@ -531,6 +548,13 @@ export default function SocialShell({
     new_message: "Nouveau message",
     post_liked: "A aimé ta publication",
     post_commented: "A commenté ta publication",
+    // Écrites par le webhook Stripe (stripe-webhook/index.ts) mais jamais
+    // affichées correctement avant (audit complémentaire post-palette) :
+    // elles tombaient dans le fourre-tout "Communautés" sans libellé dédié.
+    premium_activated: "Ton abonnement Premium est actif",
+    premium_cancelled: "Ton abonnement Premium a été annulé",
+    premium_payment_failed: "Échec du paiement de ton abonnement",
+    premium_renewing_soon: "Ton abonnement Premium se renouvelle bientôt",
   };
 
   const totalUnreadMessages = Object.values(unreadByKey).reduce((sum, n) => sum + n, 0);
@@ -559,6 +583,21 @@ export default function SocialShell({
       || null
     : null;
   const viewedProfileIsMatch = viewedProfile ? matches.some((m) => m.id === viewedProfile.id) : false;
+  const viewedProfileIsLiked = viewedProfile && currentUser ? hasLiked(currentUser.id, viewedProfile.id) : false;
+
+  // Ferme la fiche profil quand un like effectué depuis cette même fiche
+  // vient de produire un match — sinon MatchCelebrationModal (App.jsx)
+  // s'affiche empilée par-dessus PublicProfileModal au lieu de la remplacer.
+  // Ne se déclenche que sur la transition non-match -> match du profil
+  // actuellement ouvert (pas à l'ouverture d'une fiche déjà matchée).
+  const prevViewedMatchStateRef = useRef({ id: null, isMatch: false });
+  useEffect(() => {
+    const prev = prevViewedMatchStateRef.current;
+    if (viewedProfileId && prev.id === viewedProfileId && viewedProfileIsMatch && !prev.isMatch) {
+      setViewedProfileId(null);
+    }
+    prevViewedMatchStateRef.current = { id: viewedProfileId, isMatch: viewedProfileIsMatch };
+  }, [viewedProfileId, viewedProfileIsMatch]);
 
   // Ouvre directement la conversation depuis une notification "new_message"
   // — même résolution locale-puis-réseau que viewedProfile ci-dessus, mais
@@ -697,6 +736,7 @@ export default function SocialShell({
     if (!text && !storyMedia) return;
     if (!currentUser) return;
     setStoryUploading(true);
+    beginCriticalOperation();
     try {
       let mediaUrl = null;
       const mediaKind = storyMedia ? storyMediaKind : null;
@@ -731,6 +771,7 @@ export default function SocialShell({
       setStoryMediaError("Impossible de publier le statut. Réessaie.");
     } finally {
       setStoryUploading(false);
+      endCriticalOperation();
     }
   };
 
@@ -767,10 +808,22 @@ export default function SocialShell({
     });
   };
 
-  const sendStoryReply = () => {
-    if (!storyReply.trim()) return;
+  // Envoie une vraie réponse en message privé à l'auteur de la story affichée
+  // (auparavant : effacait le texte sans jamais rien envoyer — voir audit
+  // pré-lancement). Résout le profil complet comme openChatWithProfileId,
+  // puis ferme le visualiseur et bascule vers la conversation ouverte.
+  const sendStoryReply = async () => {
+    const text = storyReply.trim();
+    const s = stories[storyViewerIndex];
+    if (!text || !s || s.own) return;
     setStoryReply("");
-    nextStory();
+    const target = profiles.find((p) => p.id === s.profile_id)
+      || candidates.find((p) => p.id === s.profile_id)
+      || matches.find((p) => p.id === s.profile_id);
+    const profile = target || (await supabase.from("profiles").select("*").eq("id", s.profile_id).maybeSingle()).data;
+    if (!profile) return;
+    closeStoryViewer();
+    await sendMessageTo(profile, text);
   };
 
   const deleteOwnStory = async () => {
@@ -812,7 +865,7 @@ export default function SocialShell({
   };
 
   return (
-    <div className="bb-app min-h-screen relative overflow-x-hidden" style={{ color: "#20243A", fontFamily: "'Manrope',system-ui,sans-serif" }}>
+    <div className="bb-app min-h-screen relative overflow-x-hidden" style={{ color: body, fontFamily: "'Manrope',system-ui,sans-serif" }}>
       <style>{`
         @keyframes bbAppDrift { from { transform: scale(1.02) translate3d(0,0,0); } to { transform: scale(1.07) translate3d(-1.2%, -1%, 0); } }
         @keyframes bbContentIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
@@ -822,7 +875,7 @@ export default function SocialShell({
         @media (prefers-reduced-motion: reduce) { .bb-app * { animation: none !important; transition: none !important; } }
       `}</style>
       <div aria-hidden="true" className="fixed inset-0 z-0 pointer-events-none" style={{ background: bg }} />
-      <header className="sticky top-0 z-40 border-b bb-glass" style={{ borderColor: "rgba(21,27,61,.08)" }}>
+      <header className="sticky top-0 z-40 border-b bb-glass" style={{ borderColor: `rgba(${primaryRgb},.08)` }}>
         <div className="max-w-7xl mx-auto px-4 lg:px-8 h-[74px] flex items-center gap-4">
           <button onClick={() => goTab("feed")} className="flex items-center gap-3 shrink-0">
             <div className="h-11 w-11 rounded-[15px] flex items-center justify-center text-white font-black text-xl shadow-lg" style={{ background: `linear-gradient(135deg,${coral},${gold})` }}>B</div>
@@ -850,7 +903,7 @@ export default function SocialShell({
                 {searchResults.slice(0, 8).map((p) => (
                   <button key={p.id} onClick={() => { setSearch(""); setViewedProfileId(p.id); }} className="w-full flex items-center gap-3 p-2.5 rounded-xl hover:bg-slate-50 text-left">
                     <Avatar name={p.name} url={p.avatar_url} size={38} />
-                    <div className="min-w-0"><div className="text-sm font-bold truncate">{p.name}, {p.age}</div><div className="text-xs" style={{ color: muted }}>{p.city || "Canada"} · {p.country || "Afrique"}</div></div>
+                    <div className="min-w-0"><div className="text-sm font-bold truncate">{p.name}{visibleAge(p) ? `, ${visibleAge(p)}` : ""}</div><div className="text-xs" style={{ color: muted }}>{p.city || "Canada"} · {p.country || "Afrique"}</div></div>
                   </button>
                 ))}
                 {searchResults.length === 0 && <div className="px-3 py-3 text-sm" style={{ color: muted }}>Aucun profil trouvé.</div>}
@@ -911,8 +964,8 @@ export default function SocialShell({
                       </button>
                     ))}
                     {(notifCategory === "all" || notifCategory === "communities") && unreadCommunityNotifications.map((n) => (
-                      <button key={n.id} onClick={() => { setNotificationsOpen(false); goTab("communities"); }} className="text-left px-2 py-2.5 rounded-xl text-sm hover:bg-slate-50 focus-visible:outline focus-visible:outline-2">
-                        🌍 {NOTIFICATION_LABELS[n.type] || "Nouvelle activité"}
+                      <button key={n.id} onClick={() => { setNotificationsOpen(false); goTab(n.type?.startsWith("premium_") ? "premium" : "communities"); }} className="text-left px-2 py-2.5 rounded-xl text-sm hover:bg-slate-50 focus-visible:outline focus-visible:outline-2">
+                        {n.type?.startsWith("premium_") ? "💎" : "🌍"} {NOTIFICATION_LABELS[n.type] || "Nouvelle activité"}
                       </button>
                     ))}
                     {(notifCategory === "all" || notifCategory === "events") && unreadEventNotifications.map((n) => (
@@ -939,6 +992,7 @@ export default function SocialShell({
                 <button onClick={() => { goTab("discover"); }} className="w-full text-left rounded-xl px-3 py-3 text-sm hover:bg-slate-50"><Heart size={16} className="inline mr-3" />Découvrir</button>
                 <button onClick={() => { setMenu(false); openEditProfile(); }} className="w-full text-left rounded-xl px-3 py-3 text-sm hover:bg-slate-50"><Settings size={16} className="inline mr-3" />Modifier mon profil</button>
                 <button onClick={() => { setMenu(false); setSettingsOpen(true); }} className="w-full text-left rounded-xl px-3 py-3 text-sm hover:bg-slate-50"><Cog size={16} className="inline mr-3" />Réglages</button>
+                <button onClick={() => { setMenu(false); setFeedbackOpen(true); }} className="w-full text-left rounded-xl px-3 py-3 text-sm hover:bg-slate-50"><Megaphone size={16} className="inline mr-3" />Un souci, une idée ?</button>
                 <button onClick={() => { setMenu(false); handleSignOut(); }} className="w-full text-left rounded-xl px-3 py-3 text-sm" style={{ color: coral }}><LogOut size={16} className="inline mr-3" />Déconnexion</button>
               </div>
             )}
@@ -1048,6 +1102,8 @@ export default function SocialShell({
             profilePhotos={profilePhotos}
             favoritesCount={favoriteProfiles.length}
             onOpenFavorites={() => setFavoritesOpen(true)}
+            admirersCount={admirers.length}
+            onOpenAdmirers={() => setAdmirersOpen(true)}
             onOpenPreferences={() => setPreferencesOpen(true)}
             myCommunities={myCommunities}
             myCommunitiesLoading={myCommunitiesLoading}
@@ -1095,7 +1151,7 @@ export default function SocialShell({
       </main>
 
 
-      <nav className="fixed bottom-0 left-0 right-0 z-40 bb-glass border-t" style={{ borderColor: "rgba(21,27,61,.08)", paddingBottom: "env(safe-area-inset-bottom)" }}>
+      <nav className="fixed bottom-0 left-0 right-0 z-40 bb-glass border-t" style={{ borderColor: `rgba(${primaryRgb},.08)`, paddingBottom: "env(safe-area-inset-bottom)" }}>
         <div className="max-w-xl mx-auto grid grid-cols-7 px-2">
           {nav.map(([key, Icon, label, getBadge]) => {
             const badgeCount = getBadge ? getBadge() : 0;
@@ -1154,7 +1210,9 @@ export default function SocialShell({
           isMatch={viewedProfileIsMatch}
           isFavorite={favoriteIds.has(viewedProfile.id)}
           isFollowing={followingIds.has(viewedProfile.id)}
-          onLike={viewedProfileIsMatch ? null : (p) => { handleLike(p); setViewedProfileId(null); }}
+          isLiked={viewedProfileIsLiked}
+          onLike={viewedProfileIsMatch ? null : (p) => handleLike(p)}
+          onUnlike={viewedProfileIsMatch ? null : (p) => handleUnlike(p)}
           onMessage={(p) => { setViewedProfileId(null); openChat(p); }}
           onToggleFavorite={toggleFavorite}
           onToggleFollow={toggleFollow}
@@ -1170,6 +1228,23 @@ export default function SocialShell({
         onViewProfile={(p) => { setFavoritesOpen(false); setViewedProfileId(p.id); }}
         onToggleFavorite={toggleFavorite}
         onDiscover={() => { setFavoritesOpen(false); goTab("discover"); }}
+      />
+
+      <AdmirersModal
+        open={admirersOpen}
+        onClose={() => setAdmirersOpen(false)}
+        admirerProfiles={admirers}
+        currentUser={currentUser}
+        onLikeBack={(p) => { handleLike(p); setAdmirersOpen(false); }}
+        onViewProfile={(p) => { setAdmirersOpen(false); setViewedProfileId(p.id); }}
+        onUpgrade={() => { setAdmirersOpen(false); goTab("premium"); }}
+      />
+
+      <BetaFeedbackModal
+        open={feedbackOpen}
+        onClose={() => setFeedbackOpen(false)}
+        currentUser={currentUser}
+        screen={tab}
       />
 
       <MatchPreferencesModal

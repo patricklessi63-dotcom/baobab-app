@@ -1,4 +1,5 @@
 import { supabase } from "../supabaseClient";
+import { beginCriticalOperation, endCriticalOperation } from "./criticalOperationGuard";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -7,11 +8,24 @@ const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 // .upload() (confirmé en lisant la version installée). Upload en XHR brut
 // vers l'endpoint REST Storage pour obtenir un vrai pourcentage — aucune
 // nouvelle dépendance.
+//
+// Le garde critical-operation vit ici (plutôt que chez chaque appelant) pour
+// que tout upload passant par ce helper soit protégé de la déconnexion
+// automatique par inactivité (App.jsx) sans que chaque écran ait à y penser.
 export async function uploadWithProgress({ bucket, path, file, onProgress, signal }) {
   const { data: sessionData } = await supabase.auth.getSession();
   const accessToken = sessionData?.session?.access_token;
   if (!accessToken) throw new Error("Session expirée. Reconnecte-toi.");
 
+  beginCriticalOperation();
+  try {
+    return await uploadXhr({ bucket, path, file, onProgress, signal, accessToken });
+  } finally {
+    endCriticalOperation();
+  }
+}
+
+function uploadXhr({ bucket, path, file, onProgress, signal, accessToken }) {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     const url = `${SUPABASE_URL}/storage/v1/object/${bucket}/${path}`;

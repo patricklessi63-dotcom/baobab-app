@@ -1,17 +1,18 @@
 import React, { useEffect, useState } from "react";
-import { Send, CheckCheck, Star, Target, ChevronRight, Users2, MapPin, PartyPopper } from "lucide-react";
+import { Send, CheckCheck, Star, Target, ChevronRight, Users2, MapPin, PartyPopper, Heart } from "lucide-react";
 import Avatar from "../Avatar";
 import VerifiedBadge from "../VerifiedBadge";
+import FounderBadge from "../FounderBadge";
 import EmptyState from "../home/EmptyState";
 import PostsFeed from "./PostsFeed";
 import { supabase } from "../../supabaseClient";
 import { getProfileCompletion } from "../../lib/profileCompletion";
 import { categoryIcon, categoryLabel } from "../../lib/communities/communityConfig";
 import { categoryIcon as eventCategoryIcon, categoryLabel as eventCategoryLabel } from "../../lib/events/eventConfig";
-import { formatEventWhen } from "../../utils/format";
+import { formatEventWhen, visibleAge } from "../../utils/format";
 import { usePremiumStatus } from "../../lib/premium/usePremiumStatus";
 import { openBillingPortal } from "../../lib/premium/checkout";
-import { primary, green, coral, gold, bg, muted } from "./theme";
+import { primary, green, coral, gold, bg, muted, online, verified, goldTint, goldTintDeep, primaryRgb } from "./theme";
 
 export default function ProfileTab({
   currentUser,
@@ -24,6 +25,8 @@ export default function ProfileTab({
   profilePhotos = {},
   favoritesCount = 0,
   onOpenFavorites = () => {},
+  admirersCount = 0,
+  onOpenAdmirers = () => {},
   onOpenPreferences = () => {},
   myCommunities = [],
   myCommunitiesLoading = false,
@@ -78,7 +81,10 @@ export default function ProfileTab({
 
   return (
           <section className="max-w-3xl mx-auto">
-            <div className="bg-white rounded-[32px] overflow-hidden border shadow-[0_18px_60px_rgba(21,27,61,.08)]">
+            <div
+              className="bg-white rounded-[32px] overflow-hidden border shadow-[0_18px_60px_rgba(21,27,61,.08)]"
+              style={currentUser?.is_founder ? { borderColor: gold, borderWidth: 2, boxShadow: "0 18px 60px rgba(21,27,61,.08), 0 0 0 1px " + gold } : undefined}
+            >
               <div
                 className="h-40 md:h-52 relative"
                 style={
@@ -96,17 +102,22 @@ export default function ProfileTab({
                   </button>
                   <button onClick={openEditProfile} className="rounded-xl bg-white/15 backdrop-blur text-white px-4 py-2.5 text-xs font-bold border border-white/15">Modifier le profil</button>
                 </div>
-                <div className="absolute -bottom-12 left-6"><div className="rounded-full p-1.5 bg-white"><Avatar name={currentUser?.name || "Toi"} url={currentUser?.avatar_url} size={92} /></div></div>
+                <div className="absolute -bottom-12 left-6">
+                  <div className="rounded-full p-1.5 bg-white" style={currentUser?.is_founder ? { boxShadow: `0 0 0 3px ${gold}` } : undefined}>
+                    <Avatar name={currentUser?.name || "Toi"} url={currentUser?.avatar_url} size={92} />
+                  </div>
+                </div>
               </div>
               <div className="pt-16 p-6">
                 <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
                   <div>
                     <div className="flex items-center gap-2">
                       <h1 className="text-2xl font-black" style={{ color: primary }}>{currentUser?.name || "Ton profil"}</h1>
-                      <span className="h-3 w-3 rounded-full" style={{ background: "#27C56D" }} />
+                      <span className="h-3 w-3 rounded-full" style={{ background: online }} />
                       <VerifiedBadge emailVerified={currentUser?.email_verified} phoneVerified={currentUser?.phone_verified} size={16} />
+                      <FounderBadge isFounder={currentUser?.is_founder} size={16} />
                       {isComplete && (
-                        <span className="h-5 w-5 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: "#3897F0" }} title="Profil complet">
+                        <span className="h-5 w-5 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: verified }} title="Profil complet">
                           <CheckCheck size={12} color="#fff" />
                         </span>
                       )}
@@ -145,9 +156,14 @@ export default function ProfileTab({
                     <ChevronRight size={16} color={muted} />
                   </button>
                 </div>
+
+                <button onClick={onOpenAdmirers} className="w-full flex items-center justify-between rounded-2xl p-4 mt-3" style={{ background: bg }}>
+                  <span className="flex items-center gap-2 text-sm font-bold" style={{ color: primary }}><Heart size={16} color={coral} /> Qui m'a aimé {admirersCount > 0 && `(${admirersCount})`}</span>
+                  <ChevronRight size={16} color={muted} />
+                </button>
               </div>
 
-              <div className="flex border-t" style={{ borderColor: "rgba(21,27,61,.08)" }}>
+              <div className="flex border-t" style={{ borderColor: `rgba(${primaryRgb},.08)` }}>
                 {[["posts", "Publications"], ["about", "À propos"], ["network", "Mon réseau"], ["communities", "Mes communautés"], ["events", "Événements"], ["premium", "Abonnement"]].map(([key, label]) => (
                   <button key={key} onClick={() => setProfileTab(key)} className="flex-1 py-3.5 text-sm font-bold relative" style={{ color: profileTab === key ? primary : muted }}>
                     {label}
@@ -179,7 +195,7 @@ export default function ProfileTab({
                           <button onClick={() => onViewProfile(p)} className="flex items-center gap-3 flex-1 min-w-0 text-left focus-visible:outline focus-visible:outline-2">
                             <Avatar name={p.name} url={p.avatar_url} size={44} />
                             <div className="min-w-0">
-                              <div className="text-sm font-bold truncate">{p.name}{p.age ? `, ${p.age}` : ""}</div>
+                              <div className="text-sm font-bold truncate">{p.name}{visibleAge(p) ? `, ${visibleAge(p)}` : ""}</div>
                               {p.city && <div className="text-xs truncate" style={{ color: muted }}>{p.city}</div>}
                             </div>
                           </button>
@@ -250,7 +266,7 @@ export default function ProfileTab({
               ) : profileTab === "premium" ? (
                 <div className="p-5">
                   {isPremium ? (
-                    <div className="rounded-2xl p-4" style={{ background: "linear-gradient(180deg, #FFF9F0, #FFF3E8)" }}>
+                    <div className="rounded-2xl p-4" style={{ background: `linear-gradient(180deg, ${goldTint}, ${goldTintDeep})` }}>
                       <div className="flex items-center gap-2">
                         <span style={{ fontSize: 20 }}>💎</span>
                         <span className="text-sm font-black" style={{ color: primary }}>Baobab Premium actif</span>

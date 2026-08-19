@@ -1,14 +1,23 @@
 import React from "react";
-import { X, Star } from "lucide-react";
+import { X, Heart } from "lucide-react";
 import Avatar from "../Avatar";
 import EmptyState from "../home/EmptyState";
+import Paywall from "../premium/Paywall";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
+import { usePremiumStatus } from "../../lib/premium/usePremiumStatus";
 import { visibleAge } from "../../utils/format";
-import { primary, coral, gold, muted, card, primaryRgb } from "./theme";
+import { primary, coral, muted, card, primaryRgb } from "./theme";
 
-export default function FavoritesModal({ open, onClose, favoriteProfiles = [], onViewProfile, onToggleFavorite, onDiscover }) {
+// Avantage Premium : qui m'a aimé·e sans réciprocité pour l'instant (voir
+// getAdmirers() dans App.jsx). Non-Premium : le nombre reste visible (crée
+// l'envie, motif Paywall standard des apps de rencontre), mais jamais les
+// identités — cohérent avec Paywall.jsx ("barrière d'UX, pas de sécurité",
+// la donnée elle-même n'est pas chargée différemment ici, juste masquée).
+export default function AdmirersModal({ open, onClose, admirerProfiles = [], currentUser, onLikeBack, onViewProfile, onUpgrade }) {
+  const { isPremium, loading } = usePremiumStatus(currentUser);
   useEscapeKey(open, onClose);
   if (!open) return null;
+
   return (
     <div
       className="fixed inset-0 z-[70] flex items-end md:items-center justify-center p-0 md:p-5"
@@ -16,25 +25,33 @@ export default function FavoritesModal({ open, onClose, favoriteProfiles = [], o
       onClick={onClose}
       role="dialog"
       aria-modal="true"
-      aria-label="Mes favoris"
+      aria-label="Qui m'a aimé"
     >
       <div className={`${card} w-full max-w-md rounded-t-[30px] md:rounded-[30px] p-6 max-h-[85vh] overflow-y-auto`} onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-black" style={{ color: primary }}>⭐ Mes favoris</h2>
+          <h2 className="text-xl font-black" style={{ color: primary }}>💗 Qui m'a aimé</h2>
           <button onClick={onClose} aria-label="Fermer"><X /></button>
         </div>
 
-        {favoriteProfiles.length === 0 ? (
+        {loading ? null : !isPremium ? (
+          <Paywall
+            title={admirerProfiles.length > 0
+              ? (admirerProfiles.length > 1
+                ? `${admirerProfiles.length} personnes t'ont déjà aimé·e`
+                : "1 personne t'a déjà aimé·e")
+              : "Découvre qui t'a aimé·e en premier"}
+            description="Passe à Premium pour voir qui t'a déjà aimé·e et matcher directement, sans attendre."
+            onDiscover={onUpgrade}
+          />
+        ) : admirerProfiles.length === 0 ? (
           <EmptyState
-            icon={Star}
-            title="Tu n'as encore ajouté personne à tes favoris."
-            subtitle="Appuie sur l'étoile ⭐ sur un profil pour le retrouver ici plus tard."
-            actionLabel="Découvrir des profils"
-            onAction={onDiscover}
+            icon={Heart}
+            title="Personne pour l'instant."
+            subtitle="Dès que quelqu'un t'aime, tu le retrouveras ici en premier."
           />
         ) : (
           <div className="flex flex-col gap-2">
-            {favoriteProfiles.map((p) => (
+            {admirerProfiles.map((p) => (
               <div key={p.id} className="flex items-center gap-3 p-2.5 rounded-xl" style={{ background: `rgba(${primaryRgb},.03)` }}>
                 <button onClick={() => onViewProfile?.(p)} className="flex items-center gap-3 flex-1 min-w-0 text-left focus-visible:outline focus-visible:outline-2">
                   <Avatar name={p.name} url={p.avatar_url} size={44} />
@@ -44,12 +61,12 @@ export default function FavoritesModal({ open, onClose, favoriteProfiles = [], o
                   </div>
                 </button>
                 <button
-                  onClick={() => onToggleFavorite?.(p)}
-                  aria-label={`Retirer ${p.name} des favoris`}
+                  onClick={() => onLikeBack?.(p)}
+                  aria-label={`Aimer ${p.name} en retour`}
                   className="h-9 w-9 rounded-full flex items-center justify-center shrink-0 focus-visible:outline focus-visible:outline-2"
-                  style={{ background: "#FFF3D6" }}
+                  style={{ background: "#FDEAE7" }}
                 >
-                  <Star size={15} color={gold} fill={gold} />
+                  <Heart size={15} color={coral} fill={coral} />
                 </button>
               </div>
             ))}

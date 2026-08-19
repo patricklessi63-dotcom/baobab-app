@@ -1,5 +1,5 @@
 import React from "react";
-import { gold, green, muted } from "../social/theme";
+import { gold, green, muted, primary, primaryRgb } from "../social/theme";
 
 // Progression basée uniquement sur des donnees reelles et calculables :
 // completude du profil + engagement (voir profileCompletionChecks dans
@@ -8,12 +8,12 @@ import { gold, green, muted } from "../social/theme";
 export default function BaobabProgress({ stageLabel, stageEmoji, percent, completedSteps, totalSteps }) {
   return (
     <div>
-      <div className="text-lg font-black flex items-center gap-2" style={{ color: "#151B3D" }}>
+      <div className="text-lg font-black flex items-center gap-2" style={{ color: primary }}>
         {stageLabel} <span aria-hidden="true">{stageEmoji}</span>
       </div>
       <div
         className="mt-3 h-2.5 rounded-full overflow-hidden max-w-sm"
-        style={{ background: "rgba(21,27,61,.08)" }}
+        style={{ background: `rgba(${primaryRgb},.08)` }}
         role="progressbar"
         aria-valuenow={percent}
         aria-valuemin={0}

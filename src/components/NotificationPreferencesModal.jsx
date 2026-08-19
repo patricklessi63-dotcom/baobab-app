@@ -25,8 +25,8 @@ export default function NotificationPreferencesModal({ open, onClose, onBack, cu
   if (!open) return null;
   const prefs = currentUser?.notification_preferences || {};
   return (
-    <div className="bb-fade-in fixed inset-0 flex items-end justify-center z-30" style={{ background: "rgba(20,29,56,0.55)", backdropFilter: "blur(3px)" }} onClick={onClose} role="dialog" aria-modal="true" aria-label="Préférences de notifications">
-      <div className="bb-card p-6 w-full max-w-md" style={{ borderRadius: "20px 20px 0 0", maxHeight: "85vh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
+    <div className="bb-fade-in fixed inset-0 flex items-end md:items-center justify-center z-30 p-0 md:p-5" style={{ background: "rgba(20,29,56,0.55)", backdropFilter: "blur(3px)" }} onClick={onClose} role="dialog" aria-modal="true" aria-label="Préférences de notifications">
+      <div className="bb-card p-6 w-full max-w-md rounded-t-[20px] md:rounded-[20px]" style={{ maxHeight: "85vh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center gap-2 mb-1">
           {onBack && (
             <button onClick={onBack} aria-label="Retour" style={{ color: C.indigo }}><ArrowLeft size={16} /></button>

@@ -17,6 +17,13 @@ export default function Step0Welcome({ draft, update }) {
         vivre des expériences ensemble.
       </p>
 
+      <div className="rounded-2xl px-4 py-3 text-xs leading-5" style={{ background: "rgba(217,164,65,0.12)", border: "1px solid rgba(217,164,65,0.28)", color: "rgba(43,36,32,0.75)" }}>
+        <b>Tu fais partie des tout premiers testeurs de Baobab.</b> Ton compte
+        et ce que tu vois ici sont réels — merci d'explorer librement et de
+        nous signaler tout bug ou idée via « Un souci, une idée ? » dans le
+        menu, une fois connecté.
+      </div>
+
       <p className="text-xs font-semibold mt-2" style={{ color: "rgba(43,36,32,0.55)" }}>
         Qu'est-ce que tu recherches ? Choisis autant d'options que nécessaire.
       </p>

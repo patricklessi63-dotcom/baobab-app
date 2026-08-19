@@ -2,7 +2,9 @@ import React from "react";
 import { Heart, X, MessageCircle, Star, Flag, Ban, EyeOff } from "lucide-react";
 import Avatar from "../Avatar";
 import VerifiedBadge from "../VerifiedBadge";
-import { primary, green, coral, gold, bg, muted, card } from "./theme";
+import FounderBadge from "../FounderBadge";
+import { visibleAge } from "../../utils/format";
+import { primary, green, coral, gold, bg, muted, card, body, primaryRgb } from "./theme";
 
 export default function MatchCard({
   profile,
@@ -33,7 +35,7 @@ export default function MatchCard({
         )}
         <span
           className="absolute top-3 left-3 px-2.5 py-1 rounded-full text-xs font-black text-white"
-          style={{ background: "rgba(21,27,61,.6)", backdropFilter: "blur(4px)" }}
+          style={{ background: `rgba(${primaryRgb},.6)`, backdropFilter: "blur(4px)" }}
         >
           ~{match.score}%
         </span>
@@ -41,8 +43,9 @@ export default function MatchCard({
 
       <div className="p-4 flex-1 flex flex-col">
         <div className="flex items-center gap-1.5">
-          <h3 className="text-base font-black truncate" style={{ color: primary }}>{profile.name}{profile.age ? `, ${profile.age}` : ""}</h3>
+          <h3 className="text-base font-black truncate" style={{ color: primary }}>{profile.name}{visibleAge(profile) ? `, ${visibleAge(profile)}` : ""}</h3>
           <VerifiedBadge emailVerified={profile.email_verified} phoneVerified={profile.phone_verified} size={14} />
+          <FounderBadge isFounder={profile.is_founder} size={14} />
         </div>
         {profile.city && <p className="text-xs mt-0.5" style={{ color: muted }}>📍 {profile.city}</p>}
 
@@ -65,7 +68,7 @@ export default function MatchCard({
           </div>
           <ul className="space-y-1">
             {reasons.map((r, i) => (
-              <li key={i} className="text-xs flex items-start gap-1.5" style={{ color: "#20243A" }}>
+              <li key={i} className="text-xs flex items-start gap-1.5" style={{ color: body }}>
                 <span style={{ color: green }} aria-hidden="true">✓</span>{r}
               </li>
             ))}

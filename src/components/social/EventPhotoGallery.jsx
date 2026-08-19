@@ -6,7 +6,7 @@ import Skeleton from "../Skeleton";
 import { validateMediaFile } from "../../lib/mediaValidation";
 import { extFromMime } from "../../lib/mediaConstants";
 import { uploadWithProgress } from "../../lib/uploadWithProgress";
-import { muted, bg } from "./theme";
+import { muted, bg, primaryRgb } from "./theme";
 
 const BUCKET = "event-media";
 
@@ -69,7 +69,7 @@ export default function EventPhotoGallery({ photos = [], loading, canUpload, cur
                   onClick={() => onDelete(p)}
                   aria-label="Supprimer cette photo"
                   className="absolute top-1 right-1 h-7 w-7 rounded-full flex items-center justify-center"
-                  style={{ background: "rgba(21,27,61,.6)" }}
+                  style={{ background: `rgba(${primaryRgb},.6)` }}
                 >
                   <Trash2 size={13} color="#fff" />
                 </button>
