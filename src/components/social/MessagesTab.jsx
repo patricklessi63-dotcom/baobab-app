@@ -32,6 +32,7 @@ export default function MessagesTab({
   otherTyping,
   onOpenReport,
   onOpenBlockConfirm,
+  onUnmatch,
   replyingTo,
   setReplyingTo,
   reactionsByMessageId,
@@ -132,6 +133,7 @@ export default function MessagesTab({
         onBack={onBack}
         onOpenReport={onOpenReport}
         onOpenBlockConfirm={onOpenBlockConfirm}
+        onUnmatch={onUnmatch}
         replyingTo={replyingTo}
         setReplyingTo={setReplyingTo}
         reactionsByMessageId={reactionsByMessageId}

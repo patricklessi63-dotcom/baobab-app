@@ -1,5 +1,5 @@
 import React from "react";
-import { ArrowLeft, Camera } from "lucide-react";
+import { ArrowLeft, Camera, ChevronLeft, ChevronRight, Star } from "lucide-react";
 import {
   C, LOOKING_FOR_OPTIONS, RELATIONSHIP_VALUES_OPTIONS, EDUCATION_LEVELS, HAS_CHILDREN_OPTIONS,
   IMMIGRATION_STATUS_OPTIONS, WANTS_CHILDREN_OPTIONS, FAMILY_IMPORTANCE_OPTIONS, CAREER_GOAL_OPTIONS,
@@ -26,6 +26,8 @@ export default function EditProfileForm({
   setCoverRemoved,
   existingPhotos,
   removeExistingPhoto,
+  moveExistingPhoto = () => {},
+  setPrimaryPhoto = () => {},
   newPhotoPreviews,
   removeNewPhotoFile,
   handleNewPhotosSelected,
@@ -104,13 +106,37 @@ export default function EditProfileForm({
       <form onSubmit={handleSaveProfile} className="flex flex-col gap-3">
         <div className="mb-2">
           <div className="flex flex-wrap gap-2 mb-2">
-            {existingPhotos.map((photo) => (
+            {existingPhotos.map((photo, i) => (
               <div key={photo.id} style={{ position: "relative" }}>
                 <img src={photo.url} alt="Photo" style={{ width: 72, height: 72, borderRadius: "var(--bb-radius-sm)", objectFit: "cover", boxShadow: "var(--bb-shadow-sm)" }} />
                 <button type="button" onClick={() => removeExistingPhoto(photo)} aria-label="Supprimer la photo"
                   style={{ position: "absolute", top: -6, right: -6, width: 20, height: 20, borderRadius: "50%", background: C.indigo, color: "#fff", fontSize: 12, display: "flex", alignItems: "center", justifyContent: "center" }}>
                   ×
                 </button>
+                {i === 0 ? (
+                  <span aria-hidden="true" style={{ position: "absolute", top: -6, left: -6, width: 20, height: 20, borderRadius: "50%", background: C.ochre, color: C.indigoDeep || C.indigo, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <Star size={11} fill="currentColor" />
+                  </span>
+                ) : (
+                  <button type="button" onClick={() => setPrimaryPhoto(photo.id)} aria-label="Définir comme photo principale"
+                    style={{ position: "absolute", top: -6, left: -6, width: 20, height: 20, borderRadius: "50%", background: "#fff", border: `1px solid rgba(43,36,32,0.15)`, color: C.indigo, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <Star size={11} />
+                  </button>
+                )}
+                <div style={{ position: "absolute", bottom: -6, left: 0, right: 0, display: "flex", justifyContent: "center", gap: 4 }}>
+                  {i > 0 && (
+                    <button type="button" onClick={() => moveExistingPhoto(photo.id, "up")} aria-label="Déplacer la photo vers la gauche"
+                      style={{ width: 20, height: 20, borderRadius: "50%", background: "#fff", border: `1px solid rgba(43,36,32,0.15)`, color: C.indigo, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <ChevronLeft size={12} />
+                    </button>
+                  )}
+                  {i < existingPhotos.length - 1 && (
+                    <button type="button" onClick={() => moveExistingPhoto(photo.id, "down")} aria-label="Déplacer la photo vers la droite"
+                      style={{ width: 20, height: 20, borderRadius: "50%", background: "#fff", border: `1px solid rgba(43,36,32,0.15)`, color: C.indigo, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <ChevronRight size={12} />
+                    </button>
+                  )}
+                </div>
               </div>
             ))}
             {newPhotoPreviews.map((src, i) => (

@@ -1,5 +1,5 @@
 import React from "react";
-import { Heart, X, MessageCircle, Star, Flag, Ban, EyeOff } from "lucide-react";
+import { Heart, X, MessageCircle, Star, Flag, Ban, EyeOff, HeartCrack } from "lucide-react";
 import Avatar from "../Avatar";
 import VerifiedBadge from "../VerifiedBadge";
 import FounderBadge from "../FounderBadge";
@@ -18,6 +18,7 @@ export default function MatchCard({
   onToggleFavorite,
   onReport,
   onBlock,
+  onUnmatch,
   onHide,
   onViewProfile,
   distanceKm,
@@ -105,6 +106,11 @@ export default function MatchCard({
           )}
         </div>
         <div className="flex items-center gap-3 mt-2">
+          {isMatch && onUnmatch && (
+            <button onClick={() => onUnmatch(profile)} className="text-[11px] font-semibold flex items-center gap-1 focus-visible:outline focus-visible:outline-2" style={{ color: coral }}>
+              <HeartCrack size={12} /> Supprimer le match
+            </button>
+          )}
           {onReport && (
             <button onClick={() => onReport(profile)} className="text-[11px] font-semibold flex items-center gap-1 focus-visible:outline focus-visible:outline-2" style={{ color: muted }}>
               <Flag size={12} /> Signaler

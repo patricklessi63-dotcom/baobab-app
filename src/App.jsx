@@ -261,11 +261,6 @@ export default function App() {
     };
   }, [session?.user?.id, currentUser?.show_online_status]);
 
-  // Déconnexion automatique après inactivité. Effet séparé du heartbeat
-  // ci-dessus (volontairement non fusionné, pour ne pas risquer de casser
-  // la présence en ligne). 13 min → bandeau d'avertissement, 15 min → déconnexion
-  // forcée, sauf opération critique en cours (message/upload/publication) :
-  // dans ce cas on revérifie toutes les 5s plutôt que d'interrompre.
   useEffect(() => {
     messagesRef.current = messages;
   }, [messages]);
@@ -424,6 +419,43 @@ export default function App() {
       if (toggleError) throw toggleError;
     } catch (e) {
       console.error(e);
+    }
+  }
+
+  async function handleToggleDating(checked) {
+    if (!currentUser) return;
+    setCurrentUser((u) => ({ ...u, dating_enabled: checked }));
+    try {
+      const { error: toggleError } = await supabase
+        .from("profiles")
+        .update({ dating_enabled: checked })
+        .eq("id", currentUser.id);
+      if (toggleError) throw toggleError;
+    } catch (e) {
+      console.error(e);
+      setCurrentUser((u) => ({ ...u, dating_enabled: !checked }));
+      setError("Impossible de mettre à jour ce paramètre.");
+    }
+  }
+
+  // Un match n'est pas une table à part : c'est deux lignes "likes"
+  // mutuelles (getMatches()). L'utilisateur ne peut supprimer QUE sa propre
+  // ligne via RLS — unmatch_profile() est une RPC security definer qui
+  // supprime les deux côtés de façon atomique (voir supabase-dating-2.sql).
+  async function handleUnmatch(target) {
+    if (!currentUser || !target) return;
+    if (!window.confirm(`Supprimer ton match avec ${target.name} ? Vous ne pourrez plus vous écrire, et vous ne vous reproposerez plus en Découverte.`)) return;
+    try {
+      const { error: unmatchError } = await supabase.rpc("unmatch_profile", { target_id: target.id });
+      if (unmatchError) throw unmatchError;
+      setLikePairs((k) =>
+        k.filter((l) => !((l.from_id === currentUser.id && l.to_id === target.id) || (l.from_id === target.id && l.to_id === currentUser.id)))
+      );
+      setPassPairs((k) => [...k, { from_id: currentUser.id, to_id: target.id }, { from_id: target.id, to_id: currentUser.id }]);
+      if (activeMatch?.id === target.id) closeChat();
+    } catch (e) {
+      console.error(e);
+      setError("Impossible de supprimer ce match.");
     }
   }
 
@@ -657,6 +689,44 @@ export default function App() {
     }
   }
 
+  async function persistPhotoOrder(reordered) {
+    try {
+      const { error: reorderError } = await supabase
+        .from("profile_photos")
+        .upsert(reordered.map((p, i) => ({ id: p.id, profile_id: p.profile_id, url: p.url, position: i })));
+      if (reorderError) throw reorderError;
+    } catch (e) {
+      console.error(e);
+      setError("Impossible de réorganiser les photos.");
+    }
+  }
+
+  function moveExistingPhoto(photoId, direction) {
+    const idx = existingPhotos.findIndex((p) => p.id === photoId);
+    const newIdx = direction === "up" ? idx - 1 : idx + 1;
+    if (idx === -1 || newIdx < 0 || newIdx >= existingPhotos.length) return;
+    const reordered = [...existingPhotos];
+    [reordered[idx], reordered[newIdx]] = [reordered[newIdx], reordered[idx]];
+    setExistingPhotos(reordered);
+    persistPhotoOrder(reordered);
+  }
+
+  async function setPrimaryPhoto(photoId) {
+    const idx = existingPhotos.findIndex((p) => p.id === photoId);
+    if (idx <= 0) return;
+    const reordered = [existingPhotos[idx], ...existingPhotos.filter((_, i) => i !== idx)];
+    setExistingPhotos(reordered);
+    await persistPhotoOrder(reordered);
+    try {
+      const { error: avatarError } = await supabase.from("profiles").update({ avatar_url: reordered[0].url }).eq("id", currentUser.id);
+      if (avatarError) throw avatarError;
+      setCurrentUser((u) => (u ? { ...u, avatar_url: reordered[0].url } : u));
+    } catch (e) {
+      console.error(e);
+      setError("Impossible de définir cette photo comme principale.");
+    }
+  }
+
   async function handleSaveProfile(e) {
     e.preventDefault();
     if (!editForm.name || !currentUser) { setError("Le nom est requis."); return; }
@@ -762,6 +832,7 @@ export default function App() {
         profiles.filter(
           (p) =>
             p.id !== currentUser.id &&
+            p.dating_enabled !== false &&
             !hasLiked(currentUser.id, p.id) &&
             !hasPassed(currentUser.id, p.id) &&
             !hasBlocked(currentUser.id, p.id) &&
@@ -1361,6 +1432,7 @@ export default function App() {
           openEditProfile={openEditProfile}
           setReportTarget={setReportTarget}
           handleBlock={requestBlock}
+          handleUnmatch={handleUnmatch}
           blockedIds={blockedIds}
           profiles={profiles}
           handleSavePreferences={handleSavePreferences}
@@ -1424,6 +1496,7 @@ export default function App() {
           setSettingsOpen={setSettingsOpen}
           currentUser={currentUser}
           onToggleOnlineStatus={handleToggleOnlineStatus}
+          onToggleDating={handleToggleDating}
           onToggleField={handleToggleField}
           onUpdateNotificationPreference={handleUpdateNotificationPreference}
           blockedProfiles={blockedProfiles}
@@ -1511,6 +1584,8 @@ export default function App() {
             setCoverRemoved={setCoverRemoved}
             existingPhotos={existingPhotos}
             removeExistingPhoto={removeExistingPhoto}
+            moveExistingPhoto={moveExistingPhoto}
+            setPrimaryPhoto={setPrimaryPhoto}
             newPhotoPreviews={newPhotoPreviews}
             removeNewPhotoFile={removeNewPhotoFile}
             handleNewPhotosSelected={handleNewPhotosSelected}
@@ -1541,6 +1616,7 @@ export default function App() {
         setSettingsOpen={setSettingsOpen}
         currentUser={currentUser}
         onToggleOnlineStatus={handleToggleOnlineStatus}
+        onToggleDating={handleToggleDating}
         onToggleField={handleToggleField}
         onUpdateNotificationPreference={handleUpdateNotificationPreference}
         blockedProfiles={blockedProfiles}

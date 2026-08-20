@@ -1,16 +1,17 @@
 import React, { useState } from "react";
-import { ArrowLeft, MapPin, Users, Share2, Flag, Lock, Mail, Shield } from "lucide-react";
+import { ArrowLeft, MapPin, Users, Share2, Flag, Lock, Mail, Shield, Calendar, UserPlus } from "lucide-react";
 import CommunityPostCard from "./CommunityPostCard";
 import CommunityPostComposer from "./CommunityPostComposer";
 import CommunityMemberRow from "./CommunityMemberRow";
 import CommunityAdminPanel from "./CommunityAdminPanel";
+import EventCard from "./EventCard";
 import EmptyState from "../home/EmptyState";
 import Skeleton from "../Skeleton";
 import { categoryIcon, categoryLabel } from "../../lib/communities/communityConfig";
 import { isStaff, canPost } from "../../lib/communities/permissions";
 import { primary, green, coral, gold, muted, bg, card, body, primaryRgb } from "./theme";
 
-const SUB_TABS = [["about", "À propos"], ["posts", "Publications"], ["members", "Membres"]];
+const SUB_TABS = [["about", "À propos"], ["posts", "Publications"], ["events", "Événements"], ["members", "Membres"]];
 
 export default function CommunityDetailView({
   community,
@@ -29,14 +30,16 @@ export default function CommunityDetailView({
   setPostDraft,
   onSubmitPost,
   postSubmitting,
-  likedPostIds,
-  postLikeCounts,
-  onToggleLike,
+  reactionCounts = {},
+  myReactions = {},
+  onReact = () => {},
   commentsByPost,
   onLoadComments,
   onSubmitComment,
+  onEditComment = () => {},
   onReportPost,
   onDeletePost,
+  onDeleteComment,
   members,
   membersLoading,
   onViewMemberProfile,
@@ -48,6 +51,11 @@ export default function CommunityDetailView({
   onRejectRequest,
   onResolveReport,
   onDismissReport,
+  events = [],
+  eventsLoading = false,
+  onOpenEvent = () => {},
+  onCreateEvent = () => {},
+  onOpenInvite = () => {},
 }) {
   const [subTab, setSubTab] = useState("posts");
   const staff = isStaff(viewerRole);
@@ -80,6 +88,11 @@ export default function CommunityDetailView({
               </div>
             </div>
             <div className="flex items-center gap-1.5 flex-shrink-0">
+              {staff && (
+                <button onClick={() => onOpenInvite(community)} aria-label="Inviter des membres" className="h-9 w-9 rounded-full flex items-center justify-center" style={{ background: bg }}>
+                  <UserPlus size={15} color={primary} />
+                </button>
+              )}
               <button onClick={() => onShare(community)} aria-label="Partager" className="h-9 w-9 rounded-full flex items-center justify-center" style={{ background: bg }}>
                 <Share2 size={15} color={primary} />
               </button>
@@ -94,7 +107,11 @@ export default function CommunityDetailView({
           <div className="mt-4">
             {viewerRole ? (
               viewerRole !== "owner" && (
-                <button onClick={() => onLeave(community)} className="px-4 py-2.5 rounded-full text-sm font-bold" style={{ border: `1px solid rgba(${primaryRgb},.15)`, color: primary }}>
+                <button
+                  onClick={() => window.confirm("Voulez-vous vraiment quitter cette communauté ?") && onLeave(community)}
+                  className="px-4 py-2.5 rounded-full text-sm font-bold"
+                  style={{ border: `1px solid rgba(${primaryRgb},.15)`, color: primary }}
+                >
                   Quitter la communauté
                 </button>
               )
@@ -103,9 +120,17 @@ export default function CommunityDetailView({
             ) : viewerPending ? (
               <span className="px-4 py-2.5 rounded-full text-sm font-bold inline-block" style={{ background: bg, color: muted }}>Demande envoyée</span>
             ) : (
-              <button onClick={() => onJoin(community)} className="px-5 py-2.5 rounded-full text-sm font-bold text-white" style={{ background: coral }}>
-                {isPrivate ? "Demander à rejoindre" : "Rejoindre"}
-              </button>
+              <>
+                {isPrivate && community.rules && (
+                  <div className="rounded-xl p-3 mb-3 text-xs whitespace-pre-wrap" style={{ background: bg, color: body }}>
+                    <div className="text-[10px] font-black uppercase tracking-wider mb-1" style={{ color: muted }}>Règles de la communauté</div>
+                    {community.rules}
+                  </div>
+                )}
+                <button onClick={() => onJoin(community)} className="px-5 py-2.5 rounded-full text-sm font-bold text-white" style={{ background: coral }}>
+                  {isPrivate ? "Demander à rejoindre" : "Rejoindre"}
+                </button>
+              </>
             )}
           </div>
         </div>
@@ -129,6 +154,12 @@ export default function CommunityDetailView({
         {subTab === "about" && (
           <div className={`${card} p-5 text-sm`} style={{ color: body }}>
             <p>{community.description || "Aucune description pour l'instant."}</p>
+            {community.rules && (
+              <div className="mt-4 pt-4" style={{ borderTop: `1px solid rgba(${primaryRgb},.08)` }}>
+                <div className="text-[10px] font-black uppercase tracking-wider mb-1.5" style={{ color: muted }}>Règles de la communauté</div>
+                <p className="whitespace-pre-wrap">{community.rules}</p>
+              </div>
+            )}
             {community.creatorName && <p className="mt-3 text-xs" style={{ color: muted }}>Créée par {community.creatorName}</p>}
           </div>
         )}
@@ -155,18 +186,50 @@ export default function CommunityDetailView({
                     key={post.id}
                     post={post}
                     currentUserId={currentUser?.id}
-                    liked={likedPostIds.has(post.id)}
-                    likeCount={postLikeCounts[post.id] || 0}
+                    reactionCounts={reactionCounts[post.id] || {}}
+                    myReaction={myReactions[post.id] || null}
                     comments={commentsByPost[post.id]?.items || []}
                     commentsLoaded={Boolean(commentsByPost[post.id])}
-                    onToggleLike={onToggleLike}
+                    onReact={onReact}
                     onLoadComments={onLoadComments}
                     onSubmitComment={onSubmitComment}
+                    onEditComment={onEditComment}
                     onReport={onReportPost}
                     onDelete={onDeletePost}
+                    onDeleteComment={onDeleteComment}
+                    canModerate={isStaff(viewerRole) || viewerRole === "moderator"}
                     canDelete={post.author_id === currentUser?.id || isStaff(viewerRole) || viewerRole === "moderator"}
                   />
                 ))
+              )}
+            </div>
+          )
+        )}
+
+        {subTab === "events" && (
+          !canSeeContent ? (
+            <div className={`${card} p-5`}>
+              <EmptyState icon={Lock} title="Communauté privée" subtitle="Rejoins cette communauté pour voir ses événements." />
+            </div>
+          ) : (
+            <div>
+              {Boolean(viewerRole) && (
+                <button onClick={onCreateEvent} className="w-full mb-4 py-3 rounded-full text-sm font-bold text-white flex items-center justify-center gap-2" style={{ background: coral }}>
+                  <Calendar size={15} /> Créer un événement
+                </button>
+              )}
+              {eventsLoading ? (
+                <Skeleton rows={2} height={100} />
+              ) : events.length === 0 ? (
+                <div className={`${card} p-5`}>
+                  <EmptyState icon={Calendar} title="Aucun événement pour l'instant." subtitle="Sois le/la premier·ère à en organiser un." />
+                </div>
+              ) : (
+                <div className="grid sm:grid-cols-2 gap-4">
+                  {events.map((ev) => (
+                    <EventCard key={ev.id} event={ev} participantCount={ev.participantCount} onView={() => onOpenEvent(ev.id)} />
+                  ))}
+                </div>
               )}
             </div>
           )

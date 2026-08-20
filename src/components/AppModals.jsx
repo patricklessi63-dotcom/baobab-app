@@ -1,5 +1,5 @@
 import React from "react";
-import { Circle, Bell, Moon, Shield, Info, ArrowLeft, ShieldCheck, Smartphone, UserX, AlertTriangle, MapPin } from "lucide-react";
+import { Circle, Bell, Moon, Shield, Info, ArrowLeft, ShieldCheck, Smartphone, UserX, AlertTriangle, MapPin, Heart } from "lucide-react";
 import { C } from "../constants";
 import { PrivacyPolicyContent, TermsOfServiceContent } from "../legalContent";
 import Avatar from "./Avatar";
@@ -30,6 +30,7 @@ export default function AppModals({
   setSettingsOpen,
   currentUser,
   onToggleOnlineStatus,
+  onToggleDating,
   onToggleField,
   onUpdateNotificationPreference,
   blockedProfiles = [],
@@ -88,6 +89,20 @@ export default function AppModals({
             <div style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 20, color: C.indigo }} className="mb-4">
               Paramètres
             </div>
+
+            <div className="text-[11px] font-black uppercase tracking-wider mt-2" style={{ color: "rgba(43,36,32,0.4)" }}>Rencontres</div>
+            <label className="flex items-center justify-between py-2.5" style={{ borderTop: "1px solid rgba(43,36,32,0.08)", minHeight: 44 }}>
+              <div className="flex items-center gap-2 text-sm"><Heart size={14} color={C.clay} /> Activer les Rencontres</div>
+              <input
+                type="checkbox"
+                checked={currentUser?.dating_enabled !== false}
+                onChange={(e) => onToggleDating?.(e.target.checked)}
+                style={{ width: 18, height: 18 }}
+              />
+            </label>
+            <p className="text-[11px] mt-1 mb-2" style={{ color: "rgba(43,36,32,0.45)" }}>
+              Désactive pour ne plus apparaître dans Découverte ni recevoir de nouveaux likes.
+            </p>
 
             <div className="text-[11px] font-black uppercase tracking-wider mt-2" style={{ color: "rgba(43,36,32,0.4)" }}>Confidentialité</div>
             <label className="flex items-center justify-between py-2.5" style={{ borderTop: "1px solid rgba(43,36,32,0.08)", minHeight: 44 }}>

@@ -5,6 +5,7 @@ import CommunityGroupCard from "./CommunityGroupCard";
 import CommunityFilters from "./CommunityFilters";
 import CommunityDetailView from "./CommunityDetailView";
 import CommunityCreateForm from "./CommunityCreateForm";
+import CommunityInviteModal from "./CommunityInviteModal";
 import ReportModal from "./ReportModal";
 import PublicProfileModal from "./PublicProfileModal";
 import EmptyState from "../home/EmptyState";
@@ -12,7 +13,12 @@ import { SkeletonCard } from "../Skeleton";
 import { rankCommunities } from "../../lib/communities/recommendations";
 import { COMMUNITY_REPORT_CATEGORIES } from "../../lib/communities/communityConfig";
 import { trackActivation } from "../../lib/trackActivation";
+import { validateMediaFile } from "../../lib/mediaValidation";
+import { extFromMime } from "../../lib/mediaConstants";
+import { uploadWithProgress } from "../../lib/uploadWithProgress";
 import { primary, coral, muted, bg, card } from "./theme";
+
+const COMMUNITY_MEDIA_BUCKET = "community-media";
 
 const PAGE_SIZE = 20;
 const REPORT_TARGET_LABEL = { post: "cette publication", comment: "ce commentaire", member: "ce membre", community: "cette communauté" };
@@ -30,7 +36,7 @@ function withMemberCount(rows) {
   return (rows || []).map((c) => ({ ...c, memberCount: c.community_members?.[0]?.count || 0 }));
 }
 
-export default function CommunitiesTab({ currentUser, onError, onCommunitiesChanged, initialCommunityId, onConsumedInitial, blockedIds = new Set() }) {
+export default function CommunitiesTab({ currentUser, onError, onCommunitiesChanged, initialCommunityId, onConsumedInitial, blockedIds = new Set(), onOpenEvents = () => {} }) {
   const [view, setView] = useState("list"); // list | detail | create
   const [selectedId, setSelectedId] = useState(null);
 
@@ -53,14 +59,18 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
   const [postsLoading, setPostsLoading] = useState(false);
   const [postDraft, setPostDraft] = useState("");
   const [postSubmitting, setPostSubmitting] = useState(false);
-  const [likedPostIds, setLikedPostIds] = useState(new Set());
-  const [postLikeCounts, setPostLikeCounts] = useState({});
+  const [myReactions, setMyReactions] = useState({}); // postId -> emoji|null
+  const [reactionCounts, setReactionCounts] = useState({}); // postId -> { emoji: count }
   const [postCommentCounts, setPostCommentCounts] = useState({});
   const [commentsByPost, setCommentsByPost] = useState({});
   const [members, setMembers] = useState([]);
   const [membersLoading, setMembersLoading] = useState(false);
   const [joinRequests, setJoinRequests] = useState([]);
   const [reports, setReports] = useState([]);
+  const [events, setEvents] = useState([]);
+  const [eventsLoading, setEventsLoading] = useState(false);
+  const [inviteTarget, setInviteTarget] = useState(null);
+  const [myInvites, setMyInvites] = useState([]);
 
   const [viewedMemberProfile, setViewedMemberProfile] = useState(null);
   const [reportTarget, setReportTarget] = useState(null);
@@ -90,6 +100,16 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
       if (error) { console.error(error); return; }
       setMyPending(new Set((data || []).map((r) => r.community_id)));
     });
+    supabase
+      .from("community_invites")
+      .select("id, community_id, invited_by, communities(name, cover_url), inviter:invited_by(name)")
+      .eq("invited_profile_id", currentUser.id)
+      .eq("status", "pending")
+      .then(({ data, error }) => {
+        if (!alive) return;
+        if (error) { console.error(error); return; }
+        setMyInvites(data || []);
+      });
     return () => { alive = false; };
   }, [currentUser?.id]);
 
@@ -152,21 +172,22 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
       const ids = visiblePosts.map((p) => p.id);
       if (ids.length > 0) {
         const [likesRes, commentsRes] = await Promise.all([
-          supabase.from("community_post_likes").select("post_id, profile_id").in("post_id", ids),
+          supabase.from("community_post_likes").select("post_id, profile_id, emoji").in("post_id", ids),
           supabase.from("community_comments").select("post_id").in("post_id", ids),
         ]);
-        const likeCounts = {}; const liked = new Set();
+        const counts = {}; const mine = {};
         (likesRes.data || []).forEach((l) => {
-          likeCounts[l.post_id] = (likeCounts[l.post_id] || 0) + 1;
-          if (l.profile_id === currentUser.id) liked.add(l.post_id);
+          counts[l.post_id] = counts[l.post_id] || {};
+          counts[l.post_id][l.emoji] = (counts[l.post_id][l.emoji] || 0) + 1;
+          if (l.profile_id === currentUser.id) mine[l.post_id] = l.emoji;
         });
         const commentCounts = {};
         (commentsRes.data || []).forEach((c) => { commentCounts[c.post_id] = (commentCounts[c.post_id] || 0) + 1; });
-        setPostLikeCounts(likeCounts);
-        setLikedPostIds(liked);
+        setReactionCounts(counts);
+        setMyReactions(mine);
         setPostCommentCounts(commentCounts);
       } else {
-        setPostLikeCounts({}); setLikedPostIds(new Set()); setPostCommentCounts({});
+        setReactionCounts({}); setMyReactions({}); setPostCommentCounts({});
       }
     } catch (e) {
       console.error(e);
@@ -212,11 +233,30 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
     if (!error) setReports(data || []);
   };
 
+  const loadEvents = async (id) => {
+    setEventsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("events")
+        .select("*, event_participant_count")
+        .eq("community_id", id)
+        .is("canceled_at", null)
+        .order("event_date", { ascending: true });
+      if (error) throw error;
+      setEvents((data || []).map((e) => ({ ...e, participantCount: e.event_participant_count || 0 })));
+    } catch (e) {
+      console.error(e);
+      onError("Impossible de charger les événements.");
+    } finally {
+      setEventsLoading(false);
+    }
+  };
+
   const goDetail = async (comm) => {
     setSelectedId(comm.id);
     setView("detail");
     setCommunity(null);
-    setPosts([]); setMembers([]); setJoinRequests([]); setReports([]);
+    setPosts([]); setMembers([]); setJoinRequests([]); setReports([]); setEvents([]);
     setPostDraft("");
     try {
       const { data, error } = await supabase.from("communities").select("*").eq("id", comm.id).single();
@@ -232,6 +272,7 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
       await Promise.all([
         loadPosts(comm.id),
         loadMembers(comm.id),
+        loadEvents(comm.id),
         (role === "owner" || role === "admin") ? loadJoinRequests(comm.id) : Promise.resolve(),
         (role === "owner" || role === "admin" || role === "moderator") ? loadReports(comm.id) : Promise.resolve(),
       ]);
@@ -319,14 +360,29 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
     }
   };
 
-  // ---------- Publications / likes / commentaires ----------
-  const handleSubmitPost = async () => {
-    if (!postDraft.trim() || !currentUser || !community) return;
+  // ---------- Publications / réactions / commentaires ----------
+  const handleSubmitPost = async (mediaFile, mediaKind) => {
+    if ((!postDraft.trim() && !mediaFile) || !currentUser || !community) return;
     setPostSubmitting(true);
     try {
+      let mediaUrl = null;
+      if (mediaFile) {
+        const { ok, error: validationError } = await validateMediaFile(mediaFile, mediaKind);
+        if (!ok) { onError(validationError); setPostSubmitting(false); return; }
+        const path = `${community.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.${extFromMime(mediaFile.type)}`;
+        await uploadWithProgress({ bucket: COMMUNITY_MEDIA_BUCKET, path, file: mediaFile });
+        const { data: signed } = await supabase.storage.from(COMMUNITY_MEDIA_BUCKET).createSignedUrl(path, 60 * 60 * 24 * 365 * 5);
+        mediaUrl = signed?.signedUrl || null;
+      }
       const { data, error } = await supabase
         .from("community_posts")
-        .insert({ community_id: community.id, author_id: currentUser.id, body: postDraft.trim() })
+        .insert({
+          community_id: community.id,
+          author_id: currentUser.id,
+          body: postDraft.trim(),
+          media_url: mediaUrl,
+          media_kind: mediaUrl ? mediaKind : null,
+        })
         .select("*, profiles(name, avatar_url)").single();
       if (error) throw error;
       setPosts((p) => [data, ...p]);
@@ -350,25 +406,38 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
     }
   };
 
-  const handleToggleLike = async (post) => {
+  const applyReactionDelta = (postId, emoji, delta) => {
+    setReactionCounts((rc) => {
+      const forPost = { ...(rc[postId] || {}) };
+      forPost[emoji] = Math.max(0, (forPost[emoji] || 0) + delta);
+      if (forPost[emoji] === 0) delete forPost[emoji];
+      return { ...rc, [postId]: forPost };
+    });
+  };
+
+  const handleReact = async (post, emoji) => {
     if (!currentUser || likeInFlightRef.current.has(post.id)) return;
     likeInFlightRef.current.add(post.id);
-    const wasLiked = likedPostIds.has(post.id);
-    setLikedPostIds((s) => { const n = new Set(s); wasLiked ? n.delete(post.id) : n.add(post.id); return n; });
-    setPostLikeCounts((c) => ({ ...c, [post.id]: Math.max(0, (c[post.id] || 0) + (wasLiked ? -1 : 1)) }));
+    const previous = myReactions[post.id] || null;
+    const removing = previous === emoji;
+    setMyReactions((m) => ({ ...m, [post.id]: removing ? null : emoji }));
+    if (previous) applyReactionDelta(post.id, previous, -1);
+    if (!removing) applyReactionDelta(post.id, emoji, 1);
     try {
-      if (wasLiked) {
+      if (previous) {
         const { error } = await supabase.from("community_post_likes").delete().eq("post_id", post.id).eq("profile_id", currentUser.id);
         if (error) throw error;
-      } else {
-        const { error } = await supabase.from("community_post_likes").insert({ post_id: post.id, profile_id: currentUser.id });
+      }
+      if (!removing) {
+        const { error } = await supabase.from("community_post_likes").insert({ post_id: post.id, profile_id: currentUser.id, emoji });
         if (error) throw error;
       }
     } catch (e) {
       console.error(e);
-      setLikedPostIds((s) => { const n = new Set(s); wasLiked ? n.add(post.id) : n.delete(post.id); return n; });
-      setPostLikeCounts((c) => ({ ...c, [post.id]: Math.max(0, (c[post.id] || 0) + (wasLiked ? 1 : -1)) }));
-      onError("Impossible de mettre à jour ce like.");
+      setMyReactions((m) => ({ ...m, [post.id]: previous }));
+      if (previous) applyReactionDelta(post.id, previous, 1);
+      if (!removing) applyReactionDelta(post.id, emoji, -1);
+      onError("Impossible de mettre à jour cette réaction.");
     } finally {
       likeInFlightRef.current.delete(post.id);
     }
@@ -387,11 +456,11 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
     }
   };
 
-  const handleSubmitComment = async (postId, text) => {
+  const handleSubmitComment = async (postId, text, replyToId = null) => {
     if (!currentUser) return;
     try {
       const { data, error } = await supabase
-        .from("community_comments").insert({ post_id: postId, author_id: currentUser.id, body: text })
+        .from("community_comments").insert({ post_id: postId, author_id: currentUser.id, body: text, reply_to_id: replyToId })
         .select("*, profiles(name, avatar_url)").single();
       if (error) throw error;
       setCommentsByPost((c) => ({ ...c, [postId]: { items: [...(c[postId]?.items || []), data] } }));
@@ -399,6 +468,62 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
     } catch (e) {
       console.error(e);
       onError("Impossible d'envoyer ce commentaire.");
+    }
+  };
+
+  const handleEditComment = async (postId, commentId, newBody) => {
+    try {
+      const { data, error } = await supabase
+        .from("community_comments")
+        .update({ body: newBody, updated_at: new Date().toISOString() })
+        .eq("id", commentId)
+        .select("*, profiles(name, avatar_url)").single();
+      if (error) throw error;
+      setCommentsByPost((c) => ({
+        ...c,
+        [postId]: { items: (c[postId]?.items || []).map((x) => (x.id === commentId ? data : x)) },
+      }));
+    } catch (e) {
+      console.error(e);
+      onError("Impossible de modifier ce commentaire.");
+    }
+  };
+
+  const handleDeleteComment = async (postId, commentId) => {
+    try {
+      const { error } = await supabase.from("community_comments").delete().eq("id", commentId);
+      if (error) throw error;
+      setCommentsByPost((c) => ({ ...c, [postId]: { items: (c[postId]?.items || []).filter((x) => x.id !== commentId) } }));
+      setPostCommentCounts((c) => ({ ...c, [postId]: Math.max(0, (c[postId] || 0) - 1) }));
+    } catch (e) {
+      console.error(e);
+      onError("Impossible de supprimer ce commentaire.");
+    }
+  };
+
+  // ---------- Invitations ----------
+  const handleAcceptInvite = async (invite) => {
+    try {
+      const { error } = await supabase.rpc("accept_invite", { p_invite_id: invite.id });
+      if (error) throw error;
+      setMyInvites((inv) => inv.filter((x) => x.id !== invite.id));
+      setMyMemberships((m) => ({ ...m, [invite.community_id]: "member" }));
+      adjustMemberCount(invite.community_id, 1);
+      onCommunitiesChanged?.();
+    } catch (e) {
+      console.error(e);
+      onError("Impossible d'accepter cette invitation.");
+    }
+  };
+
+  const handleDeclineInvite = async (invite) => {
+    try {
+      const { error } = await supabase.rpc("decline_invite", { p_invite_id: invite.id });
+      if (error) throw error;
+      setMyInvites((inv) => inv.filter((x) => x.id !== invite.id));
+    } catch (e) {
+      console.error(e);
+      onError("Impossible de refuser cette invitation.");
     }
   };
 
@@ -539,14 +664,21 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
           setPostDraft={setPostDraft}
           onSubmitPost={handleSubmitPost}
           postSubmitting={postSubmitting}
-          likedPostIds={likedPostIds}
-          postLikeCounts={postLikeCounts}
-          onToggleLike={handleToggleLike}
+          reactionCounts={reactionCounts}
+          myReactions={myReactions}
+          onReact={handleReact}
           commentsByPost={commentsByPost}
           onLoadComments={handleLoadComments}
           onSubmitComment={handleSubmitComment}
+          onEditComment={handleEditComment}
           onReportPost={(p) => openReport("post", p.id, REPORT_TARGET_LABEL.post)}
           onDeletePost={handleDeletePost}
+          onDeleteComment={handleDeleteComment}
+          events={events}
+          eventsLoading={eventsLoading}
+          onOpenEvent={(id) => onOpenEvents(id)}
+          onCreateEvent={() => onOpenEvents()}
+          onOpenInvite={(c) => setInviteTarget(c)}
           members={members}
           membersLoading={membersLoading}
           onViewMemberProfile={(p) => setViewedMemberProfile(p)}
@@ -575,6 +707,14 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
           onCancel={() => setReportTarget(null)}
           onSubmit={submitReport}
           onDismissAfterSubmit={() => setReportTarget(null)}
+        />
+
+        <CommunityInviteModal
+          community={inviteTarget}
+          currentUser={currentUser}
+          memberIds={new Set(members.map((m) => m.profile_id))}
+          onClose={() => setInviteTarget(null)}
+          onError={onError}
         />
       </section>
     );
@@ -671,6 +811,25 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
         />
       ) : isNeutralHome ? (
         <>
+          {myInvites.length > 0 && (
+            <div className="mb-8">
+              <h2 className="text-sm font-black mb-3" style={{ color: primary }}>💌 Tes invitations</h2>
+              <div className="flex flex-col gap-2">
+                {myInvites.map((inv) => (
+                  <div key={inv.id} className={`${card} p-3.5 flex items-center justify-between gap-3`}>
+                    <div className="min-w-0">
+                      <div className="text-sm font-bold truncate">{inv.communities?.name}</div>
+                      <div className="text-xs truncate" style={{ color: muted }}>Invité·e par {inv.inviter?.name || "un membre"}</div>
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <button onClick={() => handleDeclineInvite(inv)} className="text-xs font-bold px-3 py-2 rounded-full" style={{ background: bg, color: muted }}>Refuser</button>
+                      <button onClick={() => handleAcceptInvite(inv)} className="text-xs font-bold px-3 py-2 rounded-full text-white" style={{ background: coral }}>Accepter</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
           {renderSection("✨ Pour toi", recommended)}
           {renderSection("📍 Près de toi", nearby)}
           {renderSection("🔥 Populaires sur Baobab", popular)}

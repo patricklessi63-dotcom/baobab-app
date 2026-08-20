@@ -49,6 +49,7 @@ export default function DiscoverTab({
   toggleFavorite = () => {},
   setReportTarget = () => {},
   handleBlock = () => {},
+  onUnmatch = () => {},
   openChat = () => {},
   goTab = () => {},
   myLocation = null,
@@ -396,6 +397,7 @@ export default function DiscoverTab({
                               onToggleFavorite={toggleFavorite}
                               onReport={(target) => setReportTarget(target)}
                               onBlock={handleBlock}
+                              onUnmatch={onUnmatch}
                               onHide={(p) => hideProfile(p.id)}
                               onViewProfile={onViewProfile}
                               distanceKm={nearbyMap.get(p.id)}

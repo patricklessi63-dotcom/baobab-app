@@ -9,6 +9,7 @@ import { primary, coral, muted, bg, goldTint, goldText, primaryRgb } from "./the
 
 const NAME_MAX = 80;
 const DESCRIPTION_MAX = 300;
+const RULES_MAX = 1000;
 
 export default function CommunityCreateForm({ currentUser, onCreated, onCancel, onError }) {
   const [name, setName] = useState("");
@@ -16,6 +17,7 @@ export default function CommunityCreateForm({ currentUser, onCreated, onCancel, 
   const [category, setCategory] = useState("");
   const [city, setCity] = useState(currentUser?.city || "");
   const [visibility, setVisibility] = useState("public");
+  const [rules, setRules] = useState("");
   const [coverFile, setCoverFile] = useState(null);
   const [coverPreview, setCoverPreview] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -80,6 +82,7 @@ export default function CommunityCreateForm({ currentUser, onCreated, onCancel, 
         p_city: city.trim() || null,
         p_visibility: visibility,
         p_cover_url: coverUrl,
+        p_rules: rules.trim() || null,
       });
       if (error) throw error;
       onCreated(data);
@@ -193,6 +196,19 @@ export default function CommunityCreateForm({ currentUser, onCreated, onCancel, 
           ))}
         </div>
       </div>
+
+      <label className="block">
+        <span className="text-xs font-bold" style={{ color: muted }}>Règles (facultatif)</span>
+        <textarea
+          value={rules}
+          onChange={(e) => setRules(e.target.value.slice(0, RULES_MAX))}
+          placeholder={"1. Respect des membres\n2. Pas de spam\n3. Pas d'arnaques"}
+          rows={3}
+          className="mt-1.5 w-full rounded-xl px-3.5 py-2.5 text-sm outline-none resize-none"
+          style={{ background: bg }}
+        />
+        <span className="text-[11px]" style={{ color: muted }}>Affichées aux membres avant de rejoindre une communauté privée. {rules.length}/{RULES_MAX}</span>
+      </label>
 
       <div className="flex gap-2 mt-2">
         <button onClick={onCancel} className="flex-1 py-3 rounded-full text-sm font-semibold" style={{ border: `1px solid rgba(${primaryRgb},.12)`, color: primary }}>

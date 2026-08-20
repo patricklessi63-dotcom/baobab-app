@@ -93,6 +93,7 @@ export default function SocialShell({
   openEditProfile = () => setView("editProfile"),
   setReportTarget = () => {},
   handleBlock = () => {},
+  handleUnmatch = () => {},
   blockedIds = new Set(),
   profiles = [],
   handleSavePreferences = () => {},
@@ -1065,6 +1066,7 @@ export default function SocialShell({
             toggleFavorite={toggleFavorite}
             setReportTarget={setReportTarget}
             handleBlock={handleBlock}
+            onUnmatch={handleUnmatch}
             openChat={openChat}
             goTab={goTab}
             myLocation={myLocation}
@@ -1095,6 +1097,7 @@ export default function SocialShell({
             otherTyping={otherTyping}
             onOpenReport={setReportTarget}
             onOpenBlockConfirm={handleBlock}
+            onUnmatch={handleUnmatch}
             replyingTo={replyingTo}
             setReplyingTo={setReplyingTo}
             reactionsByMessageId={reactionsByMessageId}
@@ -1142,6 +1145,7 @@ export default function SocialShell({
               initialCommunityId={openCommunityId}
               onConsumedInitial={() => setOpenCommunityId(null)}
               blockedIds={blockedIds}
+              onOpenEvents={(id) => { setOpenEventId(id || null); goTab("events"); }}
             />
           </Suspense>
         )}

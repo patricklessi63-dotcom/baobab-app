@@ -1,9 +1,11 @@
 // BAOBAB — Envoi de notifications push (Web Push / VAPID)
-// Déclenché par un Database Webhook sur messages INSERT (voir Dashboard >
-// Database > Webhooks). Le webhook envoie { type, table, record, ... } —
-// on lit record directement, pas de payload custom.
+// Deux origines possibles :
+// - Déclenché par le trigger pg_net sur "messages" INSERT (payload
+//   { record: { match_key, from_id, ... } }, forme historique).
+// - Déclenché par le trigger pg_net sur "likes" INSERT quand un match se
+//   forme (payload { type: "match", record: { recipient_id, actor_id } }).
 // Authentifié par un secret partagé dans l'en-tête x-webhook-secret (le
-// webhook n'a pas de JWT utilisateur) plutôt qu'un endpoint ouvert.
+// trigger n'a pas de JWT utilisateur) plutôt qu'un endpoint ouvert.
 import webpush from "npm:web-push@3.6.7";
 import { createClient } from "npm:@supabase/supabase-js@2";
 
@@ -16,6 +18,42 @@ const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
 
+async function sendToRecipient(
+  supabase: ReturnType<typeof createClient>,
+  recipientProfileId: string,
+  prefKey: string,
+  notifPayload: string
+) {
+  const { data: recipient } = await supabase
+    .from("profiles")
+    .select("id,user_id,notification_preferences")
+    .eq("id", recipientProfileId)
+    .maybeSingle();
+  if (!recipient) return;
+  if (recipient.notification_preferences?.[prefKey] === false) return;
+
+  const { data: subs } = await supabase
+    .from("push_subscriptions")
+    .select("endpoint,p256dh,auth")
+    .eq("user_id", recipient.user_id);
+  if (!subs || subs.length === 0) return;
+
+  await Promise.allSettled(
+    subs.map(async (s: { endpoint: string; p256dh: string; auth: string }) => {
+      try {
+        await webpush.sendNotification(
+          { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } },
+          notifPayload
+        );
+      } catch (err: any) {
+        if (err?.statusCode === 404 || err?.statusCode === 410) {
+          await supabase.from("push_subscriptions").delete().eq("endpoint", s.endpoint);
+        }
+      }
+    })
+  );
+}
+
 Deno.serve(async (req) => {
   if (req.headers.get("x-webhook-secret") !== WEBHOOK_SECRET) {
     return new Response("unauthorized", { status: 401 });
@@ -23,32 +61,31 @@ Deno.serve(async (req) => {
 
   try {
     const payload = await req.json();
+    const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+
+    if (payload.type === "match") {
+      const recipientId = payload.record?.recipient_id;
+      const actorId = payload.record?.actor_id;
+      if (!recipientId || !actorId) return new Response("ok", { status: 200 });
+
+      const { data: actor } = await supabase.from("profiles").select("name").eq("id", actorId).maybeSingle();
+      const notifPayload = JSON.stringify({
+        title: "❤️ Nouveau match",
+        body: `Toi et ${actor?.name || "quelqu'un"} vous êtes mutuellement plu·es !`,
+        url: "/",
+      });
+      await sendToRecipient(supabase, recipientId, "match", notifPayload);
+      return new Response("ok", { status: 200 });
+    }
+
     const record = payload.record;
     if (!record || !record.match_key || !record.from_id) {
       return new Response("ok", { status: 200 });
     }
 
-    const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
-
     const ids = String(record.match_key).split("__");
     const otherProfileId = ids.find((id: string) => id !== record.from_id);
     if (!otherProfileId) return new Response("ok", { status: 200 });
-
-    const { data: recipient } = await supabase
-      .from("profiles")
-      .select("id,user_id,notification_preferences")
-      .eq("id", otherProfileId)
-      .maybeSingle();
-    if (!recipient) return new Response("ok", { status: 200 });
-    if (recipient.notification_preferences?.messages === false) {
-      return new Response("ok", { status: 200 });
-    }
-
-    const { data: subs } = await supabase
-      .from("push_subscriptions")
-      .select("endpoint,p256dh,auth")
-      .eq("user_id", recipient.user_id);
-    if (!subs || subs.length === 0) return new Response("ok", { status: 200 });
 
     const { data: sender } = await supabase
       .from("profiles")
@@ -62,28 +99,11 @@ Deno.serve(async (req) => {
       body: bodyText,
       url: "/",
     });
-
-    await Promise.allSettled(
-      subs.map(async (s: { endpoint: string; p256dh: string; auth: string }) => {
-        try {
-          await webpush.sendNotification(
-            { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } },
-            notifPayload
-          );
-        } catch (err: any) {
-          if (err?.statusCode === 404 || err?.statusCode === 410) {
-            await supabase.from("push_subscriptions").delete().eq("endpoint", s.endpoint);
-          }
-        }
-      })
-    );
+    await sendToRecipient(supabase, otherProfileId, "messages", notifPayload);
 
     return new Response("ok", { status: 200 });
   } catch (e) {
     console.error(e);
-    // 200 volontaire : évite les tempêtes de retry du Database Webhook sur
-    // une erreur transitoire d'envoi push (non critique, pas l'action réelle
-    // de l'utilisateur).
     return new Response("error", { status: 200 });
   }
 });
