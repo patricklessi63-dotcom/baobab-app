@@ -79,6 +79,7 @@ export default function SocialShell({
   setView,
   handleSignOut,
   onError = () => {},
+  myLocation = null,
   candidates = [],
   getMatches = () => [],
   getAdmirers = () => [],
@@ -110,6 +111,12 @@ export default function SocialShell({
   retrySend = () => {},
   otherTyping = false,
   setSettingsOpen = () => {},
+  replyingTo = null,
+  setReplyingTo = () => {},
+  reactionsByMessageId = {},
+  toggleReaction = () => {},
+  deleteMessageForMe = () => {},
+  deleteMessageForEveryone = () => {},
 }) {
   const [favoritesOpen, setFavoritesOpen] = useState(false);
   const [admirersOpen, setAdmirersOpen] = useState(false);
@@ -1060,6 +1067,7 @@ export default function SocialShell({
             handleBlock={handleBlock}
             openChat={openChat}
             goTab={goTab}
+            myLocation={myLocation}
           />
         )}
 
@@ -1087,6 +1095,12 @@ export default function SocialShell({
             otherTyping={otherTyping}
             onOpenReport={setReportTarget}
             onOpenBlockConfirm={handleBlock}
+            replyingTo={replyingTo}
+            setReplyingTo={setReplyingTo}
+            reactionsByMessageId={reactionsByMessageId}
+            toggleReaction={toggleReaction}
+            deleteMessageForMe={deleteMessageForMe}
+            deleteMessageForEveryone={deleteMessageForEveryone}
           />
         )}
 

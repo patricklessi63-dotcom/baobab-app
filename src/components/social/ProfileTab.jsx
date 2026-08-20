@@ -3,8 +3,10 @@ import { Send, CheckCheck, Star, Target, ChevronRight, Users2, MapPin, PartyPopp
 import Avatar from "../Avatar";
 import VerifiedBadge from "../VerifiedBadge";
 import FounderBadge from "../FounderBadge";
+import PremiumBadge from "../PremiumBadge";
 import EmptyState from "../home/EmptyState";
 import PostsFeed from "./PostsFeed";
+import MediaViewerModal from "./MediaViewerModal";
 import { supabase } from "../../supabaseClient";
 import { getProfileCompletion } from "../../lib/profileCompletion";
 import { categoryIcon, categoryLabel } from "../../lib/communities/communityConfig";
@@ -43,6 +45,7 @@ export default function ProfileTab({
 }) {
           const { isPremium, subscription } = usePremiumStatus(currentUser);
           const [managingSubscription, setManagingSubscription] = useState(false);
+          const [viewerMedia, setViewerMedia] = useState(null); // { url, alt } | null
           const [networkView, setNetworkView] = useState("following");
           const handleManageSubscription = async () => {
             setManagingSubscription(true);
@@ -89,21 +92,30 @@ export default function ProfileTab({
                 className="h-40 md:h-52 relative"
                 style={
                   currentUser?.cover_url
-                    ? { background: `url(${currentUser.cover_url}) center/cover` }
+                    ? { background: `url(${currentUser.cover_url}) center/cover`, cursor: "zoom-in" }
                     : { background: `linear-gradient(135deg,${primary},#2B3766 50%,${green})` }
                 }
+                onClick={() => currentUser?.cover_url && setViewerMedia({ url: currentUser.cover_url, alt: "Photo de couverture" })}
+                role={currentUser?.cover_url ? "button" : undefined}
+                aria-label={currentUser?.cover_url ? "Agrandir la photo de couverture" : undefined}
               >
                 {!currentUser?.cover_url && (
                   <div className="absolute inset-0 opacity-20 text-[150px] leading-none flex items-center justify-center">🌍</div>
                 )}
                 <div className="absolute right-4 top-4 flex gap-2">
-                  <button onClick={() => { navigator.share ? navigator.share({ title: "Baobab", text: `Découvre le profil de ${currentUser?.name} sur Baobab` }) : navigator.clipboard?.writeText(window.location.href); }} className="h-9 w-9 rounded-xl bg-white/15 backdrop-blur flex items-center justify-center border border-white/15">
+                  <button onClick={(e) => { e.stopPropagation(); navigator.share ? navigator.share({ title: "Baobab", text: `Découvre le profil de ${currentUser?.name} sur Baobab` }) : navigator.clipboard?.writeText(window.location.href); }} className="h-9 w-9 rounded-xl bg-white/15 backdrop-blur flex items-center justify-center border border-white/15">
                     <Send size={15} color="#fff" />
                   </button>
-                  <button onClick={openEditProfile} className="rounded-xl bg-white/15 backdrop-blur text-white px-4 py-2.5 text-xs font-bold border border-white/15">Modifier le profil</button>
+                  <button onClick={(e) => { e.stopPropagation(); openEditProfile(); }} className="rounded-xl bg-white/15 backdrop-blur text-white px-4 py-2.5 text-xs font-bold border border-white/15">Modifier le profil</button>
                 </div>
                 <div className="absolute -bottom-12 left-6">
-                  <div className="rounded-full p-1.5 bg-white" style={currentUser?.is_founder ? { boxShadow: `0 0 0 3px ${gold}` } : undefined}>
+                  <div
+                    className="rounded-full p-1.5 bg-white"
+                    style={{ ...(currentUser?.is_founder ? { boxShadow: `0 0 0 3px ${gold}` } : null), cursor: currentUser?.avatar_url ? "zoom-in" : undefined }}
+                    onClick={(e) => { if (currentUser?.avatar_url) { e.stopPropagation(); setViewerMedia({ url: currentUser.avatar_url, alt: "Photo de profil" }); } }}
+                    role={currentUser?.avatar_url ? "button" : undefined}
+                    aria-label={currentUser?.avatar_url ? "Agrandir la photo de profil" : undefined}
+                  >
                     <Avatar name={currentUser?.name || "Toi"} url={currentUser?.avatar_url} size={92} />
                   </div>
                 </div>
@@ -116,6 +128,7 @@ export default function ProfileTab({
                       <span className="h-3 w-3 rounded-full" style={{ background: online }} />
                       <VerifiedBadge emailVerified={currentUser?.email_verified} phoneVerified={currentUser?.phone_verified} size={16} />
                       <FounderBadge isFounder={currentUser?.is_founder} size={16} />
+                      <PremiumBadge isPremium={currentUser?.is_premium} size={16} />
                       {isComplete && (
                         <span className="h-5 w-5 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: verified }} title="Profil complet">
                           <CheckCheck size={12} color="#fff" />
@@ -163,9 +176,9 @@ export default function ProfileTab({
                 </button>
               </div>
 
-              <div className="flex border-t" style={{ borderColor: `rgba(${primaryRgb},.08)` }}>
+              <div className="bb-scroll-x flex border-t" style={{ borderColor: `rgba(${primaryRgb},.08)` }}>
                 {[["posts", "Publications"], ["about", "À propos"], ["network", "Mon réseau"], ["communities", "Mes communautés"], ["events", "Événements"], ["premium", "Abonnement"]].map(([key, label]) => (
-                  <button key={key} onClick={() => setProfileTab(key)} className="flex-1 py-3.5 text-sm font-bold relative" style={{ color: profileTab === key ? primary : muted }}>
+                  <button key={key} onClick={() => setProfileTab(key)} className="shrink-0 px-5 py-3.5 text-sm font-bold whitespace-nowrap relative" style={{ color: profileTab === key ? primary : muted }}>
                     {label}
                     {profileTab === key && <span className="absolute bottom-0 left-1/2 -translate-x-1/2 h-[3px] w-10 rounded-full" style={{ background: coral }} />}
                   </button>
@@ -314,6 +327,7 @@ export default function ProfileTab({
                 </div>
               )}
             </div>
+            <MediaViewerModal url={viewerMedia?.url} alt={viewerMedia?.alt} onClose={() => setViewerMedia(null)} />
           </section>
   );
 }

@@ -1,10 +1,11 @@
 import React from "react";
-import { Circle, Bell, Moon, Shield, Info, ArrowLeft, ShieldCheck, Smartphone, UserX, AlertTriangle } from "lucide-react";
+import { Circle, Bell, Moon, Shield, Info, ArrowLeft, ShieldCheck, Smartphone, UserX, AlertTriangle, MapPin } from "lucide-react";
 import { C } from "../constants";
 import { PrivacyPolicyContent, TermsOfServiceContent } from "../legalContent";
 import Avatar from "./Avatar";
 import PrivacyFieldsModal from "./PrivacyFieldsModal";
 import NotificationPreferencesModal from "./NotificationPreferencesModal";
+import LocationSettingsModal from "./LocationSettingsModal";
 import DeleteAccountModal from "./DeleteAccountModal";
 import ReportModal from "./social/ReportModal";
 import BlockConfirmModal from "./social/BlockConfirmModal";
@@ -39,11 +40,16 @@ export default function AppModals({
   setTermsOpen,
   aboutOpen,
   setAboutOpen,
+  myLocation,
+  onEnableLocation,
+  onDisableLocation,
+  onUpdateLocationPref,
   onAccountDeletionRequested = () => {},
 }) {
   const [blockedOpen, setBlockedOpen] = React.useState(false);
   const [privacyFieldsOpen, setPrivacyFieldsOpen] = React.useState(false);
   const [notificationPrefsOpen, setNotificationPrefsOpen] = React.useState(false);
+  const [locationOpen, setLocationOpen] = React.useState(false);
   const [deleteAccountOpen, setDeleteAccountOpen] = React.useState(false);
   useEscapeKey(settingsOpen, () => setSettingsOpen(false));
   useEscapeKey(blockedOpen, () => setBlockedOpen(false));
@@ -112,6 +118,13 @@ export default function AppModals({
               <span className="flex items-center gap-2 text-sm"><Shield size={14} color={C.indigo} /> Confidentialité des champs</span>
               <ArrowLeft size={14} style={{ transform: "rotate(180deg)", color: "rgba(43,36,32,0.35)" }} />
             </button>
+            <button onClick={() => { setSettingsOpen(false); setLocationOpen(true); }} className="w-full flex items-center justify-between py-3" style={{ borderTop: "1px solid rgba(43,36,32,0.08)", minHeight: 44 }}>
+              <span className="flex items-center gap-2 text-sm"><MapPin size={14} color={C.indigo} /> Localisation</span>
+              <span className="flex items-center gap-2">
+                <span className="text-xs font-bold" style={{ color: myLocation?.location_enabled ? C.acacia : "rgba(43,36,32,0.4)" }}>{myLocation?.location_enabled ? "Activée" : "Désactivée"}</span>
+                <ArrowLeft size={14} style={{ transform: "rotate(180deg)", color: "rgba(43,36,32,0.35)" }} />
+              </span>
+            </button>
 
             <div className="text-[11px] font-black uppercase tracking-wider mt-4" style={{ color: "rgba(43,36,32,0.4)" }}>Baobab Protect</div>
             <div className="flex items-center justify-between py-2.5" style={{ borderTop: "1px solid rgba(43,36,32,0.08)" }}>
@@ -161,6 +174,17 @@ export default function AppModals({
         onBack={() => { setNotificationPrefsOpen(false); setSettingsOpen(true); }}
         currentUser={currentUser}
         onUpdatePreference={onUpdateNotificationPreference}
+      />
+
+      {/* ---------- MODAL LOCALISATION ---------- */}
+      <LocationSettingsModal
+        open={locationOpen}
+        onClose={() => setLocationOpen(false)}
+        onBack={() => { setLocationOpen(false); setSettingsOpen(true); }}
+        location={myLocation}
+        onEnable={onEnableLocation}
+        onDisable={onDisableLocation}
+        onUpdatePref={onUpdateLocationPref}
       />
 
       {/* ---------- MODAL SUPPRESSION DE COMPTE ---------- */}

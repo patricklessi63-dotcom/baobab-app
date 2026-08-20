@@ -1,7 +1,8 @@
-import React from "react";
-import { ArrowLeft, MessageCircle, Sparkles, Heart, UserPlus, Users2, PartyPopper, Megaphone } from "lucide-react";
+import React, { useEffect, useState } from "react";
+import { ArrowLeft, MessageCircle, Sparkles, Heart, UserPlus, Users2, PartyPopper, Megaphone, Bell } from "lucide-react";
 import { C } from "../constants";
 import { useEscapeKey } from "../hooks/useEscapeKey";
+import { isPushSupported, getPushSubscriptionStatus, enablePushNotifications, disablePushNotifications } from "../lib/pushNotifications";
 
 // Catégories du cahier des charges (Messages/Match/Likes/Abonnements/
 // Communautés/Événements/Marketing). "Marketing" est préparé dès
@@ -22,8 +23,35 @@ const CATEGORIES = [
 // déjà existants, voir rapport final pour la décision de périmètre.
 export default function NotificationPreferencesModal({ open, onClose, onBack, currentUser, onUpdatePreference }) {
   useEscapeKey(open, onClose);
+  const [pushStep, setPushStep] = useState("idle"); // idle | consent | requesting | error
+  const [pushStatus, setPushStatus] = useState(null);
+  const [pushError, setPushError] = useState("");
+
+  useEffect(() => {
+    if (!open || !isPushSupported()) return;
+    getPushSubscriptionStatus().then(setPushStatus);
+  }, [open]);
+
   if (!open) return null;
   const prefs = currentUser?.notification_preferences || {};
+
+  async function handleAllowPush() {
+    setPushStep("requesting");
+    try {
+      await enablePushNotifications();
+      setPushStatus(await getPushSubscriptionStatus());
+      setPushStep("idle");
+    } catch (e) {
+      setPushError(e.message || "Impossible d'activer les notifications push.");
+      setPushStep("error");
+    }
+  }
+
+  async function handleDisablePush() {
+    await disablePushNotifications();
+    setPushStatus(await getPushSubscriptionStatus());
+  }
+
   return (
     <div className="bb-fade-in fixed inset-0 flex items-end md:items-center justify-center z-30 p-0 md:p-5" style={{ background: "rgba(20,29,56,0.55)", backdropFilter: "blur(3px)" }} onClick={onClose} role="dialog" aria-modal="true" aria-label="Préférences de notifications">
       <div className="bb-card p-6 w-full max-w-md rounded-t-[20px] md:rounded-[20px]" style={{ maxHeight: "85vh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
@@ -38,6 +66,51 @@ export default function NotificationPreferencesModal({ open, onClose, onBack, cu
         <p className="text-sm mb-3" style={{ color: "rgba(43,36,32,0.6)" }}>
           Choisis les catégories de notifications que tu veux recevoir.
         </p>
+
+        {pushStatus?.supported && (
+          <div className="mb-4 pb-4" style={{ borderBottom: "1px solid rgba(43,36,32,0.08)" }}>
+            {pushStep === "consent" && (
+              <div className="py-1">
+                <p className="text-sm" style={{ color: "rgba(43,36,32,0.7)" }}>
+                  Baobab peut t'envoyer une notification sur cet appareil pour les nouveaux
+                  messages et autres activités, même quand l'application est fermée. Tu peux
+                  désactiver cela à tout moment.
+                </p>
+                <div className="flex flex-col gap-2 mt-3">
+                  <button onClick={handleAllowPush} className="w-full rounded-xl py-3 font-bold text-white" style={{ background: C.indigo }}>Autoriser</button>
+                  <button onClick={() => setPushStep("idle")} className="w-full rounded-xl py-3 font-semibold" style={{ color: "rgba(43,36,32,0.6)" }}>Pas maintenant</button>
+                </div>
+              </div>
+            )}
+
+            {pushStep === "requesting" && (
+              <div className="py-3 text-center">
+                <p className="text-sm font-bold" style={{ color: C.indigo }}>Activation…</p>
+              </div>
+            )}
+
+            {pushStep === "error" && (
+              <div className="py-1 text-center">
+                <p className="text-sm" style={{ color: "rgba(43,36,32,0.7)" }}>{pushError}</p>
+                <button onClick={() => setPushStep("idle")} className="mt-2 text-sm font-semibold" style={{ color: C.indigo }}>Compris</button>
+              </div>
+            )}
+
+            {pushStep === "idle" && (
+              <div className="flex items-center justify-between" style={{ minHeight: 44 }}>
+                <div className="flex items-center gap-2 text-sm"><Bell size={14} color={C.indigo} /> Notifications push sur cet appareil</div>
+                {pushStatus.subscribed ? (
+                  <button onClick={handleDisablePush} className="text-xs font-semibold" style={{ color: C.clay }}>Désactiver</button>
+                ) : pushStatus.permission === "denied" ? (
+                  <span className="text-xs text-right" style={{ color: "rgba(43,36,32,0.5)", maxWidth: 140 }}>Bloquées (réglages du navigateur)</span>
+                ) : (
+                  <button onClick={() => setPushStep("consent")} className="text-xs font-semibold" style={{ color: C.indigo }}>Activer</button>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
         {CATEGORIES.map(({ key, label, icon: Icon }) => (
           <label key={key} className="flex items-center justify-between py-2.5" style={{ borderTop: "1px solid rgba(43,36,32,0.08)", minHeight: 44 }}>
             <div className="flex items-center gap-2 text-sm"><Icon size={14} color={C.indigo} /> {label}</div>

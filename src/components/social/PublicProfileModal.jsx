@@ -3,6 +3,7 @@ import { X, ChevronLeft, ChevronRight, Heart, MessageCircle, UserPlus, UserCheck
 import Avatar from "../Avatar";
 import VerifiedBadge from "../VerifiedBadge";
 import FounderBadge from "../FounderBadge";
+import PremiumBadge from "../PremiumBadge";
 import { visibleAge } from "../../utils/format";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
 import { primary, green, coral, gold, bg, muted, card, body, primaryRgb } from "./theme";
@@ -109,6 +110,7 @@ export default function PublicProfileModal({
             <h2 className="text-xl font-black" style={{ color: primary }}>{profile.name}{visibleAge(profile) ? `, ${visibleAge(profile)}` : ""}</h2>
             <VerifiedBadge emailVerified={profile.email_verified} phoneVerified={profile.phone_verified} />
             <FounderBadge isFounder={profile.is_founder} />
+            <PremiumBadge isPremium={profile.is_premium} />
           </div>
 
           {(showCity && profile.city) && (

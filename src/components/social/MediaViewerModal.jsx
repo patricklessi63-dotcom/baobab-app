@@ -7,7 +7,7 @@ export default function MediaViewerModal({ url, alt, onClose }) {
   if (!url) return null;
   return (
     <div
-      className="fixed inset-0 z-[80] flex items-center justify-center p-4"
+      className="bb-fade-in fixed inset-0 z-[80] flex items-center justify-center p-4"
       style={{ background: "rgba(10,13,26,.92)" }}
       onClick={onClose}
       role="dialog"
@@ -17,7 +17,7 @@ export default function MediaViewerModal({ url, alt, onClose }) {
       <button
         onClick={onClose}
         aria-label="Fermer"
-        className="absolute top-4 right-4 h-10 w-10 rounded-full flex items-center justify-center"
+        className="absolute top-4 right-4 h-10 w-10 rounded-full flex items-center justify-center focus-visible:outline focus-visible:outline-2"
         style={{ background: "rgba(255,255,255,.12)" }}
       >
         <X size={20} color="#fff" />
@@ -25,7 +25,7 @@ export default function MediaViewerModal({ url, alt, onClose }) {
       <img
         src={url}
         alt={alt || ""}
-        className="max-w-full max-h-full object-contain rounded-lg"
+        className="bb-fade-in max-w-full max-h-full object-contain rounded-lg"
         onClick={(e) => e.stopPropagation()}
       />
     </div>

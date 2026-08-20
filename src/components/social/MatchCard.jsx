@@ -3,6 +3,7 @@ import { Heart, X, MessageCircle, Star, Flag, Ban, EyeOff } from "lucide-react";
 import Avatar from "../Avatar";
 import VerifiedBadge from "../VerifiedBadge";
 import FounderBadge from "../FounderBadge";
+import PremiumBadge from "../PremiumBadge";
 import { visibleAge } from "../../utils/format";
 import { primary, green, coral, gold, bg, muted, card, body, primaryRgb } from "./theme";
 
@@ -19,6 +20,7 @@ export default function MatchCard({
   onBlock,
   onHide,
   onViewProfile,
+  distanceKm,
 }) {
   const compatColor = match.level === "high" ? green : match.level === "medium" ? gold : muted;
   const reasons = match.reasons.slice(0, 4);
@@ -46,8 +48,13 @@ export default function MatchCard({
           <h3 className="text-base font-black truncate" style={{ color: primary }}>{profile.name}{visibleAge(profile) ? `, ${visibleAge(profile)}` : ""}</h3>
           <VerifiedBadge emailVerified={profile.email_verified} phoneVerified={profile.phone_verified} size={14} />
           <FounderBadge isFounder={profile.is_founder} size={14} />
+          <PremiumBadge isPremium={profile.is_premium} size={14} />
         </div>
-        {profile.city && <p className="text-xs mt-0.5" style={{ color: muted }}>📍 {profile.city}</p>}
+        {profile.city && (
+          <p className="text-xs mt-0.5" style={{ color: muted }}>
+            📍 {profile.city}{typeof distanceKm === "number" ? ` · à environ ${distanceKm} km` : ""}
+          </p>
+        )}
 
         <div className="flex items-center justify-between mt-2">
           {profile.looking_for && (

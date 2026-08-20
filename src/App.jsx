@@ -20,6 +20,7 @@ import { validateMediaFile } from "./lib/mediaValidation";
 import { uploadWithProgress } from "./lib/uploadWithProgress";
 import { MEDIA_BUCKET, extFromMime } from "./lib/mediaConstants";
 import { trackActivation } from "./lib/trackActivation";
+import { fetchMyLocation, upsertMyLocation, disableMyLocation } from "./lib/locationApi";
 import { usePathname } from "./hooks/usePathname";
 import LandingPage from "./screens/public/LandingPage";
 import AboutPage from "./screens/public/AboutPage";
@@ -44,6 +45,9 @@ export default function App() {
   const [messages, setMessages] = useState([]);
   const messagesRef = useRef(messages); // lu par l'effet d'inactivité sans le forcer à se réabonner à chaque message
   const [messageDraft, setMessageDraft] = useState("");
+  const [replyingTo, setReplyingTo] = useState(null);
+  const [reactionsByMessageId, setReactionsByMessageId] = useState({}); // { [messageId]: [{profile_id, emoji}] }
+  const reactionsChannelRef = useRef(null);
   const [error, setError] = useState("");
   const [blockPairs, setBlockPairs] = useState([]); // [{from_id, to_id}] — blocages faits par moi
   const [reportTarget, setReportTarget] = useState(null); // profil en cours de signalement
@@ -59,6 +63,7 @@ export default function App() {
   const [privacyOpen, setPrivacyOpen] = useState(false);
   const [termsOpen, setTermsOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
+  const [myLocation, setMyLocation] = useState(null);
   const [coverFile, setCoverFile] = useState(null);
   const [coverPreview, setCoverPreview] = useState("");
   const [coverRemoved, setCoverRemoved] = useState(false);
@@ -265,57 +270,10 @@ export default function App() {
     messagesRef.current = messages;
   }, [messages]);
 
-  useEffect(() => {
-    if (!session?.user?.id) return;
-
-    const WARNING_MS = 13 * 60 * 1000;
-    const LOGOUT_MS = 15 * 60 * 1000;
-    let warningTimer = null;
-    let logoutTimer = null;
-    let recheckTimer = null;
-    let cancelled = false;
-
-    // messagesRef (pas messages) : un message entrant ne doit pas être traité
-    // comme de l'activité de CET utilisateur ni relancer les timers — seul
-    // messagesRef.current est lu (jamais dans les deps de cet effet), pour
-    // qu'un message reçu pendant une absence n'interrompe pas le compte à
-    // rebours vers la déconnexion.
-    const hasInFlightActivity = () =>
-      likeInFlightRef.current.size > 0 ||
-      passInFlightRef.current.size > 0 ||
-      messagesRef.current.some((m) => m._status === "sending" || m._status === "uploading") ||
-      isCriticalOperationActive();
-
-    const forceLogout = () => {
-      if (cancelled) return;
-      if (hasInFlightActivity()) {
-        recheckTimer = setTimeout(forceLogout, 5000);
-        return;
-      }
-      handleSignOut().then(() => navigate("/connexion"));
-    };
-
-    const scheduleTimers = () => {
-      clearTimeout(warningTimer);
-      clearTimeout(logoutTimer);
-      clearTimeout(recheckTimer);
-      setSessionExpiryWarning(false);
-      warningTimer = setTimeout(() => setSessionExpiryWarning(true), WARNING_MS);
-      logoutTimer = setTimeout(forceLogout, LOGOUT_MS);
-    };
-
-    const activityEvents = ["mousemove", "keydown", "mousedown", "touchstart", "scroll"];
-    activityEvents.forEach((evt) => document.addEventListener(evt, scheduleTimers));
-    scheduleTimers();
-
-    return () => {
-      cancelled = true;
-      clearTimeout(warningTimer);
-      clearTimeout(logoutTimer);
-      clearTimeout(recheckTimer);
-      activityEvents.forEach((evt) => document.removeEventListener(evt, scheduleTimers));
-    };
-  }, [session?.user?.id]);
+  // Déconnexion automatique par inactivité DÉSACTIVÉE à la demande de
+  // l'utilisateur (déclenchement prématuré constaté en usage réel, ~2 min
+  // au lieu du délai configuré). Le bandeau SessionExpiryBanner reste dans
+  // l'arbre mais n'est plus jamais affiché (sessionExpiryWarning reste false).
 
   // Partagé par les deux rendus de <SessionExpiryBanner> plus bas (vue
   // "checking-profile" et vue normale) — un simple événement "mousedown"
@@ -339,6 +297,11 @@ export default function App() {
       setView("checking-profile");
     });
   }, [session, loadAll]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!currentUser?.id) return;
+    fetchMyLocation().then(setMyLocation).catch((e) => console.error(e));
+  }, [currentUser?.id]);
 
   useEffect(() => {
     if (view !== "checking-profile") return;
@@ -473,6 +436,36 @@ export default function App() {
         .update({ [field]: checked })
         .eq("id", currentUser.id);
       if (toggleError) throw toggleError;
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  async function handleEnableLocation(latitude, longitude) {
+    try {
+      const row = await upsertMyLocation({ location_enabled: true, latitude_approx: latitude, longitude_approx: longitude });
+      setMyLocation(row);
+    } catch (e) {
+      console.error(e);
+      setError("Impossible d'activer la localisation.");
+    }
+  }
+
+  async function handleDisableLocation() {
+    setMyLocation((l) => (l ? { ...l, location_enabled: false } : l));
+    try {
+      const row = await disableMyLocation();
+      setMyLocation(row);
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  async function handleUpdateLocationPref(field, value) {
+    setMyLocation((l) => (l ? { ...l, [field]: value } : l));
+    try {
+      const row = await upsertMyLocation({ [field]: value });
+      setMyLocation(row);
     } catch (e) {
       console.error(e);
     }
@@ -858,11 +851,13 @@ export default function App() {
   async function openChat(match) {
     setActiveMatch(match);
     setView("matches");
+    setReplyingTo(null);
     await refreshMessages(match);
   }
 
   function closeChat() {
     setActiveMatch(null);
+    setReplyingTo(null);
   }
 
   async function markConversationRead(match) {
@@ -880,6 +875,25 @@ export default function App() {
     }
   }
 
+  async function loadReactionsFor(messageIds) {
+    if (!messageIds || messageIds.length === 0) return;
+    try {
+      const { data, error: reactError } = await supabase
+        .from("message_reactions")
+        .select("message_id,profile_id,emoji")
+        .in("message_id", messageIds);
+      if (reactError) throw reactError;
+      setReactionsByMessageId((prev) => {
+        const next = { ...prev };
+        for (const id of messageIds) next[id] = [];
+        for (const r of data || []) next[r.message_id] = [...(next[r.message_id] || []), r];
+        return next;
+      });
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
   async function refreshMessages(match) {
     if (!currentUser || !match) return;
     try {
@@ -894,6 +908,7 @@ export default function App() {
       setMessages(chronological);
       setHasMoreHistory((data || []).length === MESSAGES_PAGE_SIZE);
       markConversationRead(match);
+      loadReactionsFor(chronological.map((m) => m.id));
     } catch (e) {
       console.error(e);
       setMessages([]);
@@ -917,6 +932,7 @@ export default function App() {
       const older = (data || []).slice().reverse();
       setMessages((m) => [...older, ...m]);
       setHasMoreHistory((data || []).length === MESSAGES_PAGE_SIZE);
+      loadReactionsFor(older.map((m) => m.id));
     } catch (e) {
       console.error(e);
     } finally {
@@ -949,9 +965,9 @@ export default function App() {
     }
   }
 
-  async function sendMessageText(text, tempId) {
+  async function sendMessageText(text, tempId, replyToId) {
     await insertMessageRow(
-      { match_key: matchKey(currentUser.id, activeMatch.id), from_id: currentUser.id, kind: "text", text },
+      { match_key: matchKey(currentUser.id, activeMatch.id), from_id: currentUser.id, kind: "text", text, reply_to_id: replyToId || null },
       tempId
     );
   }
@@ -959,6 +975,7 @@ export default function App() {
   function sendMessage() {
     if (!messageDraft.trim() || !currentUser || !activeMatch) return;
     const text = messageDraft.trim();
+    const replyToId = replyingTo?.id || null;
     const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2)}`;
     setMessages((m) => [...m, {
       id: tempId,
@@ -968,12 +985,14 @@ export default function App() {
       text,
       media_path: null,
       media_meta: null,
+      reply_to_id: replyToId,
       created_at: new Date().toISOString(),
       read_at: null,
       _status: "sending",
     }]);
     setMessageDraft("");
-    sendMessageText(text, tempId);
+    setReplyingTo(null);
+    sendMessageText(text, tempId, replyToId);
   }
 
   // Utilisé pour répondre à une story (SocialShell) : contrairement à
@@ -1114,6 +1133,10 @@ export default function App() {
       supabase.removeChannel(typingChannelRef.current);
       typingChannelRef.current = null;
     }
+    if (reactionsChannelRef.current) {
+      supabase.removeChannel(reactionsChannelRef.current);
+      reactionsChannelRef.current = null;
+    }
     setOtherTyping(false);
     if (!currentUser || !activeMatch) return;
 
@@ -1127,6 +1150,16 @@ export default function App() {
         (payload) => {
           setMessages((prev) => (prev.some((m) => m.id === payload.new.id) ? prev : [...prev, payload.new]));
           if (payload.new.from_id !== currentUser.id) markConversationRead(activeMatch);
+        }
+      )
+      .on(
+        // Propage en direct read_at (coche "Lu") et deleted_at/deleted_for
+        // (suppression) — sans ça, ces changements n'apparaissaient qu'après
+        // avoir rouvert la conversation.
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "messages", filter: `match_key=eq.${key}` },
+        (payload) => {
+          setMessages((prev) => prev.map((m) => (m.id === payload.new.id ? { ...m, ...payload.new } : m)));
         }
       )
       .subscribe();
@@ -1143,9 +1176,45 @@ export default function App() {
       .subscribe();
     typingChannelRef.current = typingChannel;
 
+    // Pas de filtre serveur possible sur message_reactions (pas de colonne
+    // match_key) : RLS (message_reactions_select) restreint déjà ce qui est
+    // livré à ce qui appartient à mes propres conversations, donc on filtre
+    // juste ici sur les messages actuellement chargés.
+    const reactionsChannel = supabase
+      .channel(`reactions:${key}`)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "message_reactions" },
+        (payload) => {
+          setMessages((prevMessages) => {
+            if (!prevMessages.some((m) => m.id === payload.new.message_id)) return prevMessages;
+            setReactionsByMessageId((prev) => {
+              const list = prev[payload.new.message_id] || [];
+              if (list.some((r) => r.profile_id === payload.new.profile_id && r.emoji === payload.new.emoji)) return prev;
+              return { ...prev, [payload.new.message_id]: [...list, payload.new] };
+            });
+            return prevMessages;
+          });
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "DELETE", schema: "public", table: "message_reactions" },
+        (payload) => {
+          setReactionsByMessageId((prev) => {
+            const list = prev[payload.old.message_id];
+            if (!list) return prev;
+            return { ...prev, [payload.old.message_id]: list.filter((r) => !(r.profile_id === payload.old.profile_id && r.emoji === payload.old.emoji)) };
+          });
+        }
+      )
+      .subscribe();
+    reactionsChannelRef.current = reactionsChannel;
+
     return () => {
       if (messagesChannelRef.current) supabase.removeChannel(messagesChannelRef.current);
       if (typingChannelRef.current) supabase.removeChannel(typingChannelRef.current);
+      if (reactionsChannelRef.current) supabase.removeChannel(reactionsChannelRef.current);
       clearTimeout(typingTimeoutRef.current);
     };
   }, [currentUser, activeMatch]);
@@ -1157,6 +1226,77 @@ export default function App() {
       event: "typing",
       payload: { user_id: currentUser.id },
     });
+  }
+
+  // Toggle : si je réagis déjà avec cet emoji sur ce message, je le retire.
+  async function toggleReaction(message, emoji) {
+    if (!currentUser) return;
+    const existing = (reactionsByMessageId[message.id] || []).some(
+      (r) => r.profile_id === currentUser.id && r.emoji === emoji
+    );
+    try {
+      if (existing) {
+        setReactionsByMessageId((prev) => ({
+          ...prev,
+          [message.id]: (prev[message.id] || []).filter((r) => !(r.profile_id === currentUser.id && r.emoji === emoji)),
+        }));
+        const { error: delError } = await supabase
+          .from("message_reactions")
+          .delete()
+          .eq("message_id", message.id)
+          .eq("profile_id", currentUser.id)
+          .eq("emoji", emoji);
+        if (delError) throw delError;
+      } else {
+        setReactionsByMessageId((prev) => ({
+          ...prev,
+          [message.id]: [...(prev[message.id] || []), { message_id: message.id, profile_id: currentUser.id, emoji }],
+        }));
+        const { error: insError } = await supabase
+          .from("message_reactions")
+          .insert({ message_id: message.id, profile_id: currentUser.id, emoji });
+        if (insError) throw insError;
+      }
+    } catch (e) {
+      console.error(e);
+      // Resynchronise depuis la source de vérité en cas d'échec.
+      loadReactionsFor([message.id]);
+    }
+  }
+
+  // "Pour tout le monde" : soft delete, la ligne reste (audit) mais le
+  // contenu est masqué à l'affichage pour tous via deleted_at (voir trigger
+  // enforce_message_update_rules côté DB — seul l'auteur peut y toucher).
+  async function deleteMessageForEveryone(message) {
+    if (!currentUser) return;
+    setMessages((m) => m.map((x) => (x.id === message.id ? { ...x, deleted_at: new Date().toISOString(), deleted_by: currentUser.id } : x)));
+    try {
+      const { error: delError } = await supabase
+        .from("messages")
+        .update({ deleted_at: new Date().toISOString(), deleted_by: currentUser.id })
+        .eq("id", message.id);
+      if (delError) throw delError;
+    } catch (e) {
+      console.error(e);
+      setError("Impossible de supprimer ce message.");
+    }
+  }
+
+  // "Pour moi" : ajoute mon id à deleted_for, masqué uniquement de mon côté.
+  async function deleteMessageForMe(message) {
+    if (!currentUser) return;
+    const nextDeletedFor = [...(message.deleted_for || []), currentUser.id];
+    setMessages((m) => m.map((x) => (x.id === message.id ? { ...x, deleted_for: nextDeletedFor } : x)));
+    try {
+      const { error: delError } = await supabase
+        .from("messages")
+        .update({ deleted_for: nextDeletedFor })
+        .eq("id", message.id);
+      if (delError) throw delError;
+    } catch (e) {
+      console.error(e);
+      setError("Impossible de masquer ce message.");
+    }
   }
 
   // ---------------- RENDER ----------------
@@ -1207,6 +1347,7 @@ export default function App() {
           setView={setView}
           handleSignOut={handleSignOut}
           onError={setError}
+          myLocation={myLocation}
           candidates={candidates}
           getMatches={getMatches}
           getAdmirers={getAdmirers}
@@ -1238,6 +1379,12 @@ export default function App() {
           retrySend={retrySend}
           otherTyping={otherTyping}
           setSettingsOpen={setSettingsOpen}
+          replyingTo={replyingTo}
+          setReplyingTo={setReplyingTo}
+          reactionsByMessageId={reactionsByMessageId}
+          toggleReaction={toggleReaction}
+          deleteMessageForMe={deleteMessageForMe}
+          deleteMessageForEveryone={deleteMessageForEveryone}
         />
         {matchNotice && (
           <MatchCelebrationModal
@@ -1287,6 +1434,10 @@ export default function App() {
           setTermsOpen={setTermsOpen}
           aboutOpen={aboutOpen}
           setAboutOpen={setAboutOpen}
+          myLocation={myLocation}
+          onEnableLocation={handleEnableLocation}
+          onDisableLocation={handleDisableLocation}
+          onUpdateLocationPref={handleUpdateLocationPref}
           onAccountDeletionRequested={handleAccountDeletionRequested}
         />
       </>

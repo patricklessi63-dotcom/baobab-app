@@ -2,6 +2,7 @@ import React from "react";
 import { Heart, X, MessageCircle } from "lucide-react";
 import VerifiedBadge from "../VerifiedBadge";
 import FounderBadge from "../FounderBadge";
+import PremiumBadge from "../PremiumBadge";
 import { visibleAge } from "../../utils/format";
 import { coral, gold, green, muted, bg, primaryRgb } from "../social/theme";
 
@@ -63,7 +64,7 @@ export default function ProfileCard({
       </div>
 
       <div className="p-3">
-        <div className="text-sm font-bold truncate">{profile.name}{visibleAge(profile) ? `, ${visibleAge(profile)}` : ""}</div>
+        <div className="text-sm font-bold truncate flex items-center gap-1">{profile.name}{visibleAge(profile) ? `, ${visibleAge(profile)}` : ""}<PremiumBadge isPremium={profile.is_premium} size={12} /></div>
         {profile.city && <div className="text-[11px] truncate mt-0.5" style={{ color: muted }}>{profile.city}</div>}
         {highlightText && <div className="text-[11px] mt-1 truncate" style={{ color: coral }}>{highlightText}</div>}
         {commonInterestsCount > 0 && (

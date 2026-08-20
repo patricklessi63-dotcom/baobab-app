@@ -32,6 +32,9 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
   const [draft, setDraft] = useState("");
   const [composerMedia, setComposerMedia] = useState(null);
   const [composerMediaKind, setComposerMediaKind] = useState("");
+  const [exitConfirmOpen, setExitConfirmOpen] = useState(false);
+  const [draftSavedNotice, setDraftSavedNotice] = useState(false);
+  const [resumedDraft, setResumedDraft] = useState(false);
   const photoInputRef = useRef(null);
   const videoInputRef = useRef(null);
   const publishingRef = useRef(false);
@@ -89,6 +92,66 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
     loadPosts(0);
   }, [currentUser?.id, authorId]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Brouillon texte uniquement (localStorage) — un média sélectionné (File)
+  // ne survit pas à un rechargement de page, donc ne prétend jamais l'être :
+  // "Enregistrer en brouillon" abandonne le média s'il y en a un, ne garde
+  // que le texte. Une seule clé par utilisateur (pas de liste de brouillons
+  // multiples) : cohérent avec le composeur actuel, à un seul post en cours.
+  const draftKey = () => (currentUser?.id ? `baobab_post_draft_${currentUser.id}` : null);
+
+  const openComposer = () => {
+    const key = draftKey();
+    const saved = key ? localStorage.getItem(key) : null;
+    if (saved) {
+      setDraft(saved);
+      setResumedDraft(true);
+    }
+    setComposer(true);
+  };
+
+  const hasUnsavedContent = () => draft.trim().length > 0 || Boolean(composerMedia);
+
+  const requestCloseComposer = () => {
+    if (hasUnsavedContent()) {
+      setExitConfirmOpen(true);
+    } else {
+      closeComposerFully();
+    }
+  };
+
+  const closeComposerFully = () => {
+    setExitConfirmOpen(false);
+    setComposer(false);
+    setDraft("");
+    setComposerMedia(null);
+    setComposerMediaKind("");
+    setResumedDraft(false);
+  };
+
+  const saveDraftAndClose = () => {
+    const key = draftKey();
+    if (key) {
+      if (draft.trim()) localStorage.setItem(key, draft.trim());
+      else localStorage.removeItem(key);
+    }
+    setExitConfirmOpen(false);
+    setDraftSavedNotice(true);
+    setTimeout(() => { setDraftSavedNotice(false); closeComposerFully(); }, 1100);
+  };
+
+  const discardComposer = () => {
+    const key = draftKey();
+    if (key) localStorage.removeItem(key);
+    closeComposerFully();
+  };
+
+  const discardResumedDraft = () => {
+    const key = draftKey();
+    if (key) localStorage.removeItem(key);
+    setDraft("");
+    setResumedDraft(false);
+  };
+
   const pickMedia = (kind) => {
     if (kind === "photo") photoInputRef.current?.click();
     else videoInputRef.current?.click();
@@ -136,10 +199,13 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
         }
       }
       setPosts((p) => [finalPost, ...p]);
+      const key = draftKey();
+      if (key) localStorage.removeItem(key);
       setDraft("");
       setComposerMedia(null);
       setComposerMediaKind("");
       setComposer(false);
+      setResumedDraft(false);
     } catch (e) {
       console.error(e);
       onError("Impossible de publier. Réessaie.");
@@ -274,11 +340,11 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
           <div className="p-10 text-center">
             <ImageIcon size={26} className="mx-auto mb-2" color={muted} />
             <p className="text-sm mb-3" style={{ color: muted }}>Pas encore de publication.</p>
-            <button onClick={() => setComposer(true)} className="px-4 py-2.5 rounded-xl font-bold text-sm" style={{ background: primary, color: "#fff" }}>Créer ma première publication</button>
+            <button onClick={openComposer} className="px-4 py-2.5 rounded-xl font-bold text-sm" style={{ background: primary, color: "#fff" }}>Créer ma première publication</button>
           </div>
         ) : (
           <>
-            <button onClick={() => setComposer(true)} className="w-full mb-3 py-2.5 rounded-xl font-bold text-sm" style={{ background: bg, color: primary }}>+ Nouvelle publication</button>
+            <button onClick={openComposer} className="w-full mb-3 py-2.5 rounded-xl font-bold text-sm" style={{ background: bg, color: primary }}>+ Nouvelle publication</button>
             <div className="grid grid-cols-3 gap-0.5">
               {posts.map((p) => (
                 <div key={p.id} className="aspect-square relative overflow-hidden group">
@@ -311,7 +377,7 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
 
         <PostComposerModal
           composer={composer}
-          setComposer={setComposer}
+          onRequestClose={requestCloseComposer}
           currentUser={currentUser}
           draft={draft}
           setDraft={setDraft}
@@ -322,6 +388,13 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
           photoInputRef={photoInputRef}
           videoInputRef={videoInputRef}
           publish={publish}
+          exitConfirmOpen={exitConfirmOpen}
+          onCancelExit={() => setExitConfirmOpen(false)}
+          onSaveDraft={saveDraftAndClose}
+          onDiscard={discardComposer}
+          draftSavedNotice={draftSavedNotice}
+          resumedDraft={resumedDraft}
+          onDiscardResumed={discardResumedDraft}
         />
       </div>
     );
@@ -329,7 +402,7 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
 
   return (
     <div className={`${card} p-5`}>
-      <button onClick={() => setComposer(true)} className="w-full text-left px-4 py-3 rounded-full text-sm mb-3" style={{ background: bg, color: muted }}>
+      <button onClick={openComposer} className="w-full text-left px-4 py-3 rounded-full text-sm mb-3" style={{ background: bg, color: muted }}>
         Partage quelque chose avec la communauté...
       </button>
 
@@ -367,7 +440,7 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
 
       <PostComposerModal
         composer={composer}
-        setComposer={setComposer}
+        onRequestClose={requestCloseComposer}
         currentUser={currentUser}
         draft={draft}
         setDraft={setDraft}
@@ -378,6 +451,13 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
         photoInputRef={photoInputRef}
         videoInputRef={videoInputRef}
         publish={publish}
+        exitConfirmOpen={exitConfirmOpen}
+        onCancelExit={() => setExitConfirmOpen(false)}
+        onSaveDraft={saveDraftAndClose}
+        onDiscard={discardComposer}
+        draftSavedNotice={draftSavedNotice}
+        resumedDraft={resumedDraft}
+        onDiscardResumed={discardResumedDraft}
       />
 
       <ReportModal

@@ -1,7 +1,8 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { Heart, X, Info } from "lucide-react";
 import VerifiedBadge from "../VerifiedBadge";
 import FounderBadge from "../FounderBadge";
+import PremiumBadge from "../PremiumBadge";
 import { visibleAge } from "../../utils/format";
 import ChipSelect from "../ChipSelect";
 import MatchCard from "./MatchCard";
@@ -11,6 +12,7 @@ import Paywall from "../premium/Paywall";
 import { computeMatch, rankCandidates } from "../../lib/matching/matchingService";
 import { usePremiumStatus } from "../../lib/premium/usePremiumStatus";
 import { useHiddenRecommendations } from "../../lib/useHiddenRecommendations";
+import { fetchNearbyProfiles } from "../../lib/locationApi";
 import { LOOKING_FOR_OPTIONS, INTERESTS_OPTIONS, LANGUAGES_OPTIONS } from "../../constants";
 import { primary, green, coral, gold, bg, muted, card, buttonBase, online, body, primaryRgb } from "./theme";
 
@@ -49,6 +51,7 @@ export default function DiscoverTab({
   handleBlock = () => {},
   openChat = () => {},
   goTab = () => {},
+  myLocation = null,
 }) {
   const [infoOpen, setInfoOpen] = useState(false);
   const [mode, setMode] = useState("pile");
@@ -59,8 +62,37 @@ export default function DiscoverTab({
   const [languageFilter, setLanguageFilter] = useState([]);
   const [activeRecentlyFilter, setActiveRecentlyFilter] = useState(false);
   const [visibleCount, setVisibleCount] = useState(GRID_PAGE_SIZE);
+  const [nearbyEnabled, setNearbyEnabled] = useState(false);
+  const [nearbyKm, setNearbyKm] = useState(25);
+  const [nearbyMap, setNearbyMap] = useState(new Map());
+  const [nearbyError, setNearbyError] = useState("");
   const { isPremium } = usePremiumStatus(currentUser);
   const { hiddenIds, hide: hideProfile } = useHiddenRecommendations(currentUser, "profile");
+
+  useEffect(() => {
+    if (!nearbyEnabled) return;
+    let cancelled = false;
+    fetchNearbyProfiles("dating", nearbyKm)
+      .then((rows) => {
+        if (cancelled) return;
+        setNearbyMap(new Map(rows.map((r) => [r.profile_id, r.distance_km])));
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setNearbyError("Le filtre de proximité n'a pas pu être chargé. Réessaie dans un instant.");
+        setNearbyEnabled(false);
+      });
+    return () => { cancelled = true; };
+  }, [nearbyEnabled, nearbyKm]);
+
+  function toggleNearby() {
+    if (!myLocation?.location_enabled) {
+      setNearbyError("Active d'abord ta localisation dans Paramètres → Localisation pour utiliser ce filtre.");
+      return;
+    }
+    setNearbyError("");
+    setNearbyEnabled((v) => !v);
+  }
 
   const cityOptions = useMemo(
     () => Array.from(new Set(filteredPeople.map((p) => (p.city || "").trim()).filter(Boolean))).sort(),
@@ -87,9 +119,10 @@ export default function DiscoverTab({
         if (!languageFilter.some((f) => theirs.includes(f))) return false;
       }
       if (activeRecentlyFilter && !isActiveRecently(p)) return false;
+      if (nearbyEnabled && !nearbyMap.has(p.id)) return false;
       return true;
     });
-  }, [filteredPeople, hiddenIds, cityFilter, intentionFilter, interestFilter, languageFilter, activeRecentlyFilter]);
+  }, [filteredPeople, hiddenIds, cityFilter, intentionFilter, interestFilter, languageFilter, activeRecentlyFilter, nearbyEnabled, nearbyMap]);
 
   const ranked = useMemo(() => rankCandidates(currentUser, filteredForGrid), [currentUser, filteredForGrid]);
 
@@ -211,6 +244,7 @@ export default function DiscoverTab({
                             {p.name}{visibleAge(p) ? `, ${visibleAge(p)}` : ""}
                             <VerifiedBadge emailVerified={p.email_verified} phoneVerified={p.phone_verified} size={20} color="#fff" />
                             <FounderBadge isFounder={p.is_founder} size={20} />
+                            <PremiumBadge isPremium={p.is_premium} size={20} />
                           </button>
                           <p className="text-xs text-white/60 mt-0.5">Toucher le nom pour voir le profil complet</p>
                           <div className="text-sm text-white/75 mt-1">📍 {p.city || "Canada"} · {p.occupation || "Nouveau membre"}</div>
@@ -293,6 +327,23 @@ export default function DiscoverTab({
                       )}
                       <div className="text-xs font-black uppercase tracking-wider mt-3 mb-1.5" style={{ color: muted }}>Intentions</div>
                       <ChipSelect options={LOOKING_FOR_OPTIONS} value={intentionFilter} onChange={setIntentionFilter} multi />
+
+                      <div className="flex items-center justify-between mt-3.5">
+                        <label className="flex items-center gap-2 text-sm font-semibold" style={{ color: primary }}>
+                          <input type="checkbox" checked={nearbyEnabled} onChange={toggleNearby} />
+                          📍 Personnes à proximité
+                        </label>
+                      </div>
+                      {nearbyEnabled && (
+                        <div className="mt-2">
+                          <ChipSelect
+                            options={["1 km", "5 km", "10 km", "25 km", "50 km"]}
+                            value={`${nearbyKm} km`}
+                            onChange={(label) => setNearbyKm(Number(label.replace(" km", "")))}
+                          />
+                        </div>
+                      )}
+                      {nearbyError && <p className="text-xs mt-2" style={{ color: coral }}>{nearbyError}</p>}
                     </div>
 
                     {isPremium ? (
@@ -323,7 +374,7 @@ export default function DiscoverTab({
                           title="Aucun profil ne correspond à ces critères pour l'instant."
                           subtitle="Élargis tes préférences pour voir plus de monde."
                           actionLabel="Réinitialiser les filtres"
-                          onAction={() => { setCityFilter(""); setIntentionFilter([]); setInterestFilter([]); setLanguageFilter([]); setActiveRecentlyFilter(false); }}
+                          onAction={() => { setCityFilter(""); setIntentionFilter([]); setInterestFilter([]); setLanguageFilter([]); setActiveRecentlyFilter(false); setNearbyEnabled(false); }}
                         />
                       </div>
                     ) : (
@@ -347,6 +398,7 @@ export default function DiscoverTab({
                               onBlock={handleBlock}
                               onHide={(p) => hideProfile(p.id)}
                               onViewProfile={onViewProfile}
+                              distanceKm={nearbyMap.get(p.id)}
                             />
                           ))}
                         </div>
