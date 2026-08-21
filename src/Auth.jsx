@@ -436,11 +436,29 @@ export default function Auth({ justVerified = false, onAcknowledgeVerified = () 
           {mode === "unverified" && (
             <div className="mt-1">
               <p className="text-sm leading-6" style={{ color: C.sandDim }}>
-                Confirme <b style={{ color: C.sand }}>{email.trim()}</b> avant de te connecter — vérifie ta boîte mail (et les spams).
+                Confirme <b style={{ color: C.sand }}>{email.trim()}</b> avant de te connecter — clique sur le lien reçu par email, ou entre le code qu'il contient ci-dessous.
               </p>
+              <form onSubmit={handleVerifyCode} className="mt-4 flex flex-col gap-2.5">
+                <label htmlFor="otp-code-unverified" className="block text-xs font-semibold" style={{ color: C.sandDim }}>Code de vérification</label>
+                <input
+                  id="otp-code-unverified"
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  placeholder="123456"
+                  value={otpCode}
+                  onChange={(e) => setOtpCode(e.target.value.replace(/\s+/g, ""))}
+                  maxLength={8}
+                  className="bb-field rounded-2xl px-4 py-4 text-center text-lg tracking-[0.3em] outline-none"
+                  style={{ background: "rgba(35,45,82,0.78)", border: "1px solid rgba(242,233,220,0.11)", color: C.sand }}
+                />
+                <button type="submit" disabled={verifyLoading || !otpCode.trim()} className="bb-tap py-3.5 rounded-2xl text-sm font-bold text-white disabled:opacity-60" style={{ background: `linear-gradient(135deg, ${C.clay}, #A94F30)` }}>
+                  {verifyLoading ? "Vérification..." : "Vérifier le code"}
+                </button>
+              </form>
               <div className="mt-5 flex flex-col gap-2.5">
-                <button onClick={handleResend} disabled={resendCooldown > 0 || resendLoading} className="bb-tap py-3.5 rounded-2xl text-sm font-bold text-white disabled:opacity-60" style={{ background: `linear-gradient(135deg, ${C.clay}, #A94F30)` }}>
-                  {resendLoading ? "Envoi..." : resendCooldown > 0 ? `Renvoyer le lien (${resendCooldown}s)` : "Renvoyer le lien"}
+                <button onClick={handleResend} disabled={resendCooldown > 0 || resendLoading} className="bb-tap py-3 rounded-2xl text-sm font-semibold disabled:opacity-50" style={{ color: C.ochre, border: "1px solid rgba(217,164,65,0.3)" }}>
+                  {resendLoading ? "Envoi..." : resendCooldown > 0 ? `Renvoyer (${resendCooldown}s)` : "Renvoyer l'email"}
                 </button>
                 <button onClick={() => switchMode("signup")} className="bb-tap py-3 rounded-2xl text-sm font-semibold" style={{ color: C.sandDim }}>
                   Modifier mon email
