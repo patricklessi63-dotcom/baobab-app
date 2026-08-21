@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Heart, MessageCircle, Flag, Trash2, Pencil, Check, X } from "lucide-react";
 import Avatar from "../Avatar";
+import PostMediaGrid from "./PostMediaGrid";
 import { formatMessageTime, formatDayLabel } from "../../utils/format";
 import { primary, coral, muted, bg, primaryRgb } from "./theme";
 
@@ -31,6 +32,12 @@ export default function PostCard({
   const [editDraft, setEditDraft] = useState(post.body);
   const author = post.profiles || {};
   const isMine = post.author_id === currentUserId;
+  // post_media (galerie multi-médias) prioritaire ; retombe sur
+  // media_url/media_kind pour les publications créées avant la refonte du
+  // composeur (item 30 : ne jamais casser les données déjà en base).
+  const mediaList = (post.post_media && post.post_media.length > 0)
+    ? post.post_media.map((m) => ({ url: m.url, kind: m.kind }))
+    : (post.media_url ? [{ url: post.media_url, kind: post.media_kind }] : []);
 
   const toggleComments = () => {
     const next = !commentsOpen;
@@ -86,12 +93,15 @@ export default function PostCard({
             <p className="text-sm mt-1 whitespace-pre-wrap break-words">{post.body}</p>
           )}
 
-          {!editing && post.media_url && (
-            post.media_kind === "video" ? (
-              <video src={post.media_url} controls className="w-full max-h-96 rounded-xl mt-2.5 object-cover" />
+          {!editing && mediaList.length === 1 && (
+            mediaList[0].kind === "video" ? (
+              <video src={mediaList[0].url} controls className="w-full max-h-96 rounded-xl mt-2.5 object-cover" />
             ) : (
-              <img src={post.media_url} alt="" className="w-full max-h-96 rounded-xl mt-2.5 object-cover" />
+              <img src={mediaList[0].url} alt="" className="w-full max-h-96 rounded-xl mt-2.5 object-cover" />
             )
+          )}
+          {!editing && mediaList.length > 1 && (
+            <PostMediaGrid items={mediaList} className="mt-2.5 rounded-xl overflow-hidden" />
           )}
 
           {!editing && (

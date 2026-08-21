@@ -3,9 +3,11 @@ import { Image as ImageIcon } from "lucide-react";
 import { supabase } from "../../supabaseClient";
 import PostCard from "./PostCard";
 import PostComposerModal from "./PostComposerModal";
+import PostMediaGrid from "./PostMediaGrid";
 import ReportModal from "./ReportModal";
 import EmptyState from "../home/EmptyState";
 import { validateMediaFile } from "../../lib/mediaValidation";
+import { compressImageIfNeeded } from "../../lib/imageCompression";
 import { uploadWithProgress } from "../../lib/uploadWithProgress";
 import { POST_MEDIA_BUCKET, extFromMime } from "../../lib/mediaConstants";
 import { beginCriticalOperation, endCriticalOperation } from "../../lib/criticalOperationGuard";
@@ -13,11 +15,19 @@ import { primary, navy, coral, muted, bg, card } from "./theme";
 
 const PAGE_SIZE = 20;
 const PLACEHOLDER_BODY = "Nouveau partage sur Baobab ✨";
+const MAX_MEDIA_ITEMS = 10;
 
 // Fil de publications réellement persisté (corrige le bug identifié à
 // l'audit : le composeur n'écrivait auparavant jamais dans Supabase).
 // authorId + layout="grid" réutilisé tel quel par ProfileTab.jsx ("Mes
 // publications") plutôt que de dupliquer la logique de fetch/CRUD.
+//
+// Galerie multi-médias (refonte composer) : chaque publication peut avoir
+// plusieurs photos/vidéos, stockées dans post_media (table séparée, voir
+// supabase-post-media.sql — À EXÉCUTER MANUELLEMENT PAR L'UTILISATEUR dans
+// Supabase avant que l'ajout de médias ne fonctionne en production). Les
+// anciennes publications à média unique (posts.media_url/media_kind)
+// restent lisibles : PostCard retombe dessus quand post_media est vide.
 export default function PostsFeed({ currentUser, blockedIds = new Set(), authorId, layout = "list", onError = () => {} }) {
   const [posts, setPosts] = useState([]);
   const [postsLoading, setPostsLoading] = useState(true);
@@ -30,8 +40,18 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
 
   const [composer, setComposer] = useState(false);
   const [draft, setDraft] = useState("");
-  const [composerMedia, setComposerMedia] = useState(null);
-  const [composerMediaKind, setComposerMediaKind] = useState("");
+  // Items sélectionnés mais pas encore envoyés — aperçu local uniquement
+  // (URL.createObjectURL), jamais uploadés tant que l'utilisateur n'a pas
+  // cliqué "Publier" (item 20 du cahier des charges : l'upload démarre au
+  // clic, pas à la sélection).
+  const [mediaItems, setMediaItems] = useState([]); // [{id, file, kind, previewUrl}]
+  // Une fois "Publier" cliqué : progression par item pendant l'upload
+  // réel, conservée même après un premier passage pour permettre de
+  // réessayer uniquement les éléments en échec sans dupliquer la
+  // publication texte déjà créée.
+  const [uploadStates, setUploadStates] = useState({}); // { [itemId]: {status, progress, error} }
+  const [publishing, setPublishing] = useState(false);
+  const [publishedPostId, setPublishedPostId] = useState(null);
   const [exitConfirmOpen, setExitConfirmOpen] = useState(false);
   const [draftSavedNotice, setDraftSavedNotice] = useState(false);
   const [resumedDraft, setResumedDraft] = useState(false);
@@ -67,14 +87,22 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
     setPostCommentCounts((prev) => (replace ? commentCounts : { ...prev, ...commentCounts }));
   };
 
+  // post_media(*) embarqué à chaque chargement — normalise l'ordre (position)
+  // côté client : PostgREST ne garantit pas l'ordre d'une ressource imbriquée
+  // sans .order() dédié, plus simple à trier ici qu'à complexifier la requête.
+  const normalizePost = (p) => ({
+    ...p,
+    post_media: (p.post_media || []).slice().sort((a, b) => a.position - b.position),
+  });
+
   const loadPosts = async (pageNum) => {
     if (pageNum === 0) setPostsLoading(true);
     try {
-      let query = supabase.from("posts").select("*, profiles(name, avatar_url)").order("created_at", { ascending: false });
+      let query = supabase.from("posts").select("*, profiles(name, avatar_url), post_media(*)").order("created_at", { ascending: false });
       if (authorId) query = query.eq("author_id", authorId);
       const { data, error } = await query.range(pageNum * PAGE_SIZE, pageNum * PAGE_SIZE + PAGE_SIZE - 1);
       if (error) throw error;
-      const rows = (data || []).filter((p) => !blockedIds.has(p.author_id));
+      const rows = (data || []).filter((p) => !blockedIds.has(p.author_id)).map(normalizePost);
       setPosts((prev) => (pageNum === 0 ? rows : [...prev, ...rows]));
       setHasMore((data || []).length === PAGE_SIZE);
       setPage(pageNum);
@@ -94,7 +122,7 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
 
   // Brouillon texte uniquement (localStorage) — un média sélectionné (File)
   // ne survit pas à un rechargement de page, donc ne prétend jamais l'être :
-  // "Enregistrer en brouillon" abandonne le média s'il y en a un, ne garde
+  // "Enregistrer en brouillon" abandonne les médias s'il y en a, ne garde
   // que le texte. Une seule clé par utilisateur (pas de liste de brouillons
   // multiples) : cohérent avec le composeur actuel, à un seul post en cours.
   const draftKey = () => (currentUser?.id ? `baobab_post_draft_${currentUser.id}` : null);
@@ -109,9 +137,13 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
     setComposer(true);
   };
 
-  const hasUnsavedContent = () => draft.trim().length > 0 || Boolean(composerMedia);
+  const hasUnsavedContent = () => draft.trim().length > 0 || mediaItems.length > 0;
 
   const requestCloseComposer = () => {
+    // Une publication déjà créée (même avec des médias en échec) ne doit
+    // jamais être "perdue" derrière une confirmation de sortie — elle est
+    // déjà en base. On ferme directement dans ce cas.
+    if (publishedPostId) { closeComposerFully(); return; }
     if (hasUnsavedContent()) {
       setExitConfirmOpen(true);
     } else {
@@ -119,12 +151,18 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
     }
   };
 
+  const revokePreviews = (items) => {
+    items.forEach((it) => { try { URL.revokeObjectURL(it.previewUrl); } catch (_) {} });
+  };
+
   const closeComposerFully = () => {
     setExitConfirmOpen(false);
     setComposer(false);
     setDraft("");
-    setComposerMedia(null);
-    setComposerMediaKind("");
+    revokePreviews(mediaItems);
+    setMediaItems([]);
+    setUploadStates({});
+    setPublishedPostId(null);
     setResumedDraft(false);
   };
 
@@ -157,19 +195,123 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
     else videoInputRef.current?.click();
   };
 
-  const onMediaSelected = async (e, kind) => {
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    if (!file) return;
-    const { ok, error } = await validateMediaFile(file, kind === "photo" ? "image" : "video");
-    if (!ok) { onError(error); return; }
-    setComposerMedia(file);
-    setComposerMediaKind(kind);
+  // Point d'entrée commun pour la sélection via input ET le glisser-déposer
+  // (item 25) — trie les fichiers par type déclaré plutôt que d'exiger un
+  // "kind" unique par lot, pour que déposer un mélange photo+vidéo marche.
+  const addFiles = async (files) => {
+    const room = MAX_MEDIA_ITEMS - mediaItems.length;
+    if (room <= 0) {
+      onError(`Maximum ${MAX_MEDIA_ITEMS} fichiers par publication.`);
+      return;
+    }
+    const toProcess = files.slice(0, room);
+    if (files.length > toProcess.length) onError(`Seuls les ${room} premiers fichiers ont été ajoutés (max ${MAX_MEDIA_ITEMS}).`);
+
+    for (const file of toProcess) {
+      const kind = file.type.startsWith("video/") ? "video" : "photo";
+      const { ok, error } = await validateMediaFile(file, kind === "video" ? "video" : "image");
+      if (!ok) { onError(error); continue; }
+      const finalFile = kind === "photo" ? await compressImageIfNeeded(file) : file;
+      const item = { id: `${Date.now()}-${Math.random().toString(36).slice(2)}`, file: finalFile, kind, previewUrl: URL.createObjectURL(finalFile) };
+      setMediaItems((prev) => [...prev, item]);
+    }
   };
 
+  const onMediaSelected = async (e, kind) => {
+    const files = Array.from(e.target.files || []);
+    e.target.value = "";
+    if (files.length === 0) return;
+    await addFiles(files.filter((f) => (kind === "video" ? f.type.startsWith("video/") : f.type.startsWith("image/"))));
+  };
+
+  const removeMediaItem = (id) => {
+    setMediaItems((prev) => {
+      const item = prev.find((it) => it.id === id);
+      if (item) { try { URL.revokeObjectURL(item.previewUrl); } catch (_) {} }
+      return prev.filter((it) => it.id !== id);
+    });
+    setUploadStates((prev) => { const n = { ...prev }; delete n[id]; return n; });
+  };
+
+  const moveMediaItem = (id, direction) => {
+    setMediaItems((prev) => {
+      const idx = prev.findIndex((it) => it.id === id);
+      const newIdx = direction === "up" ? idx - 1 : idx + 1;
+      if (idx === -1 || newIdx < 0 || newIdx >= prev.length) return prev;
+      const next = [...prev];
+      [next[idx], next[newIdx]] = [next[newIdx], next[idx]];
+      return next;
+    });
+  };
+
+  // Upload d'un seul item + insertion post_media — factorisé pour être
+  // rejouable tel quel par "Réessayer" sur un item en échec, sans toucher
+  // aux autres ni à la publication texte déjà créée.
+  const uploadOneMedia = async (postId, item, position) => {
+    setUploadStates((prev) => ({ ...prev, [item.id]: { status: "uploading", progress: 0 } }));
+    try {
+      const path = `${currentUser.user_id}/${Date.now()}-${Math.random().toString(36).slice(2)}.${extFromMime(item.file.type)}`;
+      await uploadWithProgress({
+        bucket: POST_MEDIA_BUCKET,
+        path,
+        file: item.file,
+        onProgress: (pct) => setUploadStates((prev) => ({ ...prev, [item.id]: { status: "uploading", progress: pct } })),
+      });
+      const { data: publicUrlData } = supabase.storage.from(POST_MEDIA_BUCKET).getPublicUrl(path);
+      const { data: mediaRow, error: mediaError } = await supabase
+        .from("post_media")
+        .insert({ post_id: postId, url: publicUrlData.publicUrl, kind: item.kind === "video" ? "video" : "photo", position })
+        .select()
+        .single();
+      if (mediaError) throw mediaError;
+      setUploadStates((prev) => ({ ...prev, [item.id]: { status: "done", progress: 100 } }));
+      return mediaRow;
+    } catch (err) {
+      console.error(err);
+      setUploadStates((prev) => ({ ...prev, [item.id]: { status: "error", progress: 0, error: "Impossible d'envoyer le fichier." } }));
+      return null;
+    }
+  };
+
+  const retryMediaItem = async (id) => {
+    if (!publishedPostId) return;
+    const idx = mediaItems.findIndex((it) => it.id === id);
+    const item = mediaItems[idx];
+    if (!item) return;
+    const row = await uploadOneMedia(publishedPostId, item, idx);
+    if (row) {
+      setPosts((prev) => prev.map((p) => (p.id === publishedPostId ? { ...p, post_media: [...p.post_media, row].sort((a, b) => a.position - b.position) } : p)));
+    }
+  };
+
+  // Retenté depuis "Terminé" si des items restent en attente (jamais lancés
+  // parce qu'une publication précédente a échoué avant d'atteindre cet
+  // item) — mêmes garanties que le premier passage.
   const publish = async () => {
-    if ((!draft.trim() && !composerMedia) || !currentUser || publishingRef.current) return;
+    if (publishing || publishingRef.current) return;
+    if (publishedPostId) {
+      // Une publication est déjà créée (retour après échec partiel) : ne
+      // relance que les médias qui n'ont jamais réussi.
+      const pending = mediaItems.filter((it) => uploadStates[it.id]?.status !== "done");
+      if (pending.length === 0) { closeComposerFully(); return; }
+      publishingRef.current = true;
+      setPublishing(true);
+      try {
+        for (let i = 0; i < mediaItems.length; i++) {
+          if (uploadStates[mediaItems[i].id]?.status === "done") continue;
+          const row = await uploadOneMedia(publishedPostId, mediaItems[i], i);
+          if (row) setPosts((prev) => prev.map((p) => (p.id === publishedPostId ? { ...p, post_media: [...p.post_media, row].sort((a, b) => a.position - b.position) } : p)));
+        }
+      } finally {
+        publishingRef.current = false;
+        setPublishing(false);
+      }
+      return;
+    }
+
+    if ((!draft.trim() && mediaItems.length === 0) || !currentUser) return;
     publishingRef.current = true;
+    setPublishing(true);
     beginCriticalOperation();
     try {
       const body = draft.trim() || PLACEHOLDER_BODY;
@@ -179,38 +321,38 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
         .select("*, profiles(name, avatar_url)")
         .single();
       if (error) throw error;
-      let finalPost = inserted;
-      if (composerMedia) {
-        try {
-          const path = `${currentUser.user_id}/${Date.now()}-${Math.random().toString(36).slice(2)}.${extFromMime(composerMedia.type)}`;
-          await uploadWithProgress({ bucket: POST_MEDIA_BUCKET, path, file: composerMedia });
-          const { data: publicUrlData } = supabase.storage.from(POST_MEDIA_BUCKET).getPublicUrl(path);
-          const { data: updated, error: updateError } = await supabase
-            .from("posts")
-            .update({ media_url: publicUrlData.publicUrl, media_kind: composerMediaKind })
-            .eq("id", inserted.id)
-            .select("*, profiles(name, avatar_url)")
-            .single();
-          if (updateError) throw updateError;
-          finalPost = updated;
-        } catch (mediaErr) {
-          console.error(mediaErr);
-          onError("Publication créée, mais l'ajout du média a échoué.");
+      setPublishedPostId(inserted.id);
+
+      // Optimiste : la publication apparaît dans le fil dès que le texte est
+      // en base, sans attendre la fin des uploads (item 21 du cahier des
+      // charges) — les médias se complètent en direct dans la même carte.
+      setPosts((p) => [{ ...inserted, post_media: [] }, ...p]);
+
+      const mediaRows = [];
+      for (let i = 0; i < mediaItems.length; i++) {
+        const row = await uploadOneMedia(inserted.id, mediaItems[i], i);
+        if (row) {
+          mediaRows.push(row);
+          setPosts((prev) => prev.map((p) => (p.id === inserted.id ? { ...p, post_media: [...p.post_media, row].sort((a, b) => a.position - b.position) } : p)));
         }
       }
-      setPosts((p) => [finalPost, ...p]);
-      const key = draftKey();
-      if (key) localStorage.removeItem(key);
-      setDraft("");
-      setComposerMedia(null);
-      setComposerMediaKind("");
-      setComposer(false);
-      setResumedDraft(false);
+
+      const failedCount = mediaItems.length - mediaRows.length;
+      if (failedCount > 0) {
+        onError(`Publication créée, mais ${failedCount} média${failedCount > 1 ? "s" : ""} n'${failedCount > 1 ? "ont" : "a"} pas pu être envoyé${failedCount > 1 ? "s" : ""}.`);
+        // Reste ouvert : l'utilisateur voit quels items ont échoué et peut
+        // réessayer individuellement, ou fermer directement via "Terminé".
+      } else {
+        const key = draftKey();
+        if (key) localStorage.removeItem(key);
+        closeComposerFully();
+      }
     } catch (e) {
       console.error(e);
       onError("Impossible de publier. Réessaie.");
     } finally {
       publishingRef.current = false;
+      setPublishing(false);
       endCriticalOperation();
     }
   };
@@ -220,14 +362,17 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
       const { error } = await supabase.from("posts").delete().eq("id", post.id);
       if (error) throw error;
       setPosts((p) => p.filter((x) => x.id !== post.id));
-      if (post.media_url) {
-        const marker = `/${POST_MEDIA_BUCKET}/`;
-        const idx = post.media_url.indexOf(marker);
+      const marker = `/${POST_MEDIA_BUCKET}/`;
+      const cleanupUrl = (url) => {
+        if (!url) return;
+        const idx = url.indexOf(marker);
         if (idx !== -1) {
-          const storagePath = decodeURIComponent(post.media_url.slice(idx + marker.length));
+          const storagePath = decodeURIComponent(url.slice(idx + marker.length));
           supabase.storage.from(POST_MEDIA_BUCKET).remove([storagePath]).catch(() => {});
         }
-      }
+      };
+      cleanupUrl(post.media_url);
+      (post.post_media || []).forEach((m) => cleanupUrl(m.url));
     } catch (e) {
       console.error(e);
       onError("Impossible de supprimer cette publication.");
@@ -243,7 +388,7 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
         .select("*, profiles(name, avatar_url)")
         .single();
       if (error) throw error;
-      setPosts((p) => p.map((x) => (x.id === post.id ? data : x)));
+      setPosts((p) => p.map((x) => (x.id === post.id ? { ...x, ...data } : x)));
     } catch (e) {
       console.error(e);
       onError("Impossible de modifier cette publication.");
@@ -331,6 +476,34 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
     }
   };
 
+  const composerProps = {
+    composer,
+    onRequestClose: requestCloseComposer,
+    currentUser,
+    draft,
+    setDraft,
+    mediaItems,
+    uploadStates,
+    publishing,
+    publishedPostId,
+    pickMedia,
+    onMediaSelected,
+    onFilesSelected: addFiles,
+    onRemoveMediaItem: removeMediaItem,
+    onMoveMediaItem: moveMediaItem,
+    onRetryMediaItem: retryMediaItem,
+    photoInputRef,
+    videoInputRef,
+    publish,
+    exitConfirmOpen,
+    onCancelExit: () => setExitConfirmOpen(false),
+    onSaveDraft: saveDraftAndClose,
+    onDiscard: discardComposer,
+    draftSavedNotice,
+    resumedDraft,
+    onDiscardResumed: discardResumedDraft,
+  };
+
   if (layout === "grid") {
     return (
       <div className="p-3">
@@ -346,28 +519,37 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
           <>
             <button onClick={openComposer} className="w-full mb-3 py-2.5 rounded-xl font-bold text-sm" style={{ background: bg, color: primary }}>+ Nouvelle publication</button>
             <div className="grid grid-cols-3 gap-0.5">
-              {posts.map((p) => (
-                <div key={p.id} className="aspect-square relative overflow-hidden group">
-                  {p.media_url ? (
-                    p.media_kind === "video" ? (
-                      <video src={p.media_url} className="w-full h-full object-cover" />
+              {posts.map((p) => {
+                const first = p.post_media?.[0];
+                const mediaUrl = first?.url || p.media_url;
+                const mediaKind = first?.kind || p.media_kind;
+                const extraCount = (p.post_media?.length || 0) > 1 ? p.post_media.length - 1 : 0;
+                return (
+                  <div key={p.id} className="aspect-square relative overflow-hidden group">
+                    {mediaUrl ? (
+                      mediaKind === "video" ? (
+                        <video src={mediaUrl} className="w-full h-full object-cover" />
+                      ) : (
+                        <img src={mediaUrl} alt="" className="w-full h-full object-cover" />
+                      )
                     ) : (
-                      <img src={p.media_url} alt="" className="w-full h-full object-cover" />
-                    )
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center p-3 text-center" style={{ background: `linear-gradient(150deg,${navy},${coral})` }}>
-                      <span className="text-white text-[11px] font-semibold leading-4 line-clamp-4">{p.body}</span>
-                    </div>
-                  )}
-                  <button
-                    onClick={() => deletePost(p)}
-                    aria-label="Supprimer la publication"
-                    className="absolute top-1 right-1 h-6 w-6 rounded-full bg-black/50 text-white items-center justify-center hidden group-hover:flex focus-visible:flex focus-visible:outline focus-visible:outline-2"
-                  >
-                    ×
-                  </button>
-                </div>
-              ))}
+                      <div className="w-full h-full flex items-center justify-center p-3 text-center" style={{ background: `linear-gradient(150deg,${navy},${coral})` }}>
+                        <span className="text-white text-[11px] font-semibold leading-4 line-clamp-4">{p.body}</span>
+                      </div>
+                    )}
+                    {extraCount > 0 && (
+                      <span className="absolute top-1 left-1 rounded-full bg-black/55 text-white text-[10px] font-bold px-1.5 py-0.5">+{extraCount}</span>
+                    )}
+                    <button
+                      onClick={() => deletePost(p)}
+                      aria-label="Supprimer la publication"
+                      className="absolute top-1 right-1 h-6 w-6 rounded-full bg-black/50 text-white items-center justify-center hidden group-hover:flex focus-visible:flex focus-visible:outline focus-visible:outline-2"
+                    >
+                      ×
+                    </button>
+                  </div>
+                );
+              })}
             </div>
             {hasMore && (
               <button onClick={() => loadPosts(page + 1)} className="w-full mt-3 py-2.5 rounded-xl text-sm font-bold" style={{ background: bg, color: primary }}>Charger plus</button>
@@ -375,27 +557,7 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
           </>
         )}
 
-        <PostComposerModal
-          composer={composer}
-          onRequestClose={requestCloseComposer}
-          currentUser={currentUser}
-          draft={draft}
-          setDraft={setDraft}
-          composerMedia={composerMedia}
-          composerMediaKind={composerMediaKind}
-          pickMedia={pickMedia}
-          onMediaSelected={onMediaSelected}
-          photoInputRef={photoInputRef}
-          videoInputRef={videoInputRef}
-          publish={publish}
-          exitConfirmOpen={exitConfirmOpen}
-          onCancelExit={() => setExitConfirmOpen(false)}
-          onSaveDraft={saveDraftAndClose}
-          onDiscard={discardComposer}
-          draftSavedNotice={draftSavedNotice}
-          resumedDraft={resumedDraft}
-          onDiscardResumed={discardResumedDraft}
-        />
+        <PostComposerModal {...composerProps} />
       </div>
     );
   }
@@ -438,27 +600,7 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
         </>
       )}
 
-      <PostComposerModal
-        composer={composer}
-        onRequestClose={requestCloseComposer}
-        currentUser={currentUser}
-        draft={draft}
-        setDraft={setDraft}
-        composerMedia={composerMedia}
-        composerMediaKind={composerMediaKind}
-        pickMedia={pickMedia}
-        onMediaSelected={onMediaSelected}
-        photoInputRef={photoInputRef}
-        videoInputRef={videoInputRef}
-        publish={publish}
-        exitConfirmOpen={exitConfirmOpen}
-        onCancelExit={() => setExitConfirmOpen(false)}
-        onSaveDraft={saveDraftAndClose}
-        onDiscard={discardComposer}
-        draftSavedNotice={draftSavedNotice}
-        resumedDraft={resumedDraft}
-        onDiscardResumed={discardResumedDraft}
-      />
+      <PostComposerModal {...composerProps} />
 
       <ReportModal
         target={reportTarget}
