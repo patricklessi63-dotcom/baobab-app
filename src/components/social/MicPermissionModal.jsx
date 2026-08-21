@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Mic, MicOff, Copy, Check } from "lucide-react";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
-import { primary, coral, muted, bg, card, body, primaryRgb } from "./theme";
+import { primary, coral, muted, bg, card, body, primaryRgb, navy } from "./theme";
 
 // Détecte le navigateur pour adapter les 4 lignes d'aide "Comment
 // autoriser" — jamais de faux bouton qui prétendrait ouvrir les réglages
@@ -140,7 +140,7 @@ export default function MicPermissionModal({ open, phase, requesting, onAllow, o
                     type="button"
                     onClick={handleCopy}
                     className="w-full mb-1 py-2 rounded-full text-xs font-bold flex items-center justify-center gap-1.5"
-                    style={{ background: "#fff", color: primary, border: "1px solid #E4E6EF" }}
+                    style={{ background: "#fff", color: navy, border: "1px solid #E4E6EF" }}
                   >
                     {copied ? <Check size={13} color={coral} /> : <Copy size={13} />}
                     {copied ? "Lien copié !" : "Copier le lien des réglages"}

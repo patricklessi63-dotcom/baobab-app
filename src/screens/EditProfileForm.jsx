@@ -119,20 +119,20 @@ export default function EditProfileForm({
                   </span>
                 ) : (
                   <button type="button" onClick={() => setPrimaryPhoto(photo.id)} aria-label="Définir comme photo principale"
-                    style={{ position: "absolute", top: -6, left: -6, width: 20, height: 20, borderRadius: "50%", background: "#fff", border: `1px solid rgba(43,36,32,0.15)`, color: C.indigo, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    style={{ position: "absolute", top: -6, left: -6, width: 20, height: 20, borderRadius: "50%", background: "#fff", border: `1px solid rgba(var(--bb-ink-rgb),0.15)`, color: C.indigo, display: "flex", alignItems: "center", justifyContent: "center" }}>
                     <Star size={11} />
                   </button>
                 )}
                 <div style={{ position: "absolute", bottom: -6, left: 0, right: 0, display: "flex", justifyContent: "center", gap: 4 }}>
                   {i > 0 && (
                     <button type="button" onClick={() => moveExistingPhoto(photo.id, "up")} aria-label="Déplacer la photo vers la gauche"
-                      style={{ width: 20, height: 20, borderRadius: "50%", background: "#fff", border: `1px solid rgba(43,36,32,0.15)`, color: C.indigo, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      style={{ width: 20, height: 20, borderRadius: "50%", background: "#fff", border: `1px solid rgba(var(--bb-ink-rgb),0.15)`, color: C.indigo, display: "flex", alignItems: "center", justifyContent: "center" }}>
                       <ChevronLeft size={12} />
                     </button>
                   )}
                   {i < existingPhotos.length - 1 && (
                     <button type="button" onClick={() => moveExistingPhoto(photo.id, "down")} aria-label="Déplacer la photo vers la droite"
-                      style={{ width: 20, height: 20, borderRadius: "50%", background: "#fff", border: `1px solid rgba(43,36,32,0.15)`, color: C.indigo, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      style={{ width: 20, height: 20, borderRadius: "50%", background: "#fff", border: `1px solid rgba(var(--bb-ink-rgb),0.15)`, color: C.indigo, display: "flex", alignItems: "center", justifyContent: "center" }}>
                       <ChevronRight size={12} />
                     </button>
                   )}
@@ -149,25 +149,27 @@ export default function EditProfileForm({
               </div>
             ))}
             {existingPhotos.length + newPhotoPreviews.length < MAX_PHOTOS && (
-              <label className="cursor-pointer flex items-center justify-center transition-colors hover:bg-black/[0.02]" style={{ width: 72, height: 72, borderRadius: "var(--bb-radius-sm)", border: "1.5px dashed rgba(43,36,32,0.28)" }}>
-                <span className="text-xs text-center px-1" style={{ color: "rgba(43,36,32,0.5)" }}>+ Ajouter</span>
+              <label className="cursor-pointer flex items-center justify-center transition-colors hover:bg-black/[0.02]" style={{ width: 72, height: 72, borderRadius: "var(--bb-radius-sm)", border: "1.5px dashed rgba(var(--bb-ink-rgb),0.28)" }}>
+                <span className="text-xs text-center px-1" style={{ color: "rgba(var(--bb-ink-rgb),0.5)" }}>+ Ajouter</span>
                 <input type="file" accept="image/*" multiple onChange={handleNewPhotosSelected} className="hidden" />
               </label>
             )}
           </div>
-          <p className="text-xs" style={{ color: "rgba(43,36,32,0.5)" }}>
+          <p className="text-xs" style={{ color: "rgba(var(--bb-ink-rgb),0.5)" }}>
             Jusqu'à {MAX_PHOTOS} photos. La première est ta photo principale.
           </p>
         </div>
 
-        <p className="text-xs font-semibold" style={{ color: "rgba(43,36,32,0.55)" }}>Identité</p>
+        <p className="text-xs font-semibold" style={{ color: "rgba(var(--bb-ink-rgb),0.55)" }}>Identité</p>
         <input placeholder="Prénom" value={editForm.name} onChange={(e) => set({ name: e.target.value })}
           className="bb-input w-full text-sm" />
-        <label htmlFor="edit-birth-date" className="text-xs" style={{ color: "rgba(43,36,32,0.5)" }}>Date de naissance (jamais affichée publiquement)</label>
+        <input placeholder="Nom (facultatif)" value={editForm.lastName || ""} onChange={(e) => set({ lastName: e.target.value })}
+          className="bb-input w-full text-sm" />
+        <label htmlFor="edit-birth-date" className="text-xs" style={{ color: "rgba(var(--bb-ink-rgb),0.5)" }}>Date de naissance (jamais affichée publiquement)</label>
         <input id="edit-birth-date" type="date" value={editForm.birthDate} onChange={(e) => set({ birthDate: e.target.value })}
           className="bb-input w-full text-sm" />
 
-        <p className="text-xs font-semibold mt-2" style={{ color: "rgba(43,36,32,0.55)" }}>Localisation</p>
+        <p className="text-xs font-semibold mt-2" style={{ color: "rgba(var(--bb-ink-rgb),0.55)" }}>Localisation</p>
         <input placeholder="Pays d'origine" value={editForm.country} onChange={(e) => set({ country: e.target.value })}
           className="bb-input w-full text-sm" />
         <input placeholder="Province" value={editForm.province} onChange={(e) => set({ province: e.target.value })}
@@ -175,20 +177,20 @@ export default function EditProfileForm({
         <input placeholder="Ville (Canada)" value={editForm.city} onChange={(e) => set({ city: e.target.value })}
           className="bb-input w-full text-sm" />
 
-        <p className="text-xs font-semibold mt-2" style={{ color: "rgba(43,36,32,0.55)" }}>🇨🇦 Parcours Canada</p>
+        <p className="text-xs font-semibold mt-2" style={{ color: "rgba(var(--bb-ink-rgb),0.55)" }}>🇨🇦 Parcours Canada</p>
         <input placeholder="Depuis quand au Canada ?" value={editForm.arrivedSince} onChange={(e) => set({ arrivedSince: e.target.value })}
           className="bb-input w-full text-sm" />
         <ChipSelect options={IMMIGRATION_STATUS_OPTIONS} value={editForm.immigrationStatus} onChange={(v) => set({ immigrationStatus: v })} />
         <input placeholder="Profession / métier" value={editForm.occupation} onChange={(e) => set({ occupation: e.target.value })}
           className="bb-input w-full text-sm" />
         <div>
-          <p className="text-xs mb-1.5" style={{ color: "rgba(43,36,32,0.55)" }}>Études</p>
+          <p className="text-xs mb-1.5" style={{ color: "rgba(var(--bb-ink-rgb),0.55)" }}>Études</p>
           <ChipSelect options={EDUCATION_LEVELS} value={editForm.educationLevel} onChange={(v) => set({ educationLevel: v })} />
         </div>
         <input placeholder="Ville d'arrivée au Canada (facultatif)" value={editForm.arrivalCity} onChange={(e) => set({ arrivalCity: e.target.value })}
           className="bb-input w-full text-sm" />
 
-        <p className="text-xs font-semibold mt-2" style={{ color: "rgba(43,36,32,0.55)" }}>🗣️ Langues</p>
+        <p className="text-xs font-semibold mt-2" style={{ color: "rgba(var(--bb-ink-rgb),0.55)" }}>🗣️ Langues</p>
         <div className="flex gap-2 flex-wrap">
           {LANGUAGES_OPTIONS.map((lang) => {
             const active = languagesDetail.some((l) => l.language === lang);
@@ -203,10 +205,10 @@ export default function EditProfileForm({
         {languagesDetail.length > 0 && (
           <div className="flex flex-col gap-2">
             {languagesDetail.map(({ language, level }) => (
-              <div key={language} className="flex items-center justify-between gap-2 p-2.5 rounded-xl" style={{ background: "rgba(43,36,32,0.03)" }}>
+              <div key={language} className="flex items-center justify-between gap-2 p-2.5 rounded-xl" style={{ background: "rgba(var(--bb-ink-rgb),0.03)" }}>
                 <span className="text-sm font-semibold">{language}</span>
                 <select value={level} onChange={(e) => setLanguageLevel(language, e.target.value)}
-                  className="text-xs rounded-full px-2.5 py-1.5" style={{ border: "1px solid rgba(43,36,32,0.16)", background: "#fff" }}>
+                  className="text-xs rounded-full px-2.5 py-1.5" style={{ border: "1px solid rgba(var(--bb-ink-rgb),0.16)", background: "#fff", color: C.indigo }}>
                   {LANGUAGE_LEVELS.map((lv) => <option key={lv} value={lv}>{lv}</option>)}
                 </select>
               </div>
@@ -214,20 +216,20 @@ export default function EditProfileForm({
           </div>
         )}
 
-        <p className="text-xs font-semibold mt-2" style={{ color: "rgba(43,36,32,0.55)" }}>Ce que tu recherches</p>
+        <p className="text-xs font-semibold mt-2" style={{ color: "rgba(var(--bb-ink-rgb),0.55)" }}>Ce que tu recherches</p>
         <ChipSelect options={LOOKING_FOR_OPTIONS} value={editForm.lookingFor} onChange={(v) => set({ lookingFor: v })} multi />
         {hasIntimateIntent(editForm.lookingFor) && (
           <>
-            <p className="text-xs mt-1" style={{ color: "rgba(43,36,32,0.55)" }}>Quel type de relation souhaites-tu ?</p>
+            <p className="text-xs mt-1" style={{ color: "rgba(var(--bb-ink-rgb),0.55)" }}>Quel type de relation souhaites-tu ?</p>
             <ChipSelect options={RELATIONSHIP_VALUES_OPTIONS} value={editForm.relationshipValues} onChange={(v) => set({ relationshipValues: v })} multi />
           </>
         )}
 
-        <p className="text-xs font-semibold mt-2" style={{ color: "rgba(43,36,32,0.55)" }}>Centres d'intérêt</p>
+        <p className="text-xs font-semibold mt-2" style={{ color: "rgba(var(--bb-ink-rgb),0.55)" }}>Centres d'intérêt</p>
         <ChipSelect options={INTERESTS_OPTIONS} value={editForm.interests} onChange={(v) => set({ interests: v })} multi max={10} />
 
         <div>
-          <p className="text-xs mb-1.5 mt-2" style={{ color: "rgba(43,36,32,0.55)" }}>As-tu déjà des enfants ?</p>
+          <p className="text-xs mb-1.5 mt-2" style={{ color: "rgba(var(--bb-ink-rgb),0.55)" }}>As-tu déjà des enfants ?</p>
           <div className="flex gap-2">
             {HAS_CHILDREN_OPTIONS.map((opt) => (
               <button type="button" key={opt} onClick={() => set({ hasChildren: opt })}
@@ -238,20 +240,20 @@ export default function EditProfileForm({
           </div>
         </div>
 
-        <p className="text-xs font-semibold mt-2" style={{ color: "rgba(43,36,32,0.55)" }}>✨ Projet de vie (facultatif)</p>
-        <p className="text-xs" style={{ color: "rgba(43,36,32,0.5)" }}>Souhaites-tu avoir des enfants ?</p>
+        <p className="text-xs font-semibold mt-2" style={{ color: "rgba(var(--bb-ink-rgb),0.55)" }}>✨ Projet de vie (facultatif)</p>
+        <p className="text-xs" style={{ color: "rgba(var(--bb-ink-rgb),0.5)" }}>Souhaites-tu avoir des enfants ?</p>
         <ChipSelect options={WANTS_CHILDREN_OPTIONS} value={editForm.wantsChildren} onChange={(v) => set({ wantsChildren: v })} />
-        <p className="text-xs" style={{ color: "rgba(43,36,32,0.5)" }}>Importance de la famille</p>
+        <p className="text-xs" style={{ color: "rgba(var(--bb-ink-rgb),0.5)" }}>Importance de la famille</p>
         <ChipSelect options={FAMILY_IMPORTANCE_OPTIONS} value={editForm.familyImportance} onChange={(v) => set({ familyImportance: v })} />
-        <p className="text-xs" style={{ color: "rgba(43,36,32,0.5)" }}>Projet professionnel</p>
+        <p className="text-xs" style={{ color: "rgba(var(--bb-ink-rgb),0.5)" }}>Projet professionnel</p>
         <ChipSelect options={CAREER_GOAL_OPTIONS} value={editForm.careerGoal} onChange={(v) => set({ careerGoal: v })} />
-        <p className="text-xs" style={{ color: "rgba(43,36,32,0.5)" }}>Projet géographique</p>
+        <p className="text-xs" style={{ color: "rgba(var(--bb-ink-rgb),0.5)" }}>Projet géographique</p>
         <ChipSelect options={GEOGRAPHIC_OPENNESS_OPTIONS} value={editForm.geographicOpenness} onChange={(v) => set({ geographicOpenness: v })} />
 
-        <p className="text-xs font-semibold mt-2" style={{ color: "rgba(43,36,32,0.55)" }}>Personnalité</p>
+        <p className="text-xs font-semibold mt-2" style={{ color: "rgba(var(--bb-ink-rgb),0.55)" }}>Personnalité</p>
         <ChipSelect options={PERSONALITY_EVENING_OPTIONS} value={editForm.personalityEvening} onChange={(v) => set({ personalityEvening: v })} />
         <ChipSelect options={PERSONALITY_TRAVEL_OPTIONS} value={editForm.personalityTravel} onChange={(v) => set({ personalityTravel: v })} />
-        <p className="text-xs" style={{ color: "rgba(43,36,32,0.5)" }}>Une bonne relation repose surtout sur (max 2)</p>
+        <p className="text-xs" style={{ color: "rgba(var(--bb-ink-rgb),0.5)" }}>Une bonne relation repose surtout sur (max 2)</p>
         <ChipSelect options={RELATIONSHIP_NEEDS_OPTIONS} value={editForm.relationshipNeeds} onChange={(v) => set({ relationshipNeeds: v })} multi max={2} />
 
         <textarea placeholder="Une courte bio..." value={editForm.bio} onChange={(e) => set({ bio: e.target.value })}

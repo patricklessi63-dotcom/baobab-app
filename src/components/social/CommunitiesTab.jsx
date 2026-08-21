@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Search, Plus, X, Users2 } from "lucide-react";
+import { Search, Plus, X, Users2, Sparkles, Sprout, Flame, MessageCircle, Rocket, Target } from "lucide-react";
 import { supabase } from "../../supabaseClient";
 import CommunityGroupCard from "./CommunityGroupCard";
 import CommunityFilters from "./CommunityFilters";
@@ -9,6 +9,8 @@ import CommunityInviteModal from "./CommunityInviteModal";
 import ReportModal from "./ReportModal";
 import PublicProfileModal from "./PublicProfileModal";
 import EmptyState from "../home/EmptyState";
+import HorizontalScrollRow from "../HorizontalScrollRow";
+import InfoTipCard from "../InfoTipCard";
 import { SkeletonCard } from "../Skeleton";
 import { rankCommunities } from "../../lib/communities/recommendations";
 import { COMMUNITY_REPORT_CATEGORIES } from "../../lib/communities/communityConfig";
@@ -16,9 +18,27 @@ import { trackActivation } from "../../lib/trackActivation";
 import { validateMediaFile } from "../../lib/mediaValidation";
 import { extFromMime } from "../../lib/mediaConstants";
 import { uploadWithProgress } from "../../lib/uploadWithProgress";
-import { primary, coral, muted, bg, card } from "./theme";
+import { primary, coral, muted, bg, card, navy } from "./theme";
 
 const COMMUNITY_MEDIA_BUCKET = "community-media";
+
+// Cartes-conseil qui comblent les rangées à balayage horizontal quand peu
+// de communautés réelles existent encore (Baobab en début de croissance) —
+// conseils génériques uniquement, jamais une statistique inventée.
+const COMMUNITY_TIPS = {
+  pourToi: [
+    { icon: Sparkles, title: "Complète ton profil", text: "Plus tes centres d'intérêt et ta ville sont précis, meilleures sont tes recommandations." },
+    { icon: Sprout, title: "Sois parmi les premiers", text: "Rejoindre tôt une communauté, c'est en devenir un membre fondateur — pas juste un numéro de plus." },
+  ],
+  populaires: [
+    { icon: Flame, title: "Qu'est-ce qui rend une communauté active ?", text: "Des publications régulières, des présentations et des événements organisés par ses membres." },
+    { icon: MessageCircle, title: "Présente-toi", text: "Un simple message de bienvenue suffit souvent à lancer la conversation." },
+  ],
+  nouvelles: [
+    { icon: Rocket, title: "Sois le/la premier·ère", text: "Une communauté toute neuve n'attend qu'un premier message pour démarrer." },
+    { icon: Target, title: "Aucune communauté ne te correspond ?", text: "Crée la tienne en quelques secondes avec le bouton \"Créer\" ci-dessus." },
+  ],
+};
 
 const PAGE_SIZE = 20;
 const REPORT_TARGET_LABEL = { post: "cette publication", comment: "ce commentaire", member: "ce membre", community: "cette communauté" };
@@ -742,18 +762,41 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
     </div>
   );
 
-  const renderSection = (title, list) =>
-    list.length > 0 && (
+  // Rangées à balayage horizontal complétées par des cartes-conseil quand
+  // peu de communautés réelles existent encore — jamais de statistique
+  // inventée, uniquement des conseils génériques (voir InfoTipCard).
+  const renderRow = (list, tipKey) => (
+    <HorizontalScrollRow>
+      {list.map((c) => (
+        <div key={c.id} className="w-56 flex-shrink-0" style={{ scrollSnapAlign: "start" }}>
+          <CommunityGroupCard
+            community={c}
+            memberCount={c.memberCount}
+            joined={Boolean(myMemberships[c.id])}
+            pending={myPending.has(c.id)}
+            onView={goDetail}
+            onJoin={handleJoin}
+          />
+        </div>
+      ))}
+      {tipKey && list.length < 4 && COMMUNITY_TIPS[tipKey]
+        .slice(0, 4 - list.length)
+        .map((tip, i) => <InfoTipCard key={`tip-${tipKey}-${i}`} {...tip} />)}
+    </HorizontalScrollRow>
+  );
+
+  const renderSection = (title, list, tipKey) =>
+    (list.length > 0 || tipKey) && (
       <div className="mb-8">
         <h2 className="text-sm font-black mb-3" style={{ color: primary }}>{title}</h2>
-        {renderGrid(list)}
+        {renderRow(list, tipKey)}
       </div>
     );
 
   return (
     <section className="max-w-6xl mx-auto">
       <div className="mb-5">
-        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-[11px] font-black uppercase tracking-wider" style={{ background: "#EEF8F4" }}>
+        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-[11px] font-black uppercase tracking-wider" style={{ background: "#EEF8F4", color: navy }}>
           <Users2 size={13} /> Communautés Baobab
         </div>
         <div className="flex items-center justify-between gap-3 mt-3 flex-wrap">
@@ -830,10 +873,10 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
               </div>
             </div>
           )}
-          {renderSection("✨ Pour toi", recommended)}
+          {renderSection("✨ Pour toi", recommended, "pourToi")}
           {renderSection("📍 Près de toi", nearby)}
-          {renderSection("🔥 Populaires sur Baobab", popular)}
-          {renderSection("🆕 Nouvelles communautés", newest)}
+          {renderSection("🔥 Populaires sur Baobab", popular, "populaires")}
+          {renderSection("🆕 Nouvelles communautés", newest, "nouvelles")}
           <h2 className="text-sm font-black mb-3" style={{ color: primary }}>Toutes les communautés</h2>
           {renderGrid(communities)}
         </>

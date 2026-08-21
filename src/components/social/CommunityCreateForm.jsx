@@ -5,7 +5,7 @@ import { supabase } from "../../supabaseClient";
 import { COMMUNITY_CATEGORIES, COMMUNITY_VISIBILITY } from "../../lib/communities/communityConfig";
 import { invokeAI } from "../../lib/ai/aiClient";
 import { beginCriticalOperation, endCriticalOperation } from "../../lib/criticalOperationGuard";
-import { primary, coral, muted, bg, goldTint, goldText, primaryRgb } from "./theme";
+import { primary, coral, muted, bg, goldTint, goldText, primaryRgb, navy } from "./theme";
 
 const NAME_MAX = 80;
 const DESCRIPTION_MAX = 300;
@@ -123,7 +123,7 @@ export default function CommunityCreateForm({ currentUser, onCreated, onCancel, 
             <>
               <p className="text-xs mt-1.5" style={{ color: muted }}>Décris ton idée en quelques mots, l'IA propose un nom, une description et une catégorie.</p>
               <div className="flex gap-2 mt-2">
-                <input value={aiIdea} onChange={(e) => setAiIdea(e.target.value)} placeholder="Ex : club de course pour nouveaux arrivants à Montréal" className="flex-1 rounded-xl px-3 py-2 text-xs outline-none" style={{ background: "#fff" }} />
+                <input value={aiIdea} onChange={(e) => setAiIdea(e.target.value)} placeholder="Ex : club de course pour nouveaux arrivants à Montréal" className="flex-1 rounded-xl px-3 py-2 text-xs outline-none" style={{ background: "#fff", color: navy }} />
                 <button type="button" onClick={handleAiSuggest} disabled={aiLoading || !aiIdea.trim()} className="px-3 py-2 rounded-xl text-xs font-bold text-white disabled:opacity-50 flex items-center gap-1" style={{ background: coral }}>
                   {aiLoading ? <Loader2 size={12} className="animate-spin" /> : "Suggérer"}
                 </button>

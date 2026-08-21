@@ -1,8 +1,9 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import { MessageCircle, Flag, Trash2, X, Reply, Pencil, Check } from "lucide-react";
 import Avatar from "../Avatar";
 import { formatMessageTime, formatDayLabel } from "../../utils/format";
-import { primary, coral, muted, bg, primaryRgb } from "./theme";
+import { primary, coral, muted, bg, primaryRgb, navy } from "./theme";
+import { useClickOutside } from "../../hooks/useClickOutside";
 
 const QUICK_REACTIONS = ["❤️", "👍", "😂", "😮", "😢", "🎉"];
 
@@ -27,6 +28,8 @@ export default function CommunityPostCard({
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [commentDraft, setCommentDraft] = useState("");
   const [reactionsOpen, setReactionsOpen] = useState(false);
+  const reactionsRef = useRef(null);
+  useClickOutside(reactionsRef, reactionsOpen, () => setReactionsOpen(false));
   const [replyingTo, setReplyingTo] = useState(null); // comment being replied to
   const [editingId, setEditingId] = useState(null);
   const [editDraft, setEditDraft] = useState("");
@@ -83,6 +86,7 @@ export default function CommunityPostCard({
           )}
 
           <div className="flex items-center gap-4 mt-2.5" style={{ position: "relative" }}>
+            <div ref={reactionsRef} style={{ position: "relative" }}>
             <button
               onClick={() => setReactionsOpen((v) => !v)}
               aria-label={myReaction ? `Réaction : ${myReaction}` : "Réagir"}
@@ -93,7 +97,7 @@ export default function CommunityPostCard({
               <span style={{ fontSize: 15, lineHeight: 1 }}>{myReaction || "🤍"}</span> {totalReactions > 0 ? totalReactions : "Réagir"}
             </button>
             {reactionsOpen && (
-              <div role="menu" className="flex items-center gap-1 px-2 py-1.5 rounded-full bg-white shadow-xl" style={{ position: "absolute", top: "100%", left: 0, marginTop: 4, border: `1px solid rgba(${primaryRgb},.08)`, zIndex: 5 }}>
+              <div role="menu" className="flex items-center gap-1 px-2 py-1.5 rounded-full bg-[var(--bb-surface)] shadow-xl" style={{ position: "absolute", top: "100%", left: 0, marginTop: 4, border: `1px solid rgba(${primaryRgb},.08)`, zIndex: 5 }}>
                 {QUICK_REACTIONS.map((emoji) => (
                   <button key={emoji} type="button" onClick={() => { onReact(post, emoji); setReactionsOpen(false); }} className="text-lg px-0.5 hover:scale-125 motion-safe:transition-transform" aria-label={`Réagir avec ${emoji}`}>
                     {emoji}
@@ -101,6 +105,7 @@ export default function CommunityPostCard({
                 ))}
               </div>
             )}
+            </div>
             <button onClick={toggleComments} className="flex items-center gap-1.5 text-xs font-semibold focus-visible:outline focus-visible:outline-2" style={{ color: muted }}>
               <MessageCircle size={15} /> {(commentsLoaded ? comments.length : commentCount) > 0 ? (commentsLoaded ? comments.length : commentCount) : "Commenter"}
             </button>
@@ -139,7 +144,7 @@ export default function CommunityPostCard({
                                 onKeyDown={(e) => { if (e.key === "Enter") submitEdit(); }}
                                 aria-label="Modifier le commentaire"
                                 className="flex-1 text-xs rounded-full px-3 py-1.5 outline-none"
-                                style={{ background: "#fff" }}
+                                style={{ background: "#fff", color: navy }}
                                 autoFocus
                               />
                               <button onClick={submitEdit} aria-label="Valider la modification"><Check size={13} color={coral} /></button>

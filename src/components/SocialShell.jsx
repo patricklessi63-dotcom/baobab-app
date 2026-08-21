@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef, Suspense, lazy } from "react";
-import { Home, Heart, X, MessageCircle, LogOut, Settings, Cog, UserRound, Search, Bell, Users2, PartyPopper, Megaphone } from "lucide-react";
+import { Home, Heart, X, MessageCircle, LogOut, Settings, Cog, UserRound, Search, Bell, Users2, PartyPopper, Megaphone, Shield } from "lucide-react";
 import Avatar from "./Avatar";
+import logoIcon from "../assets/logo-baobab-icon.png";
 import { supabase } from "../supabaseClient";
 import { matchKey, visibleAge } from "../utils/format";
 import { useClickOutside } from "../hooks/useClickOutside";
 import { useEscapeKey } from "../hooks/useEscapeKey";
-import { primary, coral, gold, bg, muted, buttonBase, body, primaryRgb } from "./social/theme";
+import { primary, navy, coral, gold, bg, muted, buttonBase, body, primaryRgb } from "./social/theme";
 import Skeleton from "./Skeleton";
 import FeedTab from "./social/FeedTab";
 import DiscoverTab from "./social/DiscoverTab";
@@ -28,7 +29,9 @@ import BetaFeedbackModal from "./social/BetaFeedbackModal";
 // principal pour les utilisateurs qui ne l'ouvrent jamais.
 const CommunitiesTab = lazy(() => import("./social/CommunitiesTab"));
 const EventsTab = lazy(() => import("./social/EventsTab"));
+const AdminDashboard = lazy(() => import("./admin/AdminDashboard"));
 const PremiumPage = lazy(() => import("./premium/PremiumPage"));
+const ImmigrationNewsView = lazy(() => import("./social/ImmigrationNewsView"));
 
 function TabLoadingFallback() {
   return (
@@ -80,6 +83,7 @@ export default function SocialShell({
   handleSignOut,
   onError = () => {},
   myLocation = null,
+  myPlatformRole = null,
   candidates = [],
   getMatches = () => [],
   getAdmirers = () => [],
@@ -173,7 +177,9 @@ export default function SocialShell({
     supabase
       .from("stories")
       .select("id, profile_id, text, media_url, media_kind, created_at, profile:profile_id(name, avatar_url)")
+      .gt("expires_at", new Date().toISOString())
       .order("created_at", { ascending: false })
+      .limit(500)
       .then(({ data, error }) => {
         if (!alive) return;
         if (error) { console.error(error); return; }
@@ -398,6 +404,23 @@ export default function SocialShell({
     setUnreadByKey((prev) => (prev[key] ? { ...prev, [key]: 0 } : prev));
   }, [activeMatch, currentUser, messages.length]);
 
+  // Aperçu de liste (lastByKey) mis à jour en local dès qu'un message est
+  // envoyé/reçu dans la conversation ouverte — ne dépend plus uniquement du
+  // canal Realtime global ci-dessus (constaté en test manuel : l'aperçu ne
+  // se mettait pas à jour pour ses propres messages envoyés tant qu'on ne
+  // rechargeait pas la page).
+  useEffect(() => {
+    if (!activeMatch || !currentUser || messages.length === 0) return;
+    const key = matchKey(currentUser.id, activeMatch.id);
+    const latest = messages[messages.length - 1];
+    if (!latest || latest.id?.toString().startsWith("temp-")) return;
+    setLastByKey((prev) => {
+      const existing = prev[key];
+      if (existing && new Date(existing.created_at) >= new Date(latest.created_at)) return prev;
+      return { ...prev, [key]: latest };
+    });
+  }, [activeMatch, currentUser, messages]);
+
   // Ouvrir un chat depuis n'importe où (célébration de match, carte, etc.)
   // doit toujours amener sur l'onglet Messages.
   useEffect(() => {
@@ -526,6 +549,19 @@ export default function SocialShell({
       });
     return () => { alive = false; };
   }, [currentUser, tab]);
+
+  // Marque UNE notification comme lue — appelé quand l'utilisateur clique
+  // dessus pour ouvrir son contenu (chat/profil/communauté/événement), pas
+  // seulement via "Tout marquer comme lu". La liste étant déjà filtrée sur
+  // read_at is null côté requête, la retirer localement suffit à la faire
+  // disparaître du badge/dropdown sans recharger.
+  const markOneNotificationRead = (id) => {
+    setCommunityNotifications((prev) => prev.filter((n) => n.id !== id));
+    setUnreadCommunityCount((n) => Math.max(0, n - 1));
+    supabase.from("notifications").update({ read_at: new Date().toISOString() }).eq("id", id).then(({ error }) => {
+      if (error) console.error(error.message, error.code, error.details, error.hint);
+    });
+  };
 
   const markCommunityNotificationsRead = () => {
     if (unreadCommunityCount === 0 || !currentUser) return;
@@ -873,20 +909,22 @@ export default function SocialShell({
   };
 
   return (
-    <div className="bb-app min-h-screen relative overflow-x-hidden" style={{ color: body, fontFamily: "'Manrope',system-ui,sans-serif" }}>
+    <div className="bb-app min-h-screen relative" style={{ color: body, fontFamily: "'Manrope',system-ui,sans-serif" }}>
       <style>{`
         @keyframes bbAppDrift { from { transform: scale(1.02) translate3d(0,0,0); } to { transform: scale(1.07) translate3d(-1.2%, -1%, 0); } }
         @keyframes bbContentIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
         .bb-app-bg { animation: bbAppDrift 24s ease-in-out alternate infinite; }
-        .bb-content-in { animation: bbContentIn .55s cubic-bezier(.22,1,.36,1) both; }
-        .bb-glass { background: rgba(255,255,255,.78) !important; backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); }
+        .bb-content-in { animation: bbContentIn .55s cubic-bezier(.22,1,.36,1); }
+        .bb-glass { background: rgba(var(--bb-surface-rgb),.78) !important; backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); }
         @media (prefers-reduced-motion: reduce) { .bb-app * { animation: none !important; transition: none !important; } }
       `}</style>
       <div aria-hidden="true" className="fixed inset-0 z-0 pointer-events-none" style={{ background: bg }} />
-      <header className="sticky top-0 z-40 border-b bb-glass" style={{ borderColor: `rgba(${primaryRgb},.08)` }}>
+      <header className="sticky top-0 z-40 border-b bb-glass" style={{ borderColor: `rgba(${primaryRgb},.08)`, paddingTop: "env(safe-area-inset-top)" }}>
         <div className="max-w-7xl mx-auto px-4 lg:px-8 h-[74px] flex items-center gap-4">
           <button onClick={() => goTab("feed")} className="flex items-center gap-3 shrink-0">
-            <div className="h-11 w-11 rounded-[15px] flex items-center justify-center text-white font-black text-xl shadow-lg" style={{ background: `linear-gradient(135deg,${coral},${gold})` }}>B</div>
+            <div className="h-11 w-11 rounded-[15px] overflow-hidden flex items-center justify-center shadow-lg" style={{ background: "#000" }}>
+              <img src={logoIcon} alt="" className="h-full w-full object-cover" style={{ objectPosition: "50% 30%", transform: "scale(1.7)" }} />
+            </div>
             <div className="hidden sm:block text-left">
               <div className="text-xl font-black tracking-tight" style={{ color: primary }}>baobab</div>
               <div className="text-[9px] uppercase tracking-[.24em] font-bold" style={{ color: muted }}>connecter · s'intégrer · aimer</div>
@@ -906,7 +944,7 @@ export default function SocialShell({
               {search && <button onClick={() => setSearch("")} aria-label="Effacer la recherche"><X size={16} color={muted} /></button>}
             </div>
             {search && (
-              <div className="absolute top-14 left-0 right-0 bg-white rounded-2xl border shadow-2xl p-2 z-50">
+              <div className="absolute top-14 left-0 right-0 bg-[var(--bb-surface)] rounded-2xl border border-[var(--bb-border)] shadow-2xl p-2 z-50">
                 <div className="px-3 py-2 text-[11px] font-black uppercase tracking-wider" style={{ color: muted }}>Personnes</div>
                 {searchResults.slice(0, 8).map((p) => (
                   <button key={p.id} onClick={() => { setSearch(""); setViewedProfileId(p.id); }} className="w-full flex items-center gap-3 p-2.5 rounded-xl hover:bg-slate-50 text-left">
@@ -928,7 +966,7 @@ export default function SocialShell({
               )}
             </button>
             {notificationsOpen && (
-              <div className="absolute right-12 top-14 w-96 bg-white rounded-2xl border shadow-2xl p-3 z-50">
+              <div className="absolute right-12 top-14 w-96 bg-[var(--bb-surface)] rounded-2xl border border-[var(--bb-border)] shadow-2xl p-3 z-50">
                 <div className="flex items-center justify-between px-2 pb-2">
                   <b>Notifications</b>
                   {unreadCommunityCount > 0 && (
@@ -952,32 +990,32 @@ export default function SocialShell({
                 ) : (
                   <div className="flex flex-col gap-1 max-h-72 overflow-y-auto">
                     {incomingFavoritesCount > 0 && (notifCategory === "all" || notifCategory === "dating") && (
-                      <div className="px-2 py-2.5 rounded-xl text-sm" style={{ background: "#FFF3D6" }}>
+                      <div className="px-2 py-2.5 rounded-xl text-sm" style={{ background: "#FFF3D6", color: gold }}>
                         ⭐ {incomingFavoritesCount} personne{incomingFavoritesCount > 1 ? "s" : ""} t'a{incomingFavoritesCount > 1 ? "" : ""} ajouté en favori.
                       </div>
                     )}
                     {(notifCategory === "all" || notifCategory === "dating") && unreadDatingNotifications.map((n) => (
-                      <button key={n.id} onClick={() => { setNotificationsOpen(false); setViewedProfileId(n.target_id); }} className="text-left px-2 py-2.5 rounded-xl text-sm hover:bg-slate-50 focus-visible:outline focus-visible:outline-2">
+                      <button key={n.id} onClick={() => { setNotificationsOpen(false); markOneNotificationRead(n.id); setViewedProfileId(n.target_id); }} className="text-left px-2 py-2.5 rounded-xl text-sm hover:bg-slate-50 focus-visible:outline focus-visible:outline-2">
                         {n.type === "new_match" ? "💞" : "❤️"} {n.actor?.name ? `${n.actor.name} — ${n.type === "new_match" ? NOTIFICATION_LABELS.new_match : NOTIFICATION_LABELS.new_like}` : (NOTIFICATION_LABELS[n.type] || "Nouvelle activité")}
                       </button>
                     ))}
                     {(notifCategory === "all" || notifCategory === "messages") && unreadMessageNotifications.map((n) => (
-                      <button key={n.id} onClick={() => { setNotificationsOpen(false); openChatWithProfileId(n.target_id); }} className="text-left px-2 py-2.5 rounded-xl text-sm hover:bg-slate-50 focus-visible:outline focus-visible:outline-2">
+                      <button key={n.id} onClick={() => { setNotificationsOpen(false); markOneNotificationRead(n.id); openChatWithProfileId(n.target_id); }} className="text-left px-2 py-2.5 rounded-xl text-sm hover:bg-slate-50 focus-visible:outline focus-visible:outline-2">
                         💬 {n.actor?.name ? `Nouveau message de ${n.actor.name}` : NOTIFICATION_LABELS.new_message}
                       </button>
                     ))}
                     {(notifCategory === "all" || notifCategory === "follows") && unreadFollowNotifications.map((n) => (
-                      <button key={n.id} onClick={() => { setNotificationsOpen(false); setViewedProfileId(n.target_id); }} className="text-left px-2 py-2.5 rounded-xl text-sm hover:bg-slate-50 focus-visible:outline focus-visible:outline-2">
+                      <button key={n.id} onClick={() => { setNotificationsOpen(false); markOneNotificationRead(n.id); setViewedProfileId(n.target_id); }} className="text-left px-2 py-2.5 rounded-xl text-sm hover:bg-slate-50 focus-visible:outline focus-visible:outline-2">
                         👤 {n.actor?.name ? `${n.actor.name} a commencé à te suivre` : NOTIFICATION_LABELS.new_follower}
                       </button>
                     ))}
                     {(notifCategory === "all" || notifCategory === "communities") && unreadCommunityNotifications.map((n) => (
-                      <button key={n.id} onClick={() => { setNotificationsOpen(false); goTab(n.type?.startsWith("premium_") ? "premium" : "communities"); }} className="text-left px-2 py-2.5 rounded-xl text-sm hover:bg-slate-50 focus-visible:outline focus-visible:outline-2">
+                      <button key={n.id} onClick={() => { setNotificationsOpen(false); markOneNotificationRead(n.id); goTab(n.type?.startsWith("premium_") ? "premium" : "communities"); }} className="text-left px-2 py-2.5 rounded-xl text-sm hover:bg-slate-50 focus-visible:outline focus-visible:outline-2">
                         {n.type?.startsWith("premium_") ? "💎" : "🌍"} {NOTIFICATION_LABELS[n.type] || "Nouvelle activité"}
                       </button>
                     ))}
                     {(notifCategory === "all" || notifCategory === "events") && unreadEventNotifications.map((n) => (
-                      <button key={n.id} onClick={() => { setNotificationsOpen(false); goTab("events"); }} className="text-left px-2 py-2.5 rounded-xl text-sm hover:bg-slate-50 focus-visible:outline focus-visible:outline-2">
+                      <button key={n.id} onClick={() => { setNotificationsOpen(false); markOneNotificationRead(n.id); goTab("events"); }} className="text-left px-2 py-2.5 rounded-xl text-sm hover:bg-slate-50 focus-visible:outline focus-visible:outline-2">
                         🎉 {NOTIFICATION_LABELS[n.type] || "Nouvelle activité"}
                       </button>
                     ))}
@@ -987,12 +1025,12 @@ export default function SocialShell({
             )}
             </div>
             <div ref={menuRef} className="relative">
-            <button onClick={() => { setMenu((v) => !v); setNotificationsOpen(false); }} aria-label="Menu du profil" className={`${buttonBase} h-11 w-11 rounded-2xl flex items-center justify-center text-white font-black`} style={{ background: primary }}>
+            <button onClick={() => { setMenu((v) => !v); setNotificationsOpen(false); }} aria-label="Menu du profil" className={`${buttonBase} h-11 w-11 rounded-2xl flex items-center justify-center text-white font-black`} style={{ background: navy }}>
               {(currentUser?.name || "T")[0].toUpperCase()}
             </button>
             {menu && (
-              <div className="absolute right-0 top-14 w-64 bg-white rounded-2xl border shadow-2xl p-2 z-50">
-                <div className="rounded-xl p-3 mb-1" style={{ background: `linear-gradient(135deg,${primary},#2B3766)` }}>
+              <div className="absolute right-0 top-14 w-64 bg-[var(--bb-surface)] rounded-2xl border border-[var(--bb-border)] shadow-2xl p-2 z-50">
+                <div className="rounded-xl p-3 mb-1" style={{ background: `linear-gradient(135deg,${navy},#1E4632)` }}>
                   <div className="text-white font-bold">{currentUser?.name || "Ton profil"}</div>
                   <div className="text-white/60 text-xs mt-0.5">{currentUser?.city || "Canada"} · 🟢 En ligne</div>
                 </div>
@@ -1000,6 +1038,9 @@ export default function SocialShell({
                 <button onClick={() => { goTab("discover"); }} className="w-full text-left rounded-xl px-3 py-3 text-sm hover:bg-slate-50"><Heart size={16} className="inline mr-3" />Découvrir</button>
                 <button onClick={() => { setMenu(false); openEditProfile(); }} className="w-full text-left rounded-xl px-3 py-3 text-sm hover:bg-slate-50"><Settings size={16} className="inline mr-3" />Modifier mon profil</button>
                 <button onClick={() => { setMenu(false); setSettingsOpen(true); }} className="w-full text-left rounded-xl px-3 py-3 text-sm hover:bg-slate-50"><Cog size={16} className="inline mr-3" />Réglages</button>
+                {myPlatformRole && (
+                  <button onClick={() => { setMenu(false); goTab("admin"); }} className="w-full text-left rounded-xl px-3 py-3 text-sm hover:bg-slate-50"><Shield size={16} className="inline mr-3" />Baobab Admin</button>
+                )}
                 <button onClick={() => { setMenu(false); setFeedbackOpen(true); }} className="w-full text-left rounded-xl px-3 py-3 text-sm hover:bg-slate-50"><Megaphone size={16} className="inline mr-3" />Un souci, une idée ?</button>
                 <button onClick={() => { setMenu(false); handleSignOut(); }} className="w-full text-left rounded-xl px-3 py-3 text-sm" style={{ color: coral }}><LogOut size={16} className="inline mr-3" />Déconnexion</button>
               </div>
@@ -1166,24 +1207,36 @@ export default function SocialShell({
             <PremiumPage currentUser={currentUser} onBack={() => goTab("profile")} onError={onError} />
           </Suspense>
         )}
+
+        {tab === "admin" && myPlatformRole && (
+          <Suspense fallback={<TabLoadingFallback />}>
+            <AdminDashboard onBack={() => goTab("profile")} onError={onError} myPlatformRole={myPlatformRole} />
+          </Suspense>
+        )}
+
+        {tab === "news" && (
+          <Suspense fallback={<TabLoadingFallback />}>
+            <ImmigrationNewsView onBack={() => goTab("feed")} onError={onError} />
+          </Suspense>
+        )}
       </main>
 
 
       <nav className="fixed bottom-0 left-0 right-0 z-40 bb-glass border-t" style={{ borderColor: `rgba(${primaryRgb},.08)`, paddingBottom: "env(safe-area-inset-bottom)" }}>
-        <div className="max-w-xl mx-auto grid grid-cols-7 px-2">
+        <div className="max-w-xl mx-auto grid grid-cols-6 px-2">
           {nav.map(([key, Icon, label, getBadge]) => {
             const badgeCount = getBadge ? getBadge() : 0;
             return (
               <button key={key} onClick={() => goTab(key)} aria-label={badgeCount > 0 ? `${label} (${badgeCount} non lus)` : label} className="py-3 flex flex-col items-center gap-1.5 rounded-2xl" style={{ minHeight: 48 }}>
-                <div className="h-7 w-9 flex items-center justify-center rounded-xl relative" style={{ background: tab === key ? "rgba(225,107,93,.11)" : "transparent" }}>
-                  <Icon size={19} color={tab === key ? coral : muted} fill={tab === key && key === "discover" ? coral : "none"} />
+                <div className={`h-7 w-9 flex items-center justify-center rounded-xl relative motion-safe:transition-colors motion-safe:duration-200 ${tab === key ? "bb-tab-active" : ""}`} style={{ background: tab === key ? "rgba(225,107,93,.11)" : "transparent" }}>
+                  <Icon size={19} color={tab === key ? coral : muted} fill={tab === key && key === "discover" ? coral : "none"} className="motion-safe:transition-colors motion-safe:duration-200" />
                   {badgeCount > 0 && (
                     <span className="absolute -top-0.5 -right-0.5 h-4 min-w-4 px-1 rounded-full text-[9px] font-black text-white flex items-center justify-center" style={{ background: coral }}>
                       {badgeCount}
                     </span>
                   )}
                 </div>
-                <span className="text-[10px] font-black text-center leading-tight w-full" style={{ color: tab === key ? primary : muted, wordBreak: "break-word" }}>{label}</span>
+                <span className={`${key === "communities" ? "text-[7.5px]" : "text-[8px]"} font-black text-center leading-tight w-full whitespace-nowrap overflow-hidden text-ellipsis px-0.5`} style={{ color: tab === key ? primary : muted }}>{label}</span>
               </button>
             );
           })}

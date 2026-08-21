@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Search, Plus, X, PartyPopper } from "lucide-react";
+import { Search, Plus, X, PartyPopper, Ticket, Coffee, Heart, CalendarDays } from "lucide-react";
 import { supabase } from "../../supabaseClient";
 import { matchKey } from "../../utils/format";
 import EventCard from "./EventCard";
@@ -11,6 +11,8 @@ import EventInviteModal from "./EventInviteModal";
 import ReportModal from "./ReportModal";
 import PublicProfileModal from "./PublicProfileModal";
 import EmptyState from "../home/EmptyState";
+import HorizontalScrollRow from "../HorizontalScrollRow";
+import InfoTipCard from "../InfoTipCard";
 import { SkeletonCard } from "../Skeleton";
 import { rankEvents } from "../../lib/events/recommendations";
 import { EVENT_REPORT_CATEGORIES } from "../../lib/events/eventConfig";
@@ -19,6 +21,23 @@ import { primary, coral, muted, bg, card, primaryRgb } from "./theme";
 
 const PAGE_SIZE = 20;
 const PHOTO_URL_EXPIRY = 60 * 60 * 24 * 30; // 30 jours — assez pour une galerie, régénéré à chaque chargement
+
+// Cartes-conseil qui comblent les rangées à balayage horizontal quand peu
+// d'événements réels existent encore — conseils génériques uniquement,
+// jamais une statistique inventée (voir aussi CommunitiesTab.jsx).
+const EVENT_TIPS = {
+  populaires: [
+    { icon: Ticket, title: "Les places partent vite", text: "Les événements populaires ont parfois un nombre de places limité — inscris-toi tôt." },
+    { icon: Coffee, title: "Commence petit", text: "Un simple café ou une marche entre nouveaux arrivants est souvent le meilleur premier événement." },
+  ],
+  recommandes: [
+    { icon: Heart, title: "Recommandés selon toi", text: "Complète tes centres d'intérêt et ta ville pour affiner ces suggestions." },
+  ],
+  aVenir: [
+    { icon: CalendarDays, title: "Rien de prévu pour l'instant", text: "Reviens bientôt — de nouveaux événements sont créés régulièrement par la communauté." },
+    { icon: PartyPopper, title: "Organise le tien", text: "Rassemble ta communauté en créant ton propre événement avec le bouton \"Créer\" ci-dessus." },
+  ],
+};
 
 function buildListQuery({ search, filterCity, filterCategory, dateRange }) {
   let query = supabase.from("events").select("*, event_participant_count", { count: "exact" }).is("canceled_at", null);
@@ -612,7 +631,7 @@ export default function EventsTab({ currentUser, onError, initialEventId, onCons
 
         {shareOpen && (
           <div className="fixed inset-0 z-[70] flex items-end md:items-center justify-center p-0 md:p-5" style={{ background: `rgba(${primaryRgb},.55)`, backdropFilter: "blur(5px)" }} onClick={() => setShareOpen(false)} role="dialog" aria-modal="true" aria-label="Partager dans une conversation">
-            <div className={`${card} bg-white w-full max-w-md rounded-t-[30px] md:rounded-[30px] p-6 max-h-[80vh] overflow-y-auto`} onClick={(e) => e.stopPropagation()}>
+            <div className={`${card} w-full max-w-md rounded-t-[30px] md:rounded-[30px] p-6 max-h-[80vh] overflow-y-auto`} onClick={(e) => e.stopPropagation()}>
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-black" style={{ color: primary }}>Partager dans une conversation</h2>
                 <button onClick={() => setShareOpen(false)} aria-label="Fermer"><X /></button>
@@ -651,18 +670,31 @@ export default function EventsTab({ currentUser, onError, initialEventId, onCons
     </div>
   );
 
-  const renderSection = (title, list) =>
-    list.length > 0 && (
+  const renderRow = (list, tipKey) => (
+    <HorizontalScrollRow>
+      {list.map((ev) => (
+        <div key={ev.id} className="w-56 flex-shrink-0" style={{ scrollSnapAlign: "start" }}>
+          <EventCard event={ev} participantCount={ev.participantCount} status={myStatuses[ev.id]} onView={goDetail} />
+        </div>
+      ))}
+      {tipKey && list.length < 4 && EVENT_TIPS[tipKey]
+        .slice(0, 4 - list.length)
+        .map((tip, i) => <InfoTipCard key={`tip-${tipKey}-${i}`} {...tip} />)}
+    </HorizontalScrollRow>
+  );
+
+  const renderSection = (title, list, tipKey) =>
+    (list.length > 0 || tipKey) && (
       <div className="mb-8">
         <h2 className="text-sm font-black mb-3" style={{ color: primary }}>{title}</h2>
-        {renderGrid(list)}
+        {renderRow(list, tipKey)}
       </div>
     );
 
   return (
     <section className="max-w-6xl mx-auto">
       <div className="mb-5">
-        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-[11px] font-black uppercase tracking-wider" style={{ background: "#FFF3F1" }}>
+        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-[11px] font-black uppercase tracking-wider" style={{ background: "#FFF3F1", color: coral }}>
           <PartyPopper size={13} /> Événements Baobab
         </div>
         <div className="flex items-center justify-between gap-3 mt-3 flex-wrap">
@@ -718,10 +750,10 @@ export default function EventsTab({ currentUser, onError, initialEventId, onCons
         />
       ) : isNeutralHome ? (
         <>
-          {renderSection("🔥 Populaires", popular)}
+          {renderSection("🔥 Populaires", popular, "populaires")}
           {renderSection("📍 Près de toi", nearby)}
-          {renderSection("❤️ Recommandés pour toi", recommended)}
-          {renderSection("📅 À venir", upcoming)}
+          {renderSection("❤️ Recommandés pour toi", recommended, "recommandes")}
+          {renderSection("📅 À venir", upcoming, "aVenir")}
           {renderSection("🌍 De tes communautés", fromCommunities)}
           {renderSection("🎟️ Mes événements", mine)}
           <h2 className="text-sm font-black mb-3" style={{ color: primary }}>Tous les événements</h2>
