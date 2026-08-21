@@ -3,6 +3,7 @@ import { Loader2, Mail, ArrowLeft, MapPin, X, ShieldCheck, FileText, CheckCircle
 import { supabase } from "./supabaseClient";
 import { getCurrentPositionSafe } from "./lib/geolocation";
 import loginBackground from "./assets/baobab-canada-bg.svg";
+import logoIcon from "./assets/logo-baobab-icon.png";
 import { PrivacyPolicyContent, TermsOfServiceContent } from "./legalContent";
 import { useEscapeKey } from "./hooks/useEscapeKey";
 import { useCountdown } from "./hooks/useCountdown";
@@ -17,17 +18,6 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function isValidEmail(value) {
   return EMAIL_RE.test(value.trim());
-}
-
-function BaobabIcon({ size = 34 }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 40 40" aria-hidden="true">
-      <path d="M20 30v8" stroke={C.ochre} strokeWidth="2.5" strokeLinecap="round" />
-      <ellipse cx="20" cy="16" rx="9" ry="10" fill={C.ochre} />
-      <path d="M13 9c-2-3-6-3-7-1M27 9c2-3 6-3 7-1M12 13c-3-1-6 1-6 3M28 13c3-1 6 1 6 3"
-        stroke={C.bark} strokeWidth="1.6" strokeLinecap="round" fill="none" />
-    </svg>
-  );
 }
 
 function isEmailNotConfirmed(err) {
@@ -331,9 +321,9 @@ export default function Auth({ justVerified = false, onAcknowledgeVerified = () 
             boxShadow: "0 30px 90px rgba(0,0,0,0.52)", backdropFilter: "blur(22px)", WebkitBackdropFilter: "blur(22px)" }}>
 
           <button type="button" onClick={onGoHome} className="flex items-center gap-3 mb-6 text-left">
-            <div className="bb-brand-icon flex h-12 w-12 items-center justify-center rounded-2xl"
-              style={{ background: "rgba(217,164,65,0.12)", border: "1px solid rgba(217,164,65,0.25)" }}>
-              <BaobabIcon />
+            <div className="bb-brand-icon h-12 w-12 rounded-2xl overflow-hidden"
+              style={{ background: "#000", border: "1px solid rgba(217,164,65,0.25)" }}>
+              <img src={logoIcon} alt="" className="h-full w-full object-cover" />
             </div>
             <div>
               <div style={{ fontFamily: "Fraunces, serif", fontStyle: "italic", fontWeight: 600, fontSize: 28, lineHeight: 1 }}>Baobab</div>
