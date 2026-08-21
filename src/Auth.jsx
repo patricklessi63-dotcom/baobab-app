@@ -323,7 +323,7 @@ export default function Auth({ justVerified = false, onAcknowledgeVerified = () 
           <button type="button" onClick={onGoHome} className="flex items-center gap-3 mb-6 text-left">
             <div className="bb-brand-icon h-12 w-12 rounded-2xl overflow-hidden"
               style={{ background: "#000", border: "1px solid rgba(217,164,65,0.25)" }}>
-              <img src={logoIcon} alt="" className="h-full w-full object-contain" />
+              <img src={logoIcon} alt="" className="h-full w-full object-cover" />
             </div>
             <div>
               <div style={{ fontFamily: "Fraunces, serif", fontStyle: "italic", fontWeight: 600, fontSize: 28, lineHeight: 1 }}>Baobab</div>
