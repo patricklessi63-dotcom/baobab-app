@@ -49,7 +49,7 @@ export default function EditProfileForm({
 
   return (
     <div className="p-6 max-w-md mx-auto w-full">
-      <button onClick={() => setView("discover")} className="flex items-center gap-1 text-sm mb-4" style={{ color: C.indigo }}>
+      <button onClick={() => setView("feed")} className="flex items-center gap-1 text-sm mb-4" style={{ color: C.indigo }}>
         <ArrowLeft size={16} /> Retour
       </button>
       <h2 style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 24, color: C.indigo }} className="mb-4">

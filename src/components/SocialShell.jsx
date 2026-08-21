@@ -1204,13 +1204,13 @@ export default function SocialShell({
 
         {tab === "premium" && (
           <Suspense fallback={<TabLoadingFallback />}>
-            <PremiumPage currentUser={currentUser} onBack={() => goTab("profile")} onError={onError} />
+            <PremiumPage currentUser={currentUser} onBack={() => goTab("feed")} onError={onError} />
           </Suspense>
         )}
 
         {tab === "admin" && myPlatformRole && (
           <Suspense fallback={<TabLoadingFallback />}>
-            <AdminDashboard onBack={() => goTab("profile")} onError={onError} myPlatformRole={myPlatformRole} />
+            <AdminDashboard onBack={() => goTab("feed")} onError={onError} myPlatformRole={myPlatformRole} />
           </Suspense>
         )}
 
