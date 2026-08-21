@@ -21,6 +21,7 @@ import { uploadWithProgress } from "./lib/uploadWithProgress";
 import { MEDIA_BUCKET, extFromMime } from "./lib/mediaConstants";
 import { trackActivation } from "./lib/trackActivation";
 import { fetchMyLocation, upsertMyLocation, disableMyLocation } from "./lib/locationApi";
+import { getCurrentPositionSafe } from "./lib/geolocation";
 import { usePathname } from "./hooks/usePathname";
 import LandingPage from "./screens/public/LandingPage";
 import AboutPage from "./screens/public/AboutPage";
@@ -64,6 +65,7 @@ export default function App() {
   const [termsOpen, setTermsOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
   const [myLocation, setMyLocation] = useState(null);
+  const [locationChecked, setLocationChecked] = useState(false);
   const [coverFile, setCoverFile] = useState(null);
   const [coverPreview, setCoverPreview] = useState("");
   const [coverRemoved, setCoverRemoved] = useState(false);
@@ -343,8 +345,34 @@ export default function App() {
 
   useEffect(() => {
     if (!currentUser?.id) return;
-    fetchMyLocation().then(setMyLocation).catch((e) => console.error(e));
+    fetchMyLocation().then((row) => { setMyLocation(row); setLocationChecked(true); }).catch((e) => { console.error(e); setLocationChecked(true); });
   }, [currentUser?.id]);
+
+  // Popup native de localisation au premier lancement (item 2 des specs
+  // navigation/auth) — ne se déclenche qu'une fois par session, seulement si
+  // l'utilisateur n'a encore jamais configuré sa localisation (aucune ligne
+  // user_locations) ET que le navigateur n'a pas déjà tranché la permission
+  // (accordée/refusée) : navigator.geolocation ne réaffiche jamais la popup
+  // native une fois qu'une réponse a été donnée, donc aucun état "déjà
+  // demandé" à mémoriser côté app au-delà de cette même session.
+  const locationPromptAskedRef = useRef(false);
+  useEffect(() => {
+    if (!locationChecked || myLocation !== null || locationPromptAskedRef.current) return;
+    locationPromptAskedRef.current = true;
+    (async () => {
+      try {
+        if (navigator.permissions?.query) {
+          const status = await navigator.permissions.query({ name: "geolocation" });
+          if (status.state !== "prompt") return; // déjà accordée ou refusée : ne rien redemander
+        }
+      } catch (_) {
+        // API Permissions indisponible (ex. Safari) — on tente quand même,
+        // getCurrentPositionSafe se dégrade proprement si refusé.
+      }
+      const result = await getCurrentPositionSafe();
+      if (result.ok) handleEnableLocation(result.latitude, result.longitude);
+    })();
+  }, [locationChecked, myLocation]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Rôle plateforme (moderator/admin/super_admin) — table dédiée
   // platform_roles, RLS restreinte à sa propre ligne. N'affiche jamais
