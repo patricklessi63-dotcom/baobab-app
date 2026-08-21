@@ -1486,7 +1486,7 @@ export default function App() {
               : `Ton compte est temporairement suspendu${until ? ` jusqu'au ${until.toLocaleDateString("fr-CA")} à ${until.toLocaleTimeString("fr-CA", { hour: "2-digit", minute: "2-digit" })}` : ""}.`}
           </p>
           {reason && (
-            <p className="text-sm mt-2 rounded-xl p-3" style={{ background: C.sand === "#F8F5EF" ? "rgba(var(--bb-ink-rgb),0.05)" : undefined, color: "rgba(var(--bb-ink-rgb),0.6)" }}>
+            <p className="text-sm mt-2 rounded-xl p-3" style={{ background: "rgba(var(--bb-ink-rgb),0.05)", color: "rgba(var(--bb-ink-rgb),0.6)" }}>
               Motif : {reason}
             </p>
           )}
