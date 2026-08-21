@@ -48,6 +48,8 @@ function traduireErreur(err) {
     return "Trop de tentatives. Réessaie dans quelques minutes.";
   if (msg.toLowerCase().includes("already confirmed"))
     return "Cette adresse est déjà vérifiée. Tu peux te connecter directement.";
+  if (code === "otp_expired" || msg.toLowerCase().includes("expired") || msg.toLowerCase().includes("invalid"))
+    return "Code invalide ou expiré. Vérifie les chiffres saisis ou demande un nouveau code.";
   if (!navigator.onLine) return "Pas de connexion internet.";
   return msg || "Une erreur est survenue.";
 }
@@ -69,6 +71,8 @@ export default function Auth({ justVerified = false, onAcknowledgeVerified = () 
   const [legalView, setLegalView] = useState(null); // "privacy" | "terms" | null
   const [resendLoading, setResendLoading] = useState(false);
   const [signupEmailExists, setSignupEmailExists] = useState(false);
+  const [otpCode, setOtpCode] = useState("");
+  const [verifyLoading, setVerifyLoading] = useState(false);
   // Deux cooldowns distincts (reset password vs renvoi de confirmation sont
   // deux flux séparés) mais un seul mécanisme de compte à rebours partagé.
   const [resendCooldown, setResendCooldown] = useCountdown();
@@ -170,6 +174,39 @@ export default function Auth({ justVerified = false, onAcknowledgeVerified = () 
     }
   }
 
+  // Vérification par code (item 4 des specs navigation/auth) — utilise
+  // l'OTP natif de Supabase Auth (type "signup") plutôt qu'une
+  // infrastructure d'envoi d'email custom : le même email de confirmation
+  // envoyé par signUp() contient ce code si le modèle d'email Supabase
+  // inclut {{ .Token }} (réglage du tableau de bord Supabase, hors de ce
+  // dépôt). Succès = session établie normalement, comme une connexion
+  // classique — contrairement au lien (voir App.jsx), rien ne la referme
+  // ici : l'utilisateur vient de saisir son mot de passe puis ce code sur
+  // le même appareil, l'auto-connexion est donc légitime.
+  async function handleVerifyCode(e) {
+    e.preventDefault();
+    const cleanCode = otpCode.trim();
+    if (!cleanCode) {
+      setError("Entre le code reçu par email.");
+      return;
+    }
+    setVerifyLoading(true);
+    setError("");
+    setNotice("");
+    try {
+      const { error: verifyError } = await supabase.auth.verifyOtp({
+        email: email.trim(), token: cleanCode, type: "signup",
+      });
+      if (verifyError) throw verifyError;
+      // Pas de setMode ici : onAuthStateChange (App.jsx) détecte la session
+      // et fait sortir l'utilisateur de l'écran d'authentification.
+    } catch (err) {
+      setError(traduireErreur(err) || "Code invalide ou expiré. Réessaie ou demande un nouveau code.");
+    } finally {
+      setVerifyLoading(false);
+    }
+  }
+
   function switchMode(next) {
     setMode(next);
     setError("");
@@ -189,7 +226,7 @@ export default function Auth({ justVerified = false, onAcknowledgeVerified = () 
 
   const subtitle = mode === "signup" ? "Rejoins une communauté d'immigrants au Canada."
     : mode === "reset" ? "Entre ton adresse email pour recevoir un nouveau lien."
-    : mode === "check-email" ? "Un lien de confirmation vient d'être envoyé."
+    : mode === "check-email" ? "Un email de confirmation vient d'être envoyé."
     : mode === "unverified" ? "Confirme ton adresse avant de te connecter."
     : mode === "link-error" ? "Pas d'inquiétude, on peut t'en envoyer un autre."
     : "Rencontre, échange et crée des connexions avec des immigrants partout au Canada.";
@@ -363,12 +400,30 @@ export default function Auth({ justVerified = false, onAcknowledgeVerified = () 
                 </div>
               </div>
               <p className="text-sm leading-6" style={{ color: C.sandDim }}>
-                Ouvre l'email et clique sur le lien de confirmation. Tu pourras ensuite te connecter avec ton mot de passe.
+                Ouvre l'email : clique sur le lien de confirmation, ou entre ci-dessous le code qu'il contient.
               </p>
+              <form onSubmit={handleVerifyCode} className="mt-4 flex flex-col gap-2.5">
+                <label htmlFor="otp-code" className="block text-xs font-semibold" style={{ color: C.sandDim }}>Code de vérification</label>
+                <input
+                  id="otp-code"
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  placeholder="123456"
+                  value={otpCode}
+                  onChange={(e) => setOtpCode(e.target.value.replace(/\s+/g, ""))}
+                  maxLength={8}
+                  className="bb-field rounded-2xl px-4 py-4 text-center text-lg tracking-[0.3em] outline-none"
+                  style={{ background: "rgba(35,45,82,0.78)", border: "1px solid rgba(242,233,220,0.11)", color: C.sand }}
+                />
+                <button type="submit" disabled={verifyLoading || !otpCode.trim()} className="bb-tap py-3.5 rounded-2xl text-sm font-bold text-white disabled:opacity-60" style={{ background: `linear-gradient(135deg, ${C.clay}, #A94F30)` }}>
+                  {verifyLoading ? "Vérification..." : "Vérifier le code"}
+                </button>
+              </form>
               <div className="mt-5 text-center text-xs" style={{ color: C.sandDim }}>
-                Tu n'as pas reçu l'email ?{" "}
+                Tu n'as rien reçu ?{" "}
                 <button onClick={handleResend} disabled={resendCooldown > 0 || resendLoading} className="bb-tap font-bold disabled:opacity-50" style={{ color: C.ochre }}>
-                  {resendLoading ? "Envoi..." : resendCooldown > 0 ? `Renvoyer (${resendCooldown}s)` : "Renvoyer le lien"}
+                  {resendLoading ? "Envoi..." : resendCooldown > 0 ? `Renvoyer (${resendCooldown}s)` : "Renvoyer le code"}
                 </button>
               </div>
               <button onClick={() => switchMode("signin")} className="bb-tap mt-4 w-full inline-flex items-center justify-center gap-1 text-xs font-semibold" style={{ color: C.sandDim }}>
