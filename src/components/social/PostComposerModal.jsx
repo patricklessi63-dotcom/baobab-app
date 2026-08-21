@@ -34,7 +34,7 @@ export default function PostComposerModal({
       <input ref={videoInputRef} type="file" accept="video/*" className="hidden" onChange={(e) => onMediaSelected(e, "video")} />
       {composer && (
         <div className="fixed inset-0 z-[60] flex items-end md:items-center justify-center p-0 md:p-5" style={{ background: `rgba(${primaryRgb},.55)`, backdropFilter: "blur(5px)" }} onClick={onRequestClose} role="dialog" aria-modal="true" aria-label="Créer une publication">
-          <div className="bg-[var(--bb-surface)] w-full max-w-xl rounded-t-[30px] md:rounded-[30px] shadow-2xl relative flex flex-col" style={{ maxHeight: "88vh" }} onClick={(e) => e.stopPropagation()}>
+          <div className="bg-[var(--bb-surface)] w-full max-w-xl rounded-t-[30px] md:rounded-[30px] shadow-2xl relative flex flex-col" style={{ maxHeight: "88dvh", paddingBottom: "env(safe-area-inset-bottom)" }} onClick={(e) => e.stopPropagation()}>
             {draftSavedNotice ? (
               <div className="py-10 text-center p-5 md:p-6">
                 <div className="text-3xl mb-2">✓</div>

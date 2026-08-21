@@ -27,7 +27,7 @@ export default function StoryComposerModal({
       <input ref={storyVideoInputRef} type="file" accept="video/*" className="hidden" onChange={(e) => onStoryMediaSelected(e, "video")} />
       {storyComposer && (
         <div className="fixed inset-0 z-[60] flex items-end md:items-center justify-center p-0 md:p-5" style={{ background: `rgba(${primaryRgb},.55)`, backdropFilter: "blur(5px)" }} onClick={() => setStoryComposer(false)} role="dialog" aria-modal="true" aria-label="Nouveau statut">
-          <div className="bg-[var(--bb-surface)] w-full max-w-md rounded-t-[30px] md:rounded-[30px] shadow-2xl flex flex-col" style={{ maxHeight: "88vh" }} onClick={(e) => e.stopPropagation()}>
+          <div className="bg-[var(--bb-surface)] w-full max-w-md rounded-t-[30px] md:rounded-[30px] shadow-2xl flex flex-col" style={{ maxHeight: "88dvh", paddingBottom: "env(safe-area-inset-bottom)" }} onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between p-6 pb-0 shrink-0"><h2 className="text-xl font-black" style={{ color: primary }}>Nouveau statut</h2><button onClick={() => setStoryComposer(false)} aria-label="Fermer"><X /></button></div>
             <div className="overflow-y-auto p-6">
               <textarea value={storyText} onChange={(e) => setStoryText(e.target.value)} className="mt-5 w-full min-h-28 rounded-2xl p-4 outline-none resize-none" style={{ background: bg }} placeholder="Une pensée, une bonne nouvelle, un moment de ta journée…" />
