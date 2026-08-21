@@ -275,12 +275,7 @@ export default function App() {
   // toucher/scroll), jamais à visibilitychange/changement d'onglet, et les
   // deux minuteurs (avertissement + déconnexion) sont réarmés ensemble à
   // chaque activité pour éviter tout décalage entre les deux.
-  // DÉSACTIVÉE TEMPORAIREMENT à la demande de l'utilisateur le temps de la
-  // session de développement autonome de cette nuit (coupait la session de
-  // test toutes les ~30 min sans activité réelle) — à réactiver avant le
-  // déploiement de 10h00 (retirer le "if (true) return;" ci-dessous).
   useEffect(() => {
-    if (true) return; // eslint-disable-line no-constant-condition
     if (!session?.user?.id) return;
     const WARNING_MS = 25 * 60 * 1000; // avertit 5 min avant la déconnexion
     const LOGOUT_MS = 30 * 60 * 1000;
