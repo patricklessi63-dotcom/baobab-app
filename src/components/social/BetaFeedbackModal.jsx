@@ -92,7 +92,7 @@ export default function BetaFeedbackModal({ open, onClose, currentUser, screen }
               maxLength={2000}
               placeholder="Décris le bug ou ton idée... (facultatif si tu as choisi une réaction ci-dessus)"
               className="w-full p-3 rounded-lg text-sm"
-              style={{ border: `1px solid rgba(${primaryRgb},.12)` }}
+              style={{ border: `1px solid rgba(${primaryRgb},.12)`, background: "#fff", color: navy }}
               autoFocus
             />
             <div className="flex gap-2 mt-4">

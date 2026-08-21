@@ -62,7 +62,7 @@ export default function ReportModal({
               rows={3}
               placeholder={commentRequired ? "Explique brièvement pourquoi (obligatoire pour \"Autre\")..." : "Commentaire (facultatif)..."}
               className="w-full p-3 rounded-lg text-sm mt-3"
-              style={{ border: `1px solid rgba(${primaryRgb},.12)` }}
+              style={{ border: `1px solid rgba(${primaryRgb},.12)`, background: "#fff", color: navy }}
             />
 
             <div className="flex gap-2 mt-4">
