@@ -24,6 +24,7 @@ function draftFromUser(user) {
   return {
     usageGoals: parseList(user?.usage_goals),
     name: user?.name || "",
+    lastName: user?.last_name || "",
     birthDate: user?.birth_date || "",
     country: user?.country || "",
     province: user?.province || "",
@@ -111,6 +112,7 @@ export default function OnboardingWizard({
       if (step === 2) {
         const payload = {
           name: draft.name.trim(),
+          last_name: draft.lastName.trim() || null,
           birth_date: draft.birthDate,
           age: computeAge(draft.birthDate),
           onboarding_step: 2,
@@ -261,7 +263,7 @@ export default function OnboardingWizard({
           onClick={goNext}
           disabled={saving}
           className="w-full mt-2 py-2.5 text-sm font-semibold"
-          style={{ color: "rgba(43,36,32,0.5)" }}
+          style={{ color: "rgba(var(--bb-ink-rgb),0.5)" }}
         >
           Passer cette étape
         </button>

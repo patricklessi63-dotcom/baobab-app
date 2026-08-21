@@ -1,9 +1,7 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ArrowLeft, MoreVertical, MoreHorizontal, Reply, X, Flag, Ban, Check, CheckCheck, Circle, ShieldAlert, ShieldCheck, RotateCcw, HeartCrack } from "lucide-react";
 import Avatar from "../Avatar";
-import VerifiedBadge from "../VerifiedBadge";
-import FounderBadge from "../FounderBadge";
-import PremiumBadge from "../PremiumBadge";
+import StatusBadge from "../StatusBadge";
 import ConversationStarters from "./ConversationStarters";
 import { formatLastSeen, formatMessageTime, formatDayLabel } from "../../utils/format";
 import { linkify } from "../../utils/linkify";
@@ -128,9 +126,7 @@ export default function ConversationPane({
         <div className="min-w-0">
           <div className="text-sm font-bold flex items-center gap-1.5 truncate">
             {activeMatch.name}
-            <VerifiedBadge emailVerified={activeMatch.email_verified} phoneVerified={activeMatch.phone_verified} size={13} />
-            <FounderBadge isFounder={activeMatch.is_founder} size={13} />
-            <PremiumBadge isPremium={activeMatch.is_premium} size={13} />
+            <StatusBadge emailVerified={activeMatch.email_verified} phoneVerified={activeMatch.phone_verified} isFounder={activeMatch.is_founder} isPremium={activeMatch.is_premium} size={13} />
           </div>
           <div className="text-xs truncate" style={{ color: otherTyping ? coral : muted }}>
             {otherTyping ? "en train d'écrire…" : activeMatch.is_online ? "En ligne" : formatLastSeen(activeMatch.last_seen)}
@@ -148,7 +144,7 @@ export default function ConversationPane({
           <MoreVertical size={18} color={primary} />
         </button>
         {menuOpen && (
-          <div role="menu" className="rounded-xl overflow-hidden bg-white shadow-xl" style={{ border: `1px solid rgba(${primaryRgb},.08)`, position: "absolute", top: 48, right: 12, minWidth: 170, zIndex: 5 }}>
+          <div role="menu" className="rounded-xl overflow-hidden bg-[var(--bb-surface)] shadow-xl" style={{ border: `1px solid rgba(${primaryRgb},.08)`, position: "absolute", top: 48, right: 12, minWidth: 170, zIndex: 5 }}>
             <button role="menuitem" onClick={() => { onOpenReport(activeMatch); setMenuOpen(false); }} className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-left focus-visible:outline focus-visible:outline-2">
               <Flag size={14} /> Signaler
             </button>
@@ -310,7 +306,7 @@ export default function ConversationPane({
       )}
 
       {replyingTo && (
-        <div className="px-4 pt-2 flex items-center justify-between gap-2 shrink-0 bg-white" style={{ borderTop: `1px solid rgba(${primaryRgb},.08)` }}>
+        <div className="px-4 pt-2 flex items-center justify-between gap-2 shrink-0 bg-[var(--bb-surface)]" style={{ borderTop: `1px solid rgba(${primaryRgb},.08)` }}>
           <div className="min-w-0 flex items-center gap-1.5 text-xs" style={{ color: muted }}>
             <Reply size={12} className="flex-shrink-0" />
             <span className="truncate">Réponse à : {replyingTo.kind === "text" ? replyingTo.text : "Média"}</span>
@@ -320,7 +316,7 @@ export default function ConversationPane({
           </button>
         </div>
       )}
-      <div className="p-4 flex gap-2 items-end shrink-0 sticky bottom-0 bg-white" style={{ borderTop: replyingTo ? "none" : `1px solid rgba(${primaryRgb},.08)`, paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}>
+      <div className="p-4 flex gap-2 items-end shrink-0 sticky bottom-0 bg-[var(--bb-surface)]" style={{ borderTop: replyingTo ? "none" : `1px solid rgba(${primaryRgb},.08)`, paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}>
         {!recorderActive && <EmojiPicker onPick={(emoji) => setMessageDraft((d) => d + emoji)} currentUserId={currentUser.id} />}
         {!recorderActive && (
           <MessageMediaPicker

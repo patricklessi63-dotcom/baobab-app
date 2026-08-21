@@ -41,13 +41,13 @@ export default function PrivacyFieldsModal({ open, onClose, onBack, currentUser,
             Confidentialité des champs
           </div>
         </div>
-        <p className="text-sm mb-3" style={{ color: "rgba(43,36,32,0.6)" }}>
+        <p className="text-sm mb-3" style={{ color: "rgba(var(--bb-ink-rgb),0.6)" }}>
           Ceci contrôle uniquement ce que l'app affiche dans ton profil public — ce
           n'est pas un accès à ta base de données Supabase, qui reste soumise à ses
           propres règles de sécurité.
         </p>
         {FIELDS.map(({ key, label, icon: Icon }) => (
-          <label key={key} className="flex items-center justify-between py-2.5" style={{ borderTop: "1px solid rgba(43,36,32,0.08)", minHeight: 44 }}>
+          <label key={key} className="flex items-center justify-between py-2.5" style={{ borderTop: "1px solid rgba(var(--bb-ink-rgb),0.08)", minHeight: 44 }}>
             <div className="flex items-center gap-2 text-sm"><Icon size={14} color={C.indigo} /> {label}</div>
             <input
               type="checkbox"
@@ -59,7 +59,7 @@ export default function PrivacyFieldsModal({ open, onClose, onBack, currentUser,
         ))}
 
         {currentUser?.is_founder && FOUNDER_FIELDS.map(({ key, label, icon: Icon }) => (
-          <label key={key} className="flex items-center justify-between py-2.5" style={{ borderTop: "1px solid rgba(43,36,32,0.08)", minHeight: 44 }}>
+          <label key={key} className="flex items-center justify-between py-2.5" style={{ borderTop: "1px solid rgba(var(--bb-ink-rgb),0.08)", minHeight: 44 }}>
             <div className="flex items-center gap-2 text-sm"><Icon size={14} color={C.indigo} /> {label}</div>
             <input
               type="checkbox"
@@ -70,9 +70,9 @@ export default function PrivacyFieldsModal({ open, onClose, onBack, currentUser,
           </label>
         ))}
 
-        <div className="mt-4 mb-1 text-xs font-black uppercase tracking-wider" style={{ color: "rgba(43,36,32,0.5)" }}>Personnalisation</div>
+        <div className="mt-4 mb-1 text-xs font-black uppercase tracking-wider" style={{ color: "rgba(var(--bb-ink-rgb),0.5)" }}>Personnalisation</div>
         {PERSONALIZATION_FIELDS.map(({ key, label, icon: Icon }) => (
-          <label key={key} className="flex items-center justify-between py-2.5" style={{ borderTop: "1px solid rgba(43,36,32,0.08)", minHeight: 44 }}>
+          <label key={key} className="flex items-center justify-between py-2.5" style={{ borderTop: "1px solid rgba(var(--bb-ink-rgb),0.08)", minHeight: 44 }}>
             <div className="flex items-center gap-2 text-sm"><Icon size={14} color={C.indigo} /> {label}</div>
             <input
               type="checkbox"
@@ -83,7 +83,7 @@ export default function PrivacyFieldsModal({ open, onClose, onBack, currentUser,
           </label>
         ))}
 
-        <button onClick={onClose} className="w-full mt-4 py-3 rounded-full text-sm font-semibold" style={{ border: "1px solid rgba(43,36,32,0.15)", color: C.ink, minHeight: 44 }}>
+        <button onClick={onClose} className="w-full mt-4 py-3 rounded-full text-sm font-semibold" style={{ border: "1px solid rgba(var(--bb-ink-rgb),0.15)", color: C.ink, minHeight: 44 }}>
           Fermer
         </button>
       </div>

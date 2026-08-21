@@ -45,14 +45,14 @@ export default function LocationSettingsModal({ open, onClose, onBack, location,
 
         {view === "consent" && (
           <div className="py-2">
-            <p className="text-sm mt-2" style={{ color: "rgba(43,36,32,0.7)" }}>
+            <p className="text-sm mt-2" style={{ color: "rgba(var(--bb-ink-rgb),0.7)" }}>
               Baobab utilise ta localisation pour te proposer des personnes, événements,
               communautés et informations à proximité. Ta position exacte n'est jamais
               montrée aux autres utilisateurs.
             </p>
             <div className="flex flex-col gap-2 mt-5">
               <button onClick={handleAllow} className="w-full rounded-xl py-3 font-bold text-white" style={{ background: C.indigo }}>Autoriser</button>
-              <button onClick={() => setView("idle")} className="w-full rounded-xl py-3 font-semibold" style={{ color: "rgba(43,36,32,0.6)" }}>Pas maintenant</button>
+              <button onClick={() => setView("idle")} className="w-full rounded-xl py-3 font-semibold" style={{ color: "rgba(var(--bb-ink-rgb),0.6)" }}>Pas maintenant</button>
             </div>
           </div>
         )}
@@ -67,14 +67,14 @@ export default function LocationSettingsModal({ open, onClose, onBack, location,
         {view === "error" && (
           <div className="py-6 text-center">
             <div className="text-3xl mb-2">📍</div>
-            <p className="text-sm" style={{ color: "rgba(43,36,32,0.7)" }}>{errorMessage}</p>
+            <p className="text-sm" style={{ color: "rgba(var(--bb-ink-rgb),0.7)" }}>{errorMessage}</p>
             <button onClick={() => setView("idle")} className="w-full mt-5 rounded-xl py-3 font-bold text-white" style={{ background: C.indigo }}>Compris</button>
           </div>
         )}
 
         {view === "idle" && (
           <>
-            <p className="text-sm mb-3" style={{ color: "rgba(43,36,32,0.6)" }}>
+            <p className="text-sm mb-3" style={{ color: "rgba(var(--bb-ink-rgb),0.6)" }}>
               Ta localisation reste privée par défaut. Elle n'est utilisée que pour les
               fonctionnalités que tu actives ci-dessous, et jamais partagée sous forme de
               coordonnées exactes avec les autres membres.
@@ -86,11 +86,11 @@ export default function LocationSettingsModal({ open, onClose, onBack, location,
               </button>
             ) : (
               <>
-                <div className="flex items-center justify-between py-2.5" style={{ borderTop: "1px solid rgba(43,36,32,0.08)", minHeight: 44 }}>
+                <div className="flex items-center justify-between py-2.5" style={{ borderTop: "1px solid rgba(var(--bb-ink-rgb),0.08)", minHeight: 44 }}>
                   <div className="flex items-center gap-2 text-sm"><MapPin size={14} color={C.verified || C.indigo} /> Localisation activée</div>
                 </div>
                 {PREF_FIELDS.map(({ key, label, icon: Icon }) => (
-                  <label key={key} className="flex items-center justify-between py-2.5" style={{ borderTop: "1px solid rgba(43,36,32,0.08)", minHeight: 44 }}>
+                  <label key={key} className="flex items-center justify-between py-2.5" style={{ borderTop: "1px solid rgba(var(--bb-ink-rgb),0.08)", minHeight: 44 }}>
                     <div className="flex items-center gap-2 text-sm"><Icon size={14} color={C.indigo} /> {label}</div>
                     <input
                       type="checkbox"
@@ -109,7 +109,7 @@ export default function LocationSettingsModal({ open, onClose, onBack, location,
         )}
 
         {view === "idle" && (
-          <button onClick={onClose} className="w-full mt-4 py-3 rounded-full text-sm font-semibold" style={{ border: "1px solid rgba(43,36,32,0.15)", color: C.ink, minHeight: 44 }}>
+          <button onClick={onClose} className="w-full mt-4 py-3 rounded-full text-sm font-semibold" style={{ border: "1px solid rgba(var(--bb-ink-rgb),0.15)", color: C.ink, minHeight: 44 }}>
             Fermer
           </button>
         )}

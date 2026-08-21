@@ -42,18 +42,18 @@ export default function DeleteAccountModal({ open, onClose, currentUser, onReque
           </div>
           <button onClick={onClose} aria-label="Fermer"><X size={18} /></button>
         </div>
-        <p className="text-sm mb-3" style={{ color: "rgba(43,36,32,0.7)" }}>
+        <p className="text-sm mb-3" style={{ color: "rgba(var(--bb-ink-rgb),0.7)" }}>
           Ton compte sera définitivement supprimé le {deletionDate} (dans 7 jours) — profil, photos, matchs, messages, communautés, événements et abonnement inclus. Tu pourras annuler à tout moment avant cette date.
         </p>
         <label className="block mb-3">
-          <span className="text-xs font-bold" style={{ color: "rgba(43,36,32,0.6)" }}>Tape SUPPRIMER pour confirmer</span>
+          <span className="text-xs font-bold" style={{ color: "rgba(var(--bb-ink-rgb),0.6)" }}>Tape SUPPRIMER pour confirmer</span>
           <input value={confirmText} onChange={(e) => setConfirmText(e.target.value)} className="bb-input w-full mt-1.5" placeholder="SUPPRIMER" autoComplete="off" />
         </label>
         {error && <p role="alert" className="text-sm mb-3" style={{ color: C.clay }}>{error}</p>}
         <button onClick={handleDelete} disabled={!ready || loading} className="w-full py-3 rounded-full text-sm font-bold text-white disabled:opacity-40" style={{ background: C.clay, minHeight: 44 }}>
           {loading ? "Enregistrement..." : "Programmer la suppression dans 7 jours"}
         </button>
-        <button onClick={onClose} className="w-full mt-2 py-3 rounded-full text-sm font-semibold" style={{ border: "1px solid rgba(43,36,32,0.15)", color: C.ink, minHeight: 44 }}>
+        <button onClick={onClose} className="w-full mt-2 py-3 rounded-full text-sm font-semibold" style={{ border: "1px solid rgba(var(--bb-ink-rgb),0.15)", color: C.ink, minHeight: 44 }}>
           Annuler
         </button>
       </div>

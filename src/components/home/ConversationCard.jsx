@@ -1,9 +1,7 @@
 import React from "react";
 import { MessageCircle } from "lucide-react";
 import Avatar from "../Avatar";
-import VerifiedBadge from "../VerifiedBadge";
-import FounderBadge from "../FounderBadge";
-import PremiumBadge from "../PremiumBadge";
+import StatusBadge from "../StatusBadge";
 import { coral, muted, online, offline } from "../social/theme";
 
 export default function ConversationCard({ match, onOpen }) {
@@ -24,9 +22,7 @@ export default function ConversationCard({ match, onOpen }) {
       <div className="min-w-0 flex-1">
         <div className="text-sm font-bold truncate flex items-center gap-1.5">
           {match.name}
-          <VerifiedBadge emailVerified={match.email_verified} phoneVerified={match.phone_verified} size={12} />
-          <FounderBadge isFounder={match.is_founder} size={12} />
-          <PremiumBadge isPremium={match.is_premium} size={12} />
+          <StatusBadge emailVerified={match.email_verified} phoneVerified={match.phone_verified} isFounder={match.is_founder} isPremium={match.is_premium} size={12} />
         </div>
         <div className="text-xs truncate" style={{ color: muted }}>{match.is_online ? "En ligne" : (match.city || "Canada")}</div>
       </div>

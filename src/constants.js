@@ -4,39 +4,53 @@
 // ré-exports de ce module (voir leur en-tête). Un jeton de couleur n'est
 // jamais dupliqué en dur ailleurs : voir chaque composant pour l'import.
 export const C = {
+  // --- Identité Baobab 3.0 (Design System) — vert profond en primaire,
+  // turquoise en secondaire, accents chauds (corail/or) inchangés pour le
+  // contraste. Remplace l'ancienne identité marine (Phase ≤12). Les noms de
+  // jetons ("indigo", "navy", "dusk"...) sont conservés pour ne pas refaire
+  // les ~90 imports qui les référencent — seules leurs valeurs changent. ---
+
   // --- Chrome applicatif / onboarding / édition de profil ---
-  indigo: "#1E2A4F",
-  indigoDeep: "#141D38",
+  indigo: "#14432A",
+  indigoDeep: "#0D2E1C",
   clay: "#C1613D",
   ochre: "#D9A441",
   sand: "#F2E9DC",
   ink: "#2B2420",
 
   // --- Écrans pré-connexion (auth, landing, pages légales) ---
-  dusk: "#0F1526",
-  dusk3: "#232D52",
+  dusk: "#0C2318",
+  dusk3: "#1E4632",
   bark: "#8A6A52",
   acacia: "#8FAE86",
   sandDim: "rgba(242,233,220,0.72)",
 
   // --- Coquille sociale post-connexion (fil, découverte, messages...) ---
-  primary: "#151B3D",
-  green: "#2F8F6B",
+  // "primary" est le jeton de TEXTE/TITRE principal — réactif au thème via
+  // variable CSS (voir index.html) : vert profond en clair, presque blanc en
+  // sombre. Les ~14 endroits qui utilisaient primary comme fond de bouton
+  // plein (volontairement toujours vert profond, jamais inversé) utilisent
+  // désormais "navy" ci-dessous à la place.
+  primary: "var(--bb-text)",
+  // "navy" : copie FIXE du vert profond primaire, jamais réactive — pour les
+  // fonds de bouton pleins et dégradés décoratifs qui doivent rester vert
+  // foncé dans les deux thèmes (voir navyRgb plus bas). Nom historique
+  // conservé (ex-marine) pour éviter de retoucher ~15 fichiers.
+  navy: "#14432A",
+  // "green" : vert secondaire (turquoise) — accent lumineux, distinct du vert
+  // profond primaire ci-dessus.
+  green: "#2DBF9E",
   coral: "#E56B5D",
   gold: "#F2B84B",
 
-  // --- Nouvelles valeurs canoniques : remplacent des tons froids qui
-  // détonnaient avec le reste de la palette (gris bleuté vs. chaud) ---
-  bg: "#FAF7F2",
-  // 0.6 échouait au contraste AA (≈4.07:1) sur le nouveau fond "bg" (audit
-  // complémentaire post-palette). 0.72 reprend la même opacité déjà établie
-  // pour "sandDim" — cohérent visuellement, contraste largement au-dessus
-  // du seuil 4.5:1.
-  muted: "rgba(43,36,32,0.72)",
+  // --- Jetons de surface, réactifs au thème (clair/sombre, voir index.html) ---
+  bg: "var(--bb-bg)",
+  surface: "var(--bb-surface)",
+  muted: "var(--bb-muted)",
   // "body" : nuance de texte de corps distincte de "primary" (utilisée pour
   // titres/icônes), déjà répétée en dur ~15 fois dans social/ — convention
   // de fait promue en jeton nommé, valeur inchangée.
-  body: "#20243A",
+  body: "var(--bb-body-text)",
 
   // --- Promues depuis des littéraux orphelins ailleurs dans le code,
   // valeurs inchangées — juste nommées pour éviter la dérive future ---
@@ -49,15 +63,13 @@ export const C = {
   verified: "#3897F0",
 };
 
-// Triplet RGB de "primary", dérivé de son hex (jamais dupliqué en dur) —
-// ~70 endroits dans social/ utilisent rgba(21,27,61,X) à des opacités
-// variables (bordures/scrims/ombres) : `rgba(${primaryRgb},X)` les relie
-// tous à la même source au lieu d'un littéral copié-collé indépendant.
-function hexToRgbTriplet(hex) {
-  const n = parseInt(hex.slice(1), 16);
-  return `${(n >> 16) & 255},${(n >> 8) & 255},${n & 255}`;
-}
-export const primaryRgb = hexToRgbTriplet(C.primary);
+// Triplet RGB de "primary" (bordures/scrims réactifs au thème via
+// rgba(${primaryRgb},X)) — variable CSS, plus dérivable d'un hex depuis que
+// "primary" pointe vers var(--bb-text). Triplet FIXE équivalent pour les
+// dégradés/scrims décoratifs qui doivent rester marine dans les deux thèmes
+// (voir C.navy).
+export const primaryRgb = "var(--bb-text-rgb)";
+export const navyRgb = "20,67,42";
 
 export const EDUCATION_LEVELS = ["Secondaire", "Collégial / DEC", "Baccalauréat", "Maîtrise", "Doctorat", "Formation professionnelle"];
 export const HAS_CHILDREN_OPTIONS = ["Oui", "Non"];

@@ -1,7 +1,7 @@
 import React from "react";
 import ChipSelect from "../ChipSelect";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
-import { primary, coral, muted, card, primaryRgb } from "./theme";
+import { primary, navy, coral, muted, card, primaryRgb } from "./theme";
 
 const DEFAULT_CATEGORIES = [
   { value: "harcelement", label: "Harcèlement" },
@@ -100,7 +100,7 @@ export default function ReportModal({
             ) : (
               <>
                 <p className="text-sm mt-2" style={{ color: muted }}>Merci, notre équipe va l'examiner.</p>
-                <button onClick={onDismissAfterSubmit} className="w-full mt-4 py-2.5 rounded-full text-sm font-bold text-white" style={{ background: primary }}>
+                <button onClick={onDismissAfterSubmit} className="w-full mt-4 py-2.5 rounded-full text-sm font-bold text-white" style={{ background: navy }}>
                   Fermer
                 </button>
               </>

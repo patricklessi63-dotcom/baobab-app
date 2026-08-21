@@ -1,11 +1,11 @@
 import React from "react";
-import { primary, green, gold } from "../social/theme";
+import { navy, green, gold } from "../social/theme";
 
 export default function BaobabHero({ recommendationsCount = 0, profileCompletePct = 100, onDiscover, onCompleteProfile }) {
   return (
     <div
-      className="bb-fade-in rounded-[30px] p-6 md:p-8 text-white shadow-[0_20px_60px_rgba(21,27,61,.18)] overflow-hidden relative mb-7"
-      style={{ background: `linear-gradient(145deg,${primary},#2B3766 55%,${green})` }}
+      className="bb-fade-in rounded-[30px] p-6 md:p-8 text-white shadow-[0_20px_60px_rgba(20,67,42,.18)] overflow-hidden relative mb-7"
+      style={{ background: `linear-gradient(145deg,${navy},#1E4632 55%,${green})` }}
     >
       <div className="absolute -right-16 -top-16 h-48 w-48 rounded-full bg-white/10" aria-hidden="true" />
       <div className="absolute -right-6 -bottom-12 text-[140px] leading-none opacity-10 select-none" aria-hidden="true">🌳</div>
@@ -27,7 +27,7 @@ export default function BaobabHero({ recommendationsCount = 0, profileCompletePc
           <button
             onClick={onDiscover}
             className="rounded-xl px-5 py-3 font-bold transition-transform duration-200 hover:-translate-y-0.5 active:scale-[0.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2"
-            style={{ background: gold, color: primary }}
+            style={{ background: gold, color: navy }}
           >
             Découvrir mes recommandations
           </button>

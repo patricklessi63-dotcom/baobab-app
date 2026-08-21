@@ -16,7 +16,7 @@ export default function Step8Interests({ draft, update }) {
       <h2 style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 22, color: C.indigo }}>
         Tes centres d'intérêt
       </h2>
-      <p className="text-sm" style={{ color: "rgba(43,36,32,0.6)" }}>
+      <p className="text-sm" style={{ color: "rgba(var(--bb-ink-rgb),0.6)" }}>
         Choisis entre {MIN_INTERESTS} et {MAX_INTERESTS} intérêts ({count}/{MAX_INTERESTS}).
       </p>
 

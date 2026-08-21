@@ -8,35 +8,85 @@
   <meta property="og:title" content="Baobab" />
   <meta property="og:description" content="L'application de rencontres et de communauté pour les immigrants au Canada." />
   <meta property="og:type" content="website" />
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%231E2A4F'/%3E%3Ctext x='32' y='44' font-family='Georgia,serif' font-size='34' font-style='italic' fill='%23D9A441' text-anchor='middle'%3EB%3C/text%3E%3C/svg%3E" />
+  <meta property="og:image" content="/icon-512.png" />
+  <!-- og:url et <link rel="canonical"> à ajouter une fois le domaine officiel configuré (Phase 10, section 10) -->
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="Baobab" />
+  <meta name="twitter:description" content="L'application de rencontres et de communauté pour les immigrants au Canada." />
+  <meta name="twitter:image" content="/icon-512.png" />
+  <link rel="icon" type="image/png" sizes="64x64" href="/icon-64.png" />
+  <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
+  <link rel="apple-touch-icon" href="/icon-192.png" />
   <link rel="manifest" href="/manifest.webmanifest" />
-  <meta name="theme-color" content="#1E2A4F" />
+  <meta name="theme-color" content="#14432A" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,500;0,600;1,500&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bb-indigo: #1E2A4F;
-      --bb-indigo-deep: #141D38;
+      --bb-indigo: #14432A;
+      --bb-indigo-deep: #0D2E1C;
       --bb-clay: #C1613D;
       --bb-clay-deep: #A84E30;
       --bb-ochre: #D9A441;
       --bb-sand: #F8F5EF;
       --bb-ink: #211B17;
       --bb-border: rgba(33,27,23,0.10);
-      --bb-shadow-sm: 0 1px 2px rgba(20,29,56,0.06);
-      --bb-shadow-md: 0 6px 20px rgba(20,29,56,0.08);
-      --bb-shadow-lg: 0 16px 40px rgba(20,29,56,0.16);
+      --bb-shadow-sm: 0 1px 2px rgba(13,46,28,0.06);
+      --bb-shadow-md: 0 6px 20px rgba(13,46,28,0.08);
+      --bb-shadow-lg: 0 16px 40px rgba(13,46,28,0.16);
       --bb-radius-lg: 22px;
       --bb-radius-md: 14px;
       --bb-radius-sm: 11px;
       --bb-ease: cubic-bezier(.4,0,.2,1);
+
+      /* --- Jetons de thème (clair/sombre) — source unique pour src/constants.js
+      et pour les classes .bb-* ci-dessous. "text"/"text-rgb" = couleur de
+      titre/texte principal (auparavant C.primary, figé en marine) ;
+      "surface" = fond des cartes/modales/menus (auparavant bg-white en dur) ;
+      les couleurs de marque (indigo/clay/ochre/coral/green/gold...)
+      restent volontairement identiques dans les deux thèmes. */
+      --bb-bg: #FAF7F2;
+      --bb-surface: #FFFFFF;
+      --bb-surface-rgb: 255,255,255;
+      --bb-text: #14432A;
+      --bb-text-rgb: 20,67,42;
+      --bb-body-text: #1C3A2A;
+      --bb-muted: rgba(43,36,32,0.72);
+      /* Second famille de texte (brun chaud) utilisée par l'onboarding,
+      Réglages et l'édition de profil (C.ink) — palette volontairement
+      distincte de "text" (marine) par zone de l'app, voir constants.js. */
+      --bb-ink-rgb: 43,36,32;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) {
+        --bb-bg: #0F1712;
+        --bb-surface: #1A241D;
+        --bb-surface-rgb: 26,36,29;
+        --bb-text: #F4F5FA;
+        --bb-text-rgb: 244,245,250;
+        --bb-body-text: #DCE3DA;
+        --bb-muted: rgba(220,228,218,0.66);
+        --bb-border: rgba(220,228,218,0.12);
+        --bb-ink-rgb: 228,230,224;
+      }
+    }
+    :root[data-theme="dark"] {
+      --bb-bg: #0F1712;
+      --bb-surface: #1A241D;
+      --bb-surface-rgb: 26,36,29;
+      --bb-text: #F4F5FA;
+      --bb-text-rgb: 244,245,250;
+      --bb-body-text: #DCE3DA;
+      --bb-muted: rgba(220,228,218,0.66);
+      --bb-border: rgba(220,228,218,0.12);
+      --bb-ink-rgb: 228,230,224;
     }
     * { box-sizing: border-box; }
     html { -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
-    body { margin: 0; }
+    body { margin: 0; background: var(--bb-bg); color: var(--bb-text); }
 
     .bb-card {
-      background: #fff;
+      background: var(--bb-surface);
       border: 1px solid var(--bb-border);
       border-radius: var(--bb-radius-lg);
       box-shadow: var(--bb-shadow-md);
@@ -48,10 +98,11 @@
       border-radius: var(--bb-radius-sm);
       padding: 12px 14px;
       font-size: 16px !important; /* évite le zoom auto de Safari iOS au focus (déclenché sous 16px) ; !important nécessaire car le CDN Tailwind charge son stylesheet après celui-ci et une classe comme text-sm gagnerait sinon la cascade */
-      background: #fff;
+      background: var(--bb-surface);
+      color: var(--bb-text);
       transition: border-color .15s var(--bb-ease), box-shadow .15s var(--bb-ease);
     }
-    .bb-input::placeholder { color: rgba(33,27,23,0.38); }
+    .bb-input::placeholder { color: var(--bb-muted); }
     .bb-input:focus {
       outline: none;
       border-color: var(--bb-clay);
@@ -68,21 +119,21 @@
     .bb-btn-heart { background: var(--bb-clay); color: #fff; box-shadow: 0 8px 20px rgba(193,97,61,0.35); }
     .bb-btn-heart:hover:not(:disabled) { background: var(--bb-clay-deep); box-shadow: 0 10px 24px rgba(193,97,61,0.45); transform: translateY(-1px); }
 
-    .bb-btn-pass { background: #fff; border: 1px solid var(--bb-border); color: var(--bb-ink); }
+    .bb-btn-pass { background: var(--bb-surface); border: 1px solid var(--bb-border); color: var(--bb-text); }
     .bb-btn-pass:hover:not(:disabled) { border-color: rgba(33,27,23,0.28); background: rgba(33,27,23,0.03); }
 
     .bb-pill {
-      border: 1px solid rgba(33,27,23,0.16);
-      color: var(--bb-ink);
+      border: 1px solid var(--bb-border);
+      color: var(--bb-text);
       transition: all .15s var(--bb-ease);
     }
     .bb-pill:hover { border-color: rgba(33,27,23,0.32); }
     .bb-pill-active { background: var(--bb-ochre); color: var(--bb-indigo-deep); border-color: transparent; box-shadow: var(--bb-shadow-sm); }
 
     .bb-badge {
-      background: var(--bb-sand);
-      border: 1px solid rgba(33,27,23,0.06);
-      color: var(--bb-ink);
+      background: var(--bb-bg);
+      border: 1px solid var(--bb-border);
+      color: var(--bb-text);
       font-weight: 600;
       font-size: 12px;
       padding: 5px 12px;
@@ -92,6 +143,59 @@
 
     .bb-fade-in { animation: bbFadeIn .28s var(--bb-ease); }
     @keyframes bbFadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+    /* --- Prompt bonus "Verre dépoli, animations et onglets" ---
+    Cascade fondu-décalé pour titres/sous-titres d'un écran qui s'ouvre :
+    chaque enfant direct de .bb-stagger apparaît avec un léger décalage
+    dans le temps plutôt que tous d'un coup. prefers-reduced-motion est
+    déjà couvert par la règle globale tout en bas de ce fichier. */
+    .bb-stagger > * { opacity: 0; animation: bbFadeIn .65s var(--bb-ease) forwards; }
+    .bb-stagger > *:nth-child(1) { animation-delay: .04s; }
+    .bb-stagger > *:nth-child(2) { animation-delay: .14s; }
+    .bb-stagger > *:nth-child(3) { animation-delay: .24s; }
+    .bb-stagger > *:nth-child(4) { animation-delay: .34s; }
+    .bb-stagger > *:nth-child(n+5) { animation-delay: .40s; }
+
+    /* Verre dépoli réactif au thème (utilise --bb-surface-rgb, déjà défini
+    plus haut pour clair/sombre) — pour la navigation principale et les
+    onglets secondaires, pas pour toute l'app (coût du backdrop-filter). */
+    .bb-glass-nav {
+      background: rgba(var(--bb-surface-rgb), .74);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-color: var(--bb-border);
+    }
+    .bb-tab-active {
+      position: relative;
+      transform: translateY(-1px);
+      transition: transform .2s var(--bb-ease), background .2s var(--bb-ease), color .2s var(--bb-ease);
+    }
+    .bb-tab-active::before {
+      content: "";
+      position: absolute;
+      inset: -8px;
+      border-radius: inherit;
+      background: radial-gradient(circle, rgba(225,107,93,.28), transparent 72%);
+      z-index: -1;
+      animation: bbTabGlow .35s var(--bb-ease) both;
+    }
+    @keyframes bbTabGlow { from { opacity: 0; transform: scale(.6); } to { opacity: 1; transform: scale(1); } }
+
+    /* Zoom lent continu pour les visuels de mise en avant (carte de
+    découverte, bannière) — jamais sur une image qu'on doit lire finement. */
+    .bb-kenburns { animation: bbKenBurns 18s ease-in-out infinite alternate; }
+    @keyframes bbKenBurns { from { transform: scale(1); } to { transform: scale(1.06); } }
+
+    /* Chargement d'image : balayage lumineux au lieu d'un cadre gris fixe,
+    puis fondu d'apparition une fois chargée. */
+    .bb-img-loading {
+      background: linear-gradient(100deg, rgba(var(--bb-text-rgb),.05) 30%, rgba(var(--bb-text-rgb),.12) 50%, rgba(var(--bb-text-rgb),.05) 70%);
+      background-size: 200% 100%;
+      animation: bbShimmer 1.5s ease-in-out infinite;
+    }
+    @keyframes bbShimmer { from { background-position: 150% 0; } to { background-position: -50% 0; } }
+    .bb-img-fade { opacity: 0; transition: opacity .45s var(--bb-ease); }
+    .bb-img-fade.bb-loaded { opacity: 1; }
 
     .bb-icon-btn { transition: background .15s var(--bb-ease), transform .12s var(--bb-ease); }
     .bb-icon-btn:hover { background: rgba(20,29,56,0.65) !important; }
@@ -110,6 +214,15 @@
       *, *::before, *::after { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
     }
   </style>
+  <script>
+    // Applique le thème AVANT le premier rendu (évite le flash clair→sombre).
+    // "système" (pas de préférence enregistrée) ne pose aucun attribut : la
+    // media query @media (prefers-color-scheme: dark) ci-dessus prend le relais.
+    try {
+      var t = localStorage.getItem("bb-theme");
+      if (t === "dark" || t === "light") document.documentElement.setAttribute("data-theme", t);
+    } catch (e) {}
+  </script>
 </head>
 <body>
   <div id="root"></div>

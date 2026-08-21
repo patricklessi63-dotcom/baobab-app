@@ -9,7 +9,7 @@ import { validateMediaFile } from "../../lib/mediaValidation";
 import { uploadWithProgress } from "../../lib/uploadWithProgress";
 import { POST_MEDIA_BUCKET, extFromMime } from "../../lib/mediaConstants";
 import { beginCriticalOperation, endCriticalOperation } from "../../lib/criticalOperationGuard";
-import { primary, coral, muted, bg, card } from "./theme";
+import { primary, navy, coral, muted, bg, card } from "./theme";
 
 const PAGE_SIZE = 20;
 const PLACEHOLDER_BODY = "Nouveau partage sur Baobab ✨";
@@ -340,7 +340,7 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
           <div className="p-10 text-center">
             <ImageIcon size={26} className="mx-auto mb-2" color={muted} />
             <p className="text-sm mb-3" style={{ color: muted }}>Pas encore de publication.</p>
-            <button onClick={openComposer} className="px-4 py-2.5 rounded-xl font-bold text-sm" style={{ background: primary, color: "#fff" }}>Créer ma première publication</button>
+            <button onClick={openComposer} className="px-4 py-2.5 rounded-xl font-bold text-sm" style={{ background: navy, color: "#fff" }}>Créer ma première publication</button>
           </div>
         ) : (
           <>
@@ -355,7 +355,7 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
                       <img src={p.media_url} alt="" className="w-full h-full object-cover" />
                     )
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center p-3 text-center" style={{ background: `linear-gradient(150deg,${primary},${coral})` }}>
+                    <div className="w-full h-full flex items-center justify-center p-3 text-center" style={{ background: `linear-gradient(150deg,${navy},${coral})` }}>
                       <span className="text-white text-[11px] font-semibold leading-4 line-clamp-4">{p.body}</span>
                     </div>
                   )}

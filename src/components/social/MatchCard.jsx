@@ -1,9 +1,7 @@
 import React from "react";
 import { Heart, X, MessageCircle, Star, Flag, Ban, EyeOff, HeartCrack } from "lucide-react";
 import Avatar from "../Avatar";
-import VerifiedBadge from "../VerifiedBadge";
-import FounderBadge from "../FounderBadge";
-import PremiumBadge from "../PremiumBadge";
+import StatusBadge from "../StatusBadge";
 import { visibleAge } from "../../utils/format";
 import { primary, green, coral, gold, bg, muted, card, body, primaryRgb } from "./theme";
 
@@ -47,9 +45,7 @@ export default function MatchCard({
       <div className="p-4 flex-1 flex flex-col">
         <div className="flex items-center gap-1.5">
           <h3 className="text-base font-black truncate" style={{ color: primary }}>{profile.name}{visibleAge(profile) ? `, ${visibleAge(profile)}` : ""}</h3>
-          <VerifiedBadge emailVerified={profile.email_verified} phoneVerified={profile.phone_verified} size={14} />
-          <FounderBadge isFounder={profile.is_founder} size={14} />
-          <PremiumBadge isPremium={profile.is_premium} size={14} />
+          <StatusBadge emailVerified={profile.email_verified} phoneVerified={profile.phone_verified} isFounder={profile.is_founder} isPremium={profile.is_premium} size={14} />
         </div>
         {profile.city && (
           <p className="text-xs mt-0.5" style={{ color: muted }}>

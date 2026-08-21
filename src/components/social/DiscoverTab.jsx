@@ -1,8 +1,6 @@
 import React, { useMemo, useState, useEffect } from "react";
-import { Heart, X, Info } from "lucide-react";
-import VerifiedBadge from "../VerifiedBadge";
-import FounderBadge from "../FounderBadge";
-import PremiumBadge from "../PremiumBadge";
+import { Heart, X, Info, Flame, Sparkles } from "lucide-react";
+import StatusBadge from "../StatusBadge";
 import { visibleAge } from "../../utils/format";
 import ChipSelect from "../ChipSelect";
 import MatchCard from "./MatchCard";
@@ -14,7 +12,7 @@ import { usePremiumStatus } from "../../lib/premium/usePremiumStatus";
 import { useHiddenRecommendations } from "../../lib/useHiddenRecommendations";
 import { fetchNearbyProfiles } from "../../lib/locationApi";
 import { LOOKING_FOR_OPTIONS, INTERESTS_OPTIONS, LANGUAGES_OPTIONS } from "../../constants";
-import { primary, green, coral, gold, bg, muted, card, buttonBase, online, body, primaryRgb } from "./theme";
+import { primary, navy, navyRgb, green, coral, gold, bg, muted, card, buttonBase, online, body, primaryRgb } from "./theme";
 
 const ACTIVE_RECENTLY_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
 
@@ -148,15 +146,17 @@ export default function DiscoverTab({
   return (
     <>
           <section className="max-w-2xl mx-auto">
-            <div className="text-center mb-4">
+            <div className="text-center mb-4 bb-stagger">
               <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-[11px] font-black uppercase tracking-wider" style={{ background: "#FFF1EC", color: coral }}><Heart size={13} fill={coral} /> Connexions qui ont du sens</div>
               <h1 className="text-3xl md:text-4xl font-black tracking-tight mt-3" style={{ color: primary }}>Découvrir</h1>
               <p className="text-sm mt-1" style={{ color: muted }}>{mode === "pile" ? "Glisse à droite pour aimer, à gauche pour passer." : "Des profils classés selon ta compatibilité estimée."}</p>
             </div>
 
-            <div className="flex justify-center gap-2 mb-6">
-              <button onClick={() => setMode("pile")} className="px-4 py-2 rounded-full text-xs font-bold" style={{ background: mode === "pile" ? primary : bg, color: mode === "pile" ? "#fff" : muted }}>🔥 Pile</button>
-              <button onClick={() => setMode("grid")} className="px-4 py-2 rounded-full text-xs font-bold" style={{ background: mode === "grid" ? primary : bg, color: mode === "grid" ? "#fff" : muted }}>🌱 Pour toi</button>
+            <div className="flex justify-center mb-6">
+              <div className="inline-flex gap-1 p-1 rounded-full bb-glass-nav border">
+                <button onClick={() => setMode("pile")} className={`px-4 py-2 rounded-full text-xs font-bold flex items-center gap-1.5 motion-safe:transition-all motion-safe:duration-200 ${mode === "pile" ? "bb-tab-active" : ""}`} style={{ background: mode === "pile" ? navy : "transparent", color: mode === "pile" ? "#fff" : muted }}><Flame size={14} /> Pile</button>
+                <button onClick={() => setMode("grid")} className={`px-4 py-2 rounded-full text-xs font-bold flex items-center gap-1.5 motion-safe:transition-all motion-safe:duration-200 ${mode === "grid" ? "bb-tab-active" : ""}`} style={{ background: mode === "grid" ? navy : "transparent", color: mode === "grid" ? "#fff" : muted }}><Sparkles size={14} /> Pour toi</button>
+              </div>
             </div>
 
             {mode === "pile" ? (
@@ -165,7 +165,7 @@ export default function DiscoverTab({
                 <div className="text-5xl mb-4">🌍</div>
                 <h2 className="text-xl font-black" style={{ color: primary }}>Pas encore de nouveaux profils</h2>
                 <p className="text-sm mt-2" style={{ color: muted }}>Invite des amis africains installés au Canada à rejoindre Baobab.</p>
-                <button onClick={() => navigator.clipboard?.writeText(window.location.href)} className="mt-5 px-5 py-3 rounded-xl text-white font-bold" style={{ background: primary }}>Inviter ma communauté</button>
+                <button onClick={() => navigator.clipboard?.writeText(window.location.href)} className="mt-5 px-5 py-3 rounded-xl text-white font-bold" style={{ background: navy }}>Inviter ma communauté</button>
               </div>
             ) : (
               <div className="relative h-[620px] select-none" style={{ touchAction: "pan-y" }}>
@@ -176,11 +176,11 @@ export default function DiscoverTab({
 
                 {/* Pile de cartes derrière, purement visuelle */}
                 {filteredPeople[2] && (
-                  <div className="absolute inset-0 bg-white rounded-[34px] border" style={{ transform: "scale(0.92) translateY(22px)", opacity: 0.5 }} />
+                  <div className="absolute inset-0 bg-[var(--bb-surface)] rounded-[34px] border border-[var(--bb-border)]" style={{ transform: "scale(0.92) translateY(22px)", opacity: 0.5 }} />
                 )}
                 {filteredPeople[1] && (
-                  <div className="absolute inset-0 bg-white rounded-[34px] border overflow-hidden" style={{ transform: "scale(0.96) translateY(11px)", opacity: 0.8 }}>
-                    <div className="h-full" style={{ background: `linear-gradient(145deg,${primary},${green},${gold})`, opacity: 0.5 }} />
+                  <div className="absolute inset-0 bg-[var(--bb-surface)] rounded-[34px] border border-[var(--bb-border)] overflow-hidden" style={{ transform: "scale(0.96) translateY(11px)", opacity: 0.8 }}>
+                    <div className="h-full" style={{ background: `linear-gradient(145deg,${navy},${green},${gold})`, opacity: 0.5 }} />
                   </div>
                 )}
 
@@ -197,7 +197,7 @@ export default function DiscoverTab({
 
                   return (
                     <div
-                      className="bb-swipe-card absolute inset-0 bg-white rounded-[34px] overflow-hidden border shadow-[0_24px_80px_rgba(21,27,61,.18)] cursor-grab active:cursor-grabbing"
+                      className="bb-swipe-card absolute inset-0 bg-[var(--bb-surface)] rounded-[34px] overflow-hidden border border-[var(--bb-border)] shadow-[0_24px_80px_rgba(20,67,42,.18)] cursor-grab active:cursor-grabbing"
                       style={{ transform, opacity: isExiting ? 0.4 : 1, transition: swiping ? "none" : "transform .35s cubic-bezier(.22,1,.36,1), opacity .35s", touchAction: "pan-y" }}
                       onPointerDown={(e) => { e.currentTarget.setPointerCapture?.(e.pointerId); onSwipeStart(e.clientX); }}
                       onPointerMove={(e) => onSwipeMove(e.clientX)}
@@ -205,7 +205,14 @@ export default function DiscoverTab({
                       onPointerCancel={onSwipeEnd}
                       onPointerLeave={() => swiping && onSwipeEnd()}
                     >
-                      <div className="h-[500px] relative overflow-hidden" style={{ background: photo ? `linear-gradient(180deg,rgba(${primaryRgb},.05) 35%,rgba(${primaryRgb},.88)),url(${photo}) center/cover` : `linear-gradient(145deg,${primary},${green},${gold})` }}>
+                      <div className="h-[500px] relative overflow-hidden" style={!photo ? { background: `linear-gradient(145deg,${navy},${green},${gold})` } : undefined}>
+                        {photo && (
+                          <div
+                            key={photo}
+                            className="absolute -inset-2 bb-kenburns"
+                            style={{ background: `linear-gradient(180deg,rgba(${navyRgb},.05) 35%,rgba(${navyRgb},.88)),url(${photo}) center/cover` }}
+                          />
+                        )}
                         {!photo && <div className="absolute inset-0 flex items-center justify-center text-8xl">🌍</div>}
 
                         {photos.length > 1 && (
@@ -243,9 +250,7 @@ export default function DiscoverTab({
                             className="text-3xl font-black flex items-center gap-2 text-left"
                           >
                             {p.name}{visibleAge(p) ? `, ${visibleAge(p)}` : ""}
-                            <VerifiedBadge emailVerified={p.email_verified} phoneVerified={p.phone_verified} size={20} color="#fff" />
-                            <FounderBadge isFounder={p.is_founder} size={20} />
-                            <PremiumBadge isPremium={p.is_premium} size={20} />
+                            <StatusBadge emailVerified={p.email_verified} phoneVerified={p.phone_verified} isFounder={p.is_founder} isPremium={p.is_premium} size={20} color="#fff" />
                           </button>
                           <p className="text-xs text-white/60 mt-0.5">Toucher le nom pour voir le profil complet</p>
                           <div className="text-sm text-white/75 mt-1">📍 {p.city || "Canada"} · {p.occupation || "Nouveau membre"}</div>
@@ -270,8 +275,8 @@ export default function DiscoverTab({
                                 <span className="text-lg font-black" style={{ color: compatColor }}>~{compat.score}%</span>
                               </div>
                               <div className="text-[10px] font-bold uppercase tracking-wide -mt-1.5 mb-2" style={{ color: muted }}>Compatibilité estimée</div>
-                              <div className="h-2 rounded-full bg-white overflow-hidden mb-3">
-                                <div className="h-full rounded-full" style={{ width: `${compat.score}%`, background: `linear-gradient(90deg,${gold},${green})` }} />
+                              <div className="h-2 rounded-full bg-[var(--bb-surface)] overflow-hidden mb-3">
+                                <div className="h-full rounded-full" style={{ width: `${compat.score}%`, background: `linear-gradient(90deg,${navy},${gold})` }} />
                               </div>
                               <ul className="space-y-1">
                                 {compat.reasons.map((r, i) => (
@@ -293,7 +298,7 @@ export default function DiscoverTab({
                         })()}
 
                         <div className="flex items-center justify-center gap-5">
-                          <button aria-label="Passer ce profil" onPointerDown={(e) => e.stopPropagation()} onClick={() => decideSwipe("pass")} className={`${buttonBase} h-16 w-16 rounded-full border-2 flex items-center justify-center bg-white`} style={{ borderColor: "#E5E7EF" }}><X size={28} color={muted} /></button>
+                          <button aria-label="Passer ce profil" onPointerDown={(e) => e.stopPropagation()} onClick={() => decideSwipe("pass")} className={`${buttonBase} h-16 w-16 rounded-full border-2 flex items-center justify-center bg-[var(--bb-surface)]`} style={{ borderColor: "var(--bb-border)" }}><X size={28} color={muted} /></button>
                           <button aria-label="Aimer ce profil" onPointerDown={(e) => e.stopPropagation()} onClick={() => decideSwipe("like")} className={`${buttonBase} h-[72px] w-[72px] rounded-full text-white flex items-center justify-center shadow-xl`} style={{ background: `linear-gradient(135deg,${coral},#D94F70)` }}><Heart size={30} fill="white" /></button>
                         </div>
                         <div className="text-center text-[11px] mt-3" style={{ color: muted }}>♥ Oui si tu veux faire connaissance · × Passer</div>

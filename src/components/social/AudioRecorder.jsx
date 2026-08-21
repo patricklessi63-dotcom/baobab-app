@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { Mic, Send, Square, Trash2, Play, Pause } from "lucide-react";
 import { AUDIO_MAX_DURATION_MS } from "../../lib/mediaConstants";
 import MicPermissionModal from "./MicPermissionModal";
-import { primary, coral, muted, bg } from "./theme";
+import { primary, navy, coral, muted, bg } from "./theme";
 
 function pickMimeType() {
   const candidates = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4", "audio/ogg"];
@@ -244,7 +244,7 @@ export default function AudioRecorder({ hasDraft, onSendText, onSendAudio, onAct
             onEnded={() => setPlaying(false)}
             className="hidden"
           />
-          <button type="button" onClick={togglePlayback} aria-label={playing ? "Pause" : "Écouter"} className="h-9 w-9 rounded-full flex items-center justify-center flex-shrink-0 text-white" style={{ background: primary }}>
+          <button type="button" onClick={togglePlayback} aria-label={playing ? "Pause" : "Écouter"} className="h-9 w-9 rounded-full flex items-center justify-center flex-shrink-0 text-white" style={{ background: navy }}>
             {playing ? <Pause size={14} /> : <Play size={14} />}
           </button>
           <span className="text-sm font-bold flex-1" style={{ color: primary }}>{formatDuration(elapsed)}</span>

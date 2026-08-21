@@ -1,5 +1,5 @@
 import React from "react";
-import { primary, muted } from "../social/theme";
+import { primary, navy, muted } from "../social/theme";
 
 export default function EmptyState({ icon: Icon, title, subtitle, actionLabel, onAction }) {
   return (
@@ -11,7 +11,7 @@ export default function EmptyState({ icon: Icon, title, subtitle, actionLabel, o
         <button
           onClick={onAction}
           className="mt-4 px-4 py-2.5 rounded-xl font-bold text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
-          style={{ background: primary, color: "#fff" }}
+          style={{ background: navy, color: "#fff" }}
         >
           {actionLabel}
         </button>

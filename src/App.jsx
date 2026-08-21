@@ -265,10 +265,54 @@ export default function App() {
     messagesRef.current = messages;
   }, [messages]);
 
-  // Déconnexion automatique par inactivité DÉSACTIVÉE à la demande de
-  // l'utilisateur (déclenchement prématuré constaté en usage réel, ~2 min
-  // au lieu du délai configuré). Le bandeau SessionExpiryBanner reste dans
-  // l'arbre mais n'est plus jamais affiché (sessionExpiryWarning reste false).
+  // Déconnexion automatique par inactivité — 30 min. Reconstruite proprement
+  // après un premier essai qui se déclenchait après ~2 min d'usage actif :
+  // ici on ne réagit qu'à une vraie activité utilisateur (souris/clavier/
+  // toucher/scroll), jamais à visibilitychange/changement d'onglet, et les
+  // deux minuteurs (avertissement + déconnexion) sont réarmés ensemble à
+  // chaque activité pour éviter tout décalage entre les deux.
+  useEffect(() => {
+    if (!session?.user?.id) return;
+    const WARNING_MS = 25 * 60 * 1000; // avertit 5 min avant la déconnexion
+    const LOGOUT_MS = 30 * 60 * 1000;
+    let warningTimer;
+    let logoutTimer;
+
+    const clearTimers = () => {
+      clearTimeout(warningTimer);
+      clearTimeout(logoutTimer);
+    };
+
+    const scheduleTimers = () => {
+      clearTimers();
+      warningTimer = setTimeout(() => setSessionExpiryWarning(true), WARNING_MS);
+      // Ne jamais couper un upload/publication en cours (PostsFeed,
+      // CommunityCreateForm, uploadWithProgress) — on réessaie plutôt
+      // toutes les 10s tant que l'opération critique est active.
+      const attemptLogout = () => {
+        if (isCriticalOperationActive()) {
+          logoutTimer = setTimeout(attemptLogout, 10000);
+          return;
+        }
+        handleSignOut().then(() => navigate("/connexion"));
+      };
+      logoutTimer = setTimeout(attemptLogout, LOGOUT_MS);
+    };
+
+    const handleActivity = () => {
+      setSessionExpiryWarning(false);
+      scheduleTimers();
+    };
+
+    const activityEvents = ["mousedown", "keydown", "touchstart", "scroll"];
+    activityEvents.forEach((evt) => document.addEventListener(evt, handleActivity, { passive: true }));
+    scheduleTimers();
+
+    return () => {
+      clearTimers();
+      activityEvents.forEach((evt) => document.removeEventListener(evt, handleActivity));
+    };
+  }, [session?.user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Partagé par les deux rendus de <SessionExpiryBanner> plus bas (vue
   // "checking-profile" et vue normale) — un simple événement "mousedown"
@@ -298,13 +342,32 @@ export default function App() {
     fetchMyLocation().then(setMyLocation).catch((e) => console.error(e));
   }, [currentUser?.id]);
 
+  // Rôle plateforme (moderator/admin/super_admin) — table dédiée
+  // platform_roles, RLS restreinte à sa propre ligne. N'affiche jamais
+  // rien de plus qu'un bouton "Admin" conditionnel : la protection réelle
+  // vit dans les RPC admin_* (vérification côté base à chaque appel).
+  const [myPlatformRole, setMyPlatformRole] = useState(null);
+  useEffect(() => {
+    if (!currentUser?.id) { setMyPlatformRole(null); return; }
+    supabase.from("platform_roles").select("role").eq("profile_id", currentUser.id).maybeSingle()
+      .then(({ data }) => setMyPlatformRole(data?.role || null))
+      .catch(() => setMyPlatformRole(null));
+  }, [currentUser?.id]);
+
   useEffect(() => {
     if (view !== "checking-profile") return;
     if (!session) return;
     const own = profiles.find((p) => p.user_id === session.user.id);
     if (own) {
       setCurrentUser(own);
-      if (!own.onboarding_completed_at) {
+      // Suspension/bannissement réellement appliqués ici (pas seulement un
+      // bouton caché côté UI) — un compte banni ou suspendu n'atteint
+      // jamais l'application, quelle que soit la façon dont il y accède.
+      if (own.banned_at) {
+        setView("banned");
+      } else if (own.suspended_until && new Date(own.suspended_until) > new Date()) {
+        setView("suspended");
+      } else if (!own.onboarding_completed_at) {
         setView("onboarding");
       } else {
         setView("feed");
@@ -610,6 +673,7 @@ export default function App() {
     if (!currentUser) return;
     setEditForm({
       name: currentUser.name || "",
+      lastName: currentUser.last_name || "",
       age: String(currentUser.age || ""),
       birthDate: currentUser.birth_date || "",
       country: currentUser.country || "",
@@ -774,6 +838,7 @@ export default function App() {
 
       const payload = {
         name: editForm.name,
+        last_name: editForm.lastName?.trim() || null,
         cover_url: coverUrl,
         age: editAgeNum,
         birth_date: editForm.birthDate || null,
@@ -1404,6 +1469,35 @@ export default function App() {
     return <UpdatePasswordScreen onDone={() => setView("checking-profile")} />;
   }
 
+  if (view === "banned" || view === "suspended") {
+    const isBanned = view === "banned";
+    const reason = isBanned ? currentUser?.ban_reason : currentUser?.suspend_reason;
+    const until = currentUser?.suspended_until ? new Date(currentUser.suspended_until) : null;
+    return (
+      <div className="min-h-screen flex items-center justify-center p-6" style={{ background: C.sand }}>
+        <div className="bb-card p-8 max-w-sm w-full text-center">
+          <div className="text-4xl mb-3">{isBanned ? "🚫" : "⏸️"}</div>
+          <h1 className="text-lg font-black" style={{ color: C.indigo }}>
+            {isBanned ? "Compte banni" : "Compte suspendu"}
+          </h1>
+          <p className="text-sm mt-3" style={{ color: "rgba(var(--bb-ink-rgb),0.7)" }}>
+            {isBanned
+              ? "Ton compte a été banni de Baobab suite à une violation des règles de la communauté."
+              : `Ton compte est temporairement suspendu${until ? ` jusqu'au ${until.toLocaleDateString("fr-CA")} à ${until.toLocaleTimeString("fr-CA", { hour: "2-digit", minute: "2-digit" })}` : ""}.`}
+          </p>
+          {reason && (
+            <p className="text-sm mt-2 rounded-xl p-3" style={{ background: C.sand === "#F8F5EF" ? "rgba(var(--bb-ink-rgb),0.05)" : undefined, color: "rgba(var(--bb-ink-rgb),0.6)" }}>
+              Motif : {reason}
+            </p>
+          )}
+          <button onClick={() => handleSignOut().then(() => navigate("/connexion"))} className="w-full mt-6 py-3 rounded-full text-sm font-bold text-white" style={{ background: C.indigo }}>
+            Se déconnecter
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   if (currentUser && ["feed", "stories", "profile", "discover", "matches"].includes(view)) {
     return (
       <>
@@ -1419,6 +1513,7 @@ export default function App() {
           handleSignOut={handleSignOut}
           onError={setError}
           myLocation={myLocation}
+          myPlatformRole={myPlatformRole}
           candidates={candidates}
           getMatches={getMatches}
           getAdmirers={getAdmirers}
@@ -1518,7 +1613,7 @@ export default function App() {
   }
 
   return (
-    <div className="bb-app min-h-screen flex flex-col relative overflow-x-hidden" style={{ fontFamily: "'Manrope', system-ui, sans-serif", color: C.ink }}>
+    <div className="bb-app min-h-screen flex flex-col relative" style={{ fontFamily: "'Manrope', system-ui, sans-serif", color: C.ink }}>
       <ConnectivityBanner />
       <AccountDeletionBanner currentUser={currentUser} onCancelled={handleCancelAccountDeletion} />
       <SessionExpiryBanner
@@ -1533,7 +1628,7 @@ export default function App() {
       `}</style>
       <div aria-hidden="true" className="fixed inset-0 z-0 pointer-events-none" style={{ background: C.sand }} />
       {/* Header */}
-      <div className="relative z-20 flex items-center justify-between px-5 py-4 bb-generic-glass" style={{ borderBottom: `1px solid rgba(43,36,32,0.08)`, boxShadow: "0 1px 0 rgba(20,29,56,0.02)", position: "sticky", top: 0, zIndex: 10 }}>
+      <div className="relative z-20 flex items-center justify-between px-5 py-4 bb-generic-glass" style={{ borderBottom: `1px solid rgba(var(--bb-ink-rgb),0.08)`, boxShadow: "0 1px 0 rgba(20,29,56,0.02)", position: "sticky", top: 0, zIndex: 10 }}>
         <div className="flex items-center gap-2">
           <span style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontWeight: 600, fontSize: 20, color: C.indigo }}>
             Baobab

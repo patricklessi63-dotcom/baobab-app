@@ -1,9 +1,7 @@
 import React from "react";
 import { MessageCircle, Heart } from "lucide-react";
 import Avatar from "../Avatar";
-import VerifiedBadge from "../VerifiedBadge";
-import FounderBadge from "../FounderBadge";
-import PremiumBadge from "../PremiumBadge";
+import StatusBadge from "../StatusBadge";
 import EmptyState from "../home/EmptyState";
 import ConversationPane from "./ConversationPane";
 import { matchKey, formatMessageTime, messagePreviewLabel } from "../../utils/format";
@@ -93,7 +91,7 @@ export default function MessagesTab({
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-sm font-bold truncate flex items-center gap-1.5">{m.name}<VerifiedBadge emailVerified={m.email_verified} phoneVerified={m.phone_verified} size={12} /><FounderBadge isFounder={m.is_founder} size={12} /><PremiumBadge isPremium={m.is_premium} size={12} /></span>
+                  <span className="text-sm font-bold truncate flex items-center gap-1.5">{m.name}<StatusBadge emailVerified={m.email_verified} phoneVerified={m.phone_verified} isFounder={m.is_founder} isPremium={m.is_premium} size={12} /></span>
                   {last && <span className="text-[10px] shrink-0" style={{ color: muted }}>{formatMessageTime(last.created_at)}</span>}
                 </div>
                 <div className="flex items-center justify-between gap-2 mt-0.5">

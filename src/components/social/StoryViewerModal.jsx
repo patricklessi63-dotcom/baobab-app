@@ -1,7 +1,7 @@
 import React from "react";
 import { X, Send } from "lucide-react";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
-import { primary } from "./theme";
+import { navy } from "./theme";
 
 export default function StoryViewerModal({
   storyViewerIndex,
@@ -22,7 +22,7 @@ export default function StoryViewerModal({
             @keyframes bbStoryBar { from { width: 0%; } to { width: 100%; } }
             .bb-story-bar-fill { animation: bbStoryBar 5s linear forwards; }
           `}</style>
-          <div className="relative w-full h-full max-w-md mx-auto" style={{ background: `linear-gradient(160deg,${stories[storyViewerIndex].color},${primary})` }}>
+          <div className="relative w-full h-full max-w-md mx-auto" style={{ background: `linear-gradient(160deg,${stories[storyViewerIndex].color},${navy})` }}>
             <div className="absolute inset-0 flex items-center justify-center text-8xl opacity-15">🌍</div>
 
             {/* Barres de progression, une par story non-personnelle */}

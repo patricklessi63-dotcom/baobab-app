@@ -1,8 +1,6 @@
 import React from "react";
 import { Heart, X, MessageCircle } from "lucide-react";
-import VerifiedBadge from "../VerifiedBadge";
-import FounderBadge from "../FounderBadge";
-import PremiumBadge from "../PremiumBadge";
+import StatusBadge from "../StatusBadge";
 import { visibleAge } from "../../utils/format";
 import { coral, gold, green, muted, bg, primaryRgb } from "../social/theme";
 
@@ -16,7 +14,7 @@ export default function ProfileCard({
   compatibilityScore,
   matchReasons,
 }) {
-  const hasVerification = Boolean(profile.email_verified || profile.phone_verified);
+  const hasStatusBadge = Boolean(profile.is_founder || profile.email_verified || profile.phone_verified || profile.is_premium);
   const highlightText =
     highlight === "arrived_since" && profile.arrived_since
       ? `🇨🇦 Au Canada depuis ${profile.arrived_since}`
@@ -26,7 +24,7 @@ export default function ProfileCard({
 
   return (
     <div
-      className="group shrink-0 w-40 rounded-2xl overflow-hidden border bg-white transition-transform duration-200 hover:-translate-y-1 focus-within:-translate-y-1 motion-reduce:transition-none motion-reduce:hover:translate-y-0"
+      className="group shrink-0 w-40 rounded-2xl overflow-hidden border bg-[var(--bb-surface)] transition-transform duration-200 hover:-translate-y-1 focus-within:-translate-y-1 motion-reduce:transition-none motion-reduce:hover:translate-y-0"
       style={profile.is_founder
         ? { borderColor: gold, borderWidth: 2, boxShadow: `0 0 0 1px ${gold}` }
         : { borderColor: `rgba(${primaryRgb},.08)` }}
@@ -42,14 +40,9 @@ export default function ProfileCard({
         ) : (
           <div className="absolute inset-0 flex items-center justify-center text-3xl" aria-hidden="true">🌍</div>
         )}
-        {profile.is_founder && (
-          <span className="absolute top-2 left-2 h-6 w-6 rounded-full bg-white/90 flex items-center justify-center">
-            <FounderBadge isFounder size={13} />
-          </span>
-        )}
-        {hasVerification && (
+        {hasStatusBadge && (
           <span className="absolute top-2 right-2 h-6 w-6 rounded-full bg-white/90 flex items-center justify-center">
-            <VerifiedBadge emailVerified={profile.email_verified} phoneVerified={profile.phone_verified} size={13} />
+            <StatusBadge isFounder={profile.is_founder} emailVerified={profile.email_verified} phoneVerified={profile.phone_verified} isPremium={profile.is_premium} size={13} />
           </span>
         )}
         {typeof compatibilityScore === "number" && (
@@ -64,7 +57,7 @@ export default function ProfileCard({
       </div>
 
       <div className="p-3">
-        <div className="text-sm font-bold truncate flex items-center gap-1">{profile.name}{visibleAge(profile) ? `, ${visibleAge(profile)}` : ""}<PremiumBadge isPremium={profile.is_premium} size={12} /></div>
+        <div className="text-sm font-bold truncate">{profile.name}{visibleAge(profile) ? `, ${visibleAge(profile)}` : ""}</div>
         {profile.city && <div className="text-[11px] truncate mt-0.5" style={{ color: muted }}>{profile.city}</div>}
         {highlightText && <div className="text-[11px] mt-1 truncate" style={{ color: coral }}>{highlightText}</div>}
         {commonInterestsCount > 0 && (

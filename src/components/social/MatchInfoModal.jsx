@@ -54,7 +54,7 @@ export default function MatchInfoModal({ open, onClose }) {
           certitude : c'est toujours toi qui décides.
         </p>
 
-        <button onClick={onClose} className="w-full mt-5 py-3 rounded-full text-sm font-semibold" style={{ border: "1px solid rgba(43,36,32,0.15)", color: body }}>
+        <button onClick={onClose} className="w-full mt-5 py-3 rounded-full text-sm font-semibold" style={{ border: "1px solid rgba(var(--bb-ink-rgb),0.15)", color: body }}>
           Fermer
         </button>
       </div>

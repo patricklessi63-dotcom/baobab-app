@@ -1,5 +1,5 @@
 import React from "react";
-import { gold, green, muted, primary, primaryRgb } from "../social/theme";
+import { gold, navy, muted, primary, primaryRgb } from "../social/theme";
 
 // Progression basée uniquement sur des donnees reelles et calculables :
 // completude du profil + engagement (voir profileCompletionChecks dans
@@ -22,7 +22,7 @@ export default function BaobabProgress({ stageLabel, stageEmoji, percent, comple
       >
         <div
           className="h-full rounded-full transition-all duration-500 motion-reduce:transition-none"
-          style={{ width: `${percent}%`, background: `linear-gradient(90deg,${gold},${green})` }}
+          style={{ width: `${percent}%`, background: `linear-gradient(90deg,${navy},${gold})` }}
         />
       </div>
       <div className="text-xs mt-2" style={{ color: muted }}>{completedSteps}/{totalSteps} étapes complétées · {percent}%</div>

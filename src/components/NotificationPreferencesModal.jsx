@@ -63,22 +63,22 @@ export default function NotificationPreferencesModal({ open, onClose, onBack, cu
             Préférences de notifications
           </div>
         </div>
-        <p className="text-sm mb-3" style={{ color: "rgba(43,36,32,0.6)" }}>
+        <p className="text-sm mb-3" style={{ color: "rgba(var(--bb-ink-rgb),0.6)" }}>
           Choisis les catégories de notifications que tu veux recevoir.
         </p>
 
         {pushStatus?.supported && (
-          <div className="mb-4 pb-4" style={{ borderBottom: "1px solid rgba(43,36,32,0.08)" }}>
+          <div className="mb-4 pb-4" style={{ borderBottom: "1px solid rgba(var(--bb-ink-rgb),0.08)" }}>
             {pushStep === "consent" && (
               <div className="py-1">
-                <p className="text-sm" style={{ color: "rgba(43,36,32,0.7)" }}>
+                <p className="text-sm" style={{ color: "rgba(var(--bb-ink-rgb),0.7)" }}>
                   Baobab peut t'envoyer une notification sur cet appareil pour les nouveaux
                   messages et autres activités, même quand l'application est fermée. Tu peux
                   désactiver cela à tout moment.
                 </p>
                 <div className="flex flex-col gap-2 mt-3">
                   <button onClick={handleAllowPush} className="w-full rounded-xl py-3 font-bold text-white" style={{ background: C.indigo }}>Autoriser</button>
-                  <button onClick={() => setPushStep("idle")} className="w-full rounded-xl py-3 font-semibold" style={{ color: "rgba(43,36,32,0.6)" }}>Pas maintenant</button>
+                  <button onClick={() => setPushStep("idle")} className="w-full rounded-xl py-3 font-semibold" style={{ color: "rgba(var(--bb-ink-rgb),0.6)" }}>Pas maintenant</button>
                 </div>
               </div>
             )}
@@ -91,7 +91,7 @@ export default function NotificationPreferencesModal({ open, onClose, onBack, cu
 
             {pushStep === "error" && (
               <div className="py-1 text-center">
-                <p className="text-sm" style={{ color: "rgba(43,36,32,0.7)" }}>{pushError}</p>
+                <p className="text-sm" style={{ color: "rgba(var(--bb-ink-rgb),0.7)" }}>{pushError}</p>
                 <button onClick={() => setPushStep("idle")} className="mt-2 text-sm font-semibold" style={{ color: C.indigo }}>Compris</button>
               </div>
             )}
@@ -102,7 +102,7 @@ export default function NotificationPreferencesModal({ open, onClose, onBack, cu
                 {pushStatus.subscribed ? (
                   <button onClick={handleDisablePush} className="text-xs font-semibold" style={{ color: C.clay }}>Désactiver</button>
                 ) : pushStatus.permission === "denied" ? (
-                  <span className="text-xs text-right" style={{ color: "rgba(43,36,32,0.5)", maxWidth: 140 }}>Bloquées (réglages du navigateur)</span>
+                  <span className="text-xs text-right" style={{ color: "rgba(var(--bb-ink-rgb),0.5)", maxWidth: 140 }}>Bloquées (réglages du navigateur)</span>
                 ) : (
                   <button onClick={() => setPushStep("consent")} className="text-xs font-semibold" style={{ color: C.indigo }}>Activer</button>
                 )}
@@ -112,7 +112,7 @@ export default function NotificationPreferencesModal({ open, onClose, onBack, cu
         )}
 
         {CATEGORIES.map(({ key, label, icon: Icon }) => (
-          <label key={key} className="flex items-center justify-between py-2.5" style={{ borderTop: "1px solid rgba(43,36,32,0.08)", minHeight: 44 }}>
+          <label key={key} className="flex items-center justify-between py-2.5" style={{ borderTop: "1px solid rgba(var(--bb-ink-rgb),0.08)", minHeight: 44 }}>
             <div className="flex items-center gap-2 text-sm"><Icon size={14} color={C.indigo} /> {label}</div>
             <input
               type="checkbox"
@@ -122,7 +122,7 @@ export default function NotificationPreferencesModal({ open, onClose, onBack, cu
             />
           </label>
         ))}
-        <button onClick={onClose} className="w-full mt-4 py-3 rounded-full text-sm font-semibold" style={{ border: "1px solid rgba(43,36,32,0.15)", color: C.ink, minHeight: 44 }}>
+        <button onClick={onClose} className="w-full mt-4 py-3 rounded-full text-sm font-semibold" style={{ border: "1px solid rgba(var(--bb-ink-rgb),0.15)", color: C.ink, minHeight: 44 }}>
           Fermer
         </button>
       </div>

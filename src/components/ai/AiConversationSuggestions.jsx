@@ -49,7 +49,7 @@ export default function AiConversationSuggestions({ currentUser, match, onPick }
         <Sparkles size={17} />
       </button>
       {open && (
-        <div className="absolute bottom-14 left-0 w-72 bg-white rounded-2xl border shadow-2xl p-3 z-20">
+        <div className="absolute bottom-14 left-0 w-72 bg-[var(--bb-surface)] rounded-2xl border border-[var(--bb-border)] shadow-2xl p-3 z-20">
           <div className="text-[10px] font-black uppercase tracking-wider flex items-center gap-1 mb-2" style={{ color: goldText }}>
             <Sparkles size={11} /> Suggestions IA
           </div>

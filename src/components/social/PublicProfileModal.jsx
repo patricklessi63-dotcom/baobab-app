@@ -1,9 +1,7 @@
 import React, { useState } from "react";
 import { X, ChevronLeft, ChevronRight, Heart, MessageCircle, UserPlus, UserCheck, Star, Flag, Ban } from "lucide-react";
 import Avatar from "../Avatar";
-import VerifiedBadge from "../VerifiedBadge";
-import FounderBadge from "../FounderBadge";
-import PremiumBadge from "../PremiumBadge";
+import StatusBadge from "../StatusBadge";
 import { visibleAge } from "../../utils/format";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
 import { primary, green, coral, gold, bg, muted, card, body, primaryRgb } from "./theme";
@@ -108,9 +106,7 @@ export default function PublicProfileModal({
         <div className="p-5">
           <div className="flex items-center gap-2">
             <h2 className="text-xl font-black" style={{ color: primary }}>{profile.name}{visibleAge(profile) ? `, ${visibleAge(profile)}` : ""}</h2>
-            <VerifiedBadge emailVerified={profile.email_verified} phoneVerified={profile.phone_verified} />
-            <FounderBadge isFounder={profile.is_founder} />
-            <PremiumBadge isPremium={profile.is_premium} />
+            <StatusBadge emailVerified={profile.email_verified} phoneVerified={profile.phone_verified} isFounder={profile.is_founder} isPremium={profile.is_premium} />
           </div>
 
           {(showCity && profile.city) && (

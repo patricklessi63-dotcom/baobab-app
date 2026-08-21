@@ -1,14 +1,22 @@
 import React, { useState } from "react";
 import { supabase } from "../../supabaseClient";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
-import { primary, coral, muted, card, primaryRgb } from "./theme";
+import { primary, navy, coral, muted, card, primaryRgb } from "./theme";
 
 // Auto-contenu (contrairement à ReportModal) : pas de state à faire
 // remonter au parent, juste open/onClose/currentUser/screen. Écrit dans
 // beta_feedback (voir supabase-beta-tracking.sql) — table dédiée à la beta
 // privée, distincte des signalements de contenu (ReportModal/reports).
+const REACTIONS = [
+  ["jaime", "👍", "J'aime"],
+  ["jaime_pas", "👎", "Je n'aime pas"],
+  ["bug", "🐛", "Signaler un problème"],
+  ["suggestion", "💡", "Suggestion"],
+];
+
 export default function BetaFeedbackModal({ open, onClose, currentUser, screen }) {
   const [message, setMessage] = useState("");
+  const [category, setCategory] = useState(null);
   const [sending, setSending] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState("");
@@ -17,17 +25,23 @@ export default function BetaFeedbackModal({ open, onClose, currentUser, screen }
 
   const handleClose = () => {
     onClose();
-    setTimeout(() => { setMessage(""); setSubmitted(false); setError(""); }, 200);
+    setTimeout(() => { setMessage(""); setCategory(null); setSubmitted(false); setError(""); }, 200);
   };
 
+  // Un tap sur une réaction rapide (👍/👎/🐛/💡) est déjà un signal utile
+  // même sans commentaire — seul le texte libre (sans catégorie) reste
+  // obligatoire, pour ne pas perdre le cas d'usage "Un souci, une idée ?"
+  // existant.
+  const canSubmit = Boolean(message.trim() || category);
+
   const handleSubmit = async () => {
-    if (!message.trim() || !currentUser) return;
+    if (!canSubmit || !currentUser) return;
     setSending(true);
     setError("");
     try {
       const { error: insertError } = await supabase
         .from("beta_feedback")
-        .insert({ profile_id: currentUser.id, message: message.trim(), screen: screen || null });
+        .insert({ profile_id: currentUser.id, message: message.trim(), category, screen: screen || null });
       if (insertError) throw insertError;
       setSubmitted(true);
     } catch (e) {
@@ -55,12 +69,28 @@ export default function BetaFeedbackModal({ open, onClose, currentUser, screen }
               Baobab est en beta privée — ton retour va directement à l'équipe.
             </p>
             {error && <p className="text-sm mb-2" style={{ color: coral }}>{error}</p>}
+            <div className="flex gap-2 mb-3" role="radiogroup" aria-label="Type de retour">
+              {REACTIONS.map(([value, emoji, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  role="radio"
+                  aria-checked={category === value}
+                  aria-label={label}
+                  onClick={() => setCategory((c) => (c === value ? null : value))}
+                  className="flex-1 py-2.5 rounded-xl text-xl flex items-center justify-center focus-visible:outline focus-visible:outline-2"
+                  style={{ background: category === value ? "rgba(225,107,93,.14)" : "var(--bb-bg)", border: category === value ? `1px solid ${coral}` : "1px solid transparent" }}
+                >
+                  {emoji}
+                </button>
+              ))}
+            </div>
             <textarea
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               rows={4}
               maxLength={2000}
-              placeholder="Décris le bug ou ton idée..."
+              placeholder="Décris le bug ou ton idée... (facultatif si tu as choisi une réaction ci-dessus)"
               className="w-full p-3 rounded-lg text-sm"
               style={{ border: `1px solid rgba(${primaryRgb},.12)` }}
               autoFocus
@@ -71,7 +101,7 @@ export default function BetaFeedbackModal({ open, onClose, currentUser, screen }
               </button>
               <button
                 onClick={handleSubmit}
-                disabled={sending || !message.trim()}
+                disabled={sending || !canSubmit}
                 className="flex-1 py-2.5 rounded-full text-sm font-bold text-white disabled:opacity-50"
                 style={{ background: coral }}
               >
@@ -83,7 +113,7 @@ export default function BetaFeedbackModal({ open, onClose, currentUser, screen }
           <>
             <h2 className="text-lg font-black" style={{ color: primary }}>Merci !</h2>
             <p className="text-sm mt-2" style={{ color: muted }}>Ton retour a bien été transmis à l'équipe.</p>
-            <button onClick={handleClose} className="w-full mt-4 py-2.5 rounded-full text-sm font-bold text-white" style={{ background: primary }}>
+            <button onClick={handleClose} className="w-full mt-4 py-2.5 rounded-full text-sm font-bold text-white" style={{ background: navy }}>
               Fermer
             </button>
           </>

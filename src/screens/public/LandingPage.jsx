@@ -1,14 +1,27 @@
-import React, { useEffect } from "react";
-import { MapPin } from "lucide-react";
+import React, { useEffect, useState } from "react";
+import { MapPin, Users } from "lucide-react";
 import loginBackground from "../../assets/baobab-canada-bg.svg";
 import { C } from "../../components/auth/authTheme";
+import { supabase } from "../../supabaseClient";
 
 // Page d'accueil publique (Phase 12b) — reprend l'accroche déjà écrite
 // dans Auth.jsx (bb-hero, visible desktop uniquement) en pleine page,
 // avec deux CTA distincts au lieu du formulaire directement affiché.
 export default function LandingPage({ onLogin, onSignup, navigate }) {
+  const [userCount, setUserCount] = useState(null);
+
   useEffect(() => {
     document.title = "Baobab — Rencontres et communauté pour immigrants au Canada";
+  }, []);
+
+  useEffect(() => {
+    // "profiles" est restreint aux utilisateurs connectés (RLS) — un
+    // visiteur non connecté ne peut pas le lire, ni même en compter les
+    // lignes. RPC dédiée (public_user_count, supabase-public-user-count.sql)
+    // qui ne renvoie qu'un nombre, jamais de données de profil.
+    supabase.rpc("public_user_count").then(({ data, error }) => {
+      if (!error && typeof data === "number") setUserCount(data);
+    });
   }, []);
 
   return (
@@ -46,6 +59,13 @@ export default function LandingPage({ onLogin, onSignup, navigate }) {
             Se connecter
           </button>
         </div>
+
+        {Boolean(userCount) && (
+          <div className="mt-7 inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-semibold"
+            style={{ background: "rgba(15,21,38,0.42)", border: "1px solid rgba(242,233,220,0.14)", backdropFilter: "blur(10px)", color: C.sandDim }}>
+            <Users size={13} color={C.ochre} /> {userCount.toLocaleString("fr-CA")} membre{userCount > 1 ? "s" : ""} déjà sur Baobab
+          </div>
+        )}
 
         <div className="mt-10 flex justify-center flex-wrap gap-x-4 gap-y-2 text-[11px]" style={{ color: "rgba(242,233,220,0.5)" }}>
           <button type="button" onClick={() => navigate("/a-propos")} className="underline decoration-dotted underline-offset-2">À propos</button>

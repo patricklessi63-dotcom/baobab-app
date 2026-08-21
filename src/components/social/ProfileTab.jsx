@@ -1,9 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Send, CheckCheck, Star, Target, ChevronRight, Users2, MapPin, PartyPopper, Heart } from "lucide-react";
 import Avatar from "../Avatar";
-import VerifiedBadge from "../VerifiedBadge";
-import FounderBadge from "../FounderBadge";
-import PremiumBadge from "../PremiumBadge";
+import StatusBadge from "../StatusBadge";
 import EmptyState from "../home/EmptyState";
 import PostsFeed from "./PostsFeed";
 import MediaViewerModal from "./MediaViewerModal";
@@ -14,7 +12,7 @@ import { categoryIcon as eventCategoryIcon, categoryLabel as eventCategoryLabel 
 import { formatEventWhen, visibleAge } from "../../utils/format";
 import { usePremiumStatus } from "../../lib/premium/usePremiumStatus";
 import { openBillingPortal } from "../../lib/premium/checkout";
-import { primary, green, coral, gold, bg, muted, online, verified, goldTint, goldTintDeep, primaryRgb } from "./theme";
+import { primary, navy, green, coral, gold, bg, muted, online, verified, goldTint, goldTintDeep, primaryRgb } from "./theme";
 
 export default function ProfileTab({
   currentUser,
@@ -85,15 +83,15 @@ export default function ProfileTab({
   return (
           <section className="max-w-3xl mx-auto">
             <div
-              className="bg-white rounded-[32px] overflow-hidden border shadow-[0_18px_60px_rgba(21,27,61,.08)]"
-              style={currentUser?.is_founder ? { borderColor: gold, borderWidth: 2, boxShadow: "0 18px 60px rgba(21,27,61,.08), 0 0 0 1px " + gold } : undefined}
+              className="bg-[var(--bb-surface)] rounded-[32px] overflow-hidden border border-[var(--bb-border)] shadow-[0_18px_60px_rgba(20,67,42,.08)]"
+              style={currentUser?.is_founder ? { borderColor: gold, borderWidth: 2, boxShadow: "0 18px 60px rgba(20,67,42,.08), 0 0 0 1px " + gold } : undefined}
             >
               <div
                 className="h-40 md:h-52 relative"
                 style={
                   currentUser?.cover_url
                     ? { background: `url(${currentUser.cover_url}) center/cover`, cursor: "zoom-in" }
-                    : { background: `linear-gradient(135deg,${primary},#2B3766 50%,${green})` }
+                    : { background: `linear-gradient(135deg,${navy},#1E4632 50%,${green})` }
                 }
                 onClick={() => currentUser?.cover_url && setViewerMedia({ url: currentUser.cover_url, alt: "Photo de couverture" })}
                 role={currentUser?.cover_url ? "button" : undefined}
@@ -126,9 +124,7 @@ export default function ProfileTab({
                     <div className="flex items-center gap-2">
                       <h1 className="text-2xl font-black" style={{ color: primary }}>{currentUser?.name || "Ton profil"}</h1>
                       <span className="h-3 w-3 rounded-full" style={{ background: online }} />
-                      <VerifiedBadge emailVerified={currentUser?.email_verified} phoneVerified={currentUser?.phone_verified} size={16} />
-                      <FounderBadge isFounder={currentUser?.is_founder} size={16} />
-                      <PremiumBadge isPremium={currentUser?.is_premium} size={16} />
+                      <StatusBadge emailVerified={currentUser?.email_verified} phoneVerified={currentUser?.phone_verified} isFounder={currentUser?.is_founder} isPremium={currentUser?.is_premium} size={16} />
                       {isComplete && (
                         <span className="h-5 w-5 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: verified }} title="Profil complet">
                           <CheckCheck size={12} color="#fff" />
@@ -146,8 +142,8 @@ export default function ProfileTab({
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-xs font-black uppercase tracking-wider" style={{ color: primary }}>Ton profil est complété à {completion.percent}%</span>
                     </div>
-                    <div className="h-2 rounded-full bg-white overflow-hidden mb-2">
-                      <div className="h-full rounded-full motion-safe:transition-[width] motion-safe:duration-300" style={{ width: `${completion.percent}%`, background: `linear-gradient(90deg,${gold},${green})` }} />
+                    <div className="h-2 rounded-full bg-[var(--bb-surface)] overflow-hidden mb-2">
+                      <div className="h-full rounded-full motion-safe:transition-[width] motion-safe:duration-300" style={{ width: `${completion.percent}%`, background: `linear-gradient(90deg,${navy},${gold})` }} />
                     </div>
                     {completion.tips[0] && (
                       <p className="text-xs" style={{ color: muted }}>💡 {completion.tips[0]}</p>
@@ -228,7 +224,7 @@ export default function ProfileTab({
                     <div className="text-center py-6">
                       <Users2 size={24} className="mx-auto mb-2" color={muted} />
                       <p className="text-sm" style={{ color: muted }}>Tu n'as pas encore rejoint de communauté.</p>
-                      <button onClick={() => onOpenCommunities()} className="mt-3 px-4 py-2.5 rounded-xl font-bold text-sm" style={{ background: primary, color: "#fff" }}>Découvrir les communautés</button>
+                      <button onClick={() => onOpenCommunities()} className="mt-3 px-4 py-2.5 rounded-xl font-bold text-sm" style={{ background: navy, color: "#fff" }}>Découvrir les communautés</button>
                     </div>
                   ) : (
                     <div className="grid sm:grid-cols-2 gap-3">
@@ -256,7 +252,7 @@ export default function ProfileTab({
                     <div className="text-center py-6">
                       <PartyPopper size={24} className="mx-auto mb-2" color={muted} />
                       <p className="text-sm" style={{ color: muted }}>Aucun événement à venir pour l'instant.</p>
-                      <button onClick={() => onOpenEvents()} className="mt-3 px-4 py-2.5 rounded-xl font-bold text-sm" style={{ background: primary, color: "#fff" }}>Découvrir les événements</button>
+                      <button onClick={() => onOpenEvents()} className="mt-3 px-4 py-2.5 rounded-xl font-bold text-sm" style={{ background: navy, color: "#fff" }}>Découvrir les événements</button>
                     </div>
                   ) : (
                     <div className="grid sm:grid-cols-2 gap-3">
@@ -282,23 +278,23 @@ export default function ProfileTab({
                     <div className="rounded-2xl p-4" style={{ background: `linear-gradient(180deg, ${goldTint}, ${goldTintDeep})` }}>
                       <div className="flex items-center gap-2">
                         <span style={{ fontSize: 20 }}>💎</span>
-                        <span className="text-sm font-black" style={{ color: primary }}>Baobab Premium actif</span>
+                        <span className="text-sm font-black" style={{ color: navy }}>Baobab Premium actif</span>
                       </div>
-                      <p className="text-sm mt-2" style={{ color: muted }}>
+                      <p className="text-sm mt-2" style={{ color: "rgba(var(--bb-ink-rgb),0.72)" }}>
                         Plan {subscription?.plan === "yearly" ? "annuel" : "mensuel"}
                         {subscription?.current_period_end && ` — renouvellement le ${new Date(subscription.current_period_end).toLocaleDateString("fr-CA")}`}
                         {subscription?.cancel_at_period_end && " (annulation programmée à cette date)"}
                       </p>
-                      <button onClick={handleManageSubscription} disabled={managingSubscription} className="mt-3 px-4 py-2.5 rounded-xl font-bold text-sm disabled:opacity-60" style={{ background: primary, color: "#fff" }}>
+                      <button onClick={handleManageSubscription} disabled={managingSubscription} className="mt-3 px-4 py-2.5 rounded-xl font-bold text-sm disabled:opacity-60" style={{ background: navy, color: "#fff" }}>
                         {managingSubscription ? "Ouverture..." : "Gérer mon abonnement"}
                       </button>
-                      <p className="text-[11px] mt-2" style={{ color: muted }}>Annulation, moyen de paiement et factures — géré directement par Stripe, en dehors de Baobab.</p>
+                      <p className="text-[11px] mt-2" style={{ color: "rgba(var(--bb-ink-rgb),0.72)" }}>Annulation, moyen de paiement et factures — géré directement par Stripe, en dehors de Baobab.</p>
                     </div>
                   ) : (
                     <div className="text-center py-6">
                       <span style={{ fontSize: 28 }}>💎</span>
                       <p className="text-sm mt-2" style={{ color: muted }}>Tu es sur le plan gratuit.</p>
-                      <button onClick={() => goTab("premium")} className="mt-3 px-4 py-2.5 rounded-xl font-bold text-sm" style={{ background: primary, color: "#fff" }}>Découvrir Premium</button>
+                      <button onClick={() => goTab("premium")} className="mt-3 px-4 py-2.5 rounded-xl font-bold text-sm" style={{ background: navy, color: "#fff" }}>Découvrir Premium</button>
                     </div>
                   )}
                 </div>
@@ -309,7 +305,7 @@ export default function ProfileTab({
                   {aboutRows.length === 0 ? (
                     <div className="text-center py-6">
                       <p className="text-sm" style={{ color: muted }}>Complète ton profil pour donner plus de contexte aux autres membres.</p>
-                      <button onClick={openEditProfile} className="mt-3 px-4 py-2.5 rounded-xl font-bold text-sm" style={{ background: primary, color: "#fff" }}>Compléter mon profil</button>
+                      <button onClick={openEditProfile} className="mt-3 px-4 py-2.5 rounded-xl font-bold text-sm" style={{ background: navy, color: "#fff" }}>Compléter mon profil</button>
                     </div>
                   ) : (
                     <div className="grid md:grid-cols-2 gap-3">

@@ -28,7 +28,7 @@ export default function MatchCelebrationModal({ match, currentUser, onStartChat,
           <Avatar name={match.name} url={match.avatar_url} size={64} />
         </div>
 
-        <p className="text-sm mt-4" style={{ color: "rgba(43,36,32,0.7)" }}>
+        <p className="text-sm mt-4" style={{ color: "rgba(var(--bb-ink-rgb),0.7)" }}>
           {match.name} et toi avez tous les deux choisi de vous découvrir.
         </p>
 
@@ -41,7 +41,7 @@ export default function MatchCelebrationModal({ match, currentUser, onStartChat,
         <button
           onClick={onDismiss}
           className="w-full mt-2 py-2.5 text-sm font-semibold"
-          style={{ color: "rgba(43,36,32,0.5)" }}
+          style={{ color: "rgba(var(--bb-ink-rgb),0.5)" }}
         >
           Plus tard
         </button>

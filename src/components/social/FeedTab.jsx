@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Luggage, ThumbsUp, ThumbsDown, Users, X } from "lucide-react";
+import { Luggage, ThumbsUp, ThumbsDown, Users, X, Landmark } from "lucide-react";
 import Avatar from "../Avatar";
 import HomeHeader from "../home/HomeHeader";
 import BaobabHero from "../home/BaobabHero";
@@ -16,7 +16,7 @@ import { rankCandidates } from "../../lib/matching/matchingService";
 import { rankCommunities } from "../../lib/communities/recommendations";
 import { rankEvents } from "../../lib/events/recommendations";
 import { getProfileCompletion } from "../../lib/profileCompletion";
-import { primary, green, coral, gold, bg, muted, card, body, primaryRgb } from "./theme";
+import { primary, navy, green, coral, gold, bg, muted, card, body, primaryRgb } from "./theme";
 
 // "Pour toi" communautés/événements (item 7/13/14) — lecture seule ici :
 // réutilise les vraies fonctions de classement déjà écrites en Phases 6-7
@@ -163,7 +163,7 @@ export default function FeedTab({
               <div className="h-[64px] w-[64px] rounded-full flex items-center justify-center p-[3px] relative" style={{ background: ringBg }}>
                 {s.own ? (
                   <>
-                    <button onClick={() => openStory(i)} className="h-full w-full rounded-full p-[2px] bg-white flex items-center justify-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1">
+                    <button onClick={() => openStory(i)} className="h-full w-full rounded-full p-[2px] bg-[var(--bb-bg)] flex items-center justify-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1">
                       <div className="h-full w-full rounded-full flex items-center justify-center relative" style={{ background: bg }}>
                         <Avatar name={currentUser?.name || "+"} url={currentUser?.avatar_url} size={56} />
                       </div>
@@ -178,8 +178,8 @@ export default function FeedTab({
                     </button>
                   </>
                 ) : (
-                  <button onClick={() => openStory(i)} aria-label={`Voir le statut de ${s.name}`} className="h-full w-full rounded-full p-[2px] bg-white flex items-center justify-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1">
-                    <div className="h-full w-full rounded-full flex items-center justify-center text-white font-black text-lg" style={{ background: `linear-gradient(160deg,${s.color},${primary})` }} aria-hidden="true">
+                  <button onClick={() => openStory(i)} aria-label={`Voir le statut de ${s.name}`} className="h-full w-full rounded-full p-[2px] bg-[var(--bb-bg)] flex items-center justify-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1">
+                    <div className="h-full w-full rounded-full flex items-center justify-center text-white font-black text-lg" style={{ background: `linear-gradient(160deg,${s.color},${navy})` }} aria-hidden="true">
                       {s.initial}
                     </div>
                   </button>
@@ -197,6 +197,17 @@ export default function FeedTab({
         onDiscover={() => goTab("discover")}
         onCompleteProfile={openEditProfile}
       />
+
+      <button onClick={() => goTab("news")} className={`${card} w-full text-left p-4 mb-6 flex items-center gap-3 hover:-translate-y-0.5 transition-transform duration-200`}>
+        <div className="h-11 w-11 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: `rgba(${primaryRgb},.08)` }}>
+          <Landmark size={20} style={{ color: navy }} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="text-sm font-black" style={{ color: primary }}>Immigration & Intégration</div>
+          <p className="text-xs mt-0.5" style={{ color: muted }}>Actualités officielles IRCC et ASFC — sources gouvernementales uniquement.</p>
+        </div>
+        <span className="text-xs font-bold flex-shrink-0" style={{ color: coral }}>Consulter →</span>
+      </button>
 
       <div className="flex border-b mb-6" style={{ borderColor: `rgba(${primaryRgb},.08)` }}>
         {FEED_TABS.map(([key, label]) => (

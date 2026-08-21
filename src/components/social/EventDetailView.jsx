@@ -120,7 +120,7 @@ export default function EventDetailView({
                   <Share2 size={15} color={primary} />
                 </button>
                 {shareOpen && (
-                  <div className="absolute right-0 top-11 w-56 bg-white rounded-2xl border shadow-2xl p-1.5 z-20">
+                  <div className="absolute right-0 top-11 w-56 bg-[var(--bb-surface)] rounded-2xl border border-[var(--bb-border)] shadow-2xl p-1.5 z-20">
                     <button onClick={() => { setShareOpen(false); onShareMessage(event); }} className="w-full text-left px-3 py-2.5 rounded-xl text-sm hover:bg-slate-50">💬 Dans une conversation</button>
                     {!isPrivate && !isCommunityOnly && (
                       <button onClick={() => { setShareOpen(false); onShareFeed(event); }} className="w-full text-left px-3 py-2.5 rounded-xl text-sm hover:bg-slate-50">📰 Dans le fil Baobab</button>
