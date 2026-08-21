@@ -1,6 +1,7 @@
-import React from "react";
-import { Circle, Bell, Moon, Shield, Info, ArrowLeft, ShieldCheck, Smartphone, UserX, AlertTriangle, MapPin, Heart, Languages } from "lucide-react";
+import React, { useState } from "react";
+import { Circle, Bell, Moon, Shield, Info, ArrowLeft, ShieldCheck, Smartphone, UserX, AlertTriangle, MapPin, Heart, Languages, RefreshCw, CheckCircle2 } from "lucide-react";
 import { C } from "../constants";
+import { CURRENT_VERSION, checkForUpdate } from "../lib/version";
 import { PrivacyPolicyContent, TermsOfServiceContent } from "../legalContent";
 import Avatar from "./Avatar";
 import PrivacyFieldsModal from "./PrivacyFieldsModal";
@@ -56,6 +57,17 @@ export default function AppModals({
   const [deleteAccountOpen, setDeleteAccountOpen] = React.useState(false);
   const [theme, setTheme] = useTheme();
   const [language, setLanguage] = useLanguage();
+  const [updateCheck, setUpdateCheck] = useState({ status: "idle" }); // idle | checking | up-to-date | available
+  const runManualUpdateCheck = async () => {
+    setUpdateCheck({ status: "checking" });
+    const result = await checkForUpdate();
+    if (!result.ok) { setUpdateCheck({ status: "idle" }); return; }
+    setUpdateCheck(
+      result.mandatory || result.recommended
+        ? { status: "available", info: result.info }
+        : { status: "up-to-date" }
+    );
+  };
   useEscapeKey(settingsOpen, () => setSettingsOpen(false));
   useEscapeKey(blockedOpen, () => setBlockedOpen(false));
   useEscapeKey(privacyOpen, () => setPrivacyOpen(false));
@@ -341,7 +353,45 @@ export default function AppModals({
             <p style={{ fontFamily: "monospace", fontSize: 11, letterSpacing: "0.06em", color: "rgba(var(--bb-ink-rgb),0.45)" }}>
               BAOBAB — BY LESSI PATRICK
             </p>
-            <button onClick={() => setAboutOpen(false)} className="w-full mt-4 py-2.5 rounded-full text-sm font-semibold" style={{ border: "1px solid rgba(var(--bb-ink-rgb),0.15)", color: C.ink }}>
+
+            <div className="mt-4 rounded-2xl p-3.5 text-left" style={{ background: "rgba(var(--bb-ink-rgb),0.04)" }}>
+              <p className="text-xs font-bold" style={{ color: C.ink }}>Version {CURRENT_VERSION}</p>
+              {updateCheck.status === "up-to-date" && (
+                <p className="text-xs mt-1.5 flex items-center gap-1.5" style={{ color: C.indigo }}>
+                  <CheckCircle2 size={13} /> Vous utilisez la dernière version.
+                </p>
+              )}
+              {updateCheck.status === "available" && (
+                <div className="mt-1.5">
+                  <p className="text-xs font-semibold" style={{ color: C.clay }}>
+                    Baobab {updateCheck.info.latestVersion} est disponible
+                  </p>
+                  {updateCheck.info.releaseNotes?.length > 0 && (
+                    <ul className="mt-1.5 space-y-0.5">
+                      {updateCheck.info.releaseNotes.map((note, i) => (
+                        <li key={i} className="text-xs" style={{ color: "rgba(var(--bb-ink-rgb),0.6)" }}>• {note}</li>
+                      ))}
+                    </ul>
+                  )}
+                  <button onClick={() => window.location.reload()} className="w-full mt-2.5 py-2 rounded-full text-xs font-bold text-white" style={{ background: C.indigo }}>
+                    Mettre à jour maintenant
+                  </button>
+                </div>
+              )}
+              {(updateCheck.status === "idle" || updateCheck.status === "checking") && (
+                <button
+                  onClick={runManualUpdateCheck}
+                  disabled={updateCheck.status === "checking"}
+                  className="w-full mt-2 py-2 rounded-full text-xs font-semibold flex items-center justify-center gap-1.5 disabled:opacity-60"
+                  style={{ border: "1px solid rgba(var(--bb-ink-rgb),0.15)", color: C.ink }}
+                >
+                  <RefreshCw size={13} className={updateCheck.status === "checking" ? "animate-spin" : ""} />
+                  {updateCheck.status === "checking" ? "Recherche..." : "Rechercher une mise à jour"}
+                </button>
+              )}
+            </div>
+
+            <button onClick={() => setAboutOpen(false)} className="w-full mt-3 py-2.5 rounded-full text-sm font-semibold" style={{ border: "1px solid rgba(var(--bb-ink-rgb),0.15)", color: C.ink }}>
               Fermer
             </button>
           </div>

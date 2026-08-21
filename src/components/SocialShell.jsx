@@ -116,6 +116,7 @@ export default function SocialShell({
   retrySend = () => {},
   otherTyping = false,
   setSettingsOpen = () => {},
+  updateAvailable = false,
   replyingTo = null,
   setReplyingTo = () => {},
   reactionsByMessageId = {},
@@ -1037,7 +1038,10 @@ export default function SocialShell({
                 <button onClick={() => { goTab("profile"); }} className="w-full text-left rounded-xl px-3 py-3 text-sm hover:bg-slate-50"><UserRound size={16} className="inline mr-3" />Mon profil</button>
                 <button onClick={() => { goTab("discover"); }} className="w-full text-left rounded-xl px-3 py-3 text-sm hover:bg-slate-50"><Heart size={16} className="inline mr-3" />Découvrir</button>
                 <button onClick={() => { setMenu(false); openEditProfile(); }} className="w-full text-left rounded-xl px-3 py-3 text-sm hover:bg-slate-50"><Settings size={16} className="inline mr-3" />Modifier mon profil</button>
-                <button onClick={() => { setMenu(false); setSettingsOpen(true); }} className="w-full text-left rounded-xl px-3 py-3 text-sm hover:bg-slate-50"><Cog size={16} className="inline mr-3" />Réglages</button>
+                <button onClick={() => { setMenu(false); setSettingsOpen(true); }} className="w-full text-left rounded-xl px-3 py-3 text-sm hover:bg-slate-50 relative">
+                  <Cog size={16} className="inline mr-3" />Réglages
+                  {updateAvailable && <span className="absolute right-3 top-1/2 -translate-y-1/2 h-2 w-2 rounded-full" style={{ background: coral }} aria-label="Mise à jour disponible" />}
+                </button>
                 {myPlatformRole && (
                   <button onClick={() => { setMenu(false); goTab("admin"); }} className="w-full text-left rounded-xl px-3 py-3 text-sm hover:bg-slate-50"><Shield size={16} className="inline mr-3" />Baobab Admin</button>
                 )}

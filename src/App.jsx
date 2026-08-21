@@ -9,6 +9,8 @@ import AppModals from "./components/AppModals";
 import ConnectivityBanner from "./components/ConnectivityBanner";
 import AccountDeletionBanner from "./components/AccountDeletionBanner";
 import SessionExpiryBanner from "./components/SessionExpiryBanner";
+import UpdateNotice from "./components/UpdateNotice";
+import { checkForUpdate, wasRecentlyDismissed, dismissUpdate, CHECK_INTERVAL_MS } from "./lib/version";
 import { isCriticalOperationActive } from "./lib/criticalOperationGuard";
 import EditProfileForm from "./screens/EditProfileForm";
 import UpdatePasswordScreen from "./screens/UpdatePasswordScreen";
@@ -212,6 +214,37 @@ export default function App() {
     });
     return () => listener.subscription.unsubscribe();
   }, []);
+
+  // Système de mise à jour (voir src/lib/version.js, public/app-version.json)
+  // — au démarrage, périodiquement (toutes les 30 min, jamais plus agressif
+  // pour ne pas multiplier les requêtes), et quand l'utilisateur revient sur
+  // l'onglet après l'avoir quitté. N'exige pas de session : une mise à jour
+  // obligatoire doit pouvoir bloquer même l'écran de connexion.
+  const [updateState, setUpdateState] = useState({ mandatory: false, recommended: false, info: null });
+  useEffect(() => {
+    let cancelled = false;
+    const runCheck = async () => {
+      const result = await checkForUpdate();
+      if (cancelled || !result.ok) return;
+      const recommended = result.recommended && !wasRecentlyDismissed(result.info.latestVersion);
+      setUpdateState({ mandatory: result.mandatory, recommended, info: result.info });
+    };
+    runCheck();
+    const interval = setInterval(runCheck, CHECK_INTERVAL_MS);
+    const onVisible = () => { if (document.visibilityState === "visible") runCheck(); };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, []);
+
+  const handleUpdateReload = () => window.location.reload();
+  const handleUpdateDismiss = () => {
+    if (updateState.info) dismissUpdate(updateState.info.latestVersion);
+    setUpdateState((s) => ({ ...s, recommended: false }));
+  };
 
   // Présence en ligne : heartbeat léger. Si les colonnes presence/last_seen
   // n'existent pas encore en base, l'interface continue simplement à fonctionner.
@@ -1520,6 +1553,10 @@ export default function App() {
 
   // ---------------- RENDER ----------------
 
+  if (updateState.mandatory) {
+    return <UpdateNotice mandatory info={updateState.info} onReload={handleUpdateReload} />;
+  }
+
   if (view === "loading" || view === "checking-profile" || session === undefined) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: C.sand }}>
@@ -1600,7 +1637,9 @@ export default function App() {
           visible={sessionExpiryWarning}
           onStayConnected={handleStayConnected}
         />
+        <UpdateNotice recommended={updateState.recommended} info={updateState.info} onReload={handleUpdateReload} onDismiss={handleUpdateDismiss} />
         <SocialShell
+          updateAvailable={updateState.mandatory || updateState.recommended}
           currentUser={currentUser}
           setView={setView}
           handleSignOut={handleSignOut}
@@ -1713,6 +1752,7 @@ export default function App() {
         visible={sessionExpiryWarning}
         onStayConnected={handleStayConnected}
       />
+      <UpdateNotice recommended={updateState.recommended} info={updateState.info} onReload={handleUpdateReload} onDismiss={handleUpdateDismiss} />
       <style>{`
         @keyframes bbGenericDrift { from { transform: scale(1.02); } to { transform: scale(1.06) translate3d(-1%, -1%, 0); } }
         .bb-generic-bg { animation: bbGenericDrift 26s ease-in-out alternate infinite; }
