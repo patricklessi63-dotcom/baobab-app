@@ -146,7 +146,7 @@ export default function AdminDashboard({ onBack, onError, myPlatformRole }) {
       <div className="flex gap-1.5 mb-5 overflow-x-auto">
         {SUB_TABS.map(([key, label]) => (
           <button key={key} onClick={() => setSubTab(key)} className="px-4 py-2 rounded-full text-xs font-bold flex-shrink-0"
-            style={{ background: subTab === key ? primary : bg, color: subTab === key ? "#fff" : muted }}>
+            style={{ background: subTab === key ? navy : bg, color: subTab === key ? "#fff" : muted }}>
             {label}
           </button>
         ))}
@@ -252,7 +252,7 @@ export default function AdminDashboard({ onBack, onError, myPlatformRole }) {
             {actionTarget.mode === "suspend" && (
               <div className="flex gap-2 mt-4">
                 {SUSPEND_DURATIONS.map((d) => (
-                  <button key={d.label} onClick={() => setActionDuration(d.ms)} className="flex-1 py-2 rounded-xl text-xs font-bold" style={{ background: actionDuration === d.ms ? primary : bg, color: actionDuration === d.ms ? "#fff" : primary }}>
+                  <button key={d.label} onClick={() => setActionDuration(d.ms)} className="flex-1 py-2 rounded-xl text-xs font-bold" style={{ background: actionDuration === d.ms ? navy : bg, color: actionDuration === d.ms ? "#fff" : primary }}>
                     {d.label}
                   </button>
                 ))}

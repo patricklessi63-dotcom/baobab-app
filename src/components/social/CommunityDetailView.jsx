@@ -9,7 +9,7 @@ import EmptyState from "../home/EmptyState";
 import Skeleton from "../Skeleton";
 import { categoryIcon, categoryLabel } from "../../lib/communities/communityConfig";
 import { isStaff, canPost } from "../../lib/communities/permissions";
-import { primary, green, coral, gold, muted, bg, card, body, primaryRgb } from "./theme";
+import { primary, green, coral, gold, muted, bg, card, body, primaryRgb, navy } from "./theme";
 
 const SUB_TABS = [["about", "À propos"], ["posts", "Publications"], ["events", "Événements"], ["members", "Membres"]];
 
@@ -142,7 +142,7 @@ export default function CommunityDetailView({
             key={key}
             onClick={() => setSubTab(key)}
             className="px-4 py-2 rounded-full text-xs font-bold flex-shrink-0"
-            style={{ background: subTab === key ? primary : bg, color: subTab === key ? "#fff" : muted }}
+            style={{ background: subTab === key ? navy : bg, color: subTab === key ? "#fff" : muted }}
           >
             {key === "admin" && <Shield size={12} className="inline mr-1 -mt-0.5" />}
             {label}

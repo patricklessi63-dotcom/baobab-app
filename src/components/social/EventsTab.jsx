@@ -17,7 +17,7 @@ import { SkeletonCard } from "../Skeleton";
 import { rankEvents } from "../../lib/events/recommendations";
 import { EVENT_REPORT_CATEGORIES } from "../../lib/events/eventConfig";
 import { trackActivation } from "../../lib/trackActivation";
-import { primary, coral, muted, bg, card, primaryRgb } from "./theme";
+import { primary, coral, muted, bg, card, primaryRgb, navy } from "./theme";
 
 const PAGE_SIZE = 20;
 const PHOTO_URL_EXPIRY = 60 * 60 * 24 * 30; // 30 jours — assez pour une galerie, régénéré à chaque chargement
@@ -724,7 +724,7 @@ export default function EventsTab({ currentUser, onError, initialEventId, onCons
           onClick={() => setFiltersOpen((v) => !v)}
           aria-expanded={filtersOpen}
           className="text-sm font-bold px-4 py-3 rounded-2xl flex-shrink-0"
-          style={{ background: filtersOpen ? primary : bg, color: filtersOpen ? "#fff" : primary }}
+          style={{ background: filtersOpen ? navy : bg, color: filtersOpen ? "#fff" : primary }}
         >
           Filtres
         </button>

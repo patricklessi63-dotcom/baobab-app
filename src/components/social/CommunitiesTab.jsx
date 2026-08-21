@@ -830,7 +830,7 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
           onClick={() => setFiltersOpen((v) => !v)}
           aria-expanded={filtersOpen}
           className="text-sm font-bold px-4 py-3 rounded-2xl flex-shrink-0"
-          style={{ background: filtersOpen ? primary : bg, color: filtersOpen ? "#fff" : primary }}
+          style={{ background: filtersOpen ? navy : bg, color: filtersOpen ? "#fff" : primary }}
         >
           Filtres
         </button>

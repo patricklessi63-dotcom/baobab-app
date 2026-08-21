@@ -185,7 +185,7 @@ export default function ProfileTab({
                 <div className="p-4">
                   <div className="flex gap-2 mb-4">
                     {[["following", `Abonnements (${followingProfiles.length})`], ["followers", `Abonnés (${followerProfiles.length})`]].map(([key, label]) => (
-                      <button key={key} onClick={() => setNetworkView(key)} aria-pressed={networkView === key} className="flex-1 py-2.5 rounded-xl text-sm font-bold focus-visible:outline focus-visible:outline-2" style={{ background: networkView === key ? primary : bg, color: networkView === key ? "#fff" : muted }}>
+                      <button key={key} onClick={() => setNetworkView(key)} aria-pressed={networkView === key} className="flex-1 py-2.5 rounded-xl text-sm font-bold focus-visible:outline focus-visible:outline-2" style={{ background: networkView === key ? navy : bg, color: networkView === key ? "#fff" : muted }}>
                         {label}
                       </button>
                     ))}
@@ -208,7 +208,7 @@ export default function ProfileTab({
                               {p.city && <div className="text-xs truncate" style={{ color: muted }}>{p.city}</div>}
                             </div>
                           </button>
-                          <button onClick={() => onToggleFollow(p)} aria-pressed={followingIds.has(p.id)} className="px-3 py-2 rounded-full text-xs font-bold shrink-0 focus-visible:outline focus-visible:outline-2" style={{ background: followingIds.has(p.id) ? "#fff" : primary, color: followingIds.has(p.id) ? primary : "#fff" }}>
+                          <button onClick={() => onToggleFollow(p)} aria-pressed={followingIds.has(p.id)} className="px-3 py-2 rounded-full text-xs font-bold shrink-0 focus-visible:outline focus-visible:outline-2" style={{ background: followingIds.has(p.id) ? "#fff" : navy, color: followingIds.has(p.id) ? navy : "#fff" }}>
                             {followingIds.has(p.id) ? "Abonné(e)" : "Suivre"}
                           </button>
                         </div>
