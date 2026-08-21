@@ -923,7 +923,7 @@ export default function SocialShell({
         <div className="max-w-7xl mx-auto px-4 lg:px-8 h-[74px] flex items-center gap-4">
           <button onClick={() => goTab("feed")} className="flex items-center gap-3 shrink-0">
             <div className="h-11 w-11 rounded-[15px] overflow-hidden flex items-center justify-center shadow-lg" style={{ background: "#000" }}>
-              <img src={logoIcon} alt="" className="h-full w-full object-cover" style={{ objectPosition: "50% 30%", transform: "scale(1.7)" }} />
+              <img src={logoIcon} alt="" className="h-full w-full object-cover" />
             </div>
             <div className="hidden sm:block text-left">
               <div className="text-xl font-black tracking-tight" style={{ color: primary }}>baobab</div>
