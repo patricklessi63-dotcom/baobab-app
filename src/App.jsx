@@ -220,10 +220,14 @@ export default function App() {
     let alive = true;
 
     if (currentUser && currentUser.show_online_status === false) {
-      supabase.from("profiles").update({
-        is_online: false,
-        last_seen: new Date().toISOString(),
-      }).eq("user_id", session.user.id).catch(() => {});
+      (async () => {
+        try {
+          await supabase.from("profiles").update({
+            is_online: false,
+            last_seen: new Date().toISOString(),
+          }).eq("user_id", session.user.id);
+        } catch (_) {}
+      })();
       return;
     }
 
@@ -487,6 +491,8 @@ export default function App() {
       if (toggleError) throw toggleError;
     } catch (e) {
       console.error(e);
+      setCurrentUser((u) => ({ ...u, show_online_status: !checked }));
+      setError("Impossible de mettre à jour ce paramètre.");
     }
   }
 
@@ -538,6 +544,8 @@ export default function App() {
       if (toggleError) throw toggleError;
     } catch (e) {
       console.error(e);
+      setCurrentUser((u) => ({ ...u, [field]: !checked }));
+      setError("Impossible de mettre à jour ce paramètre.");
     }
   }
 
@@ -552,28 +560,35 @@ export default function App() {
   }
 
   async function handleDisableLocation() {
+    const previous = myLocation;
     setMyLocation((l) => (l ? { ...l, location_enabled: false } : l));
     try {
       const row = await disableMyLocation();
       setMyLocation(row);
     } catch (e) {
       console.error(e);
+      setMyLocation(previous);
+      setError("Impossible de désactiver la localisation.");
     }
   }
 
   async function handleUpdateLocationPref(field, value) {
+    const previous = myLocation;
     setMyLocation((l) => (l ? { ...l, [field]: value } : l));
     try {
       const row = await upsertMyLocation({ [field]: value });
       setMyLocation(row);
     } catch (e) {
       console.error(e);
+      setMyLocation(previous);
+      setError("Impossible de mettre à jour ce paramètre.");
     }
   }
 
   async function handleUpdateNotificationPreference(category, enabled) {
     if (!currentUser) return;
-    const nextPrefs = { ...(currentUser.notification_preferences || {}), [category]: enabled };
+    const previousPrefs = currentUser.notification_preferences || {};
+    const nextPrefs = { ...previousPrefs, [category]: enabled };
     setCurrentUser((u) => (u ? { ...u, notification_preferences: nextPrefs } : u));
     try {
       const { error: prefError } = await supabase
@@ -583,6 +598,8 @@ export default function App() {
       if (prefError) throw prefError;
     } catch (e) {
       console.error(e.message, e.code, e.details, e.hint);
+      setCurrentUser((u) => (u ? { ...u, notification_preferences: previousPrefs } : u));
+      setError("Impossible de mettre à jour ce paramètre.");
     }
   }
 
