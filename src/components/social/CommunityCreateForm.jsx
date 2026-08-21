@@ -190,8 +190,8 @@ export default function CommunityCreateForm({ currentUser, onCreated, onCancel, 
               className="text-left p-3 rounded-xl"
               style={{ background: visibility === v.value ? "#FFF3F1" : bg, border: visibility === v.value ? `1px solid ${coral}` : "1px solid transparent" }}
             >
-              <div className="text-sm font-bold" style={{ color: primary }}>{v.label}</div>
-              <div className="text-xs mt-0.5" style={{ color: muted }}>{v.description}</div>
+              <div className="text-sm font-bold" style={{ color: visibility === v.value ? coral : primary }}>{v.label}</div>
+              <div className="text-xs mt-0.5" style={{ color: visibility === v.value ? "rgba(43,36,32,0.6)" : muted }}>{v.description}</div>
             </button>
           ))}
         </div>
