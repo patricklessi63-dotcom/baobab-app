@@ -18,7 +18,7 @@ export default function Step6LookingFor({ draft, update }) {
       <h2 style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 22, color: C.indigo }}>
         Qu'est-ce que tu recherches sur Baobab ?
       </h2>
-      <p className="text-sm" style={{ color: "rgba(var(--bb-ink-rgb),0.6)" }}>
+      <p className="text-sm" style={{ color: "rgba(var(--bb-ink-rgb-static),0.6)" }}>
         Choisis autant d'options que nécessaire.
       </p>
 
@@ -31,7 +31,7 @@ export default function Step6LookingFor({ draft, update }) {
 
       {showIntentions && (
         <div className="mt-3 bb-fade-in">
-          <p className="text-xs font-semibold mb-1.5" style={{ color: "rgba(var(--bb-ink-rgb),0.55)" }}>Quel type de relation souhaites-tu ?</p>
+          <p className="text-xs font-semibold mb-1.5" style={{ color: "rgba(var(--bb-ink-rgb-static),0.55)" }}>Quel type de relation souhaites-tu ?</p>
           <ChipSelect
             options={RELATIONSHIP_VALUES_OPTIONS}
             value={draft.relationshipValues}

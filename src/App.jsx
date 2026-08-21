@@ -1485,13 +1485,13 @@ export default function App() {
           <h1 className="text-lg font-black" style={{ color: C.indigo }}>
             {isBanned ? "Compte banni" : "Compte suspendu"}
           </h1>
-          <p className="text-sm mt-3" style={{ color: "rgba(var(--bb-ink-rgb),0.7)" }}>
+          <p className="text-sm mt-3" style={{ color: "rgba(var(--bb-ink-rgb-static),0.7)" }}>
             {isBanned
               ? "Ton compte a été banni de Baobab suite à une violation des règles de la communauté."
               : `Ton compte est temporairement suspendu${until ? ` jusqu'au ${until.toLocaleDateString("fr-CA")} à ${until.toLocaleTimeString("fr-CA", { hour: "2-digit", minute: "2-digit" })}` : ""}.`}
           </p>
           {reason && (
-            <p className="text-sm mt-2 rounded-xl p-3" style={{ background: "rgba(var(--bb-ink-rgb),0.05)", color: "rgba(var(--bb-ink-rgb),0.6)" }}>
+            <p className="text-sm mt-2 rounded-xl p-3" style={{ background: "rgba(var(--bb-ink-rgb-static),0.05)", color: "rgba(var(--bb-ink-rgb-static),0.6)" }}>
               Motif : {reason}
             </p>
           )}
@@ -1633,7 +1633,7 @@ export default function App() {
       `}</style>
       <div aria-hidden="true" className="fixed inset-0 z-0 pointer-events-none" style={{ background: C.sand }} />
       {/* Header */}
-      <div className="relative z-20 flex items-center justify-between px-5 py-4 bb-generic-glass" style={{ borderBottom: `1px solid rgba(var(--bb-ink-rgb),0.08)`, boxShadow: "0 1px 0 rgba(20,29,56,0.02)", position: "sticky", top: 0, zIndex: 10 }}>
+      <div className="relative z-20 flex items-center justify-between px-5 py-4 bb-generic-glass" style={{ borderBottom: `1px solid rgba(var(--bb-ink-rgb-static),0.08)`, boxShadow: "0 1px 0 rgba(20,29,56,0.02)", position: "sticky", top: 0, zIndex: 10 }}>
         <div className="flex items-center gap-2">
           <span style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontWeight: 600, fontSize: 20, color: C.indigo }}>
             Baobab

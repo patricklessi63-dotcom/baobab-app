@@ -54,8 +54,18 @@
       --bb-muted: rgba(43,36,32,0.72);
       /* Second famille de texte (brun chaud) utilisée par l'onboarding,
       Réglages et l'édition de profil (C.ink) — palette volontairement
-      distincte de "text" (marine) par zone de l'app, voir constants.js. */
+      distincte de "text" (marine) par zone de l'app, voir constants.js.
+      Réactive au thème : Réglages et les modales de la coquille sociale
+      ont un fond lui-même réactif, donc le texte doit suivre. */
       --bb-ink-rgb: 43,36,32;
+      /* Variante FIXE (jamais redéfinie dans les blocs sombre ci-dessous) —
+      pour les écrans "chrome applicatif" à fond volontairement toujours
+      clair (onboarding, édition de profil, écran banni/suspendu) : leur
+      fond ne réagit jamais au thème, donc leur texte ne doit pas non plus
+      réagir — sinon le texte devient presque invisible en mode sombre
+      (texte clair sur fond clair fixe). Même valeur que --bb-ink-rgb, mais
+      qui ne bouge jamais. */
+      --bb-ink-rgb-static: 43,36,32;
     }
     @media (prefers-color-scheme: dark) {
       :root:not([data-theme="light"]) {

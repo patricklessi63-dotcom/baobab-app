@@ -26,7 +26,7 @@ export default function Step5Languages({ draft, update }) {
       <h2 style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 22, color: C.indigo }}>
         🗣️ Tes langues
       </h2>
-      <p className="text-sm" style={{ color: "rgba(var(--bb-ink-rgb),0.6)" }}>
+      <p className="text-sm" style={{ color: "rgba(var(--bb-ink-rgb-static),0.6)" }}>
         Sélectionne les langues que tu parles.
       </p>
 
@@ -50,13 +50,13 @@ export default function Step5Languages({ draft, update }) {
       {list.length > 0 && (
         <div className="flex flex-col gap-2 mt-2">
           {list.map(({ language, level }) => (
-            <div key={language} className="flex items-center justify-between gap-2 p-2.5 rounded-xl" style={{ background: "rgba(var(--bb-ink-rgb),0.03)" }}>
+            <div key={language} className="flex items-center justify-between gap-2 p-2.5 rounded-xl" style={{ background: "rgba(var(--bb-ink-rgb-static),0.03)" }}>
               <span className="text-sm font-semibold">{language}</span>
               <select
                 value={level}
                 onChange={(e) => setLevel(language, e.target.value)}
                 className="text-xs rounded-full px-2.5 py-1.5"
-                style={{ border: "1px solid rgba(var(--bb-ink-rgb),0.16)", background: "#fff", color: C.indigo }}
+                style={{ border: "1px solid rgba(var(--bb-ink-rgb-static),0.16)", background: "#fff", color: C.indigo }}
               >
                 {LANGUAGE_LEVELS.map((lv) => (
                   <option key={lv} value={lv}>{lv}</option>
