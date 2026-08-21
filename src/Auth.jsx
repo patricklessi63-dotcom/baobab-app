@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Loader2, Mail, ArrowLeft, MapPin, X, ShieldCheck, FileText, CheckCircle2, AlertTriangle, MailCheck } from "lucide-react";
 import { supabase } from "./supabaseClient";
+import { getCurrentPositionSafe } from "./lib/geolocation";
 import loginBackground from "./assets/baobab-canada-bg.svg";
 import { PrivacyPolicyContent, TermsOfServiceContent } from "./legalContent";
 import { useEscapeKey } from "./hooks/useEscapeKey";
@@ -118,6 +119,23 @@ export default function Auth({ justVerified = false, onAcknowledgeVerified = () 
     setLoading(true);
     try {
       if (mode === "signup") {
+        // Localisation obligatoire à la création du compte (item 2 des specs
+        // navigation/auth) : condition d'accès au bêta privé, demandée une
+        // seule fois ici via la popup native, jamais à chaque lancement.
+        // Aucune session n'existe encore à ce stade (email pas confirmé),
+        // donc impossible d'écrire dans user_locations (RLS = auth.uid()) —
+        // les coordonnées sont stashées et persistées par App.jsx dès que la
+        // session s'établit après vérification.
+        const locResult = await getCurrentPositionSafe();
+        if (!locResult.ok) {
+          setError("La localisation est obligatoire pour créer un compte sur Baobab (accès bêta privé). " + (locResult.message || ""));
+          setLoading(false);
+          return;
+        }
+        try {
+          sessionStorage.setItem("bb-pending-location", JSON.stringify({ latitude: locResult.latitude, longitude: locResult.longitude }));
+        } catch (_) {}
+
         const { error: signUpError } = await supabase.auth.signUp({
           email: cleanEmail,
           password,

@@ -21,12 +21,12 @@ import { uploadWithProgress } from "./lib/uploadWithProgress";
 import { MEDIA_BUCKET, extFromMime } from "./lib/mediaConstants";
 import { trackActivation } from "./lib/trackActivation";
 import { fetchMyLocation, upsertMyLocation, disableMyLocation } from "./lib/locationApi";
-import { getCurrentPositionSafe } from "./lib/geolocation";
 import { usePathname } from "./hooks/usePathname";
 import LandingPage from "./screens/public/LandingPage";
 import AboutPage from "./screens/public/AboutPage";
 import PrivacyPage from "./screens/public/PrivacyPage";
 import TermsPage from "./screens/public/TermsPage";
+import LocationRequiredGate from "./components/LocationRequiredGate";
 
 const PUBLIC_ONLY_PATHS = new Set(["/connexion", "/inscription", "/a-propos", "/confidentialite", "/conditions"]);
 
@@ -343,36 +343,74 @@ export default function App() {
     });
   }, [session, loadAll]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // La demande de localisation ne se fait plus qu'une fois, pendant
+  // l'inscription (voir Auth.jsx) — plus de popup à chaque lancement (item 2
+  // des specs navigation/auth, révisé). Ici on charge la ligne existante et,
+  // si Auth.jsx a laissé des coordonnées en attente (compte tout juste créé,
+  // pas encore de session au moment où la permission a été accordée), on les
+  // persiste dès qu'on a un currentUser.id.
   useEffect(() => {
     if (!currentUser?.id) return;
-    fetchMyLocation().then((row) => { setMyLocation(row); setLocationChecked(true); }).catch((e) => { console.error(e); setLocationChecked(true); });
+    fetchMyLocation().then(async (row) => {
+      if (!row) {
+        try {
+          const pending = sessionStorage.getItem("bb-pending-location");
+          if (pending) {
+            const { latitude, longitude } = JSON.parse(pending);
+            row = await upsertMyLocation({ location_enabled: true, latitude_approx: latitude, longitude_approx: longitude });
+          }
+        } catch (_) {}
+        finally {
+          sessionStorage.removeItem("bb-pending-location");
+        }
+      }
+      setMyLocation(row);
+      setLocationChecked(true);
+    }).catch((e) => { console.error(e); setLocationChecked(true); });
   }, [currentUser?.id]);
 
-  // Popup native de localisation au premier lancement (item 2 des specs
-  // navigation/auth) — ne se déclenche qu'une fois par session, seulement si
-  // l'utilisateur n'a encore jamais configuré sa localisation (aucune ligne
-  // user_locations) ET que le navigateur n'a pas déjà tranché la permission
-  // (accordée/refusée) : navigator.geolocation ne réaffiche jamais la popup
-  // native une fois qu'une réponse a été donnée, donc aucun état "déjà
-  // demandé" à mémoriser côté app au-delà de cette même session.
-  const locationPromptAskedRef = useRef(false);
+  // Garde-fou d'accès bêta (item 2 des specs navigation/auth) : la
+  // localisation reste une condition d'accès continue, pas seulement à
+  // l'inscription. On surveille l'état de la permission navigateur en
+  // continu (onchange, quand disponible) plutôt qu'à chaque lancement
+  // uniquement, pour restaurer l'accès automatiquement dès la réactivation.
+  const [geoPermissionState, setGeoPermissionState] = useState(null);
   useEffect(() => {
-    if (!locationChecked || myLocation !== null || locationPromptAskedRef.current) return;
-    locationPromptAskedRef.current = true;
-    (async () => {
-      try {
-        if (navigator.permissions?.query) {
-          const status = await navigator.permissions.query({ name: "geolocation" });
-          if (status.state !== "prompt") return; // déjà accordée ou refusée : ne rien redemander
-        }
-      } catch (_) {
-        // API Permissions indisponible (ex. Safari) — on tente quand même,
-        // getCurrentPositionSafe se dégrade proprement si refusé.
+    if (!currentUser?.id || !navigator.permissions?.query) return;
+    let status;
+    let cancelled = false;
+    navigator.permissions.query({ name: "geolocation" }).then((s) => {
+      if (cancelled) return;
+      status = s;
+      setGeoPermissionState(s.state);
+      s.onchange = () => setGeoPermissionState(s.state);
+    }).catch(() => {});
+    return () => {
+      cancelled = true;
+      if (status) status.onchange = null;
+    };
+  }, [currentUser?.id]);
+
+  const [locationGateRetrying, setLocationGateRetrying] = useState(false);
+  const locationGateBlocked =
+    !!currentUser && locationChecked &&
+    (geoPermissionState === "denied" || myLocation?.location_enabled === false);
+
+  async function handleRetryLocationGate() {
+    setLocationGateRetrying(true);
+    try {
+      if (navigator.permissions?.query) {
+        const status = await navigator.permissions.query({ name: "geolocation" });
+        setGeoPermissionState(status.state);
       }
-      const result = await getCurrentPositionSafe();
-      if (result.ok) handleEnableLocation(result.latitude, result.longitude);
-    })();
-  }, [locationChecked, myLocation]); // eslint-disable-line react-hooks/exhaustive-deps
+      if (myLocation?.location_enabled === false) {
+        await handleUpdateLocationPref("location_enabled", true);
+      }
+    } catch (_) {}
+    finally {
+      setLocationGateRetrying(false);
+    }
+  }
 
   // Rôle plateforme (moderator/admin/super_admin) — table dédiée
   // platform_roles, RLS restreinte à sa propre ligne. N'affiche jamais
@@ -1540,6 +1578,16 @@ export default function App() {
           </button>
         </div>
       </div>
+    );
+  }
+
+  if (locationGateBlocked) {
+    return (
+      <LocationRequiredGate
+        onRetry={handleRetryLocationGate}
+        retrying={locationGateRetrying}
+        onSignOut={() => handleSignOut().then(() => navigate("/connexion"))}
+      />
     );
   }
 
