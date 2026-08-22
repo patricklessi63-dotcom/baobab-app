@@ -121,12 +121,12 @@ export default function EventDetailView({
                 </button>
                 {shareOpen && (
                   <div className="absolute right-0 top-11 w-56 bg-[var(--bb-surface)] rounded-2xl border border-[var(--bb-border)] shadow-2xl p-1.5 z-20">
-                    <button onClick={() => { setShareOpen(false); onShareMessage(event); }} className="w-full text-left px-3 py-2.5 rounded-xl text-sm hover:bg-slate-50">💬 Dans une conversation</button>
+                    <button onClick={() => { setShareOpen(false); onShareMessage(event); }} className="w-full text-left px-3 py-2.5 rounded-xl text-sm hover:bg-[var(--bb-bg)]">💬 Dans une conversation</button>
                     {!isPrivate && !isCommunityOnly && (
-                      <button onClick={() => { setShareOpen(false); onShareFeed(event); }} className="w-full text-left px-3 py-2.5 rounded-xl text-sm hover:bg-slate-50">📰 Dans le fil Baobab</button>
+                      <button onClick={() => { setShareOpen(false); onShareFeed(event); }} className="w-full text-left px-3 py-2.5 rounded-xl text-sm hover:bg-[var(--bb-bg)]">📰 Dans le fil Baobab</button>
                     )}
-                    <button onClick={() => { setShareOpen(false); downloadIcs(event); }} className="w-full text-left px-3 py-2.5 rounded-xl text-sm hover:bg-slate-50">📅 Télécharger (.ics)</button>
-                    <a href={googleCalendarUrl(event)} target="_blank" rel="noreferrer" onClick={() => setShareOpen(false)} className="block px-3 py-2.5 rounded-xl text-sm hover:bg-slate-50">🗓️ Ajouter à Google Calendar</a>
+                    <button onClick={() => { setShareOpen(false); downloadIcs(event); }} className="w-full text-left px-3 py-2.5 rounded-xl text-sm hover:bg-[var(--bb-bg)]">📅 Télécharger (.ics)</button>
+                    <a href={googleCalendarUrl(event)} target="_blank" rel="noreferrer" onClick={() => setShareOpen(false)} className="block px-3 py-2.5 rounded-xl text-sm hover:bg-[var(--bb-bg)]">🗓️ Ajouter à Google Calendar</a>
                   </div>
                 )}
               </div>

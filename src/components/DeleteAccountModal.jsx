@@ -38,7 +38,7 @@ export default function DeleteAccountModal({ open, onClose, currentUser, onReque
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <AlertTriangle size={18} color={C.clay} />
-            <span style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 19, color: C.indigo }}>Supprimer mon compte</span>
+            <span style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 19, color: "var(--bb-text)" }}>Supprimer mon compte</span>
           </div>
           <button onClick={onClose} aria-label="Fermer"><X size={18} /></button>
         </div>

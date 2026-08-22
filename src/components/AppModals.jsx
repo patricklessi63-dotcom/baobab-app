@@ -102,7 +102,7 @@ export default function AppModals({
       {settingsOpen && (
         <div className="bb-fade-in fixed inset-0 flex items-end md:items-center justify-center z-30 p-0 md:p-5" style={{ background: "rgba(8,20,14,0.55)", backdropFilter: "blur(3px)" }} onClick={() => setSettingsOpen(false)} role="dialog" aria-modal="true" aria-label="Paramètres">
           <div className="bb-card p-6 w-full max-w-md rounded-t-[20px] md:rounded-[20px]" style={{ maxHeight: "85vh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
-            <div style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 20, color: C.indigo }} className="mb-4">
+            <div style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 20, color: "var(--bb-text)" }} className="mb-4">
               Paramètres
             </div>
 
@@ -135,7 +135,7 @@ export default function AppModals({
               <ArrowLeft size={14} style={{ transform: "rotate(180deg)", color: "rgba(var(--bb-ink-rgb),0.35)" }} />
             </button>
             <div className="py-2.5" style={{ borderTop: "1px solid var(--bb-border)" }}>
-              <div className="flex items-center gap-2 text-sm mb-2"><Moon size={14} color={C.indigo} /> Apparence</div>
+              <div className="flex items-center gap-2 text-sm mb-2"><Moon size={14} color="var(--bb-text)" /> Apparence</div>
               <div className="flex rounded-xl overflow-hidden" style={{ border: "1px solid var(--bb-border)" }} role="radiogroup" aria-label="Apparence">
                 {[["light", "☀️ Clair"], ["dark", "🌙 Sombre"], ["system", "💻 Système"]].map(([value, label]) => (
                   <button
@@ -156,7 +156,7 @@ export default function AppModals({
               </div>
             </div>
             <div className="py-2.5" style={{ borderTop: "1px solid var(--bb-border)" }}>
-              <div className="flex items-center gap-2 text-sm mb-2"><Languages size={14} color={C.indigo} /> Langue</div>
+              <div className="flex items-center gap-2 text-sm mb-2"><Languages size={14} color="var(--bb-text)" /> Langue</div>
               <div className="flex rounded-xl overflow-hidden" style={{ border: "1px solid var(--bb-border)" }} role="radiogroup" aria-label="Langue">
                 {[["fr", "🇫🇷 Français"], ["en", "🇬🇧 English"]].map(([value, label]) => (
                   <button
@@ -182,18 +182,18 @@ export default function AppModals({
               )}
             </div>
             <button onClick={() => { setSettingsOpen(false); setBlockedOpen(true); }} className="w-full flex items-center justify-between py-3" style={{ borderTop: "1px solid rgba(var(--bb-ink-rgb),0.08)", minHeight: 44 }}>
-              <span className="flex items-center gap-2 text-sm"><UserX size={14} color={C.indigo} /> Comptes bloqués</span>
+              <span className="flex items-center gap-2 text-sm"><UserX size={14} color="var(--bb-text)" /> Comptes bloqués</span>
               <span className="flex items-center gap-2">
                 {blockedProfiles.length > 0 && <span className="text-xs font-bold" style={{ color: "rgba(var(--bb-ink-rgb),0.4)" }}>{blockedProfiles.length}</span>}
                 <ArrowLeft size={14} style={{ transform: "rotate(180deg)", color: "rgba(var(--bb-ink-rgb),0.35)" }} />
               </span>
             </button>
             <button onClick={() => { setSettingsOpen(false); setPrivacyFieldsOpen(true); }} className="w-full flex items-center justify-between py-3" style={{ borderTop: "1px solid rgba(var(--bb-ink-rgb),0.08)", minHeight: 44 }}>
-              <span className="flex items-center gap-2 text-sm"><Shield size={14} color={C.indigo} /> Confidentialité des champs</span>
+              <span className="flex items-center gap-2 text-sm"><Shield size={14} color="var(--bb-text)" /> Confidentialité des champs</span>
               <ArrowLeft size={14} style={{ transform: "rotate(180deg)", color: "rgba(var(--bb-ink-rgb),0.35)" }} />
             </button>
             <button onClick={() => { setSettingsOpen(false); setLocationOpen(true); }} className="w-full flex items-center justify-between py-3" style={{ borderTop: "1px solid rgba(var(--bb-ink-rgb),0.08)", minHeight: 44 }}>
-              <span className="flex items-center gap-2 text-sm"><MapPin size={14} color={C.indigo} /> Localisation</span>
+              <span className="flex items-center gap-2 text-sm"><MapPin size={14} color="var(--bb-text)" /> Localisation</span>
               <span className="flex items-center gap-2">
                 <span className="text-xs font-bold" style={{ color: myLocation?.location_enabled ? C.acacia : "rgba(var(--bb-ink-rgb),0.4)" }}>{myLocation?.location_enabled ? "Activée" : "Désactivée"}</span>
                 <ArrowLeft size={14} style={{ transform: "rotate(180deg)", color: "rgba(var(--bb-ink-rgb),0.35)" }} />
@@ -213,11 +213,11 @@ export default function AppModals({
             </div>
 
             <button onClick={() => { setSettingsOpen(false); setPrivacyOpen(true); }} className="w-full flex items-center justify-between py-3 mt-2" style={{ borderTop: "1px solid rgba(var(--bb-ink-rgb),0.08)", minHeight: 44 }}>
-              <span className="flex items-center gap-2 text-sm"><Shield size={14} color={C.indigo} /> Politique de confidentialité</span>
+              <span className="flex items-center gap-2 text-sm"><Shield size={14} color="var(--bb-text)" /> Politique de confidentialité</span>
               <ArrowLeft size={14} style={{ transform: "rotate(180deg)", color: "rgba(var(--bb-ink-rgb),0.35)" }} />
             </button>
             <button onClick={() => { setSettingsOpen(false); setTermsOpen(true); }} className="w-full flex items-center justify-between py-3" style={{ borderTop: "1px solid rgba(var(--bb-ink-rgb),0.08)", minHeight: 44 }}>
-              <span className="flex items-center gap-2 text-sm"><Info size={14} color={C.indigo} /> Conditions d'utilisation</span>
+              <span className="flex items-center gap-2 text-sm"><Info size={14} color="var(--bb-text)" /> Conditions d'utilisation</span>
               <ArrowLeft size={14} style={{ transform: "rotate(180deg)", color: "rgba(var(--bb-ink-rgb),0.35)" }} />
             </button>
             <div className="text-[11px] font-black uppercase tracking-wider mt-4" style={{ color: C.clay }}>Zone de danger</div>
@@ -274,8 +274,8 @@ export default function AppModals({
         <div className="bb-fade-in fixed inset-0 flex items-end md:items-center justify-center z-30 p-0 md:p-5" style={{ background: "rgba(8,20,14,0.55)", backdropFilter: "blur(3px)" }} onClick={() => setBlockedOpen(false)} role="dialog" aria-modal="true" aria-label="Comptes bloqués">
           <div className="bb-card p-6 w-full max-w-md rounded-t-[20px] md:rounded-[20px]" style={{ maxHeight: "80vh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center gap-2 mb-1">
-              <button onClick={() => { setBlockedOpen(false); setSettingsOpen(true); }} style={{ color: C.indigo }}><ArrowLeft size={16} /></button>
-              <div style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 20, color: C.indigo }}>Comptes bloqués</div>
+              <button onClick={() => { setBlockedOpen(false); setSettingsOpen(true); }} style={{ color: "var(--bb-text)" }}><ArrowLeft size={16} /></button>
+              <div style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 20, color: "var(--bb-text)" }}>Comptes bloqués</div>
             </div>
             <p className="text-sm mb-3" style={{ color: "rgba(var(--bb-ink-rgb),0.6)" }}>
               Ces profils ne peuvent plus te contacter ni apparaître dans ta liste de découverte.
@@ -310,7 +310,7 @@ export default function AppModals({
       {privacyOpen && (
         <div className="bb-fade-in fixed inset-0 flex items-end md:items-center justify-center z-30 p-0 md:p-5" style={{ background: "rgba(8,20,14,0.55)", backdropFilter: "blur(3px)" }} onClick={() => setPrivacyOpen(false)} role="dialog" aria-modal="true" aria-label="Politique de confidentialité">
           <div className="bb-card p-6 w-full max-w-md rounded-t-[20px] md:rounded-[20px]" style={{ maxHeight: "80vh", overflowY: "auto", paddingBottom: "max(1.5rem, env(safe-area-inset-bottom))" }} onClick={(e) => e.stopPropagation()}>
-            <div style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 20, color: C.indigo }} className="mb-3">
+            <div style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 20, color: "var(--bb-text)" }} className="mb-3">
               Politique de confidentialité
             </div>
             <div className="text-sm" style={{ color: "rgba(var(--bb-ink-rgb),0.72)" }}>
@@ -327,7 +327,7 @@ export default function AppModals({
       {termsOpen && (
         <div className="bb-fade-in fixed inset-0 flex items-end md:items-center justify-center z-30 p-0 md:p-5" style={{ background: "rgba(8,20,14,0.55)", backdropFilter: "blur(3px)" }} onClick={() => setTermsOpen(false)} role="dialog" aria-modal="true" aria-label="Conditions d'utilisation">
           <div className="bb-card p-6 w-full max-w-md rounded-t-[20px] md:rounded-[20px]" style={{ maxHeight: "80vh", overflowY: "auto", paddingBottom: "max(1.5rem, env(safe-area-inset-bottom))" }} onClick={(e) => e.stopPropagation()}>
-            <div style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 20, color: C.indigo }} className="mb-3">
+            <div style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 20, color: "var(--bb-text)" }} className="mb-3">
               Conditions d'utilisation
             </div>
             <div className="text-sm" style={{ color: "rgba(var(--bb-ink-rgb),0.72)" }}>
@@ -344,7 +344,7 @@ export default function AppModals({
       {aboutOpen && (
         <div className="bb-fade-in fixed inset-0 flex items-end md:items-center justify-center z-30 p-0 md:p-5" style={{ background: "rgba(8,20,14,0.55)", backdropFilter: "blur(3px)" }} onClick={() => setAboutOpen(false)} role="dialog" aria-modal="true" aria-label="À propos">
           <div className="bb-card p-6 w-full max-w-md text-center rounded-t-[20px] md:rounded-[20px]" onClick={(e) => e.stopPropagation()}>
-            <div style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontWeight: 600, fontSize: 24, color: C.indigo }} className="mb-1">
+            <div style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontWeight: 600, fontSize: 24, color: "var(--bb-text)" }} className="mb-1">
               Baobab
             </div>
             <p className="text-sm mb-4" style={{ color: "rgba(var(--bb-ink-rgb),0.6)" }}>
@@ -357,7 +357,7 @@ export default function AppModals({
             <div className="mt-4 rounded-2xl p-3.5 text-left" style={{ background: "rgba(var(--bb-ink-rgb),0.04)" }}>
               <p className="text-xs font-bold" style={{ color: C.ink }}>Version {CURRENT_VERSION}</p>
               {updateCheck.status === "up-to-date" && (
-                <p className="text-xs mt-1.5 flex items-center gap-1.5" style={{ color: C.indigo }}>
+                <p className="text-xs mt-1.5 flex items-center gap-1.5" style={{ color: "var(--bb-text)" }}>
                   <CheckCircle2 size={13} /> Vous utilisez la dernière version.
                 </p>
               )}

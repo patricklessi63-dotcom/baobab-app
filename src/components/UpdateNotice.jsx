@@ -17,7 +17,7 @@ export default function UpdateNotice({ mandatory, recommended, info, onReload, o
           <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full" style={{ background: "rgba(193,97,61,0.14)" }}>
             <AlertTriangle size={26} color={C.clay} />
           </div>
-          <h2 className="text-lg font-black" style={{ color: C.indigo }}>Mise à jour nécessaire</h2>
+          <h2 className="text-lg font-black" style={{ color: "var(--bb-text)" }}>Mise à jour nécessaire</h2>
           <p className="text-sm mt-3" style={{ color: "rgba(var(--bb-ink-rgb-static),0.7)" }}>
             Cette version de Baobab n'est plus compatible avec les services actuels. Installe la dernière version pour continuer.
           </p>

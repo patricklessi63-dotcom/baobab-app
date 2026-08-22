@@ -35,9 +35,9 @@ export default function PrivacyFieldsModal({ open, onClose, onBack, currentUser,
       <div className="bb-card p-6 w-full max-w-md rounded-t-[20px] md:rounded-[20px]" style={{ maxHeight: "85vh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center gap-2 mb-1">
           {onBack && (
-            <button onClick={onBack} aria-label="Retour" style={{ color: C.indigo }}><ArrowLeft size={16} /></button>
+            <button onClick={onBack} aria-label="Retour" style={{ color: "var(--bb-text)" }}><ArrowLeft size={16} /></button>
           )}
-          <div style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 20, color: C.indigo }}>
+          <div style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 20, color: "var(--bb-text)" }}>
             Confidentialité des champs
           </div>
         </div>
@@ -48,7 +48,7 @@ export default function PrivacyFieldsModal({ open, onClose, onBack, currentUser,
         </p>
         {FIELDS.map(({ key, label, icon: Icon }) => (
           <label key={key} className="flex items-center justify-between py-2.5" style={{ borderTop: "1px solid rgba(var(--bb-ink-rgb),0.08)", minHeight: 44 }}>
-            <div className="flex items-center gap-2 text-sm"><Icon size={14} color={C.indigo} /> {label}</div>
+            <div className="flex items-center gap-2 text-sm"><Icon size={14} color="var(--bb-text)" /> {label}</div>
             <input
               type="checkbox"
               checked={currentUser?.[key] !== false}
@@ -60,7 +60,7 @@ export default function PrivacyFieldsModal({ open, onClose, onBack, currentUser,
 
         {currentUser?.is_founder && FOUNDER_FIELDS.map(({ key, label, icon: Icon }) => (
           <label key={key} className="flex items-center justify-between py-2.5" style={{ borderTop: "1px solid rgba(var(--bb-ink-rgb),0.08)", minHeight: 44 }}>
-            <div className="flex items-center gap-2 text-sm"><Icon size={14} color={C.indigo} /> {label}</div>
+            <div className="flex items-center gap-2 text-sm"><Icon size={14} color="var(--bb-text)" /> {label}</div>
             <input
               type="checkbox"
               checked={currentUser?.[key] !== false}
@@ -73,7 +73,7 @@ export default function PrivacyFieldsModal({ open, onClose, onBack, currentUser,
         <div className="mt-4 mb-1 text-xs font-black uppercase tracking-wider" style={{ color: "rgba(var(--bb-ink-rgb),0.5)" }}>Personnalisation</div>
         {PERSONALIZATION_FIELDS.map(({ key, label, icon: Icon }) => (
           <label key={key} className="flex items-center justify-between py-2.5" style={{ borderTop: "1px solid rgba(var(--bb-ink-rgb),0.08)", minHeight: 44 }}>
-            <div className="flex items-center gap-2 text-sm"><Icon size={14} color={C.indigo} /> {label}</div>
+            <div className="flex items-center gap-2 text-sm"><Icon size={14} color="var(--bb-text)" /> {label}</div>
             <input
               type="checkbox"
               checked={currentUser?.[key] !== false}

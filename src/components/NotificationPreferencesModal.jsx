@@ -57,9 +57,9 @@ export default function NotificationPreferencesModal({ open, onClose, onBack, cu
       <div className="bb-card p-6 w-full max-w-md rounded-t-[20px] md:rounded-[20px]" style={{ maxHeight: "85vh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center gap-2 mb-1">
           {onBack && (
-            <button onClick={onBack} aria-label="Retour" style={{ color: C.indigo }}><ArrowLeft size={16} /></button>
+            <button onClick={onBack} aria-label="Retour" style={{ color: "var(--bb-text)" }}><ArrowLeft size={16} /></button>
           )}
-          <div style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 20, color: C.indigo }}>
+          <div style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 20, color: "var(--bb-text)" }}>
             Préférences de notifications
           </div>
         </div>
@@ -85,26 +85,26 @@ export default function NotificationPreferencesModal({ open, onClose, onBack, cu
 
             {pushStep === "requesting" && (
               <div className="py-3 text-center">
-                <p className="text-sm font-bold" style={{ color: C.indigo }}>Activation…</p>
+                <p className="text-sm font-bold" style={{ color: "var(--bb-text)" }}>Activation…</p>
               </div>
             )}
 
             {pushStep === "error" && (
               <div className="py-1 text-center">
                 <p className="text-sm" style={{ color: "rgba(var(--bb-ink-rgb),0.7)" }}>{pushError}</p>
-                <button onClick={() => setPushStep("idle")} className="mt-2 text-sm font-semibold" style={{ color: C.indigo }}>Compris</button>
+                <button onClick={() => setPushStep("idle")} className="mt-2 text-sm font-semibold" style={{ color: "var(--bb-text)" }}>Compris</button>
               </div>
             )}
 
             {pushStep === "idle" && (
               <div className="flex items-center justify-between" style={{ minHeight: 44 }}>
-                <div className="flex items-center gap-2 text-sm"><Bell size={14} color={C.indigo} /> Notifications push sur cet appareil</div>
+                <div className="flex items-center gap-2 text-sm"><Bell size={14} color="var(--bb-text)" /> Notifications push sur cet appareil</div>
                 {pushStatus.subscribed ? (
                   <button onClick={handleDisablePush} className="text-xs font-semibold" style={{ color: C.clay }}>Désactiver</button>
                 ) : pushStatus.permission === "denied" ? (
                   <span className="text-xs text-right" style={{ color: "rgba(var(--bb-ink-rgb),0.5)", maxWidth: 140 }}>Bloquées (réglages du navigateur)</span>
                 ) : (
-                  <button onClick={() => setPushStep("consent")} className="text-xs font-semibold" style={{ color: C.indigo }}>Activer</button>
+                  <button onClick={() => setPushStep("consent")} className="text-xs font-semibold" style={{ color: "var(--bb-text)" }}>Activer</button>
                 )}
               </div>
             )}
@@ -113,7 +113,7 @@ export default function NotificationPreferencesModal({ open, onClose, onBack, cu
 
         {CATEGORIES.map(({ key, label, icon: Icon }) => (
           <label key={key} className="flex items-center justify-between py-2.5" style={{ borderTop: "1px solid rgba(var(--bb-ink-rgb),0.08)", minHeight: 44 }}>
-            <div className="flex items-center gap-2 text-sm"><Icon size={14} color={C.indigo} /> {label}</div>
+            <div className="flex items-center gap-2 text-sm"><Icon size={14} color="var(--bb-text)" /> {label}</div>
             <input
               type="checkbox"
               checked={prefs[key] !== false}

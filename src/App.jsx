@@ -23,6 +23,7 @@ import { uploadWithProgress } from "./lib/uploadWithProgress";
 import { MEDIA_BUCKET, extFromMime } from "./lib/mediaConstants";
 import { trackActivation } from "./lib/trackActivation";
 import { fetchMyLocation, upsertMyLocation, disableMyLocation } from "./lib/locationApi";
+import { getCurrentPositionSafe, LOCATION_ERROR_MESSAGES } from "./lib/geolocation";
 import { usePathname } from "./hooks/usePathname";
 import LandingPage from "./screens/public/LandingPage";
 import AboutPage from "./screens/public/AboutPage";
@@ -425,22 +426,35 @@ export default function App() {
   }, [currentUser?.id]);
 
   const [locationGateRetrying, setLocationGateRetrying] = useState(false);
+  const [locationGateError, setLocationGateError] = useState(null);
   const locationGateBlocked =
     !!currentUser && locationChecked &&
     (geoPermissionState === "denied" || myLocation?.location_enabled === false);
 
+  // Auparavant, ce bouton se contentait de relire navigator.permissions.query()
+  // (un état parfois en cache, qui ne se met pas forcément à jour tant qu'une
+  // vraie tentative de géolocalisation n'a pas été faite) et avalait toute
+  // erreur en silence — le bouton semblait "ne rien faire" quand la
+  // permission était encore refusée. Il déclenche maintenant une vraie
+  // demande (getCurrentPositionSafe, même chemin que l'activation initiale)
+  // et affiche clairement le résultat, succès ou échec.
   async function handleRetryLocationGate() {
     setLocationGateRetrying(true);
+    setLocationGateError(null);
     try {
+      const result = await getCurrentPositionSafe();
       if (navigator.permissions?.query) {
         const status = await navigator.permissions.query({ name: "geolocation" });
         setGeoPermissionState(status.state);
       }
-      if (myLocation?.location_enabled === false) {
-        await handleUpdateLocationPref("location_enabled", true);
+      if (result.ok) {
+        await handleEnableLocation(result.latitude, result.longitude);
+      } else {
+        setLocationGateError(result.message);
       }
-    } catch (_) {}
-    finally {
+    } catch (_) {
+      setLocationGateError(LOCATION_ERROR_MESSAGES.UNKNOWN);
+    } finally {
       setLocationGateRetrying(false);
     }
   }
@@ -1597,20 +1611,20 @@ export default function App() {
       <div className="min-h-screen flex items-center justify-center p-6" style={{ background: C.sand }}>
         <div className="bb-card p-8 max-w-sm w-full text-center">
           <div className="text-4xl mb-3">{isBanned ? "🚫" : "⏸️"}</div>
-          <h1 className="text-lg font-black" style={{ color: C.indigo }}>
+          <h1 className="text-lg font-black" style={{ color: "var(--bb-text)" }}>
             {isBanned ? "Compte banni" : "Compte suspendu"}
           </h1>
-          <p className="text-sm mt-3" style={{ color: "rgba(var(--bb-ink-rgb-static),0.7)" }}>
+          <p className="text-sm mt-3" style={{ color: "rgba(var(--bb-text-rgb),0.7)" }}>
             {isBanned
               ? "Ton compte a été banni de Baobab suite à une violation des règles de la communauté."
               : `Ton compte est temporairement suspendu${until ? ` jusqu'au ${until.toLocaleDateString("fr-CA")} à ${until.toLocaleTimeString("fr-CA", { hour: "2-digit", minute: "2-digit" })}` : ""}.`}
           </p>
           {reason && (
-            <p className="text-sm mt-2 rounded-xl p-3" style={{ background: "rgba(var(--bb-ink-rgb-static),0.05)", color: "rgba(var(--bb-ink-rgb-static),0.6)" }}>
+            <p className="text-sm mt-2 rounded-xl p-3" style={{ background: "rgba(var(--bb-text-rgb),0.05)", color: "rgba(var(--bb-text-rgb),0.6)" }}>
               Motif : {reason}
             </p>
           )}
-          <button onClick={() => handleSignOut().then(() => navigate("/connexion"))} className="w-full mt-6 py-3 rounded-full text-sm font-bold text-white" style={{ background: C.indigo }}>
+          <button onClick={() => handleSignOut().then(() => navigate("/connexion"))} className="w-full mt-6 py-3 rounded-full text-sm font-bold text-white" style={{ background: C.navy }}>
             Se déconnecter
           </button>
         </div>
@@ -1623,6 +1637,7 @@ export default function App() {
       <LocationRequiredGate
         onRetry={handleRetryLocationGate}
         retrying={locationGateRetrying}
+        error={locationGateError}
         onSignOut={() => handleSignOut().then(() => navigate("/connexion"))}
       />
     );

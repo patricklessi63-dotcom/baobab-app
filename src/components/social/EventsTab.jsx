@@ -641,7 +641,7 @@ export default function EventsTab({ currentUser, onError, initialEventId, onCons
               ) : (
                 <div className="flex flex-col gap-1">
                   {myMutualProfiles.filter((p) => !blockedIds.has(p.id)).map((p) => (
-                    <button key={p.id} onClick={() => handleSendEventMessage(p)} disabled={shareSending} className="w-full text-left px-2 py-2.5 rounded-xl text-sm font-semibold hover:bg-slate-50 disabled:opacity-50">
+                    <button key={p.id} onClick={() => handleSendEventMessage(p)} disabled={shareSending} className="w-full text-left px-2 py-2.5 rounded-xl text-sm font-semibold hover:bg-[var(--bb-bg)] disabled:opacity-50">
                       {p.name}
                     </button>
                   ))}

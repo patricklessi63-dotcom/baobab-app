@@ -921,7 +921,7 @@ export default function SocialShell({
               <div className="absolute top-14 left-0 right-0 bg-[var(--bb-surface)] rounded-2xl border border-[var(--bb-border)] shadow-2xl p-2 z-50">
                 <div className="px-3 py-2 text-[11px] font-black uppercase tracking-wider" style={{ color: muted }}>Personnes</div>
                 {searchResults.slice(0, 8).map((p) => (
-                  <button key={p.id} onClick={() => { setSearch(""); setViewedProfileId(p.id); }} className="w-full flex items-center gap-3 p-2.5 rounded-xl hover:bg-slate-50 text-left">
+                  <button key={p.id} onClick={() => { setSearch(""); setViewedProfileId(p.id); }} className="w-full flex items-center gap-3 p-2.5 rounded-xl hover:bg-[var(--bb-bg)] text-left">
                     <Avatar name={p.name} url={p.avatar_url} size={38} />
                     <div className="min-w-0"><div className="text-sm font-bold truncate">{p.name}{visibleAge(p) ? `, ${visibleAge(p)}` : ""}</div><div className="text-xs" style={{ color: muted }}>{p.city || "Canada"} · {p.country || "Afrique"}</div></div>
                   </button>
@@ -969,27 +969,27 @@ export default function SocialShell({
                       </div>
                     )}
                     {(notifCategory === "all" || notifCategory === "dating") && unreadDatingNotifications.map((n) => (
-                      <button key={n.id} onClick={() => { setNotificationsOpen(false); markOneNotificationRead(n.id); setViewedProfileId(n.target_id); }} className="text-left px-2 py-2.5 rounded-xl text-sm hover:bg-slate-50 focus-visible:outline focus-visible:outline-2">
+                      <button key={n.id} onClick={() => { setNotificationsOpen(false); markOneNotificationRead(n.id); setViewedProfileId(n.target_id); }} className="text-left px-2 py-2.5 rounded-xl text-sm hover:bg-[var(--bb-bg)] focus-visible:outline focus-visible:outline-2">
                         {n.type === "new_match" ? "💞" : "❤️"} {n.actor?.name ? `${n.actor.name} — ${n.type === "new_match" ? NOTIFICATION_LABELS.new_match : NOTIFICATION_LABELS.new_like}` : (NOTIFICATION_LABELS[n.type] || "Nouvelle activité")}
                       </button>
                     ))}
                     {(notifCategory === "all" || notifCategory === "messages") && unreadMessageNotifications.map((n) => (
-                      <button key={n.id} onClick={() => { setNotificationsOpen(false); markOneNotificationRead(n.id); openChatWithProfileId(n.target_id); }} className="text-left px-2 py-2.5 rounded-xl text-sm hover:bg-slate-50 focus-visible:outline focus-visible:outline-2">
+                      <button key={n.id} onClick={() => { setNotificationsOpen(false); markOneNotificationRead(n.id); openChatWithProfileId(n.target_id); }} className="text-left px-2 py-2.5 rounded-xl text-sm hover:bg-[var(--bb-bg)] focus-visible:outline focus-visible:outline-2">
                         💬 {n.actor?.name ? `Nouveau message de ${n.actor.name}` : NOTIFICATION_LABELS.new_message}
                       </button>
                     ))}
                     {(notifCategory === "all" || notifCategory === "follows") && unreadFollowNotifications.map((n) => (
-                      <button key={n.id} onClick={() => { setNotificationsOpen(false); markOneNotificationRead(n.id); setViewedProfileId(n.target_id); }} className="text-left px-2 py-2.5 rounded-xl text-sm hover:bg-slate-50 focus-visible:outline focus-visible:outline-2">
+                      <button key={n.id} onClick={() => { setNotificationsOpen(false); markOneNotificationRead(n.id); setViewedProfileId(n.target_id); }} className="text-left px-2 py-2.5 rounded-xl text-sm hover:bg-[var(--bb-bg)] focus-visible:outline focus-visible:outline-2">
                         👤 {n.actor?.name ? `${n.actor.name} a commencé à te suivre` : NOTIFICATION_LABELS.new_follower}
                       </button>
                     ))}
                     {(notifCategory === "all" || notifCategory === "communities") && unreadCommunityNotifications.map((n) => (
-                      <button key={n.id} onClick={() => { setNotificationsOpen(false); markOneNotificationRead(n.id); goTab(n.type?.startsWith("premium_") ? "premium" : "communities"); }} className="text-left px-2 py-2.5 rounded-xl text-sm hover:bg-slate-50 focus-visible:outline focus-visible:outline-2">
+                      <button key={n.id} onClick={() => { setNotificationsOpen(false); markOneNotificationRead(n.id); goTab(n.type?.startsWith("premium_") ? "premium" : "communities"); }} className="text-left px-2 py-2.5 rounded-xl text-sm hover:bg-[var(--bb-bg)] focus-visible:outline focus-visible:outline-2">
                         {n.type?.startsWith("premium_") ? "💎" : "🌍"} {NOTIFICATION_LABELS[n.type] || "Nouvelle activité"}
                       </button>
                     ))}
                     {(notifCategory === "all" || notifCategory === "events") && unreadEventNotifications.map((n) => (
-                      <button key={n.id} onClick={() => { setNotificationsOpen(false); markOneNotificationRead(n.id); goTab("events"); }} className="text-left px-2 py-2.5 rounded-xl text-sm hover:bg-slate-50 focus-visible:outline focus-visible:outline-2">
+                      <button key={n.id} onClick={() => { setNotificationsOpen(false); markOneNotificationRead(n.id); goTab("events"); }} className="text-left px-2 py-2.5 rounded-xl text-sm hover:bg-[var(--bb-bg)] focus-visible:outline focus-visible:outline-2">
                         🎉 {NOTIFICATION_LABELS[n.type] || "Nouvelle activité"}
                       </button>
                     ))}
@@ -1008,17 +1008,17 @@ export default function SocialShell({
                   <div className="text-white font-bold">{currentUser?.name || "Ton profil"}</div>
                   <div className="text-white/60 text-xs mt-0.5">{currentUser?.city || "Canada"} · 🟢 En ligne</div>
                 </div>
-                <button onClick={() => { goTab("profile"); }} className="w-full text-left rounded-xl px-3 py-3 text-sm hover:bg-slate-50"><UserRound size={16} className="inline mr-3" />Mon profil</button>
-                <button onClick={() => { goTab("discover"); }} className="w-full text-left rounded-xl px-3 py-3 text-sm hover:bg-slate-50"><Heart size={16} className="inline mr-3" />Découvrir</button>
-                <button onClick={() => { setMenu(false); openEditProfile(); }} className="w-full text-left rounded-xl px-3 py-3 text-sm hover:bg-slate-50"><Settings size={16} className="inline mr-3" />Modifier mon profil</button>
-                <button onClick={() => { setMenu(false); setSettingsOpen(true); }} className="w-full text-left rounded-xl px-3 py-3 text-sm hover:bg-slate-50 relative">
+                <button onClick={() => { goTab("profile"); }} className="w-full text-left rounded-xl px-3 py-3 text-sm hover:bg-[var(--bb-bg)]"><UserRound size={16} className="inline mr-3" />Mon profil</button>
+                <button onClick={() => { goTab("discover"); }} className="w-full text-left rounded-xl px-3 py-3 text-sm hover:bg-[var(--bb-bg)]"><Heart size={16} className="inline mr-3" />Découvrir</button>
+                <button onClick={() => { setMenu(false); openEditProfile(); }} className="w-full text-left rounded-xl px-3 py-3 text-sm hover:bg-[var(--bb-bg)]"><Settings size={16} className="inline mr-3" />Modifier mon profil</button>
+                <button onClick={() => { setMenu(false); setSettingsOpen(true); }} className="w-full text-left rounded-xl px-3 py-3 text-sm hover:bg-[var(--bb-bg)] relative">
                   <Cog size={16} className="inline mr-3" />Réglages
                   {updateAvailable && <span className="absolute right-3 top-1/2 -translate-y-1/2 h-2 w-2 rounded-full" style={{ background: coral }} aria-label="Mise à jour disponible" />}
                 </button>
                 {myPlatformRole && (
-                  <button onClick={() => { setMenu(false); goTab("admin"); }} className="w-full text-left rounded-xl px-3 py-3 text-sm hover:bg-slate-50"><Shield size={16} className="inline mr-3" />Baobab Admin</button>
+                  <button onClick={() => { setMenu(false); goTab("admin"); }} className="w-full text-left rounded-xl px-3 py-3 text-sm hover:bg-[var(--bb-bg)]"><Shield size={16} className="inline mr-3" />Baobab Admin</button>
                 )}
-                <button onClick={() => { setMenu(false); setFeedbackOpen(true); }} className="w-full text-left rounded-xl px-3 py-3 text-sm hover:bg-slate-50"><Megaphone size={16} className="inline mr-3" />Un souci, une idée ?</button>
+                <button onClick={() => { setMenu(false); setFeedbackOpen(true); }} className="w-full text-left rounded-xl px-3 py-3 text-sm hover:bg-[var(--bb-bg)]"><Megaphone size={16} className="inline mr-3" />Un souci, une idée ?</button>
                 <button onClick={() => { setMenu(false); handleSignOut(); }} className="w-full text-left rounded-xl px-3 py-3 text-sm" style={{ color: coral }}><LogOut size={16} className="inline mr-3" />Déconnexion</button>
               </div>
             )}

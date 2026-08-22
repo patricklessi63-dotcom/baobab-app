@@ -36,9 +36,9 @@ export default function LocationSettingsModal({ open, onClose, onBack, location,
       <div className="bb-card p-6 w-full max-w-md rounded-t-[20px] md:rounded-[20px]" style={{ maxHeight: "85vh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center gap-2 mb-1">
           {onBack && (
-            <button onClick={onBack} aria-label="Retour" style={{ color: C.indigo }}><ArrowLeft size={16} /></button>
+            <button onClick={onBack} aria-label="Retour" style={{ color: "var(--bb-text)" }}><ArrowLeft size={16} /></button>
           )}
-          <div style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 20, color: C.indigo }}>
+          <div style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 20, color: "var(--bb-text)" }}>
             📍 Localisation
           </div>
         </div>
@@ -60,7 +60,7 @@ export default function LocationSettingsModal({ open, onClose, onBack, location,
         {view === "requesting" && (
           <div className="py-10 text-center">
             <div className="text-3xl mb-2">📍</div>
-            <p className="text-sm font-bold" style={{ color: C.indigo }}>Recherche de ta position…</p>
+            <p className="text-sm font-bold" style={{ color: "var(--bb-text)" }}>Recherche de ta position…</p>
           </div>
         )}
 
@@ -87,11 +87,11 @@ export default function LocationSettingsModal({ open, onClose, onBack, location,
             ) : (
               <>
                 <div className="flex items-center justify-between py-2.5" style={{ borderTop: "1px solid rgba(var(--bb-ink-rgb),0.08)", minHeight: 44 }}>
-                  <div className="flex items-center gap-2 text-sm"><MapPin size={14} color={C.verified || C.indigo} /> Localisation activée</div>
+                  <div className="flex items-center gap-2 text-sm"><MapPin size={14} color={C.verified || "var(--bb-text)"} /> Localisation activée</div>
                 </div>
                 {PREF_FIELDS.map(({ key, label, icon: Icon }) => (
                   <label key={key} className="flex items-center justify-between py-2.5" style={{ borderTop: "1px solid rgba(var(--bb-ink-rgb),0.08)", minHeight: 44 }}>
-                    <div className="flex items-center gap-2 text-sm"><Icon size={14} color={C.indigo} /> {label}</div>
+                    <div className="flex items-center gap-2 text-sm"><Icon size={14} color="var(--bb-text)" /> {label}</div>
                     <input
                       type="checkbox"
                       checked={location?.[key] !== false}

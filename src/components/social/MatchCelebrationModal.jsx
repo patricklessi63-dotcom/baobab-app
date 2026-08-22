@@ -18,7 +18,7 @@ export default function MatchCelebrationModal({ match, currentUser, onStartChat,
     >
       <div className="bb-card p-8 max-w-sm w-full text-center" style={{ boxShadow: "var(--bb-shadow-lg)" }} onClick={(e) => e.stopPropagation()}>
         <div className="text-5xl mb-3" aria-hidden="true">🎉</div>
-        <h2 style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 24, color: C.indigo }}>
+        <h2 style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 24, color: "var(--bb-text)" }}>
           C'est un match !
         </h2>
 
