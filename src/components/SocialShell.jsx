@@ -24,6 +24,7 @@ import { extFromMime } from "../lib/mediaConstants";
 import { uploadWithProgress } from "../lib/uploadWithProgress";
 import { beginCriticalOperation, endCriticalOperation } from "../lib/criticalOperationGuard";
 import { trackBetaEvent } from "../lib/trackBetaEvent";
+import { friendlyDbError } from "../lib/friendlyDbError";
 import BetaFeedbackModal from "./social/BetaFeedbackModal";
 import ChunkErrorBoundary from "./ChunkErrorBoundary";
 
@@ -371,7 +372,7 @@ export default function SocialShell({
         isFollowing ? next.add(profile.id) : next.delete(profile.id);
         return next;
       });
-      onError("Impossible de mettre à jour ton abonnement.");
+      onError(friendlyDbError(e) || "Impossible de mettre à jour ton abonnement.");
     } finally {
       followInFlightRef.current.delete(profile.id);
     }

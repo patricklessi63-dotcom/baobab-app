@@ -22,6 +22,7 @@ import { MEDIA_BUCKET, extFromMime } from "./lib/mediaConstants";
 import { trackActivation } from "./lib/trackActivation";
 import { fetchMyLocation, upsertMyLocation, disableMyLocation } from "./lib/locationApi";
 import { getCurrentPositionSafe, LOCATION_ERROR_MESSAGES } from "./lib/geolocation";
+import { friendlyDbError } from "./lib/friendlyDbError";
 import { usePathname } from "./hooks/usePathname";
 import LandingPage from "./screens/public/LandingPage";
 import AboutPage from "./screens/public/AboutPage";
@@ -1072,7 +1073,7 @@ export default function App() {
       }
     } catch (e) {
       console.error(e);
-      setError("Impossible d'enregistrer ce like.");
+      setError(friendlyDbError(e) || "Impossible d'enregistrer ce like.");
     } finally {
       likeInFlightRef.current.delete(target.id);
     }
@@ -1236,7 +1237,7 @@ export default function App() {
       return true;
     } catch (e) {
       console.error(e);
-      setMessages((m) => m.map((msg) => (msg.id === tempId ? { ...msg, _status: "failed" } : msg)));
+      setMessages((m) => m.map((msg) => (msg.id === tempId ? { ...msg, _status: "failed", _error: friendlyDbError(e) } : msg)));
       return false;
     }
   }

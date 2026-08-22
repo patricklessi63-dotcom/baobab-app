@@ -358,8 +358,8 @@ export default function ConversationPane({
                 )}
               </div>
               {isMine && m._status === "failed" && (
-                <button onClick={() => retrySend(m)} className="self-end text-xs font-bold flex items-center gap-1 mt-0.5" style={{ color: coral }}>
-                  <RotateCcw size={12} /> Impossible d'envoyer le message. Réessayer
+                <button onClick={() => retrySend(m)} className="self-end text-xs font-bold flex items-center gap-1 mt-0.5 text-right" style={{ color: coral }}>
+                  <RotateCcw size={12} className="flex-shrink-0" /> {m._error || "Impossible d'envoyer le message."} Réessayer
                 </button>
               )}
               {moneyCheck?.flagged && (
