@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Luggage, ThumbsUp, ThumbsDown, Users, X, Landmark } from "lucide-react";
+import { Luggage, ThumbsUp, ThumbsDown, Users, X, Landmark, Bell } from "lucide-react";
 import Avatar from "../Avatar";
 import HomeHeader from "../home/HomeHeader";
 import BaobabHero from "../home/BaobabHero";
@@ -16,7 +16,99 @@ import { rankCandidates } from "../../lib/matching/matchingService";
 import { rankCommunities } from "../../lib/communities/recommendations";
 import { rankEvents } from "../../lib/events/recommendations";
 import { getProfileCompletion } from "../../lib/profileCompletion";
+import { NOTIFICATION_LABELS } from "../../lib/notificationLabels";
 import { primary, navy, green, coral, gold, bg, muted, card, body, primaryRgb } from "./theme";
+
+// Panneau vertical (item demandé : notifications visibles directement dans
+// l'accueil, pas seulement via la cloche du header — masquée sur mobile
+// car `hidden sm:flex` dans SocialShell.jsx). Reprend exactement les mêmes
+// catégories/libellés/actions que ce menu déroulant, sans nouvelle requête
+// (les données sont déjà chargées une fois dans SocialShell et passées en
+// props ici) — une seule liste triée par plus récent, pas de sous-onglets.
+function NotificationsPanel({
+  incomingFavoritesCount = 0,
+  unreadDatingNotifications = [],
+  unreadMessageNotifications = [],
+  unreadFollowNotifications = [],
+  unreadCommunityNotifications = [],
+  unreadEventNotifications = [],
+  unreadCommunityCount = 0,
+  markOneNotificationRead = () => {},
+  markCommunityNotificationsRead = () => {},
+  onOpenProfile = () => {},
+  onOpenChatWithProfile = () => {},
+  goTab = () => {},
+}) {
+  const items = useMemo(() => {
+    const rows = [
+      ...unreadDatingNotifications.map((n) => ({
+        n,
+        icon: n.type === "new_match" ? "💞" : "❤️",
+        label: n.actor?.name ? `${n.actor.name} — ${n.type === "new_match" ? NOTIFICATION_LABELS.new_match : NOTIFICATION_LABELS.new_like}` : (NOTIFICATION_LABELS[n.type] || "Nouvelle activité"),
+        onClick: () => { markOneNotificationRead(n.id); onOpenProfile(n.target_id); },
+      })),
+      ...unreadMessageNotifications.map((n) => ({
+        n,
+        icon: "💬",
+        label: n.actor?.name ? `Nouveau message de ${n.actor.name}` : NOTIFICATION_LABELS.new_message,
+        onClick: () => { markOneNotificationRead(n.id); onOpenChatWithProfile(n.target_id); },
+      })),
+      ...unreadFollowNotifications.map((n) => ({
+        n,
+        icon: "👤",
+        label: n.actor?.name ? `${n.actor.name} a commencé à te suivre` : NOTIFICATION_LABELS.new_follower,
+        onClick: () => { markOneNotificationRead(n.id); onOpenProfile(n.target_id); },
+      })),
+      ...unreadCommunityNotifications.map((n) => ({
+        n,
+        icon: n.type?.startsWith("premium_") ? "💎" : "🌍",
+        label: NOTIFICATION_LABELS[n.type] || "Nouvelle activité",
+        onClick: () => { markOneNotificationRead(n.id); goTab(n.type?.startsWith("premium_") ? "premium" : "communities"); },
+      })),
+      ...unreadEventNotifications.map((n) => ({
+        n,
+        icon: "🎉",
+        label: NOTIFICATION_LABELS[n.type] || "Nouvelle activité",
+        onClick: () => { markOneNotificationRead(n.id); goTab("events"); },
+      })),
+    ];
+    return rows.sort((a, b) => new Date(b.n.created_at) - new Date(a.n.created_at)).slice(0, 8);
+  }, [unreadDatingNotifications, unreadMessageNotifications, unreadFollowNotifications, unreadCommunityNotifications, unreadEventNotifications, markOneNotificationRead, onOpenProfile, onOpenChatWithProfile, goTab]);
+
+  const empty = incomingFavoritesCount === 0 && items.length === 0;
+
+  return (
+    <div className={`${card} p-5 mb-6`}>
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <Bell size={16} style={{ color: primary }} />
+          <b className="text-sm">Notifications</b>
+        </div>
+        {unreadCommunityCount > 0 && (
+          <button onClick={markCommunityNotificationsRead} className="text-xs font-bold focus-visible:outline focus-visible:outline-2" style={{ color: coral }}>
+            Tout marquer comme lu
+          </button>
+        )}
+      </div>
+      {empty ? (
+        <EmptyState icon={Bell} title="Aucune notification pour l'instant." />
+      ) : (
+        <div className="flex flex-col gap-1">
+          {incomingFavoritesCount > 0 && (
+            <div className="px-3 py-2.5 rounded-xl text-sm" style={{ background: "#FFF3D6", color: gold }}>
+              ⭐ {incomingFavoritesCount} personne{incomingFavoritesCount > 1 ? "s" : ""} t'a{incomingFavoritesCount > 1 ? "" : ""} ajouté en favori.
+            </div>
+          )}
+          {items.map(({ n, icon, label, onClick }) => (
+            <button key={n.id} onClick={onClick} className="text-left px-3 py-2.5 rounded-xl text-sm hover:bg-[var(--bb-bg)] focus-visible:outline focus-visible:outline-2">
+              {icon} {label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 // "Pour toi" communautés/événements (item 7/13/14) — lecture seule ici :
 // réutilise les vraies fonctions de classement déjà écrites en Phases 6-7
@@ -98,6 +190,17 @@ export default function FeedTab({
   profilePhotos = {},
   blockedIds = new Set(),
   onError = () => {},
+  incomingFavoritesCount = 0,
+  unreadDatingNotifications = [],
+  unreadMessageNotifications = [],
+  unreadFollowNotifications = [],
+  unreadCommunityNotifications = [],
+  unreadEventNotifications = [],
+  unreadCommunityCount = 0,
+  markOneNotificationRead = () => {},
+  markCommunityNotificationsRead = () => {},
+  onOpenProfile = () => {},
+  onOpenChatWithProfile = () => {},
 }) {
   // Réglage "Recommandations personnalisées" (item 5/33) — si désactivé,
   // les listes restent affichées mais sans classement par score : effet
@@ -208,6 +311,21 @@ export default function FeedTab({
         </div>
         <span className="text-xs font-bold flex-shrink-0" style={{ color: coral }}>Consulter →</span>
       </button>
+
+      <NotificationsPanel
+        incomingFavoritesCount={incomingFavoritesCount}
+        unreadDatingNotifications={unreadDatingNotifications}
+        unreadMessageNotifications={unreadMessageNotifications}
+        unreadFollowNotifications={unreadFollowNotifications}
+        unreadCommunityNotifications={unreadCommunityNotifications}
+        unreadEventNotifications={unreadEventNotifications}
+        unreadCommunityCount={unreadCommunityCount}
+        markOneNotificationRead={markOneNotificationRead}
+        markCommunityNotificationsRead={markCommunityNotificationsRead}
+        onOpenProfile={onOpenProfile}
+        onOpenChatWithProfile={onOpenChatWithProfile}
+        goTab={goTab}
+      />
 
       <div className="flex border-b mb-6" style={{ borderColor: `rgba(${primaryRgb},.08)` }}>
         {FEED_TABS.map(([key, label]) => (
