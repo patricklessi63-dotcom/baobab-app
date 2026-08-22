@@ -686,6 +686,7 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
       <section className="max-w-3xl mx-auto">
         <CommunityDetailView
           community={community}
+          creatorName={creatorName}
           memberCount={members.length}
           viewerRole={role}
           viewerPending={myPending.has(community.id)}

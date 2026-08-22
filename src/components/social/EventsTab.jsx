@@ -306,7 +306,6 @@ export default function EventsTab({ currentUser, onError, initialEventId, onCons
   // ---------- Participation ----------
   const adjustParticipantCount = (id, delta) => {
     setEvents((es) => es.map((e) => (e.id === id ? { ...e, participantCount: Math.max(0, e.participantCount + delta) } : e)));
-    setEvent((e) => (e && e.id === id ? e : e));
   };
 
   const handleJoin = async (ev) => {

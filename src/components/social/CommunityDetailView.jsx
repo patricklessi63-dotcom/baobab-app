@@ -15,6 +15,7 @@ const SUB_TABS = [["about", "À propos"], ["posts", "Publications"], ["events", 
 
 export default function CommunityDetailView({
   community,
+  creatorName,
   memberCount,
   viewerRole,
   viewerPending,
@@ -171,7 +172,7 @@ export default function CommunityDetailView({
                 <p className="whitespace-pre-wrap">{community.rules}</p>
               </div>
             )}
-            {community.creatorName && <p className="mt-3 text-xs" style={{ color: muted }}>Créée par {community.creatorName}</p>}
+            {creatorName && <p className="mt-3 text-xs" style={{ color: muted }}>Créée par {creatorName}</p>}
           </div>
         )}
 
