@@ -42,7 +42,11 @@ function traduireErreur(err) {
   if (code === "otp_expired" || msg.toLowerCase().includes("expired") || msg.toLowerCase().includes("invalid"))
     return "Code invalide ou expiré. Vérifie les chiffres saisis ou demande un nouveau code.";
   if (!navigator.onLine) return "Pas de connexion internet.";
-  return msg || "Une erreur est survenue.";
+  // Filet de sécurité (item 6 du cahier des charges) : ne jamais renvoyer
+  // le message technique brut de Supabase à l'utilisateur si aucun des cas
+  // ci-dessus ne correspond — seulement l'enregistrer pour le diagnostic.
+  if (msg) console.error("Erreur Supabase Auth non traduite :", msg);
+  return "Une erreur est survenue. Réessaie dans un instant.";
 }
 
 // Écran unique d'authentification (inscription/connexion/reset), étendu
@@ -83,7 +87,10 @@ export default function Auth({ justVerified = false, onAcknowledgeVerified = () 
     setError("");
     setNotice("");
     setSignupEmailExists(false);
-    const cleanEmail = email.trim();
+    // Normalisation (item 2 du cahier des charges) : espaces + casse ne
+    // doivent jamais créer deux comptes distincts pour la même adresse —
+    // Patrick@Email.com et patrick@email.com sont la même personne.
+    const cleanEmail = email.trim().toLowerCase();
 
     if (!isValidEmail(cleanEmail)) {
       setError("Veuillez entrer une adresse email valide.");
@@ -126,12 +133,22 @@ export default function Auth({ justVerified = false, onAcknowledgeVerified = () 
           sessionStorage.setItem("bb-pending-location", JSON.stringify({ latitude: locResult.latitude, longitude: locResult.longitude }));
         } catch (_) {}
 
-        const { error: signUpError } = await supabase.auth.signUp({
+        const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
           email: cleanEmail,
           password,
           options: { emailRedirectTo: `${window.location.origin}/?verified=1` },
         });
         if (signUpError) throw signUpError;
+        // Un compte confirmé existant fait échouer signUp() (catch plus bas).
+        // Un compte NON confirmé existant, lui, ne fait PAS échouer signUp()
+        // — Supabase renvoie juste un nouveau code/lien sans créer de second
+        // compte (comportement voulu, anti-énumération). Seul un tableau
+        // "identities" vide permet de distinguer ce cas d'une vraie première
+        // inscription (item 5 du cahier des charges) : sans ce contrôle, les
+        // deux flux étaient indiscernables pour l'utilisateur.
+        if (signUpData?.user && signUpData.user.identities?.length === 0) {
+          setNotice("Un compte Baobab existe déjà avec cette adresse, pas encore confirmé. On vient de t'envoyer un nouveau code.");
+        }
         setMode("check-email");
         setResendCooldown(RESEND_COOLDOWN_S);
       } else if (mode === "signin") {
@@ -171,7 +188,7 @@ export default function Auth({ justVerified = false, onAcknowledgeVerified = () 
     setResendLoading(true);
     setError("");
     try {
-      const { error: resendError } = await supabase.auth.resend({ type: "signup", email: email.trim() });
+      const { error: resendError } = await supabase.auth.resend({ type: "signup", email: email.trim().toLowerCase() });
       if (resendError) throw resendError;
       setNotice("Un nouveau lien vient d'être envoyé.");
       setResendCooldown(RESEND_COOLDOWN_S);
