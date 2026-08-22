@@ -49,7 +49,10 @@ function buildListQuery({ search, filterCity, filterCategory, filterVisibility }
   if (filterCity.trim()) query = query.ilike("city", `%${filterCity.trim()}%`);
   if (filterCategory) query = query.eq("category", filterCategory);
   if (filterVisibility) query = query.eq("visibility", filterVisibility);
-  return query.order("created_at", { ascending: false });
+  // Tri secondaire sur "id" (voir loadMore) : deux communautés créées à la
+  // même seconde partageraient sinon un ordre indéterminé d'une page à
+  // l'autre — même correctif que PostsFeed.jsx.
+  return query.order("created_at", { ascending: false }).order("id", { ascending: false });
 }
 
 function withMemberCount(rows) {
@@ -68,7 +71,7 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [communities, setCommunities] = useState([]);
   const [listLoading, setListLoading] = useState(true);
-  const [page, setPage] = useState(0);
+  const [listCursor, setListCursor] = useState(null);
   const [hasMore, setHasMore] = useState(false);
 
   const [myMemberships, setMyMemberships] = useState({}); // communityId -> role
@@ -143,12 +146,13 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
     const timer = setTimeout(async () => {
       try {
         const { data, error, count } = await buildListQuery({ search, filterCity, filterCategory, filterVisibility })
-          .range(0, PAGE_SIZE - 1);
+          .limit(PAGE_SIZE);
         if (!alive) return;
         if (error) throw error;
         setCommunities(withMemberCount(data));
         setHasMore((count || 0) > PAGE_SIZE);
-        setPage(0);
+        const last = (data || [])[(data || []).length - 1];
+        setListCursor(last ? { created_at: last.created_at, id: last.id } : null);
       } catch (e) {
         console.error(e);
         onError("Impossible de charger les communautés.");
@@ -159,16 +163,22 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
     return () => { alive = false; clearTimeout(timer); };
   }, [view, search, filterCity, filterCategory, filterVisibility]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Curseur (created_at, id) plutôt que numéro de page (voir PostsFeed.jsx
+  // pour le même correctif) : une nouvelle communauté créée pendant le
+  // scroll décalait tous les offsets suivants avec .range(), causant des
+  // doublons ou des communautés jamais vues à la page suivante.
   const loadMore = async () => {
-    const nextPage = page + 1;
+    if (!listCursor) return;
     try {
       const { data, error } = await buildListQuery({ search, filterCity, filterCategory, filterVisibility })
-        .range(nextPage * PAGE_SIZE, nextPage * PAGE_SIZE + PAGE_SIZE - 1);
+        .or(`created_at.lt.${listCursor.created_at},and(created_at.eq.${listCursor.created_at},id.lt.${listCursor.id})`)
+        .limit(PAGE_SIZE);
       if (error) throw error;
       const rows = withMemberCount(data);
       setCommunities((prev) => [...prev, ...rows]);
       setHasMore(rows.length === PAGE_SIZE);
-      setPage(nextPage);
+      const last = rows[rows.length - 1];
+      setListCursor(last ? { created_at: last.created_at, id: last.id } : null);
     } catch (e) {
       console.error(e);
       onError("Impossible de charger plus de communautés.");

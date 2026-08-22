@@ -47,7 +47,10 @@ function buildListQuery({ search, filterCity, filterCategory, dateRange }) {
   const bounds = dateRangeBounds(dateRange);
   if (bounds) query = query.gte("event_date", bounds.start).lte("event_date", bounds.end);
   else query = query.gte("event_date", new Date().toISOString());
-  return query.order("event_date", { ascending: true });
+  // Tri secondaire sur "id" (voir loadMore) : deux événements au même
+  // event_date partageraient sinon un ordre indéterminé d'une page à
+  // l'autre — même correctif que PostsFeed.jsx/CommunitiesTab.jsx.
+  return query.order("event_date", { ascending: true }).order("id", { ascending: true });
 }
 
 function withParticipantCount(rows) {
@@ -66,7 +69,7 @@ export default function EventsTab({ currentUser, onError, initialEventId, onCons
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [events, setEvents] = useState([]);
   const [listLoading, setListLoading] = useState(true);
-  const [page, setPage] = useState(0);
+  const [listCursor, setListCursor] = useState(null);
   const [hasMore, setHasMore] = useState(false);
 
   const [myStatuses, setMyStatuses] = useState({}); // eventId -> going|interested|not_going|waitlisted
@@ -151,12 +154,13 @@ export default function EventsTab({ currentUser, onError, initialEventId, onCons
     const timer = setTimeout(async () => {
       try {
         const { data, error, count } = await buildListQuery({ search, filterCity, filterCategory, dateRange: filterDateRange })
-          .range(0, PAGE_SIZE - 1);
+          .limit(PAGE_SIZE);
         if (!alive) return;
         if (error) throw error;
         setEvents(withParticipantCount(data));
         setHasMore((count || 0) > PAGE_SIZE);
-        setPage(0);
+        const last = (data || [])[(data || []).length - 1];
+        setListCursor(last ? { event_date: last.event_date, id: last.id } : null);
       } catch (e) {
         console.error(e);
         onError("Impossible de charger les événements.");
@@ -167,16 +171,23 @@ export default function EventsTab({ currentUser, onError, initialEventId, onCons
     return () => { alive = false; clearTimeout(timer); };
   }, [view, search, filterCity, filterCategory, filterDateRange]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Curseur (event_date, id) plutôt que numéro de page (voir PostsFeed.jsx
+  // pour le même correctif) : un nouvel événement créé pendant le scroll,
+  // avec une date antérieure à des événements déjà chargés, décalait tous
+  // les offsets suivants avec .range(), causant des doublons ou des
+  // événements jamais vus à la page suivante.
   const loadMore = async () => {
-    const nextPage = page + 1;
+    if (!listCursor) return;
     try {
       const { data, error } = await buildListQuery({ search, filterCity, filterCategory, dateRange: filterDateRange })
-        .range(nextPage * PAGE_SIZE, nextPage * PAGE_SIZE + PAGE_SIZE - 1);
+        .or(`event_date.gt.${listCursor.event_date},and(event_date.eq.${listCursor.event_date},id.gt.${listCursor.id})`)
+        .limit(PAGE_SIZE);
       if (error) throw error;
       const rows = withParticipantCount(data);
       setEvents((prev) => [...prev, ...rows]);
       setHasMore(rows.length === PAGE_SIZE);
-      setPage(nextPage);
+      const last = rows[rows.length - 1];
+      setListCursor(last ? { event_date: last.event_date, id: last.id } : null);
     } catch (e) {
       console.error(e);
       onError("Impossible de charger plus d'événements.");
