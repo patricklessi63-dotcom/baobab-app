@@ -110,7 +110,7 @@ export default function MessageBubbleMedia({ m, isMine }) {
           <div className="text-[10px] font-black uppercase tracking-wider mb-1" style={{ opacity: 0.75 }}>🎉 Événement Baobab</div>
           <div className="text-sm font-bold truncate">{meta.title || "Événement"}</div>
           <div className="text-[11px] mt-0.5" style={{ opacity: 0.75 }}>
-            {meta.event_date ? formatEventWhen(meta.event_date) : ""}{meta.city ? ` · ${meta.city}` : ""}
+            {meta.event_date ? formatEventWhen(meta.event_date, meta.timezone) : ""}{meta.city ? ` · ${meta.city}` : ""}
           </div>
         </div>
       </div>

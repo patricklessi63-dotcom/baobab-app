@@ -542,6 +542,7 @@ export default function EventsTab({ currentUser, onError, initialEventId, onCons
           title: shareEvent.title,
           cover_url: shareEvent.cover_url || null,
           event_date: shareEvent.event_date,
+          timezone: shareEvent.timezone || null,
           city: shareEvent.city,
         },
       });

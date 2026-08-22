@@ -268,7 +268,7 @@ export default function ProfileTab({
                           <div className="min-w-0">
                             <div className="text-sm font-bold truncate" style={{ color: primary }}>{ev.title}</div>
                             <div className="text-[11px] truncate flex items-center gap-1" style={{ color: muted }}>
-                              {eventCategoryLabel(ev.category)} · {formatEventWhen(ev.event_date)}
+                              {eventCategoryLabel(ev.category)} · {formatEventWhen(ev.event_date, ev.timezone)}
                             </div>
                           </div>
                         </button>

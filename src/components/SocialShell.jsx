@@ -629,7 +629,7 @@ export default function SocialShell({
     setMyUpcomingEventsLoading(true);
     supabase
       .from("event_attendees")
-      .select("status, events(id, title, category, city, cover_url, event_date, canceled_at)")
+      .select("status, events(id, title, category, city, cover_url, event_date, canceled_at, timezone)")
       .eq("profile_id", currentUser.id)
       .in("status", ["going", "interested", "waitlisted"])
       .then(({ data, error }) => {
