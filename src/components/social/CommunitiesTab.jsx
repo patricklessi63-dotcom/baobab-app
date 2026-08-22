@@ -85,6 +85,7 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
   const [postCommentCounts, setPostCommentCounts] = useState({});
   const [commentsByPost, setCommentsByPost] = useState({});
   const [members, setMembers] = useState([]);
+  const [memberCount, setMemberCount] = useState(0);
   const [membersLoading, setMembersLoading] = useState(false);
   const [joinRequests, setJoinRequests] = useState([]);
   const [reports, setReports] = useState([]);
@@ -227,6 +228,11 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
         .eq("community_id", id)
         .order("joined_at", { ascending: true });
       if (error) throw error;
+      // Le total affiché doit compter tous les membres réels (cohérent avec
+      // la carte de liste, qui utilise community_members(count) côté
+      // serveur) — seule la liste affichée exclut les profils bloqués, pour
+      // ne pas les montrer à l'écran sans fausser le compteur.
+      setMemberCount((data || []).length);
       setMembers((data || []).filter((m) => !blockedIds.has(m.profile_id)));
     } catch (e) {
       console.error(e);
@@ -277,7 +283,7 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
     setSelectedId(comm.id);
     setView("detail");
     setCommunity(null);
-    setPosts([]); setMembers([]); setJoinRequests([]); setReports([]); setEvents([]);
+    setPosts([]); setMembers([]); setMemberCount(0); setJoinRequests([]); setReports([]); setEvents([]);
     setPostDraft("");
     try {
       const { data, error } = await supabase.from("communities").select("*").eq("id", comm.id).single();
@@ -327,6 +333,7 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
         if (error) throw error;
         setMyMemberships((m) => ({ ...m, [comm.id]: "member" }));
         adjustMemberCount(comm.id, 1);
+        if (selectedId === comm.id) setMemberCount((n) => n + 1);
         onCommunitiesChanged?.();
         trackActivation(currentUser.id, "community_joined");
       } else if (comm.visibility === "private") {
@@ -349,6 +356,10 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
       if (error) throw error;
       setMyMemberships((m) => { const n = { ...m }; delete n[comm.id]; return n; });
       adjustMemberCount(comm.id, -1);
+      if (selectedId === comm.id) {
+        setMemberCount((n) => Math.max(0, n - 1));
+        setMembers((m) => m.filter((x) => x.profile_id !== currentUser.id));
+      }
       onCommunitiesChanged?.();
     } catch (e) {
       console.error(e);
@@ -687,7 +698,7 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
         <CommunityDetailView
           community={community}
           creatorName={creatorName}
-          memberCount={members.length}
+          memberCount={memberCount}
           viewerRole={role}
           viewerPending={myPending.has(community.id)}
           currentUser={currentUser}
