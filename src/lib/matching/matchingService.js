@@ -61,7 +61,13 @@ function scoreIntentions(userA, userB) {
 }
 
 function scoreInterests(userA, userB) {
-  const shared = sharedOf(parseList(userA.interests), parseList(userB.interests));
+  // userB.show_interests régit la visibilité des intérêts de userB pour
+  // n'importe quel autre viewer (voir DiscoverTab.jsx/PublicProfileModal.jsx)
+  // — sans ce garde, "commonInterests" affichait ici nommément des intérêts
+  // que la personne avait explicitement masqués (carte de compatibilité,
+  // MatchCard, ConversationStarters...).
+  const interestsB = userB.show_interests === false ? "" : userB.interests;
+  const shared = sharedOf(parseList(userA.interests), parseList(interestsB));
   return { points: Math.min(shared.length * 5, MATCH_WEIGHTS.interests), shared };
 }
 
