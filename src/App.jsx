@@ -449,6 +449,11 @@ export default function App() {
       }
       if (result.ok) {
         await handleEnableLocation(result.latitude, result.longitude);
+      } else if (result.code === "PERMISSION_DENIED") {
+        // Le message générique de geolocation.js ("tu peux l'activer plus
+        // tard") est pensé pour un contexte facultatif — trompeur ici où
+        // l'accès reste bloqué tant que ce n'est pas réglé.
+        setLocationGateError("Toujours refusée par ton navigateur ou ton appareil. Vérifie les réglages de localisation du site dans ton navigateur (souvent une icône près de la barre d'adresse), puis réessaie.");
       } else {
         setLocationGateError(result.message);
       }
