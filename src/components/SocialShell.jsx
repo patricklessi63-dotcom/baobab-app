@@ -20,6 +20,8 @@ import FavoritesModal from "./social/FavoritesModal";
 import AdmirersModal from "./social/AdmirersModal";
 import MatchPreferencesModal from "./social/MatchPreferencesModal";
 import { validateMediaFile } from "../lib/mediaValidation";
+import { extFromMime } from "../lib/mediaConstants";
+import { uploadWithProgress } from "../lib/uploadWithProgress";
 import { beginCriticalOperation, endCriticalOperation } from "../lib/criticalOperationGuard";
 import { trackBetaEvent } from "../lib/trackBetaEvent";
 import BetaFeedbackModal from "./social/BetaFeedbackModal";
@@ -152,6 +154,7 @@ export default function SocialShell({
   const [storyMediaKind, setStoryMediaKind] = useState("");
   const [storyMediaError, setStoryMediaError] = useState("");
   const [storyUploading, setStoryUploading] = useState(false);
+  const [storyUploadProgress, setStoryUploadProgress] = useState(0);
   const [storyViewerIndex, setStoryViewerIndex] = useState(null);
   const [viewedStories, setViewedStories] = useState({});
   const [storyReply, setStoryReply] = useState("");
@@ -738,10 +741,19 @@ export default function SocialShell({
   };
 
   const uploadStoryMedia = async (profileId, file) => {
-    const ext = file.name.split(".").pop();
+    const ext = extFromMime(file.type) || file.name.split(".").pop() || "bin";
     const path = `${profileId}/story-${Date.now()}.${ext}`;
-    const { error: uploadError } = await supabase.storage.from("avatars").upload(path, file, { upsert: true });
-    if (uploadError) throw uploadError;
+    // uploadWithProgress (déjà utilisé par la messagerie riche/les
+    // publications) plutôt que supabase.storage.upload() : un statut vidéo
+    // peut peser jusqu'à 50 Mo, et le SDK n'expose aucune progression — sur
+    // une connexion lente, l'upload semblait figé/cassé sans le moindre
+    // retour visuel ("on n'arrive pas à mettre les vidéos en statut").
+    await uploadWithProgress({
+      bucket: "avatars",
+      path,
+      file,
+      onProgress: setStoryUploadProgress,
+    });
     const { data } = supabase.storage.from("avatars").getPublicUrl(path);
     return data.publicUrl;
   };
@@ -751,6 +763,7 @@ export default function SocialShell({
     if (!text && !storyMedia) return;
     if (!currentUser) return;
     setStoryUploading(true);
+    setStoryUploadProgress(0);
     beginCriticalOperation();
     try {
       let mediaUrl = null;
@@ -786,6 +799,7 @@ export default function SocialShell({
       setStoryMediaError("Impossible de publier le statut. Réessaie.");
     } finally {
       setStoryUploading(false);
+      setStoryUploadProgress(0);
       endCriticalOperation();
     }
   };
@@ -1261,6 +1275,7 @@ export default function SocialShell({
         setStoryMediaKind={setStoryMediaKind}
         storyMediaError={storyMediaError}
         storyUploading={storyUploading}
+        storyUploadProgress={storyUploadProgress}
         pickStoryMedia={pickStoryMedia}
         onStoryMediaSelected={onStoryMediaSelected}
         storyPhotoInputRef={storyPhotoInputRef}

@@ -1,7 +1,7 @@
 import React from "react";
 import { X, Send } from "lucide-react";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
-import { navy } from "./theme";
+import { navy, primary } from "./theme";
 
 export default function StoryViewerModal({
   storyViewerIndex,

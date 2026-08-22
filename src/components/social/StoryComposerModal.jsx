@@ -15,6 +15,7 @@ export default function StoryComposerModal({
   setStoryMediaKind,
   storyMediaError,
   storyUploading,
+  storyUploadProgress,
   pickStoryMedia,
   onStoryMediaSelected,
   storyPhotoInputRef,
@@ -52,7 +53,7 @@ export default function StoryComposerModal({
             </div>
             <div className="p-6 pt-0 shrink-0">
               <button onClick={addStory} disabled={(!storyText.trim() && !storyMedia) || storyUploading} className="w-full rounded-xl py-3 text-white font-bold disabled:opacity-40" style={{ background: coral }}>
-                {storyUploading ? "Publication..." : "Partager le statut"}
+                {storyUploading ? (storyMediaKind && storyUploadProgress > 0 ? `Envoi... ${storyUploadProgress}%` : "Publication...") : "Partager le statut"}
               </button>
             </div>
           </div>
