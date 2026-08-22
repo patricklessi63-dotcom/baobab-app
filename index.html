@@ -225,12 +225,15 @@
     }
   </style>
   <script>
-    // Applique le thème AVANT le premier rendu (évite le flash clair→sombre).
-    // "système" (pas de préférence enregistrée) ne pose aucun attribut : la
-    // media query @media (prefers-color-scheme: dark) ci-dessus prend le relais.
+    // Applique le thème AVANT le premier rendu (évite le flash). Par défaut
+    // (aucune préférence enregistrée) : clair, même si le système est en
+    // mode sombre — "Système" reste un choix explicite dans les réglages,
+    // auquel cas aucun attribut n'est posé et la media query
+    // @media (prefers-color-scheme: dark) ci-dessus prend le relais.
     try {
       var t = localStorage.getItem("bb-theme");
       if (t === "dark" || t === "light") document.documentElement.setAttribute("data-theme", t);
+      else if (t !== "system") document.documentElement.setAttribute("data-theme", "light");
     } catch (e) {}
   </script>
 </head>

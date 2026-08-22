@@ -18,9 +18,13 @@ export function useTheme() {
   const [theme, setThemeState] = useState(() => {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
-      return stored === "dark" || stored === "light" ? stored : "system";
+      if (stored === "dark" || stored === "light" || stored === "system") return stored;
+      // Aucune préférence enregistrée (première visite) : clair par défaut,
+      // plutôt que de suivre silencieusement le thème sombre du système —
+      // "Système" reste un choix explicite disponible dans les réglages.
+      return "light";
     } catch (_) {
-      return "system";
+      return "light";
     }
   });
 
@@ -31,8 +35,7 @@ export function useTheme() {
   const setTheme = (value) => {
     setThemeState(value);
     try {
-      if (value === "system") localStorage.removeItem(STORAGE_KEY);
-      else localStorage.setItem(STORAGE_KEY, value);
+      localStorage.setItem(STORAGE_KEY, value);
     } catch (_) {}
   };
 
