@@ -517,6 +517,47 @@ export default function App() {
     setCurrentUser((u) => (u ? { ...u, deletion_requested_at: null } : u));
   }
 
+  // Export des données personnelles (item audit Paramètres/confidentialité —
+  // obligation légale, pas juste une bonne pratique). Portée volontairement
+  // limitée à ce que l'utilisateur a lui-même créé/renseigné (profil,
+  // publications, statuts, participations) — pas les messages d'autrui dans
+  // une conversation partagée. Tout en lecture, RLS self-only déjà en place,
+  // aucune nouvelle requête privilégiée nécessaire. Téléchargement direct
+  // côté client, rien n'est envoyé à un tiers.
+  async function handleExportData() {
+    if (!currentUser) return;
+    try {
+      const [postsRes, storiesRes, eventsRes, communitiesRes, messagesRes] = await Promise.all([
+        supabase.from("posts").select("*").eq("author_id", currentUser.id),
+        supabase.from("stories").select("*").eq("profile_id", currentUser.id),
+        supabase.from("event_attendees").select("event_id, status, created_at").eq("profile_id", currentUser.id),
+        supabase.from("community_members").select("community_id, role, created_at").eq("profile_id", currentUser.id),
+        supabase.from("messages").select("id, match_key, kind, text, created_at").eq("from_id", currentUser.id),
+      ]);
+      const payload = {
+        exported_at: new Date().toISOString(),
+        profile: currentUser,
+        posts: postsRes.data || [],
+        stories: storiesRes.data || [],
+        event_participations: eventsRes.data || [],
+        community_memberships: communitiesRes.data || [],
+        messages_sent: messagesRes.data || [],
+      };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `baobab-mes-donnees-${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error(e);
+      setError("Impossible d'exporter tes données pour le moment. Réessaie.");
+    }
+  }
+
   async function handleSignOut() {
     await supabase.auth.signOut();
     setCurrentUser(null);
@@ -1784,6 +1825,7 @@ export default function App() {
           onDisableLocation={handleDisableLocation}
           onUpdateLocationPref={handleUpdateLocationPref}
           onAccountDeletionRequested={handleAccountDeletionRequested}
+          onExportData={handleExportData}
         />
       </>
     );
@@ -1903,6 +1945,7 @@ export default function App() {
         aboutOpen={aboutOpen}
         setAboutOpen={setAboutOpen}
         onAccountDeletionRequested={handleAccountDeletionRequested}
+        onExportData={handleExportData}
       />
 
     </div>

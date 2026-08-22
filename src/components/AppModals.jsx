@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Circle, Bell, Moon, Shield, Info, ArrowLeft, ShieldCheck, Smartphone, UserX, AlertTriangle, MapPin, Heart, Languages, RefreshCw, CheckCircle2 } from "lucide-react";
+import { Circle, Bell, Moon, Shield, Info, ArrowLeft, ShieldCheck, Smartphone, UserX, AlertTriangle, MapPin, Heart, Languages, RefreshCw, CheckCircle2, Download } from "lucide-react";
 import { C } from "../constants";
 import { CURRENT_VERSION, checkForUpdate } from "../lib/version";
 import { PrivacyPolicyContent, TermsOfServiceContent } from "../legalContent";
@@ -49,6 +49,7 @@ export default function AppModals({
   onDisableLocation,
   onUpdateLocationPref,
   onAccountDeletionRequested = () => {},
+  onExportData = () => {},
 }) {
   const [blockedOpen, setBlockedOpen] = React.useState(false);
   const [privacyFieldsOpen, setPrivacyFieldsOpen] = React.useState(false);
@@ -220,6 +221,11 @@ export default function AppModals({
               <span className="flex items-center gap-2 text-sm"><Info size={14} color="var(--bb-text)" /> Conditions d'utilisation</span>
               <ArrowLeft size={14} style={{ transform: "rotate(180deg)", color: "rgba(var(--bb-ink-rgb),0.35)" }} />
             </button>
+            <button onClick={onExportData} className="w-full flex items-center justify-between py-3 mt-2" style={{ borderTop: "1px solid rgba(var(--bb-ink-rgb),0.08)", minHeight: 44 }}>
+              <span className="flex items-center gap-2 text-sm"><Download size={14} color="var(--bb-text)" /> Exporter mes données</span>
+              <ArrowLeft size={14} style={{ transform: "rotate(180deg)", color: "rgba(var(--bb-ink-rgb),0.35)" }} />
+            </button>
+
             <div className="text-[11px] font-black uppercase tracking-wider mt-4" style={{ color: C.clay }}>Zone de danger</div>
             <button onClick={() => { setSettingsOpen(false); setDeleteAccountOpen(true); }} className="w-full flex items-center gap-2 py-3" style={{ borderTop: "1px solid rgba(var(--bb-ink-rgb),0.08)", minHeight: 44, color: C.clay }}>
               <AlertTriangle size={14} /> <span className="text-sm font-semibold">Supprimer mon compte</span>
