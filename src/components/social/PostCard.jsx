@@ -1,7 +1,9 @@
 import React, { useState } from "react";
 import { Heart, MessageCircle, Flag, Trash2, Pencil, Check, X } from "lucide-react";
 import Avatar from "../Avatar";
+import ClickableImage from "../ClickableImage";
 import PostMediaGrid from "./PostMediaGrid";
+import { useImageLightbox } from "../../lib/ImageLightboxContext";
 import { formatMessageTime, formatDayLabel } from "../../utils/format";
 import { primary, coral, muted, bg, primaryRgb } from "./theme";
 
@@ -30,6 +32,7 @@ export default function PostCard({
   const [commentDraft, setCommentDraft] = useState("");
   const [editing, setEditing] = useState(false);
   const [editDraft, setEditDraft] = useState(post.body);
+  const { openLightbox } = useImageLightbox();
   const author = post.profiles || {};
   const isMine = post.author_id === currentUserId;
   // post_media (galerie multi-médias) prioritaire ; retombe sur
@@ -97,11 +100,20 @@ export default function PostCard({
             mediaList[0].kind === "video" ? (
               <video src={mediaList[0].url} controls className="w-full max-h-96 rounded-xl mt-2.5 object-cover" />
             ) : (
-              <img src={mediaList[0].url} alt="" className="w-full max-h-96 rounded-xl mt-2.5 object-cover" />
+              <ClickableImage src={mediaList[0].url} alt="" gallery={[{ url: mediaList[0].url, alt: "" }]} className="w-full max-h-96 rounded-xl mt-2.5 object-cover" />
             )
           )}
           {!editing && mediaList.length > 1 && (
-            <PostMediaGrid items={mediaList} className="mt-2.5 rounded-xl overflow-hidden" />
+            <PostMediaGrid
+              items={mediaList}
+              className="mt-2.5 rounded-xl overflow-hidden"
+              onItemClick={(item, i) => {
+                if (item.kind === "video") return;
+                const photos = mediaList.filter((m) => m.kind !== "video").map((m) => ({ url: m.url, alt: "" }));
+                const photoIndex = mediaList.slice(0, i + 1).filter((m) => m.kind !== "video").length - 1;
+                openLightbox(photos, photoIndex);
+              }}
+            />
           )}
 
           {!editing && (

@@ -3,6 +3,7 @@ import { ImagePlus, Trash2 } from "lucide-react";
 import { supabase } from "../../supabaseClient";
 import EmptyState from "../home/EmptyState";
 import Skeleton from "../Skeleton";
+import { useImageLightbox } from "../../lib/ImageLightboxContext";
 import { validateMediaFile } from "../../lib/mediaValidation";
 import { extFromMime } from "../../lib/mediaConstants";
 import { uploadWithProgress } from "../../lib/uploadWithProgress";
@@ -17,6 +18,8 @@ export default function EventPhotoGallery({ photos = [], loading, canUpload, cur
   const inputRef = useRef(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
+  const { openLightbox } = useImageLightbox();
+  const gallery = photos.filter((p) => p.url).map((p) => ({ url: p.url, alt: "" }));
 
   const handlePick = async (e) => {
     const file = e.target.files?.[0];
@@ -63,7 +66,14 @@ export default function EventPhotoGallery({ photos = [], loading, canUpload, cur
         <div className="grid grid-cols-3 gap-2">
           {photos.map((p) => (
             <div key={p.id} className="relative aspect-square rounded-xl overflow-hidden group" style={{ background: bg }}>
-              {p.url ? <img src={p.url} alt="" className="w-full h-full object-cover" /> : null}
+              {p.url ? (
+                <img
+                  src={p.url}
+                  alt=""
+                  onClick={() => openLightbox(gallery, gallery.findIndex((g) => g.url === p.url))}
+                  className="w-full h-full object-cover cursor-pointer"
+                />
+              ) : null}
               {(p.uploaded_by === currentUserId || canModerate) && (
                 <button
                   onClick={() => onDelete(p)}

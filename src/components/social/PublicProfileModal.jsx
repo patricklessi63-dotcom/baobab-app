@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { X, ChevronLeft, ChevronRight, Heart, MessageCircle, UserPlus, UserCheck, Star, Flag, Ban } from "lucide-react";
 import Avatar from "../Avatar";
+import ClickableImage from "../ClickableImage";
 import StatusBadge from "../StatusBadge";
 import { visibleAge } from "../../utils/format";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
@@ -73,7 +74,13 @@ export default function PublicProfileModal({
         <div className="relative">
           {gallery.length > 0 ? (
             <div className="relative h-72 bg-black">
-              <img src={gallery[photoIdx]} alt={profile.name} className="w-full h-full object-cover" />
+              <ClickableImage
+                src={gallery[photoIdx]}
+                alt={profile.name}
+                gallery={gallery.map((u) => ({ url: u, alt: profile.name }))}
+                galleryIndex={photoIdx}
+                className="w-full h-full object-cover"
+              />
               {gallery.length > 1 && (
                 <>
                   <button onClick={prev} aria-label="Photo précédente" className="absolute left-2 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full bg-black/40 text-white flex items-center justify-center focus-visible:outline focus-visible:outline-2">

@@ -10,6 +10,7 @@ import ChipSelect from "../components/ChipSelect";
 import AiSuggestButton from "../components/ai/AiSuggestButton";
 import { validateMediaFile } from "../lib/mediaValidation";
 import { parseArrivedSince, formatArrivedSince } from "./onboarding/steps/Step4CanadaJourney";
+import { useImageLightbox } from "../lib/ImageLightboxContext";
 
 function hasIntimateIntent(lookingFor) {
   return (lookingFor || []).some((v) => v.includes("Amour") || v.includes("Relation sérieuse"));
@@ -37,6 +38,11 @@ export default function EditProfileForm({
   onError = () => {},
 }) {
   const set = (patch) => setEditForm({ ...editForm, ...patch });
+  const { openLightbox } = useImageLightbox();
+  const photoGallery = [
+    ...existingPhotos.map((p) => ({ url: p.url, alt: "Photo" })),
+    ...newPhotoPreviews.map((src, i) => ({ url: src, alt: `Nouvelle photo ${i + 1}` })),
+  ];
   const languagesDetail = editForm.languagesDetail || [];
 
   const toggleLanguage = (language) => {
@@ -109,7 +115,7 @@ export default function EditProfileForm({
           <div className="flex flex-wrap gap-2 mb-2">
             {existingPhotos.map((photo, i) => (
               <div key={photo.id} style={{ position: "relative" }}>
-                <img src={photo.url} alt="Photo" style={{ width: 72, height: 72, borderRadius: "var(--bb-radius-sm)", objectFit: "cover", boxShadow: "var(--bb-shadow-sm)" }} />
+                <img src={photo.url} alt="Photo" onClick={() => openLightbox(photoGallery, i)} style={{ width: 72, height: 72, borderRadius: "var(--bb-radius-sm)", objectFit: "cover", boxShadow: "var(--bb-shadow-sm)", cursor: "pointer" }} />
                 <button type="button" onClick={() => removeExistingPhoto(photo)} aria-label="Supprimer la photo"
                   style={{ position: "absolute", top: -6, right: -6, width: 20, height: 20, borderRadius: "50%", background: C.indigo, color: "#fff", fontSize: 12, display: "flex", alignItems: "center", justifyContent: "center" }}>
                   ×
@@ -142,7 +148,7 @@ export default function EditProfileForm({
             ))}
             {newPhotoPreviews.map((src, i) => (
               <div key={`new-${i}`} style={{ position: "relative" }}>
-                <img src={src} alt={`Nouvelle photo ${i + 1}`} style={{ width: 72, height: 72, borderRadius: "var(--bb-radius-sm)", objectFit: "cover", boxShadow: "var(--bb-shadow-sm)" }} />
+                <img src={src} alt={`Nouvelle photo ${i + 1}`} onClick={() => openLightbox(photoGallery, existingPhotos.length + i)} style={{ width: 72, height: 72, borderRadius: "var(--bb-radius-sm)", objectFit: "cover", boxShadow: "var(--bb-shadow-sm)", cursor: "pointer" }} />
                 <button type="button" onClick={() => removeNewPhotoFile(i)} aria-label="Supprimer la nouvelle photo"
                   style={{ position: "absolute", top: -6, right: -6, width: 20, height: 20, borderRadius: "50%", background: C.indigo, color: "#fff", fontSize: 12, display: "flex", alignItems: "center", justifyContent: "center" }}>
                   ×

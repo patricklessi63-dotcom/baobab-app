@@ -10,6 +10,7 @@ import { isEventStaff } from "../../lib/events/permissions";
 import { downloadIcs, googleCalendarUrl } from "../../lib/events/calendarExport";
 import { formatEventWhen } from "../../utils/format";
 import { primary, green, coral, gold, muted, bg, card, body, primaryRgb, navy } from "./theme";
+import { useImageLightbox } from "../../lib/ImageLightboxContext";
 
 const SUB_TABS = [["about", "À propos"], ["discussion", "Discussion"], ["participants", "Participants"], ["photos", "Photos"]];
 
@@ -61,6 +62,7 @@ export default function EventDetailView({
   const [subTab, setSubTab] = useState("about");
   const [shareOpen, setShareOpen] = useState(false);
   const staff = isEventStaff(viewerRole);
+  const { openLightbox } = useImageLightbox();
   const canceled = Boolean(event.canceled_at);
   const isPrivate = event.visibility === "private";
   const isCommunityOnly = event.visibility === "community";
@@ -74,7 +76,13 @@ export default function EventDetailView({
       </button>
 
       <div className={`${card} overflow-hidden`}>
-        <div className="h-40 relative" style={{ background: event.cover_url ? `url(${event.cover_url}) center/cover` : `linear-gradient(150deg,${gold},${coral})` }}>
+        <div
+          className="h-40 relative"
+          style={{ background: event.cover_url ? `url(${event.cover_url}) center/cover` : `linear-gradient(150deg,${gold},${coral})`, cursor: event.cover_url ? "zoom-in" : undefined }}
+          onClick={() => event.cover_url && openLightbox([{ url: event.cover_url, alt: event.title }])}
+          role={event.cover_url ? "button" : undefined}
+          aria-label={event.cover_url ? "Agrandir la couverture de l'événement" : undefined}
+        >
           {canceled && (
             <div className="absolute inset-0 flex items-center justify-center" style={{ background: `rgba(${primaryRgb},.55)` }}>
               <span className="text-white font-black text-sm px-4 py-2 rounded-full" style={{ background: coral }}>❌ Événement annulé</span>

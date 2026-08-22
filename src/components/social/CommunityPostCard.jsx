@@ -1,6 +1,7 @@
 import React, { useRef, useState } from "react";
 import { MessageCircle, Flag, Trash2, X, Reply, Pencil, Check } from "lucide-react";
 import Avatar from "../Avatar";
+import ClickableImage from "../ClickableImage";
 import { formatMessageTime, formatDayLabel } from "../../utils/format";
 import { primary, coral, muted, bg, primaryRgb, navy } from "./theme";
 import { useClickOutside } from "../../hooks/useClickOutside";
@@ -80,7 +81,7 @@ export default function CommunityPostCard({
               {post.media_kind === "video" ? (
                 <video src={post.media_url} controls className="w-full max-h-[360px] object-cover" />
               ) : (
-                <img src={post.media_url} alt="" className="w-full max-h-[360px] object-cover" />
+                <ClickableImage src={post.media_url} alt="" gallery={[{ url: post.media_url, alt: "" }]} className="w-full max-h-[360px] object-cover" />
               )}
             </div>
           )}
