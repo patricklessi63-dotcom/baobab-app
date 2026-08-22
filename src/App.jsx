@@ -1560,6 +1560,12 @@ export default function App() {
   // enforce_message_update_rules côté DB — seul l'auteur peut y toucher).
   async function deleteMessageForEveryone(message) {
     if (!currentUser) return;
+    // On garde les valeurs précédentes pour pouvoir annuler la mise à jour
+    // optimiste si le trigger DB rejette l'UPDATE (sinon le message reste
+    // affiché "supprimé" localement alors qu'il ne l'est pas vraiment côté
+    // serveur, et l'autre participant continue de le voir intact).
+    const prevDeletedAt = message.deleted_at;
+    const prevDeletedBy = message.deleted_by;
     setMessages((m) => m.map((x) => (x.id === message.id ? { ...x, deleted_at: new Date().toISOString(), deleted_by: currentUser.id } : x)));
     try {
       const { error: delError } = await supabase
@@ -1569,6 +1575,7 @@ export default function App() {
       if (delError) throw delError;
     } catch (e) {
       console.error(e);
+      setMessages((m) => m.map((x) => (x.id === message.id ? { ...x, deleted_at: prevDeletedAt, deleted_by: prevDeletedBy } : x)));
       setError("Impossible de supprimer ce message.");
     }
   }
@@ -1576,7 +1583,8 @@ export default function App() {
   // "Pour moi" : ajoute mon id à deleted_for, masqué uniquement de mon côté.
   async function deleteMessageForMe(message) {
     if (!currentUser) return;
-    const nextDeletedFor = [...(message.deleted_for || []), currentUser.id];
+    const prevDeletedFor = message.deleted_for || [];
+    const nextDeletedFor = [...prevDeletedFor, currentUser.id];
     setMessages((m) => m.map((x) => (x.id === message.id ? { ...x, deleted_for: nextDeletedFor } : x)));
     try {
       const { error: delError } = await supabase
@@ -1586,6 +1594,7 @@ export default function App() {
       if (delError) throw delError;
     } catch (e) {
       console.error(e);
+      setMessages((m) => m.map((x) => (x.id === message.id ? { ...x, deleted_for: prevDeletedFor } : x)));
       setError("Impossible de masquer ce message.");
     }
   }

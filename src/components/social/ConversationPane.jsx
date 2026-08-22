@@ -264,7 +264,11 @@ export default function ConversationPane({
               <div className="relative max-w-[75%]" style={{ alignSelf: isMine ? "flex-end" : "flex-start", marginTop: groupedWithPrev ? 2 : 10 }}>
                 {repliedMessage && !isDeleted && (
                   <div className="text-xs px-3 py-1.5 rounded-xl mb-1 truncate" style={{ background: `rgba(${primaryRgb},.05)`, color: muted, maxWidth: "100%" }}>
-                    ↳ {repliedMessage.kind === "text" ? repliedMessage.text : "Média"}
+                    {/* Le message cité peut avoir été supprimé (pour tout le
+                        monde) après coup : ne jamais réafficher son contenu
+                        d'origine, sinon la suppression est contournée via
+                        l'aperçu de réponse. */}
+                    ↳ {repliedMessage.deleted_at ? "Message supprimé" : repliedMessage.kind === "text" ? repliedMessage.text : "Média"}
                   </div>
                 )}
                 <div
@@ -341,7 +345,7 @@ export default function ConversationPane({
                     </button>
                   )
                 )}
-                {openActionsFor === m.id && (
+                {openActionsFor === m.id && !isDeleted && (
                   <div ref={actionsMenuRef}>
                     <MessageActionsMenu
                       message={m}

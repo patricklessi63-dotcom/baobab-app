@@ -31,7 +31,10 @@ const MAX_MEDIA_ITEMS = 10;
 export default function PostsFeed({ currentUser, blockedIds = new Set(), authorId, layout = "list", onError = () => {} }) {
   const [posts, setPosts] = useState([]);
   const [postsLoading, setPostsLoading] = useState(true);
-  const [page, setPage] = useState(0);
+  // Curseur (created_at, id) du dernier post chargé, pour la pagination —
+  // voir le commentaire dans loadPosts() pour pourquoi ce n'est plus un
+  // simple numéro de page passé à .range().
+  const [cursor, setCursor] = useState(null);
   const [hasMore, setHasMore] = useState(false);
   const [likedPostIds, setLikedPostIds] = useState(new Set());
   const [postLikeCounts, setPostLikeCounts] = useState({});
@@ -110,12 +113,32 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
   // entier, pas seulement la galerie multi-médias. Ici, un post_media
   // manquant ne fait que retomber sur des galeries vides (PostCard sait
   // déjà retomber sur l'ancien media_url/media_kind), jamais casser le fil.
-  const loadPosts = async (pageNum) => {
-    if (pageNum === 0) setPostsLoading(true);
+  // pageCursor = null pour la première page, sinon {created_at, id} du
+  // dernier post déjà chargé.
+  //
+  // Pagination par curseur plutôt que par offset (.range()) : avec un
+  // .range() basé sur un simple numéro de page, l'insertion d'une nouvelle
+  // publication en tête pendant que l'utilisateur scrolle décale toutes les
+  // lignes d'un cran — la page suivante se retrouve alors à re-fetcher le
+  // dernier post déjà affiché (doublon dans le fil) ou à sauter un post
+  // jamais vu. Filtrer par "strictement plus ancien que le dernier post
+  // chargé" (created_at, puis id en cas d'égalité exacte de created_at)
+  // reste correct quel que soit le nombre d'insertions/suppressions
+  // survenues entre deux pages, et donne un ordre total déterministe même
+  // si deux posts partagent le même created_at.
+  const loadPosts = async (pageCursor) => {
+    const isFirstPage = !pageCursor;
+    if (isFirstPage) setPostsLoading(true);
     try {
-      let query = supabase.from("posts").select("*, profiles(name, avatar_url)").order("created_at", { ascending: false });
+      let query = supabase.from("posts").select("*, profiles(name, avatar_url)")
+        .order("created_at", { ascending: false })
+        .order("id", { ascending: false })
+        .limit(PAGE_SIZE);
       if (authorId) query = query.eq("author_id", authorId);
-      const { data, error } = await query.range(pageNum * PAGE_SIZE, pageNum * PAGE_SIZE + PAGE_SIZE - 1);
+      if (pageCursor) {
+        query = query.or(`created_at.lt.${pageCursor.created_at},and(created_at.eq.${pageCursor.created_at},id.lt.${pageCursor.id})`);
+      }
+      const { data, error } = await query;
       if (error) throw error;
       let mediaByPost = {};
       const ids = (data || []).map((p) => p.id);
@@ -135,21 +158,22 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
       const rows = (data || [])
         .filter((p) => !blockedIds.has(p.author_id))
         .map((p) => normalizePost({ ...p, post_media: mediaByPost[p.id] || [] }));
-      setPosts((prev) => (pageNum === 0 ? rows : [...prev, ...rows]));
+      setPosts((prev) => (isFirstPage ? rows : [...prev, ...rows]));
       setHasMore((data || []).length === PAGE_SIZE);
-      setPage(pageNum);
-      await loadCounts(rows.map((p) => p.id), pageNum === 0);
+      const last = (data || [])[(data || []).length - 1];
+      setCursor(last ? { created_at: last.created_at, id: last.id } : null);
+      await loadCounts(rows.map((p) => p.id), isFirstPage);
     } catch (e) {
       console.error(e);
       onError("Impossible de charger les publications.");
     } finally {
-      if (pageNum === 0) setPostsLoading(false);
+      if (isFirstPage) setPostsLoading(false);
     }
   };
 
   useEffect(() => {
     if (!currentUser) return;
-    loadPosts(0);
+    loadPosts(null);
     setNewPostsCount(0);
   }, [currentUser?.id, authorId]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -172,8 +196,12 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
   }, [currentUser?.id, authorId, blockedIds]);
 
   const loadNewPosts = () => {
-    loadPosts(0);
+    loadPosts(null);
     setNewPostsCount(0);
+    // Le nouveau contenu remplace le début du fil (voir loadPosts) : sans
+    // remonter la page, l'utilisateur scrollé plus bas ne voit aucun
+    // changement visible en cliquant sur la bannière.
+    if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   // Sentinelle en fin de liste : charge la page suivante automatiquement
@@ -184,12 +212,12 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
     const observer = new IntersectionObserver(([entry]) => {
       if (entry.isIntersecting && !loadingMoreRef.current) {
         loadingMoreRef.current = true;
-        loadPosts(page + 1).finally(() => { loadingMoreRef.current = false; });
+        loadPosts(cursor).finally(() => { loadingMoreRef.current = false; });
       }
     }, { rootMargin: "400px" });
     observer.observe(sentinelRef.current);
     return () => observer.disconnect();
-  }, [hasMore, page]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [hasMore, cursor]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Brouillon texte uniquement (localStorage) — un média sélectionné (File)
   // ne survit pas à un rechargement de page, donc ne prétend jamais l'être :
@@ -625,7 +653,7 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
             {hasMore && (
               <>
                 <div ref={sentinelRef} aria-hidden="true" />
-                <button onClick={() => loadPosts(page + 1)} className="w-full mt-3 py-2.5 rounded-xl text-sm font-bold" style={{ background: bg, color: primary }}>Charger plus</button>
+                <button onClick={() => loadPosts(cursor)} className="w-full mt-3 py-2.5 rounded-xl text-sm font-bold" style={{ background: bg, color: primary }}>Charger plus</button>
               </>
             )}
           </>
@@ -676,7 +704,7 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
           {hasMore && (
             <>
               <div ref={sentinelRef} aria-hidden="true" />
-              <button onClick={() => loadPosts(page + 1)} className="w-full mt-3 py-2.5 rounded-xl text-sm font-bold" style={{ background: bg, color: primary }}>Charger plus</button>
+              <button onClick={() => loadPosts(cursor)} className="w-full mt-3 py-2.5 rounded-xl text-sm font-bold" style={{ background: bg, color: primary }}>Charger plus</button>
             </>
           )}
         </>
