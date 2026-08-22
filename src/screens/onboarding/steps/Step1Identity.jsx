@@ -18,12 +18,51 @@ export function computeAge(birthDate) {
   return age;
 }
 
+const MONTHS = [
+  "Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
+  "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre",
+];
+
+function pad2(n) {
+  return String(n).padStart(2, "0");
+}
+
+// Composé Jour/Mois/Année (item demandé : sélection par année, pas par
+// mois — un <select> d'années descend directement à l'année voulue en un
+// clic, contrairement au picker natif <input type="date"> qui fait
+// défiler mois par mois) + un champ "âge" qui recalcule l'année en
+// direct (item demandé : pouvoir saisir son âge soi-même).
 export default function Step1Identity({ draft, update }) {
   const age = computeAge(draft.birthDate);
-  const maxDate = new Date();
-  maxDate.setFullYear(maxDate.getFullYear() - 18);
-  const minDate = new Date();
-  minDate.setFullYear(minDate.getFullYear() - 100);
+  const thisYear = new Date().getFullYear();
+  const minYear = thisYear - 100;
+  const maxYear = thisYear - 18;
+
+  const parsed = draft.birthDate ? draft.birthDate.split("-").map(Number) : null;
+  const [selYear, selMonth, selDay] = parsed && parsed.length === 3 && !parsed.some(Number.isNaN)
+    ? parsed
+    : [null, null, null];
+
+  function setDate({ year, month, day }) {
+    const y = year ?? selYear;
+    const m = month ?? selMonth ?? 1;
+    const d = day ?? selDay ?? 1;
+    if (!y) { update({ birthDate: "" }); return; }
+    update({ birthDate: `${y}-${pad2(m)}-${pad2(d)}` });
+  }
+
+  function handleAgeInput(value) {
+    const n = Number(value);
+    if (!value || Number.isNaN(n)) return;
+    // Approximation volontaire (année seule) — l'utilisateur peut ensuite
+    // affiner jour/mois ci-dessous ; on ne lui redemande pas l'âge à
+    // chaque ajustement.
+    setDate({ year: thisYear - n });
+  }
+
+  const years = [];
+  for (let y = maxYear; y >= minYear; y--) years.push(y);
+  const daysInMonth = selMonth ? new Date(selYear || thisYear, selMonth, 0).getDate() : 31;
 
   return (
     <div className="flex flex-col gap-3">
@@ -51,19 +90,60 @@ export default function Step1Identity({ draft, update }) {
       />
 
       <label className="text-xs font-semibold mt-1" style={{ color: "rgba(var(--bb-ink-rgb-static),0.55)" }}>Date de naissance</label>
+      <div className="grid grid-cols-3 gap-2">
+        <select
+          value={selYear || ""}
+          onChange={(e) => setDate({ year: e.target.value ? Number(e.target.value) : null })}
+          className="bb-input w-full text-sm"
+          aria-label="Année de naissance"
+        >
+          <option value="">Année</option>
+          {years.map((y) => <option key={y} value={y}>{y}</option>)}
+        </select>
+        <select
+          value={selMonth || ""}
+          onChange={(e) => setDate({ month: e.target.value ? Number(e.target.value) : null })}
+          disabled={!selYear}
+          className="bb-input w-full text-sm"
+          aria-label="Mois de naissance"
+        >
+          <option value="">Mois</option>
+          {MONTHS.map((label, i) => <option key={label} value={i + 1}>{label}</option>)}
+        </select>
+        <select
+          value={selDay || ""}
+          onChange={(e) => setDate({ day: e.target.value ? Number(e.target.value) : null })}
+          disabled={!selYear}
+          className="bb-input w-full text-sm"
+          aria-label="Jour de naissance"
+        >
+          <option value="">Jour</option>
+          {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((d) => <option key={d} value={d}>{d}</option>)}
+        </select>
+      </div>
+
+      <label className="text-xs font-semibold mt-1" style={{ color: "rgba(var(--bb-ink-rgb-static),0.55)" }}>
+        Ou entre directement ton âge
+      </label>
       <input
-        type="date"
-        value={draft.birthDate}
-        max={maxDate.toISOString().slice(0, 10)}
-        min={minDate.toISOString().slice(0, 10)}
-        onChange={(e) => update({ birthDate: e.target.value })}
+        type="number"
+        inputMode="numeric"
+        min={18}
+        max={100}
+        value={age !== null ? age : ""}
+        onChange={(e) => handleAgeInput(e.target.value)}
+        placeholder="Ex. 28"
         className="bb-input w-full text-sm"
       />
+
       {draft.birthDate && age === null && (
         <p className="text-xs" style={{ color: C.clay }}>Choisis une date de naissance valide.</p>
       )}
       {draft.birthDate && age !== null && age < 18 && (
         <p className="text-xs" style={{ color: C.clay }}>Tu dois avoir au moins 18 ans pour utiliser Baobab.</p>
+      )}
+      {draft.birthDate && age !== null && age > 100 && (
+        <p className="text-xs" style={{ color: C.clay }}>Vérifie ta date de naissance.</p>
       )}
       {draft.birthDate && age !== null && age >= 18 && age <= 100 && (
         <p className="text-xs" style={{ color: "rgba(var(--bb-ink-rgb-static),0.5)" }}>Âge affiché sur ton profil : {age} ans. Ta date de naissance complète n'est jamais visible publiquement.</p>
