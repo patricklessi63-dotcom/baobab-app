@@ -83,6 +83,7 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
   const [postsLoading, setPostsLoading] = useState(false);
   const [postDraft, setPostDraft] = useState("");
   const [postSubmitting, setPostSubmitting] = useState(false);
+  const postSubmittingRef = useRef(false); // garde synchrone : setPostSubmitting (état React, async) laisse une fenêtre où un double-clic rapide déclenche handleSubmitPost deux fois avant que le bouton ne se désactive visuellement — même pattern que publishingRef dans PostsFeed.jsx.
   const [myReactions, setMyReactions] = useState({}); // postId -> emoji|null
   const [reactionCounts, setReactionCounts] = useState({}); // postId -> { emoji: count }
   const [postCommentCounts, setPostCommentCounts] = useState({});
@@ -421,6 +422,8 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
   // ---------- Publications / réactions / commentaires ----------
   const handleSubmitPost = async (mediaFile, mediaKind) => {
     if ((!postDraft.trim() && !mediaFile) || !currentUser || !community) return;
+    if (postSubmittingRef.current) return;
+    postSubmittingRef.current = true;
     setPostSubmitting(true);
     try {
       let mediaUrl = null;
@@ -449,6 +452,7 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
       console.error(e);
       onError("Impossible de publier. Réessaie.");
     } finally {
+      postSubmittingRef.current = false;
       setPostSubmitting(false);
     }
   };
