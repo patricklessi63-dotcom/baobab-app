@@ -29,11 +29,11 @@ export default function LandingPage({ onLogin, onSignup, navigate }) {
       style={{ fontFamily: "Inter, system-ui, sans-serif", color: C.sand, background: C.dusk,
         paddingTop: "max(1.5rem, env(safe-area-inset-top))", paddingBottom: "max(1.5rem, env(safe-area-inset-bottom))" }}>
       <div aria-hidden="true" className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${loginBackground})` }} />
-      <div aria-hidden="true" className="absolute inset-0" style={{ background: "linear-gradient(180deg, rgba(8,13,30,0.35), rgba(8,13,30,0.72) 55%, rgba(8,13,30,0.96) 100%)" }} />
+      <div aria-hidden="true" className="absolute inset-0" style={{ background: "linear-gradient(180deg, rgba(7,20,13,0.35), rgba(7,20,13,0.72) 55%, rgba(7,20,13,0.96) 100%)" }} />
 
       <div className="bb-fade-in relative z-10 w-full max-w-2xl flex flex-col items-center text-center">
         <div className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-semibold mb-6"
-          style={{ background: "rgba(15,21,38,0.52)", border: "1px solid rgba(242,233,220,0.16)", backdropFilter: "blur(12px)" }}>
+          style={{ background: "rgba(13,32,22,0.52)", border: "1px solid rgba(242,233,220,0.16)", backdropFilter: "blur(12px)" }}>
           <MapPin size={14} color={C.ochre} /> Une communauté partout au Canada
         </div>
 
@@ -62,7 +62,7 @@ export default function LandingPage({ onLogin, onSignup, navigate }) {
 
         {Boolean(userCount) && (
           <div className="mt-7 inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-semibold"
-            style={{ background: "rgba(15,21,38,0.42)", border: "1px solid rgba(242,233,220,0.14)", backdropFilter: "blur(10px)", color: C.sandDim }}>
+            style={{ background: "rgba(13,32,22,0.42)", border: "1px solid rgba(242,233,220,0.14)", backdropFilter: "blur(10px)", color: C.sandDim }}>
             <Users size={13} color={C.ochre} /> {userCount.toLocaleString("fr-CA")} membre{userCount > 1 ? "s" : ""} déjà sur Baobab
           </div>
         )}

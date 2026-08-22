@@ -272,7 +272,7 @@ export default function Auth({ justVerified = false, onAcknowledgeVerified = () 
         .bb-auth .bb-submit { position:relative; overflow:hidden; }
         .bb-auth .bb-submit::after { content:""; position:absolute; inset:0 auto 0 -40%; width:35%; background:linear-gradient(90deg,transparent,rgba(255,255,255,.28),transparent); transform:skewX(-18deg); animation:bbShimmer 3.8s ease-in-out infinite; }
         .bb-auth .bb-field { transition: transform .25s ease, border-color .25s ease, box-shadow .25s ease, background .25s ease; }
-        .bb-auth .bb-field:focus-within { transform: translateY(-1px); border-color: rgba(217,164,65,.55) !important; box-shadow: 0 10px 30px rgba(0,0,0,.16), 0 0 0 3px rgba(217,164,65,.08); background: rgba(35,45,82,.92) !important; }
+        .bb-auth .bb-field:focus-within { transform: translateY(-1px); border-color: rgba(217,164,65,.55) !important; box-shadow: 0 10px 30px rgba(0,0,0,.16), 0 0 0 3px rgba(217,164,65,.08); background: rgba(26,54,38,.92) !important; }
         .bb-auth .bb-check-pop { animation: bbCheckPop .5s cubic-bezier(.22,1.4,.36,1) both, bbHaloPulse 1.6s ease-out .3s; }
         .bb-auth .bb-alert-shake { animation: bbShake .4s linear; }
         .bb-auth .bb-particle { position:absolute; border-radius:9999px; background:${C.ochre}; animation: bbParticle linear infinite; }
@@ -285,10 +285,10 @@ export default function Auth({ justVerified = false, onAcknowledgeVerified = () 
         style={{ backgroundImage: `url(${loginBackground})`, backgroundPosition: "center center" }} />
 
       <div aria-hidden="true" className="absolute inset-0"
-        style={{ background: "linear-gradient(90deg, rgba(8,13,30,0.08) 0%, rgba(8,13,30,0.18) 32%, rgba(8,13,30,0.72) 57%, rgba(8,13,30,0.96) 100%)" }} />
+        style={{ background: "linear-gradient(90deg, rgba(7,20,13,0.08) 0%, rgba(7,20,13,0.18) 32%, rgba(7,20,13,0.72) 57%, rgba(7,20,13,0.96) 100%)" }} />
 
       <div aria-hidden="true" className="absolute inset-0 md:hidden"
-        style={{ background: "linear-gradient(180deg, rgba(8,13,30,0.20), rgba(8,13,30,0.58) 35%, rgba(8,13,30,0.96) 72%, rgba(8,13,30,1) 100%)" }} />
+        style={{ background: "linear-gradient(180deg, rgba(7,20,13,0.20), rgba(7,20,13,0.58) 35%, rgba(7,20,13,0.96) 72%, rgba(7,20,13,1) 100%)" }} />
 
       {/* Halo discret + particules très légères — décor uniquement, jamais lourd. */}
       <div aria-hidden="true" className="absolute -top-32 right-[12%] h-72 w-72 rounded-full pointer-events-none hidden md:block"
@@ -302,7 +302,7 @@ export default function Auth({ justVerified = false, onAcknowledgeVerified = () 
       <div className="bb-hero relative z-10 hidden md:block w-full max-w-6xl mr-auto">
         <div className="max-w-lg pl-4 lg:pl-10">
           <div className="bb-badge inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-semibold"
-            style={{ background: "rgba(15,21,38,0.52)", border: "1px solid rgba(242,233,220,0.16)", backdropFilter: "blur(12px)" }}>
+            style={{ background: "rgba(13,32,22,0.52)", border: "1px solid rgba(242,233,220,0.16)", backdropFilter: "blur(12px)" }}>
             <MapPin size={14} color={C.ochre} /> Une communauté partout au Canada
           </div>
           <h2 className="mt-5 text-4xl lg:text-6xl font-bold leading-[1.05]" style={{ fontFamily: "Fraunces, serif", perspective: "700px" }}>
@@ -317,7 +317,7 @@ export default function Auth({ justVerified = false, onAcknowledgeVerified = () 
 
       <section className="relative z-20 w-full max-w-md md:absolute md:right-[5vw] lg:right-[7vw]" aria-label="Authentification Baobab">
         <div className="bb-card rounded-[30px] p-5 sm:p-7 md:p-8"
-          style={{ background: "rgba(15,21,38,0.80)", border: "1px solid rgba(242,233,220,0.16)",
+          style={{ background: "rgba(13,32,22,0.80)", border: "1px solid rgba(242,233,220,0.16)",
             boxShadow: "0 30px 90px rgba(0,0,0,0.52)", backdropFilter: "blur(22px)", WebkitBackdropFilter: "blur(22px)" }}>
 
           <button type="button" onClick={onGoHome} className="flex items-center gap-3 mb-6 text-left">
@@ -422,7 +422,7 @@ export default function Auth({ justVerified = false, onAcknowledgeVerified = () 
                   onChange={(e) => setOtpCode(e.target.value.replace(/\s+/g, ""))}
                   maxLength={8}
                   className="bb-field rounded-2xl px-4 py-4 text-center text-lg tracking-[0.3em] outline-none"
-                  style={{ background: "rgba(35,45,82,0.78)", border: "1px solid rgba(242,233,220,0.11)", color: C.sand }}
+                  style={{ background: "rgba(26,54,38,0.78)", border: "1px solid rgba(242,233,220,0.11)", color: C.sand }}
                 />
                 <button type="submit" disabled={verifyLoading || !otpCode.trim()} className="bb-tap py-3.5 rounded-2xl text-sm font-bold text-white disabled:opacity-60" style={{ background: `linear-gradient(135deg, ${C.clay}, #A94F30)` }}>
                   {verifyLoading ? "Vérification..." : "Vérifier le code"}
@@ -458,7 +458,7 @@ export default function Auth({ justVerified = false, onAcknowledgeVerified = () 
                   onChange={(e) => setOtpCode(e.target.value.replace(/\s+/g, ""))}
                   maxLength={8}
                   className="bb-field rounded-2xl px-4 py-4 text-center text-lg tracking-[0.3em] outline-none"
-                  style={{ background: "rgba(35,45,82,0.78)", border: "1px solid rgba(242,233,220,0.11)", color: C.sand }}
+                  style={{ background: "rgba(26,54,38,0.78)", border: "1px solid rgba(242,233,220,0.11)", color: C.sand }}
                 />
                 <button type="submit" disabled={verifyLoading || !otpCode.trim()} className="bb-tap py-3.5 rounded-2xl text-sm font-bold text-white disabled:opacity-60" style={{ background: `linear-gradient(135deg, ${C.clay}, #A94F30)` }}>
                   {verifyLoading ? "Vérification..." : "Vérifier le code"}
@@ -481,7 +481,7 @@ export default function Auth({ justVerified = false, onAcknowledgeVerified = () 
               <div>
                 <label htmlFor="email" className="mb-2 block text-xs font-semibold" style={{ color: C.sandDim }}>Adresse email</label>
                 <div className="bb-field flex items-center gap-3 rounded-2xl px-4"
-                  style={{ background: "rgba(35,45,82,0.78)", border: "1px solid rgba(242,233,220,0.11)" }}>
+                  style={{ background: "rgba(26,54,38,0.78)", border: "1px solid rgba(242,233,220,0.11)" }}>
                   <Mail size={17} color={C.sandDim} />
                   <input id="email" type="email" placeholder="Ton adresse email" value={email}
                     onChange={(e) => setEmail(e.target.value)} required autoComplete="email" inputMode="email"
@@ -569,7 +569,7 @@ export default function Auth({ justVerified = false, onAcknowledgeVerified = () 
       </section>
 
       {legalView && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-6" style={{ background: "rgba(8,13,30,0.72)" }} onClick={() => setLegalView(null)} role="dialog" aria-modal="true" aria-label={legalView === "privacy" ? "Politique de confidentialité" : "Conditions d'utilisation"}>
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-6" style={{ background: "rgba(7,20,13,0.72)" }} onClick={() => setLegalView(null)} role="dialog" aria-modal="true" aria-label={legalView === "privacy" ? "Politique de confidentialité" : "Conditions d'utilisation"}>
           <div className="w-full sm:max-w-lg max-h-[88vh] sm:max-h-[80vh] flex flex-col rounded-t-[28px] sm:rounded-[24px] overflow-hidden"
             style={{ background: C.dusk3, color: C.sand, paddingBottom: "env(safe-area-inset-bottom)" }} onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between px-5 py-4 border-b flex-shrink-0" style={{ borderColor: "rgba(242,233,220,0.12)" }}>
