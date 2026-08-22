@@ -155,9 +155,17 @@ export default function SocialShell({
   const [storyMediaError, setStoryMediaError] = useState("");
   const [storyUploading, setStoryUploading] = useState(false);
   const [storyUploadProgress, setStoryUploadProgress] = useState(0);
+  const [storyBgColor, setStoryBgColor] = useState("");
+  const [storyStep, setStoryStep] = useState("compose"); // compose | preview
   const [storyViewerIndex, setStoryViewerIndex] = useState(null);
   const [viewedStories, setViewedStories] = useState({});
   const [storyReply, setStoryReply] = useState("");
+  const [storyDurationMs, setStoryDurationMs] = useState(5000);
+  const [storyViewers, setStoryViewers] = useState([]);
+  const [storyViewersLoading, setStoryViewersLoading] = useState(false);
+  const [storyViewersOpen, setStoryViewersOpen] = useState(false);
+  const [storyViewCount, setStoryViewCount] = useState(0);
+  const [myStoryReaction, setMyStoryReaction] = useState(null);
   const [viewedProfileId, setViewedProfileId] = useState(null);
   const [favoriteIds, setFavoriteIds] = useState(new Set());
   const storyPhotoInputRef = useRef(null);
@@ -165,6 +173,14 @@ export default function SocialShell({
   const searchRef = useRef(null);
   const notifRef = useRef(null);
   const menuRef = useRef(null);
+
+  // Repart toujours de l'étape "compose" à l'ouverture (que ce soit via
+  // openStory ci-dessous ou le bouton "+" de FeedTab.jsx, qui appelle le
+  // même setStoryComposer) — sinon un statut publié puis rouvert pourrait
+  // rester coince sur l'etape "preview" precedente.
+  useEffect(() => {
+    if (storyComposer) setStoryStep("compose");
+  }, [storyComposer]);
 
   useClickOutside(searchRef, Boolean(search), () => setSearch(""));
   useClickOutside(notifRef, notificationsOpen, () => setNotificationsOpen(false));
@@ -178,7 +194,7 @@ export default function SocialShell({
     let alive = true;
     supabase
       .from("stories")
-      .select("id, profile_id, text, media_url, media_kind, created_at, profile:profile_id(name, avatar_url)")
+      .select("id, profile_id, text, media_url, media_kind, bg_color, created_at, profile:profile_id(name, avatar_url)")
       .gt("expires_at", new Date().toISOString())
       .order("created_at", { ascending: false })
       .limit(500)
@@ -207,6 +223,8 @@ export default function SocialShell({
             text: row?.text || "",
             media_url: row?.media_url || null,
             media_kind: row?.media_kind || null,
+            bg_color: row?.bg_color || null,
+            created_at: row?.created_at || null,
           };
         };
         setStories([toEntry(ownRow, true), ...latestPerProfile.map((r) => toEntry(r, false))]);
@@ -769,9 +787,10 @@ export default function SocialShell({
       let mediaUrl = null;
       const mediaKind = storyMedia ? storyMediaKind : null;
       if (storyMedia) mediaUrl = await uploadStoryMedia(currentUser.user_id, storyMedia);
+      const bgColor = !storyMedia && text ? (storyBgColor || null) : null;
       const { data, error } = await supabase
         .from("stories")
-        .insert({ profile_id: currentUser.id, text: text || null, media_url: mediaUrl, media_kind: mediaKind })
+        .insert({ profile_id: currentUser.id, text: text || null, media_url: mediaUrl, media_kind: mediaKind, bg_color: bgColor })
         .select()
         .single();
       if (error) throw error;
@@ -786,6 +805,8 @@ export default function SocialShell({
           text,
           media_url: mediaUrl,
           media_kind: mediaKind,
+          bg_color: bgColor,
+          created_at: data.created_at,
         },
         ...prev.filter((s) => !s.own),
       ]);
@@ -793,6 +814,8 @@ export default function SocialShell({
       setStoryMedia(null);
       setStoryMediaKind("");
       setStoryMediaError("");
+      setStoryBgColor("");
+      setStoryStep("compose");
       setStoryComposer(false);
     } catch (e) {
       console.error(e);
@@ -804,15 +827,99 @@ export default function SocialShell({
     }
   };
 
+  // Enregistre une vue (idempotent grace a la contrainte unique(story_id,
+  // viewer_id) + la policy INSERT de story_views) — jamais bloquant, un
+  // doublon ou un statut expire entre-temps echoue silencieusement.
+  const recordStoryView = async (storyId) => {
+    if (!storyId || !currentUser) return;
+    try {
+      await supabase.from("story_views").insert({ story_id: storyId, viewer_id: currentUser.id });
+    } catch (_) { /* volontairement silencieux */ }
+  };
+
+  const loadMyStoryReaction = async (storyId) => {
+    if (!storyId || !currentUser) { setMyStoryReaction(null); return; }
+    const { data } = await supabase.from("story_reactions").select("emoji").eq("story_id", storyId).eq("profile_id", currentUser.id).maybeSingle();
+    setMyStoryReaction(data?.emoji || null);
+  };
+
+  const loadStoryViewCount = async (storyId) => {
+    if (!storyId) { setStoryViewCount(0); return; }
+    const { count } = await supabase.from("story_views").select("id", { count: "exact", head: true }).eq("story_id", storyId);
+    setStoryViewCount(count || 0);
+  };
+
+  // Effet de bord partage par openStory/nextStory/prevStory : vue + reaction
+  // pour un statut d'autrui, compteur de vues pour son propre statut.
+  const onStoryShown = (s) => {
+    setStoryViewersOpen(false);
+    if (!s) return;
+    if (s.own) {
+      setMyStoryReaction(null);
+      if (s.id) loadStoryViewCount(s.id);
+    } else {
+      setStoryViewCount(0);
+      if (s.id) { recordStoryView(s.id); loadMyStoryReaction(s.id); }
+    }
+  };
+
+  const loadStoryViewers = async (storyId) => {
+    if (!storyId) { setStoryViewers([]); return; }
+    setStoryViewersLoading(true);
+    const [{ data: views }, { data: reactions }] = await Promise.all([
+      supabase.from("story_views").select("viewer_id, viewed_at, profile:viewer_id(name, avatar_url)").eq("story_id", storyId).order("viewed_at", { ascending: false }),
+      supabase.from("story_reactions").select("profile_id, emoji").eq("story_id", storyId),
+    ]);
+    const reactionByProfile = {};
+    for (const r of reactions || []) reactionByProfile[r.profile_id] = r.emoji;
+    setStoryViewers((views || []).map((v) => ({
+      profile_id: v.viewer_id,
+      name: v.profile?.name || "?",
+      avatar_url: v.profile?.avatar_url || null,
+      viewed_at: v.viewed_at,
+      reaction: reactionByProfile[v.viewer_id] || null,
+    })));
+    setStoryViewersLoading(false);
+  };
+
+  const openStoryViewers = () => {
+    const s = stories[storyViewerIndex];
+    if (!s?.own || !s?.id) return;
+    setStoryViewersOpen(true);
+    loadStoryViewers(s.id);
+  };
+
+  const sendStoryReaction = async (emoji) => {
+    const s = stories[storyViewerIndex];
+    if (!s || s.own || !s.id || !currentUser) return;
+    const next = myStoryReaction === emoji ? null : emoji;
+    setMyStoryReaction(next);
+    try {
+      if (next) {
+        await supabase.from("story_reactions").upsert({ story_id: s.id, profile_id: currentUser.id, emoji: next }, { onConflict: "story_id,profile_id" });
+      } else {
+        await supabase.from("story_reactions").delete().eq("story_id", s.id).eq("profile_id", currentUser.id);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   const openStory = (index) => {
     const s = stories[index];
     if (s?.own && !s.text && !s.media_url) { setStoryComposer(true); return; }
     setStoryViewerIndex(index);
     setViewedStories((prev) => ({ ...prev, [index]: true }));
     setStoryReply("");
+    setStoryDurationMs(5000);
+    onStoryShown(s);
   };
 
-  const closeStoryViewer = () => setStoryViewerIndex(null);
+  const closeStoryViewer = () => {
+    setStoryViewerIndex(null);
+    setStoryViewersOpen(false);
+    setStoryViewers([]);
+  };
 
   const nextStory = () => {
     setStoryViewerIndex((i) => {
@@ -822,6 +929,8 @@ export default function SocialShell({
       if (next >= stories.length) { return null; }
       setViewedStories((prev) => ({ ...prev, [next]: true }));
       setStoryReply("");
+      setStoryDurationMs(5000);
+      onStoryShown(stories[next]);
       return next;
     });
   };
@@ -833,6 +942,8 @@ export default function SocialShell({
       while (prev >= 0 && stories[prev].own) prev--;
       if (prev < 0) return i;
       setStoryReply("");
+      setStoryDurationMs(5000);
+      onStoryShown(stories[prev]);
       return prev;
     });
   };
@@ -870,12 +981,14 @@ export default function SocialShell({
     closeStoryViewer();
   };
 
-  // Auto-avance chaque story après 5 secondes, comme sur Instagram
+  // Auto-avance chaque story après storyDurationMs (5s par défaut, ou la
+  // durée réelle d'une vidéo une fois ses métadonnées chargées — voir
+  // StoryViewerModal.jsx, onVideoDuration).
   useEffect(() => {
     if (storyViewerIndex === null) return;
-    const t = setTimeout(() => nextStory(), 5000);
+    const t = setTimeout(() => nextStory(), storyDurationMs);
     return () => clearTimeout(t);
-  }, [storyViewerIndex]);
+  }, [storyViewerIndex, storyDurationMs]);
 
   const nav = [
     ["feed", Home, "Accueil", null],
@@ -1262,6 +1375,17 @@ export default function SocialShell({
         storyReply={storyReply}
         setStoryReply={setStoryReply}
         sendStoryReply={sendStoryReply}
+        onVideoDuration={setStoryDurationMs}
+        durationMs={storyDurationMs}
+        storyViewCount={storyViewCount}
+        storyViewers={storyViewers}
+        storyViewersLoading={storyViewersLoading}
+        storyViewersOpen={storyViewersOpen}
+        openStoryViewers={openStoryViewers}
+        closeStoryViewers={() => setStoryViewersOpen(false)}
+        myStoryReaction={myStoryReaction}
+        sendStoryReaction={sendStoryReaction}
+        onOpenProfile={(id) => setViewedProfileId(id)}
       />
 
       <StoryComposerModal
@@ -1276,6 +1400,10 @@ export default function SocialShell({
         storyMediaError={storyMediaError}
         storyUploading={storyUploading}
         storyUploadProgress={storyUploadProgress}
+        storyBgColor={storyBgColor}
+        setStoryBgColor={setStoryBgColor}
+        storyStep={storyStep}
+        setStoryStep={setStoryStep}
         pickStoryMedia={pickStoryMedia}
         onStoryMediaSelected={onStoryMediaSelected}
         storyPhotoInputRef={storyPhotoInputRef}

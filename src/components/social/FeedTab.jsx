@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Luggage, ThumbsUp, ThumbsDown, Users, X, Landmark, Bell } from "lucide-react";
+import { Luggage, ThumbsUp, ThumbsDown, Users, X, Landmark, Bell, Play, Plus } from "lucide-react";
 import Avatar from "../Avatar";
 import HomeHeader from "../home/HomeHeader";
 import BaobabHero from "../home/BaobabHero";
@@ -280,43 +280,59 @@ export default function FeedTab({
       )}
 
       {/* ---------- Statuts ---------- */}
-      <div className="flex gap-4 overflow-x-auto pb-1 mb-7 -mx-1 px-1" style={{ scrollbarWidth: "none" }}>
+      <div className="flex gap-3 overflow-x-auto pb-1 mb-7 -mx-1 px-1" style={{ scrollbarWidth: "none" }}>
         {stories.map((s, i) => {
           const seen = viewedStories[i];
-          const ringBg = s.own
-            ? "transparent"
+          const hasContent = s.own ? Boolean(s.id) : true;
+          const ringStyle = s.own
+            ? { boxShadow: "inset 0 0 0 2px rgba(255,255,255,.25)" }
             : seen
-            ? "#D9DCE4"
-            : `linear-gradient(135deg,${coral},${gold},${green})`;
+            ? { boxShadow: "inset 0 0 0 2px #D9DCE4" }
+            : { boxShadow: `inset 0 0 0 2.5px ${coral}` };
           return (
-            <div key={`${s.name}-${i}`} className="shrink-0 flex flex-col items-center gap-1.5 w-[68px]">
-              <div className="h-[64px] w-[64px] rounded-full flex items-center justify-center p-[3px] relative" style={{ background: ringBg }}>
-                {s.own ? (
-                  <>
-                    <button onClick={() => openStory(i)} className="h-full w-full rounded-full p-[2px] bg-[var(--bb-bg)] flex items-center justify-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1">
-                      <div className="h-full w-full rounded-full flex items-center justify-center relative" style={{ background: bg }}>
-                        <Avatar name={currentUser?.name || "+"} url={currentUser?.avatar_url} size={56} />
-                      </div>
-                    </button>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); setStoryComposer(true); }}
-                      aria-label="Ajouter un statut"
-                      className="absolute -bottom-1 -right-1 h-6 w-6 rounded-full flex items-center justify-center text-white text-sm font-black border-2 border-white focus-visible:outline focus-visible:outline-2"
-                      style={{ background: coral }}
-                    >
-                      +
-                    </button>
-                  </>
-                ) : (
-                  <button onClick={() => openStory(i)} aria-label={`Voir le statut de ${s.name}`} className="h-full w-full rounded-full p-[2px] bg-[var(--bb-bg)] flex items-center justify-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1">
-                    <div className="h-full w-full rounded-full flex items-center justify-center text-white font-black text-lg" style={{ background: `linear-gradient(160deg,${s.color},${navy})` }} aria-hidden="true">
-                      {s.initial}
-                    </div>
-                  </button>
-                )}
+            <button
+              key={`${s.name}-${i}`}
+              onClick={() => openStory(i)}
+              aria-label={s.own ? "Ton statut" : `Voir le statut de ${s.name}`}
+              className="shrink-0 relative rounded-2xl overflow-hidden text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+              style={{ width: 104, height: 160, ...ringStyle }}
+            >
+              {hasContent && s.media_kind === "photo" && s.media_url ? (
+                <img src={s.media_url} alt="" className="absolute inset-0 w-full h-full object-cover" />
+              ) : (
+                <div className="absolute inset-0" style={{ background: `linear-gradient(160deg,${s.bg_color || s.color},${navy})` }} />
+              )}
+              {hasContent && s.media_kind === "video" && (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="h-9 w-9 rounded-full flex items-center justify-center" style={{ background: "rgba(255,255,255,.25)", backdropFilter: "blur(2px)" }}>
+                    <Play size={16} color="#fff" fill="#fff" />
+                  </div>
+                </div>
+              )}
+              {hasContent && !s.media_url && s.text && (
+                <div className="absolute inset-0 flex items-center justify-center p-2.5">
+                  <p className="text-white text-[11px] font-bold text-center leading-tight line-clamp-4">{s.text}</p>
+                </div>
+              )}
+              <div className="absolute inset-x-0 bottom-0 h-14" style={{ background: "linear-gradient(180deg,transparent,rgba(0,0,0,.55))" }} />
+              <div className="absolute top-2 left-2 h-8 w-8 rounded-full flex items-center justify-center text-white text-xs font-black overflow-hidden" style={{ background: s.own ? "rgba(255,255,255,.2)" : `linear-gradient(160deg,${s.color},${navy})`, border: "1.5px solid rgba(255,255,255,.7)" }}>
+                {s.own ? <Avatar name={currentUser?.name || "+"} url={currentUser?.avatar_url} size={28} /> : s.initial}
               </div>
-              <span className="text-[11px] font-semibold truncate w-full text-center" style={{ color: seen ? muted : body }}>{s.own ? "Ton statut" : s.name}</span>
-            </div>
+              <span className="absolute bottom-2 left-2 right-2 text-[11px] font-bold text-white truncate">{s.own ? "Ton statut" : s.name}</span>
+              {s.own && (
+                <span
+                  onClick={(e) => { e.stopPropagation(); setStoryComposer(true); }}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => { if (e.key === "Enter") { e.stopPropagation(); setStoryComposer(true); } }}
+                  aria-label="Ajouter un statut"
+                  className="absolute top-2 right-2 h-6 w-6 rounded-full flex items-center justify-center text-white border-2 border-white"
+                  style={{ background: coral }}
+                >
+                  <Plus size={14} />
+                </span>
+              )}
+            </button>
           );
         })}
       </div>
