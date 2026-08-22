@@ -416,6 +416,47 @@ export default function SocialShell({
     return () => { alive = false; };
   }, [currentUser, matchIdsKey]);
 
+  // Corrige un bug d'incohérence signalé par l'utilisateur : l'effet
+  // ci-dessus ne se déclenche qu'au montage/changement de matchIdsKey (ex.
+  // nouveau match) — un message envoyé/reçu dans N'IMPORTE QUELLE
+  // conversation entre deux déclenchements ne rafraîchissait jamais
+  // l'aperçu affiché dans la liste, qui pouvait alors ne plus correspondre
+  // du tout au contenu réel de la conversation ouverte à droite. Écoute
+  // désormais les messages en direct pour tenir lastByKey/unreadByKey à
+  // jour sans dépendre d'un remount.
+  useEffect(() => {
+    if (!currentUser || !matchIdsKey) return;
+    const keys = new Set(matchIdsKey.split(",").map((id) => matchKey(currentUser.id, id)));
+    const channel = supabase
+      .channel(`conversations-preview:${currentUser.id}`)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "messages", filter: `match_key=in.(${[...keys].join(",")})` },
+        (payload) => {
+          const mk = payload.new.match_key;
+          if (!keys.has(mk)) return;
+          setLastByKey((prev) => ({ ...prev, [mk]: payload.new }));
+          if (payload.new.from_id !== currentUser.id && !payload.new.read_at) {
+            setUnreadByKey((prev) => ({ ...prev, [mk]: (prev[mk] || 0) + 1 }));
+          }
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "messages", filter: `match_key=in.(${[...keys].join(",")})` },
+        (payload) => {
+          const mk = payload.new.match_key;
+          if (!keys.has(mk)) return;
+          if (payload.new.read_at && !payload.old?.read_at) {
+            setUnreadByKey((prev) => ({ ...prev, [mk]: Math.max(0, (prev[mk] || 0) - 1) }));
+          }
+          setLastByKey((prev) => (prev[mk]?.id === payload.new.id ? { ...prev, [mk]: payload.new } : prev));
+        }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [currentUser, matchIdsKey]);
+
   // Canal temps réel global — reçoit tout nouveau message dont l'utilisateur
   // est participant (la RLS de "messages" borne déjà la diffusion), pour que
   // la liste et les badges non lus restent à jour même hors d'une
