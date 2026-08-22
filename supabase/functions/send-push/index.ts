@@ -93,9 +93,20 @@ Deno.serve(async (req) => {
       .eq("id", record.from_id)
       .maybeSingle();
 
-    const bodyText = record.kind === "text" ? String(record.text || "").slice(0, 120) : "Nouveau message";
+    // Aperçu masquable (confidentialité messagerie, item 6) — préférence
+    // du DESTINATAIRE, pas de l'expéditeur : c'est son écran verrouillé.
+    const { data: recipient } = await supabase
+      .from("profiles")
+      .select("notification_preferences")
+      .eq("id", otherProfileId)
+      .maybeSingle();
+    const hidePreview = recipient?.notification_preferences?.hide_message_preview === true;
+
+    const bodyText = hidePreview
+      ? "Nouveau message"
+      : record.kind === "text" ? String(record.text || "").slice(0, 120) : "Nouveau message";
     const notifPayload = JSON.stringify({
-      title: sender?.name || "Baobab",
+      title: hidePreview ? "Baobab" : (sender?.name || "Baobab"),
       body: bodyText,
       url: "/",
     });

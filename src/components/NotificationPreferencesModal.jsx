@@ -122,6 +122,22 @@ export default function NotificationPreferencesModal({ open, onClose, onBack, cu
             />
           </label>
         ))}
+
+        {/* Confidentialité des aperçus (item 6 du cahier des charges
+            messagerie privée) — le texte du message n'apparaît sur l'écran
+            verrouillé que si cette case est décochée. */}
+        <label className="flex items-center justify-between py-2.5" style={{ borderTop: "1px solid rgba(var(--bb-ink-rgb),0.08)", minHeight: 44 }}>
+          <div className="min-w-0 pr-3">
+            <div className="flex items-center gap-2 text-sm"><Bell size={14} color="var(--bb-text)" /> Aperçu des messages</div>
+            <p className="text-xs mt-0.5" style={{ color: "rgba(var(--bb-ink-rgb),0.5)" }}>Si désactivé, la notification n'affiche que "Nouveau message" — pas le texte.</p>
+          </div>
+          <input
+            type="checkbox"
+            checked={prefs.hide_message_preview !== true}
+            onChange={(e) => onUpdatePreference?.("hide_message_preview", !e.target.checked)}
+            style={{ width: 18, height: 18, flexShrink: 0 }}
+          />
+        </label>
         <button onClick={onClose} className="w-full mt-4 py-3 rounded-full text-sm font-semibold" style={{ border: "1px solid rgba(var(--bb-ink-rgb),0.15)", color: C.ink, minHeight: 44 }}>
           Fermer
         </button>
