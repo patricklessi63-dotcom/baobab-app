@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Luggage, ThumbsUp, ThumbsDown, Users, X, Landmark, Bell, Play, Plus } from "lucide-react";
 import Avatar from "../Avatar";
 import HomeHeader from "../home/HomeHeader";
@@ -40,6 +40,33 @@ function NotificationsPanel({
   goTab = () => {},
 }) {
   const [category, setCategory] = useState("all");
+  const catKeys = useMemo(() => NOTIF_CATEGORIES.map(([k]) => k), []);
+  const pillRefs = useRef({});
+  const touchStartRef = useRef(null);
+
+  useEffect(() => {
+    pillRefs.current[category]?.scrollIntoView({ inline: "center", block: "nearest", behavior: "smooth" });
+  }, [category]);
+
+  // Balayage horizontal directement sur le contenu (pas seulement sur la
+  // rangée de pastilles) — swipe gauche/droite pour passer à la catégorie
+  // suivante/précédente, plus naturel sur mobile qu'un simple scroll de
+  // pastilles qu'il faut d'abord faire défiler avant de pouvoir taper.
+  const onTouchStart = (e) => {
+    const t = e.touches[0];
+    touchStartRef.current = { x: t.clientX, y: t.clientY };
+  };
+  const onTouchEnd = (e) => {
+    if (!touchStartRef.current) return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - touchStartRef.current.x;
+    const dy = t.clientY - touchStartRef.current.y;
+    touchStartRef.current = null;
+    if (Math.abs(dx) < 40 || Math.abs(dx) < Math.abs(dy)) return;
+    const idx = catKeys.indexOf(category);
+    if (dx < 0 && idx < catKeys.length - 1) setCategory(catKeys[idx + 1]);
+    else if (dx > 0 && idx > 0) setCategory(catKeys[idx - 1]);
+  };
 
   const items = useMemo(() => {
     const rows = [
@@ -100,13 +127,15 @@ function NotificationsPanel({
         )}
       </div>
 
-      {/* Balayage horizontal des catégories — même liste que le menu déroulant
-          du header (NOTIF_CATEGORIES partagé), tactile nativement sur mobile
-          (overflow-x-auto, comme la rangée de statuts juste au-dessus). */}
+      {/* Rangée de pastilles (scroll + tap direct) + balayage tactile
+          gauche/droite sur le contenu ci-dessous pour passer d'une
+          catégorie à l'autre — même liste que le menu déroulant du header
+          (NOTIF_CATEGORIES partagé). */}
       <div className="flex gap-1.5 overflow-x-auto pb-1 mb-3 -mx-1 px-1" style={{ scrollbarWidth: "none" }}>
         {NOTIF_CATEGORIES.map(([key, label]) => (
           <button
             key={key}
+            ref={(el) => { pillRefs.current[key] = el; }}
             onClick={() => setCategory(key)}
             aria-pressed={category === key}
             className="shrink-0 px-3 py-1.5 rounded-full text-xs font-bold focus-visible:outline focus-visible:outline-2"
@@ -117,22 +146,24 @@ function NotificationsPanel({
         ))}
       </div>
 
-      {empty ? (
-        <EmptyState icon={Bell} title="Aucune notification pour l'instant." />
-      ) : (
-        <div className="flex flex-col gap-1">
-          {showFavorites && (
-            <div className="px-3 py-2.5 rounded-xl text-sm" style={{ background: "#FFF3D6", color: gold }}>
-              ⭐ {incomingFavoritesCount} personne{incomingFavoritesCount > 1 ? "s" : ""} t'a{incomingFavoritesCount > 1 ? "" : ""} ajouté en favori.
-            </div>
-          )}
-          {filteredItems.map(({ n, icon, label, onClick }) => (
-            <button key={n.id} onClick={onClick} className="text-left px-3 py-2.5 rounded-xl text-sm hover:bg-[var(--bb-bg)] focus-visible:outline focus-visible:outline-2">
-              {icon} {label}
-            </button>
-          ))}
-        </div>
-      )}
+      <div onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+        {empty ? (
+          <EmptyState icon={Bell} title="Aucune notification pour l'instant." />
+        ) : (
+          <div className="flex flex-col gap-1">
+            {showFavorites && (
+              <div className="px-3 py-2.5 rounded-xl text-sm" style={{ background: "#FFF3D6", color: gold }}>
+                ⭐ {incomingFavoritesCount} personne{incomingFavoritesCount > 1 ? "s" : ""} t'a{incomingFavoritesCount > 1 ? "" : ""} ajouté en favori.
+              </div>
+            )}
+            {filteredItems.map(({ n, icon, label, onClick }) => (
+              <button key={n.id} onClick={onClick} className="text-left px-3 py-2.5 rounded-xl text-sm hover:bg-[var(--bb-bg)] focus-visible:outline focus-visible:outline-2">
+                {icon} {label}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

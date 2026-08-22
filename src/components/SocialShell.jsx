@@ -173,6 +173,8 @@ export default function SocialShell({
   const searchRef = useRef(null);
   const notifRef = useRef(null);
   const menuRef = useRef(null);
+  const notifPillRefs = useRef({});
+  const notifTouchStartRef = useRef(null);
 
   // Repart toujours de l'étape "compose" à l'ouverture (que ce soit via
   // openStory ci-dessous ou le bouton "+" de FeedTab.jsx, qui appelle le
@@ -181,6 +183,26 @@ export default function SocialShell({
   useEffect(() => {
     if (storyComposer) setStoryStep("compose");
   }, [storyComposer]);
+
+  const notifCatKeys = NOTIF_CATEGORIES.map(([k]) => k);
+  useEffect(() => {
+    notifPillRefs.current[notifCategory]?.scrollIntoView({ inline: "center", block: "nearest", behavior: "smooth" });
+  }, [notifCategory]);
+  const onNotifTouchStart = (e) => {
+    const t = e.touches[0];
+    notifTouchStartRef.current = { x: t.clientX, y: t.clientY };
+  };
+  const onNotifTouchEnd = (e) => {
+    if (!notifTouchStartRef.current) return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - notifTouchStartRef.current.x;
+    const dy = t.clientY - notifTouchStartRef.current.y;
+    notifTouchStartRef.current = null;
+    if (Math.abs(dx) < 40 || Math.abs(dx) < Math.abs(dy)) return;
+    const idx = notifCatKeys.indexOf(notifCategory);
+    if (dx < 0 && idx < notifCatKeys.length - 1) setNotifCategory(notifCatKeys[idx + 1]);
+    else if (dx > 0 && idx > 0) setNotifCategory(notifCatKeys[idx - 1]);
+  };
 
   useClickOutside(searchRef, Boolean(search), () => setSearch(""));
   useClickOutside(notifRef, notificationsOpen, () => setNotificationsOpen(false));
@@ -1075,18 +1097,18 @@ export default function SocialShell({
                 </div>
                 <div className="flex gap-1 overflow-x-auto pb-2 px-2 -mx-2" style={{ scrollbarWidth: "none" }}>
                   {NOTIF_CATEGORIES.map(([key, label]) => (
-                    <button key={key} onClick={() => setNotifCategory(key)} aria-pressed={notifCategory === key} className="shrink-0 px-3 py-1.5 rounded-full text-xs font-bold focus-visible:outline focus-visible:outline-2" style={{ background: notifCategory === key ? navy : bg, color: notifCategory === key ? "#fff" : muted }}>
+                    <button key={key} ref={(el) => { notifPillRefs.current[key] = el; }} onClick={() => setNotifCategory(key)} aria-pressed={notifCategory === key} className="shrink-0 px-3 py-1.5 rounded-full text-xs font-bold focus-visible:outline focus-visible:outline-2" style={{ background: notifCategory === key ? navy : bg, color: notifCategory === key ? "#fff" : muted }}>
                       {label}
                     </button>
                   ))}
                 </div>
                 {incomingFavoritesCount === 0 && communityNotifications.length === 0 ? (
-                  <div className="p-6 text-center">
+                  <div className="p-6 text-center" onTouchStart={onNotifTouchStart} onTouchEnd={onNotifTouchEnd}>
                     <Bell size={22} className="mx-auto mb-2" color={muted} />
                     <p className="text-xs" style={{ color: muted }}>Aucune notification pour l'instant.</p>
                   </div>
                 ) : (
-                  <div className="flex flex-col gap-1 max-h-72 overflow-y-auto">
+                  <div className="flex flex-col gap-1 max-h-72 overflow-y-auto" onTouchStart={onNotifTouchStart} onTouchEnd={onNotifTouchEnd}>
                     {incomingFavoritesCount > 0 && (notifCategory === "all" || notifCategory === "dating") && (
                       <div className="px-2 py-2.5 rounded-xl text-sm" style={{ background: "#FFF3D6", color: gold }}>
                         ⭐ {incomingFavoritesCount} personne{incomingFavoritesCount > 1 ? "s" : ""} t'a{incomingFavoritesCount > 1 ? "" : ""} ajouté en favori.
