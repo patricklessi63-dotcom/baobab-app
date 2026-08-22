@@ -223,7 +223,11 @@ export function filterCandidatesByPreferences(currentUser, candidates) {
 
     if (wantedTypes.length > 0) {
       const candidateTypes = parseList(c.looking_for);
-      if (!candidateTypes.some((t) => wantedTypes.includes(t))) return false;
+      // Ne filtre que si le candidat a renseigné looking_for (voir invariant
+      // ci-dessus) — sinon un profil incomplet (onboarding terminé plus tôt,
+      // étape 5/10, looking_for jamais rempli) devenait invisible pour
+      // toujours dès qu'un viewer avait une préférence de type de relation.
+      if (candidateTypes.length > 0 && !candidateTypes.some((t) => wantedTypes.includes(t))) return false;
     }
     return true;
   });
