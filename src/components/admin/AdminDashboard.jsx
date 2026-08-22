@@ -12,7 +12,7 @@ const SUSPEND_DURATIONS = [
   { label: "7 jours", ms: 7 * 24 * 60 * 60 * 1000 },
   { label: "30 jours", ms: 30 * 24 * 60 * 60 * 1000 },
 ];
-const REPORT_SOURCE_LABEL = { community: "Communauté", event: "Événement", post: "Fil général", info: "Baobab Info" };
+const REPORT_SOURCE_LABEL = { community: "Communauté", event: "Événement", post: "Fil général", info: "Baobab Info", profile: "Profil (rencontre/messagerie)" };
 
 export default function AdminDashboard({ onBack, onError, myPlatformRole }) {
   const [subTab, setSubTab] = useState("dashboard");
