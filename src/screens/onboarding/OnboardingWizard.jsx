@@ -13,6 +13,7 @@ import Step6LookingFor, { isStep6Valid } from "./steps/Step6LookingFor";
 import Step7LifeProject, { isStep7Valid } from "./steps/Step7LifeProject";
 import Step8Interests, { isStep8Valid } from "./steps/Step8Interests";
 import Step9PersonalityBio, { isStep9Valid } from "./steps/Step9PersonalityBio";
+import NotificationsOptIn from "./NotificationsOptIn";
 
 const STEP_COUNT = 10;
 
@@ -68,6 +69,10 @@ export default function OnboardingWizard({
   const [draft, setDraft] = useState(() => draftFromUser(currentUser));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  // Écran de consentement push affiché une seule fois, juste après la
+  // dernière étape — ne fait pas partie du compteur STEP_COUNT (pas de
+  // colonne onboarding_step dédiée, ni d'entrée dans OnboardingProgress).
+  const [showNotifPrompt, setShowNotifPrompt] = useState(false);
 
   const update = (patch) => setDraft((d) => ({ ...d, ...patch }));
 
@@ -212,7 +217,7 @@ export default function OnboardingWizard({
     const result = await saveStep();
     if (!result) return;
     if (step >= STEP_COUNT) {
-      setView("feed");
+      setShowNotifPrompt(true);
     } else {
       setStep((s) => s + 1);
     }
@@ -228,6 +233,10 @@ export default function OnboardingWizard({
     1: Step0Welcome, 2: Step1Identity, 3: Step2Photo, 4: Step3Location, 5: Step4CanadaJourney,
     6: Step5Languages, 7: Step6LookingFor, 8: Step7LifeProject, 9: Step8Interests, 10: Step9PersonalityBio,
   }[step];
+
+  if (showNotifPrompt) {
+    return <NotificationsOptIn onDone={() => setView("feed")} />;
+  }
 
   return (
     <div className="p-6 max-w-md mx-auto w-full">
