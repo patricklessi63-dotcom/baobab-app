@@ -1,4 +1,4 @@
-// Traite les suppressions de compte différées (délai de grâce de 7 jours).
+// Traite les suppressions de compte différées (délai de grâce de 24h).
 // Appelée exclusivement par la tâche planifiée pg_cron/pg_net (voir
 // supabase-account-deletion.sql) — jamais directement par un client. Pas de
 // JWT utilisateur ici (aucun utilisateur "appelant" : la fonction traite
@@ -82,7 +82,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const cutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+    const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
     const { data: dueProfiles, error: dueError } = await admin
       .from("profiles")
       .select("id, user_id")

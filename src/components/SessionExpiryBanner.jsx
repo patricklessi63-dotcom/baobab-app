@@ -7,6 +7,7 @@ import { C } from "../constants";
 // App.jsx approche la déconnexion automatique (15 min). "Rester connecté"
 // réinitialise le minuteur via onStayConnected (même geste que n'importe
 // quelle activité utilisateur, pas une action spéciale côté serveur).
+// Positionnement géré par le conteneur "sticky" partagé dans App.jsx.
 export default function SessionExpiryBanner({ visible, onStayConnected }) {
   if (!visible) return null;
 
@@ -14,7 +15,7 @@ export default function SessionExpiryBanner({ visible, onStayConnected }) {
     <div
       role="status"
       aria-live="polite"
-      className="fixed top-0 left-0 right-0 z-[95] flex flex-wrap items-center justify-center gap-2 py-2 px-3 text-sm font-semibold text-white text-center"
+      className="flex flex-wrap items-center justify-center gap-2 py-2 px-3 text-sm font-semibold text-white text-center"
       style={{ background: C.clay }}
     >
       <Clock size={15} className="shrink-0" />

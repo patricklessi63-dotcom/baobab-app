@@ -3,9 +3,12 @@ import { WifiOff, Wifi } from "lucide-react";
 import { useOnlineStatus } from "../hooks/useOnlineStatus";
 import { C } from "../constants";
 
-// Bandeau global (item 30) — affiché quel que soit l'écran courant,
-// au-dessus de tout le reste (z-[95], même palier que les autres
-// notifications ponctuelles de App.jsx).
+// Bandeau global (item 30) — affiché quel que soit l'écran courant. Rendu
+// par App.jsx à l'intérieur d'un conteneur "sticky top-0 z-[95]" partagé
+// avec AccountDeletionBanner/SessionExpiryBanner : ce composant ne gère
+// donc plus lui-même son positionnement (auparavant "fixed", ce qui
+// recouvrait le header et rendait le menu profil/déconnexion inaccessible
+// pendant qu'un bandeau était affiché).
 export default function ConnectivityBanner() {
   const { isOnline, justReconnected } = useOnlineStatus();
   if (isOnline && !justReconnected) return null;
@@ -14,7 +17,7 @@ export default function ConnectivityBanner() {
     <div
       role="status"
       aria-live="polite"
-      className="fixed top-0 left-0 right-0 z-[95] flex items-center justify-center gap-2 py-2 text-sm font-semibold text-white"
+      className="flex items-center justify-center gap-2 py-2 text-sm font-semibold text-white"
       style={{ background: isOnline ? C.online : C.clay }}
     >
       {isOnline ? <Wifi size={15} /> : <WifiOff size={15} />}

@@ -313,6 +313,7 @@ export default function App() {
   // chaque activité pour éviter tout décalage entre les deux.
   useEffect(() => {
     if (!session?.user?.id) return;
+    if (true) return; // eslint-disable-line no-constant-condition -- déconnexion auto par inactivité annulée sur demande explicite
     const WARNING_MS = 25 * 60 * 1000; // avertit 5 min avant la déconnexion
     const LOGOUT_MS = 30 * 60 * 1000;
     let warningTimer;
@@ -1651,12 +1652,14 @@ export default function App() {
   if (currentUser && ["feed", "stories", "profile", "discover", "matches"].includes(view)) {
     return (
       <>
-        <ConnectivityBanner />
-        <AccountDeletionBanner currentUser={currentUser} onCancelled={handleCancelAccountDeletion} />
-        <SessionExpiryBanner
-          visible={sessionExpiryWarning}
-          onStayConnected={handleStayConnected}
-        />
+        <div className="sticky top-0 z-[95] flex flex-col">
+          <ConnectivityBanner />
+          <AccountDeletionBanner currentUser={currentUser} onCancelled={handleCancelAccountDeletion} />
+          <SessionExpiryBanner
+            visible={sessionExpiryWarning}
+            onStayConnected={handleStayConnected}
+          />
+        </div>
         <UpdateNotice recommended={updateState.recommended} info={updateState.info} onReload={handleUpdateReload} onDismiss={handleUpdateDismiss} />
         <SocialShell
           updateAvailable={updateState.mandatory || updateState.recommended}
@@ -1766,12 +1769,14 @@ export default function App() {
 
   return (
     <div className="bb-app min-h-screen flex flex-col relative" style={{ fontFamily: "'Manrope', system-ui, sans-serif", color: C.ink }}>
-      <ConnectivityBanner />
-      <AccountDeletionBanner currentUser={currentUser} onCancelled={handleCancelAccountDeletion} />
-      <SessionExpiryBanner
-        visible={sessionExpiryWarning}
-        onStayConnected={handleStayConnected}
-      />
+      <div className="sticky top-0 z-[95] flex flex-col">
+        <ConnectivityBanner />
+        <AccountDeletionBanner currentUser={currentUser} onCancelled={handleCancelAccountDeletion} />
+        <SessionExpiryBanner
+          visible={sessionExpiryWarning}
+          onStayConnected={handleStayConnected}
+        />
+      </div>
       <UpdateNotice recommended={updateState.recommended} info={updateState.info} onReload={handleUpdateReload} onDismiss={handleUpdateDismiss} />
       <style>{`
         @keyframes bbGenericDrift { from { transform: scale(1.02); } to { transform: scale(1.06) translate3d(-1%, -1%, 0); } }

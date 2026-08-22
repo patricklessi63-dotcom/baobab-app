@@ -9,6 +9,7 @@ import {
 import ChipSelect from "../components/ChipSelect";
 import AiSuggestButton from "../components/ai/AiSuggestButton";
 import { validateMediaFile } from "../lib/mediaValidation";
+import { parseArrivedSince, formatArrivedSince } from "./onboarding/steps/Step4CanadaJourney";
 
 function hasIntimateIntent(lookingFor) {
   return (lookingFor || []).some((v) => v.includes("Amour") || v.includes("Relation sérieuse"));
@@ -178,8 +179,34 @@ export default function EditProfileForm({
           className="bb-input w-full text-sm" />
 
         <p className="text-xs font-semibold mt-2" style={{ color: "rgba(var(--bb-ink-rgb-static),0.55)" }}>🇨🇦 Parcours Canada</p>
-        <input placeholder="Depuis quand au Canada ?" value={editForm.arrivedSince} onChange={(e) => set({ arrivedSince: e.target.value })}
-          className="bb-input w-full text-sm" />
+        {(() => {
+          const { amount, unit } = parseArrivedSince(editForm.arrivedSince);
+          return (
+            <div className="flex gap-2">
+              <input
+                type="number"
+                inputMode="numeric"
+                min={0}
+                value={amount}
+                onChange={(e) => set({ arrivedSince: formatArrivedSince(e.target.value, unit) })}
+                placeholder="Ex. 6"
+                className="bb-input text-sm"
+                style={{ width: 100 }}
+                aria-label="Depuis combien de temps au Canada"
+              />
+              <div className="flex gap-2 flex-1">
+                <button type="button" onClick={() => set({ arrivedSince: formatArrivedSince(amount, "mois") })} aria-pressed={unit === "mois"}
+                  className={`bb-pill flex-1 text-xs font-semibold px-3.5 py-2.5 rounded-full ${unit === "mois" ? "bb-pill-active" : ""}`}>
+                  Mois
+                </button>
+                <button type="button" onClick={() => set({ arrivedSince: formatArrivedSince(amount, "annees") })} aria-pressed={unit === "annees"}
+                  className={`bb-pill flex-1 text-xs font-semibold px-3.5 py-2.5 rounded-full ${unit === "annees" ? "bb-pill-active" : ""}`}>
+                  Années
+                </button>
+              </div>
+            </div>
+          );
+        })()}
         <ChipSelect options={IMMIGRATION_STATUS_OPTIONS} value={editForm.immigrationStatus} onChange={(v) => set({ immigrationStatus: v })} />
         <input placeholder="Profession / métier" value={editForm.occupation} onChange={(e) => set({ occupation: e.target.value })}
           className="bb-input w-full text-sm" />

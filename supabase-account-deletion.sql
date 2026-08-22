@@ -1,5 +1,5 @@
 -- ============================================================================
--- Suppression de compte avec délai de grâce de 7 jours. À exécuter dans
+-- Suppression de compte avec délai de grâce de 24h. À exécuter dans
 -- Supabase : SQL Editor, après avoir déployé la nouvelle Edge Function
 -- process-scheduled-deletions (supabase functions deploy process-scheduled-deletions)
 -- ET après avoir stocké ta clé service role dans Supabase Vault (étape
@@ -9,7 +9,7 @@
 
 -- ----------------------------------------------------------------------------
 -- 1. Colonne de statut — un profil "en attente de suppression" reste
--- pleinement fonctionnel (pas de restriction d'accès pendant les 7 jours),
+-- pleinement fonctionnel (pas de restriction d'accès pendant les 24h),
 -- seule la bannière côté client change son comportement.
 -- ----------------------------------------------------------------------------
 alter table profiles add column if not exists deletion_requested_at timestamptz;
@@ -61,8 +61,8 @@ select cron.schedule(
 -- Vérification (facultatif, à exécuter séparément après) :
 -- select jobname, schedule, active from cron.job where jobname = 'baobab-process-scheduled-deletions';
 -- select name from vault.decrypted_secrets where name = 'service_role_key';
--- Test manuel sans attendre 7 jours (marque TON PROPRE compte de test en
+-- Test manuel sans attendre 24h (marque TON PROPRE compte de test en
 -- retard, à annuler ensuite si besoin) :
---   update profiles set deletion_requested_at = now() - interval '8 days' where id = 'ID_DE_TEST';
+--   update profiles set deletion_requested_at = now() - interval '25 hours' where id = 'ID_DE_TEST';
 --   -- puis force un appel immédiat de la tâche : select cron.schedule('baobab-test-run', 'now', $$ select net.http_post(url := '...', headers := ...); $$);
 -- ============================================================================
