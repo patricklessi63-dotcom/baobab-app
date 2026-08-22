@@ -1,5 +1,5 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { ArrowLeft, MoreVertical, MoreHorizontal, Reply, X, Flag, Ban, Check, CheckCheck, Circle, ShieldAlert, ShieldCheck, RotateCcw, HeartCrack, Search, MapPin } from "lucide-react";
+import { ArrowLeft, MoreVertical, MoreHorizontal, Reply, X, Flag, Ban, Check, CheckCheck, Circle, ShieldAlert, ShieldCheck, RotateCcw, HeartCrack, Search, MapPin, Languages, Loader2 } from "lucide-react";
 import Avatar from "../Avatar";
 import StatusBadge from "../StatusBadge";
 import ConversationStarters from "./ConversationStarters";
@@ -14,6 +14,8 @@ import { useEscapeKey } from "../../hooks/useEscapeKey";
 import EmojiPicker from "./EmojiPicker";
 import MessageMediaPicker from "./MessageMediaPicker";
 import AiConversationSuggestions from "../ai/AiConversationSuggestions";
+import AiSuggestButton from "../ai/AiSuggestButton";
+import { invokeAI } from "../../lib/ai/aiClient";
 import AudioRecorder from "./AudioRecorder";
 import MessageBubbleMedia from "./MessageBubbleMedia";
 import ChatDropZone from "./ChatDropZone";
@@ -92,6 +94,17 @@ export default function ConversationPane({
   const [coordsNudgeDismissed, setCoordsNudgeDismissed] = useState(false);
   useEffect(() => { setCoordsNudgeDismissed(false); }, [activeMatch?.id]);
   const showCoordsNudge = !coordsNudgeDismissed && detectPersonalCoordinates(messageDraft);
+
+  // Traduction à la demande, message par message — jamais automatique,
+  // toujours étiquetée comme générée pour ne jamais faire croire que
+  // l'autre personne a écrit dans cette langue.
+  const [translations, setTranslations] = useState({}); // { [messageId]: {loading, text, error} }
+  useEffect(() => { setTranslations({}); }, [activeMatch?.id]);
+  const handleTranslate = async (m) => {
+    setTranslations((prev) => ({ ...prev, [m.id]: { loading: true } }));
+    const { data, error } = await invokeAI("translate_message", { text: m.text, targetLanguage: "français" });
+    setTranslations((prev) => ({ ...prev, [m.id]: error ? { error } : { text: data?.text || "" } }));
+  };
 
   function handleDeleteForEveryone(message) {
     if (window.confirm("Supprimer ce message pour tout le monde ? Cette action est irréversible pour les deux personnes.")) {
@@ -308,6 +321,26 @@ export default function ConversationPane({
                     ))}
                   </div>
                 )}
+                {!isMine && !isDeleted && m.kind === "text" && (
+                  translations[m.id] ? (
+                    translations[m.id].loading ? (
+                      <p className="text-xs mt-1 flex items-center gap-1" style={{ color: muted }}>
+                        <Loader2 size={11} className="animate-spin" /> Traduction…
+                      </p>
+                    ) : translations[m.id].error ? (
+                      <p className="text-xs mt-1" style={{ color: coral }}>{translations[m.id].error}</p>
+                    ) : (
+                      <div className="text-xs mt-1 px-3 py-1.5 rounded-xl" style={{ background: `rgba(${primaryRgb},.05)`, color: body, maxWidth: "100%" }}>
+                        <div className="text-[10px] font-black uppercase tracking-wider mb-0.5" style={{ color: muted }}>🌐 Traduit automatiquement</div>
+                        {translations[m.id].text}
+                      </div>
+                    )
+                  ) : (
+                    <button onClick={() => handleTranslate(m)} className="text-[11px] font-bold flex items-center gap-1 mt-1" style={{ color: muted }}>
+                      <Languages size={11} /> Traduire
+                    </button>
+                  )
+                )}
                 {openActionsFor === m.id && (
                   <div ref={actionsMenuRef}>
                     <MessageActionsMenu
@@ -370,6 +403,17 @@ export default function ConversationPane({
           <button onClick={() => setReplyingTo(null)} aria-label="Annuler la réponse" className="flex-shrink-0">
             <X size={14} color={muted} />
           </button>
+        </div>
+      )}
+
+      {!recorderActive && messageDraft.trim() && (
+        <div className="px-4 pt-2 shrink-0 bg-[var(--bb-surface)]">
+          <AiSuggestButton
+            action="reformulate_message"
+            buildPayload={() => ({ text: messageDraft })}
+            onApply={(text) => setMessageDraft(text)}
+            label="Reformuler avec l'IA"
+          />
         </div>
       )}
       <div className="p-4 flex gap-2 items-end shrink-0 sticky bottom-0 bg-[var(--bb-surface)]" style={{ borderTop: replyingTo ? "none" : `1px solid rgba(${primaryRgb},.08)`, paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}>

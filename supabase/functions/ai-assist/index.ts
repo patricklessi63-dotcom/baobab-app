@@ -20,7 +20,7 @@ const MODEL = Deno.env.get("ANTHROPIC_MODEL") || "claude-3-5-haiku-latest";
 const RATE_LIMIT_PER_HOUR = Number(Deno.env.get("AI_RATE_LIMIT_PER_HOUR") || "20");
 const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
-const ACTIONS = ["improve_bio", "improve_post", "improve_event_description", "suggest_community", "suggest_conversation"];
+const ACTIONS = ["improve_bio", "improve_post", "improve_event_description", "suggest_community", "suggest_conversation", "translate_message", "reformulate_message"];
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -105,6 +105,19 @@ function buildPrompt(action: string, body: Record<string, unknown>): string {
       const them = (body.them as Record<string, string>) || {};
       return `Propose 3 messages courts et naturels (une phrase chacun) pour démarrer une conversation entre deux personnes qui viennent de matcher sur Baobab, une app pour immigrants au Canada. Base-toi UNIQUEMENT sur ces informations publiques déjà partagées entre elles, n'invente rien d'autre :\nPersonne A — prénom : ${me.firstName || "?"}, ville : ${me.city || "?"}, intérêts : ${me.interests || "aucun renseigné"}\nPersonne B — prénom : ${them.firstName || "?"}, ville : ${them.city || "?"}, intérêts : ${them.interests || "aucun renseigné"}\nRéponds strictement en JSON, rien d'autre : {"suggestions": ["...", "...", "..."]}`;
     }
+
+    // Traduction à la demande, message par message (prompt-messagerie-baobab.md,
+    // section Fonctionnalités attendues) — jamais automatique, jamais présentée
+    // comme si l'autre personne avait écrit dans la langue cible : le client
+    // étiquette toujours le résultat "Traduit automatiquement".
+    case "translate_message":
+      return `Traduis ce message en ${String(body.targetLanguage || "français")}. Réponds UNIQUEMENT avec la traduction, sans guillemets, sans commentaire, sans reformuler le ton ou le sens.\n\nMessage original : "${String(body.text || "").slice(0, 1000)}"`;
+
+    // Reformulation douce sur demande (ex. décliner une invitation, poser une
+    // limite) — ne réécrit jamais le sens, l'utilisateur valide toujours
+    // avant l'envoi (le client n'envoie jamais ce texte automatiquement).
+    case "reformulate_message":
+      return `Reformule ce message de façon plus douce et diplomate, sans changer son sens ni ajouter d'information, pour un contexte de messagerie entre deux personnes sur Baobab (une app pour immigrants au Canada). Garde-le court. Réponds UNIQUEMENT avec le texte reformulé, sans guillemets ni commentaire.\n\nMessage original : "${String(body.text || "").slice(0, 500)}"`;
 
     default:
       throw new UserError("Action invalide.");
