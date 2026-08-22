@@ -33,7 +33,7 @@ export const PRIORITY_STEPS = [
     title: "Carte d'assurance maladie provinciale",
     body: "S'inscrire le plus tôt possible auprès du régime de santé de sa province (documents : preuve de statut d'immigration + preuve d'adresse). Délai avant couverture active : environ 3 mois en Ontario (OHIP), Colombie-Britannique (MSP), Nouvelle-Écosse (MSI) et Québec (RAMQ) ; couverture dès l'arrivée, sans délai de carence, en Alberta (AHCIP), au Manitoba (MHSIP) et en Saskatchewan. Dans les provinces à délai de carence, souscrire une assurance santé privée temporaire est fortement recommandé.",
     linkLabel: "Trouver le régime de ta province",
-    href: "https://www.canada.ca/fr/sante-canada/services/systeme-soins-sante/rapports-publications/regimes-assurance-maladie-provinciaux-territoriaux.html",
+    href: "https://www.canada.ca/fr/immigration-refugies-citoyennete/services/setablir-canada/soins-sante.html",
   },
   {
     icon: "Wallet",
