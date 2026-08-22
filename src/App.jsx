@@ -1761,7 +1761,7 @@ export default function App() {
       `}</style>
       <div aria-hidden="true" className="fixed inset-0 z-0 pointer-events-none" style={{ background: C.sand }} />
       {/* Header */}
-      <div className="relative z-20 flex items-center justify-between px-5 py-4 bb-generic-glass" style={{ borderBottom: `1px solid rgba(var(--bb-ink-rgb-static),0.08)`, boxShadow: "0 1px 0 rgba(20,29,56,0.02)", position: "sticky", top: 0, zIndex: 10 }}>
+      <div className="relative z-20 flex items-center justify-between px-5 py-4 bb-generic-glass" style={{ borderBottom: `1px solid rgba(var(--bb-ink-rgb-static),0.08)`, boxShadow: "0 1px 0 rgba(8,20,14,0.06)", position: "sticky", top: 0, zIndex: 10 }}>
         <div className="flex items-center gap-2">
           <span style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontWeight: 600, fontSize: 20, color: C.indigo }}>
             Baobab

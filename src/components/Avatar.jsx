@@ -31,7 +31,7 @@ export default function Avatar({ name, size = 44, url }) {
             borderRadius: "50%",
             objectFit: "cover",
             display: "block",
-            boxShadow: "0 1px 3px rgba(20,29,56,0.15)",
+            boxShadow: "0 1px 3px rgba(8,20,14,0.15)",
           }}
         />
       </span>
