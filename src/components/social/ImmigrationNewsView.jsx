@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft, ExternalLink, AlertTriangle, Landmark, ShieldCheck,
   CreditCard, Stethoscope, Wallet, Car, Receipt, Home, Phone,
-  GraduationCap, PhoneCall, BadgeCheck, Compass,
+  GraduationCap, PhoneCall, BadgeCheck, Compass, Search, X, Heart,
 } from "lucide-react";
 import { supabase } from "../../supabaseClient";
 import { primary, navy, coral, muted, card, bg, surface } from "./theme";
@@ -93,37 +93,64 @@ function timeAgo(iso) {
   return `il y a ${days} j`;
 }
 
-function NewsCard({ item, featured }) {
+// Fraicheur (item 31 du cahier des charges) — calculee cote client a partir
+// de published_at, aucune colonne supplementaire necessaire. Seuils
+// génériques (pas une garantie officielle de validité) : une actualité
+// gouvernementale récente est réputée fiable ; au-delà d'un mois, on
+// encourage à revérifier sur la source plutôt que de laisser croire que
+// rien n'a changé depuis.
+function freshness(publishedAt) {
+  const days = (Date.now() - new Date(publishedAt).getTime()) / 86_400_000;
+  if (days <= 14) return { emoji: "🟢", label: "Vérifiée récemment", color: "#1E7A4C" };
+  if (days <= 45) return { emoji: "🟡", label: "À revérifier", color: "#A5761F" };
+  return { emoji: "🔴", label: "Ancienne — vérifier la source", color: "#B3432B" };
+}
+
+function NewsCard({ item, featured, isFavorite, onToggleFavorite }) {
   const meta = SOURCE_META[item.source] || {};
   const Icon = meta.icon || ShieldCheck;
+  const fresh = freshness(item.published_at);
   return (
-    <a
-      href={item.source_url}
-      target="_blank"
-      rel="noopener noreferrer"
-      className={`${card} block overflow-hidden hover:-translate-y-0.5 transition-transform duration-200 ${featured ? "" : ""}`}
-    >
-      <div className="p-4">
-        <div className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-wider mb-2" style={{ color: meta.color }}>
-          <Icon size={13} /> {meta.full}
+    <div className={`${card} relative overflow-hidden hover:-translate-y-0.5 transition-transform duration-200`}>
+      {onToggleFavorite && (
+        <button
+          onClick={(e) => { e.preventDefault(); e.stopPropagation(); onToggleFavorite(item.id); }}
+          aria-label={isFavorite ? "Retirer des favoris" : "Ajouter aux favoris"}
+          aria-pressed={isFavorite}
+          className="absolute top-3 right-3 z-10 h-8 w-8 rounded-full flex items-center justify-center"
+          style={{ background: "rgba(255,255,255,.85)", backdropFilter: "blur(2px)" }}
+        >
+          <Heart size={15} color={coral} fill={isFavorite ? coral : "none"} />
+        </button>
+      )}
+      <a href={item.source_url} target="_blank" rel="noopener noreferrer" className="block">
+        <div className="p-4">
+          <div className="flex items-center justify-between gap-2 mb-2">
+            <div className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-wider" style={{ color: meta.color }}>
+              <Icon size={13} /> {meta.full}
+            </div>
+            <span className="text-[11px] font-bold shrink-0" style={{ color: fresh.color }} title={fresh.label}>
+              {fresh.emoji}
+            </span>
+          </div>
+          <h3 className={featured ? "text-lg font-black leading-snug pr-8" : "text-sm font-black leading-snug pr-8"} style={{ color: primary }}>
+            {item.title}
+          </h3>
+          {item.summary && (
+            <p className={`mt-2 ${featured ? "text-sm" : "text-xs"} leading-5`} style={{ color: muted }}>
+              {featured ? item.summary.slice(0, 220) : item.summary.slice(0, 130)}
+              {item.summary.length > (featured ? 220 : 130) ? "…" : ""}
+            </p>
+          )}
+          <div className="flex items-center justify-between mt-3">
+            <span className="text-[11px]" style={{ color: muted }}>{new Date(item.published_at).toLocaleDateString("fr-CA", { year: "numeric", month: "long", day: "numeric" })}</span>
+            <span className="text-[11px] font-bold flex items-center gap-1" style={{ color: coral }}>
+              Source officielle <ExternalLink size={11} />
+            </span>
+          </div>
         </div>
-        <h3 className={featured ? "text-lg font-black leading-snug" : "text-sm font-black leading-snug"} style={{ color: primary }}>
-          {item.title}
-        </h3>
-        {item.summary && (
-          <p className={`mt-2 ${featured ? "text-sm" : "text-xs"} leading-5`} style={{ color: muted }}>
-            {featured ? item.summary.slice(0, 220) : item.summary.slice(0, 130)}
-            {item.summary.length > (featured ? 220 : 130) ? "…" : ""}
-          </p>
-        )}
-        <div className="flex items-center justify-between mt-3">
-          <span className="text-[11px]" style={{ color: muted }}>{new Date(item.published_at).toLocaleDateString("fr-CA", { year: "numeric", month: "long", day: "numeric" })}</span>
-          <span className="text-[11px] font-bold flex items-center gap-1" style={{ color: coral }}>
-            Source officielle <ExternalLink size={11} />
-          </span>
-        </div>
-      </div>
-    </a>
+      </a>
+    </div>
   );
 }
 
@@ -149,18 +176,22 @@ function GuideCard({ section }) {
   );
 }
 
-export default function ImmigrationNewsView({ onBack, onError }) {
+export default function ImmigrationNewsView({ onBack, onError, currentUser }) {
   const [view, setView] = useState("news"); // news | guide
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [fetchLogs, setFetchLogs] = useState({});
+  const [search, setSearch] = useState("");
+  const [favoriteIds, setFavoriteIds] = useState(new Set());
+  const [favoritesOnly, setFavoritesOnly] = useState(false);
 
   useEffect(() => {
     let alive = true;
     Promise.all([
       supabase.from("immigration_news").select("*").order("published_at", { ascending: false }).limit(200),
       supabase.from("immigration_news_fetch_log").select("*").order("fetched_at", { ascending: false }).limit(20),
-    ]).then(([newsRes, logRes]) => {
+      currentUser ? supabase.from("immigration_news_favorites").select("news_id").eq("profile_id", currentUser.id) : Promise.resolve({ data: [] }),
+    ]).then(([newsRes, logRes, favRes]) => {
       if (!alive) return;
       if (newsRes.error) { onError?.("Impossible de charger les actualités."); setLoading(false); return; }
       setItems(newsRes.data || []);
@@ -169,14 +200,57 @@ export default function ImmigrationNewsView({ onBack, onError }) {
         if (!bySource[log.source]) bySource[log.source] = log;
       }
       setFetchLogs(bySource);
+      setFavoriteIds(new Set((favRes.data || []).map((r) => r.news_id)));
       setLoading(false);
     });
     return () => { alive = false; };
-  }, [onError]);
+  }, [onError, currentUser]);
 
-  const featured = items[0];
-  const rest = items.slice(1);
-  const grouped = CATEGORY_ORDER.map((cat) => ({ cat, items: rest.filter((i) => i.category === cat) })).filter((g) => g.items.length > 0);
+  const toggleFavorite = async (newsId) => {
+    if (!currentUser) return;
+    const isFav = favoriteIds.has(newsId);
+    setFavoriteIds((prev) => {
+      const next = new Set(prev);
+      if (isFav) next.delete(newsId); else next.add(newsId);
+      return next;
+    });
+    try {
+      if (isFav) {
+        const { error } = await supabase.from("immigration_news_favorites").delete().eq("profile_id", currentUser.id).eq("news_id", newsId);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("immigration_news_favorites").insert({ profile_id: currentUser.id, news_id: newsId });
+        if (error) throw error;
+      }
+    } catch (e) {
+      console.error(e);
+      setFavoriteIds((prev) => {
+        const next = new Set(prev);
+        if (isFav) next.add(newsId); else next.delete(newsId);
+        return next;
+      });
+      onError?.("Impossible de mettre à jour tes favoris. Réessaie.");
+    }
+  };
+
+  const searchedItems = useMemo(() => {
+    let list = items;
+    if (favoritesOnly) list = list.filter((i) => favoriteIds.has(i.id));
+    const q = search.trim().toLowerCase();
+    if (!q) return list;
+    return list.filter((i) =>
+      i.title?.toLowerCase().includes(q) ||
+      i.summary?.toLowerCase().includes(q) ||
+      (CATEGORY_LABELS[i.category] || "").toLowerCase().includes(q)
+    );
+  }, [items, search, favoritesOnly, favoriteIds]);
+
+  const isFiltering = Boolean(search.trim()) || favoritesOnly;
+  const featured = isFiltering ? null : searchedItems[0];
+  const rest = isFiltering ? searchedItems : searchedItems.slice(1);
+  const grouped = isFiltering
+    ? [{ cat: null, items: rest }]
+    : CATEGORY_ORDER.map((cat) => ({ cat, items: rest.filter((i) => i.category === cat) })).filter((g) => g.items.length > 0);
 
   const anyFetchFailed = Object.values(fetchLogs).some((l) => !l.ok);
   const oldestSuccessfulFetch = Object.values(fetchLogs)
@@ -240,24 +314,61 @@ export default function ImmigrationNewsView({ onBack, onError }) {
             </div>
           )}
 
+          <div className="flex gap-2 mb-6">
+            <div className="flex-1 flex items-center gap-2 rounded-full px-4 py-2.5" style={{ background: bg }}>
+              <Search size={15} color={muted} />
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Rechercher une actualité, un mot-clé..."
+                className="flex-1 bg-transparent outline-none text-sm"
+                style={{ color: primary }}
+              />
+              {search && (
+                <button onClick={() => setSearch("")} aria-label="Effacer la recherche">
+                  <X size={14} color={muted} />
+                </button>
+              )}
+            </div>
+            {currentUser && (
+              <button
+                onClick={() => setFavoritesOnly((v) => !v)}
+                aria-pressed={favoritesOnly}
+                aria-label="Afficher uniquement mes favoris"
+                className="shrink-0 h-11 w-11 rounded-full flex items-center justify-center"
+                style={favoritesOnly ? { background: coral } : { background: bg }}
+              >
+                <Heart size={16} color={favoritesOnly ? "#fff" : coral} fill={favoritesOnly ? "#fff" : "none"} />
+              </button>
+            )}
+          </div>
+
           {loading ? (
             <p className="text-sm text-center py-10" style={{ color: muted }}>Chargement...</p>
           ) : items.length === 0 ? (
             <div className={`${card} p-8 text-center`}>
               <p className="text-sm" style={{ color: muted }}>Aucune actualité indexée pour l'instant. Reviens bientôt.</p>
             </div>
+          ) : searchedItems.length === 0 ? (
+            <div className={`${card} p-8 text-center`}>
+              <p className="text-sm" style={{ color: muted }}>
+                {favoritesOnly ? "Aucun favori pour l'instant." : "Aucun résultat pour cette recherche."}
+              </p>
+            </div>
           ) : (
             <>
               {featured && (
                 <div className="mb-6">
-                  <NewsCard item={featured} featured />
+                  <NewsCard item={featured} featured isFavorite={favoriteIds.has(featured.id)} onToggleFavorite={currentUser ? toggleFavorite : null} />
                 </div>
               )}
               {grouped.map(({ cat, items: catItems }) => (
-                <div key={cat} className="mb-7">
-                  <h2 className="text-sm font-black mb-3" style={{ color: primary }}>{CATEGORY_LABELS[cat]}</h2>
+                <div key={cat || "resultats"} className="mb-7">
+                  {cat && <h2 className="text-sm font-black mb-3" style={{ color: primary }}>{CATEGORY_LABELS[cat]}</h2>}
                   <div className="grid sm:grid-cols-2 gap-3">
-                    {catItems.map((item) => <NewsCard key={item.id} item={item} />)}
+                    {catItems.map((item) => (
+                      <NewsCard key={item.id} item={item} isFavorite={favoriteIds.has(item.id)} onToggleFavorite={currentUser ? toggleFavorite : null} />
+                    ))}
                   </div>
                 </div>
               ))}

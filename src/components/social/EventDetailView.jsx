@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { ArrowLeft, MapPin, Users, Share2, Flag, Lock, Users2, Clock, Calendar, UserPlus, Pencil, Ban, Shield } from "lucide-react";
+import { ArrowLeft, MapPin, Users, Share2, Flag, Lock, Users2, Clock, Calendar, UserPlus, Pencil, Ban, Shield, Trash2 } from "lucide-react";
 import EventParticipantsList from "./EventParticipantsList";
 import EventCommentsSection from "./EventCommentsSection";
 import EventPhotoGallery from "./EventPhotoGallery";
@@ -39,6 +39,7 @@ export default function EventDetailView({
   onReportEvent,
   onEdit,
   onCancel,
+  onDeleteEvent,
   communityName,
   onOpenCommunity,
   participants,
@@ -173,6 +174,15 @@ export default function EventDetailView({
               {staff && !canceled && (
                 <button onClick={() => onCancel(event)} className="px-4 py-2.5 rounded-full text-sm font-bold flex items-center gap-1.5" style={{ border: "1px solid rgba(225,107,93,.3)", color: coral }}>
                   <Ban size={14} /> Annuler l'événement
+                </button>
+              )}
+              {onDeleteEvent && event.created_by === currentUser?.id && (
+                <button
+                  onClick={() => window.confirm(`Supprimer définitivement "${event.title}" ? Participants, discussions et photos seront aussi supprimés. Cette action est irréversible.`) && onDeleteEvent(event)}
+                  className="px-4 py-2.5 rounded-full text-sm font-bold flex items-center gap-1.5"
+                  style={{ border: "1px solid rgba(225,107,93,.3)", color: coral }}
+                >
+                  <Trash2 size={14} /> Supprimer l'événement
                 </button>
               )}
             </div>

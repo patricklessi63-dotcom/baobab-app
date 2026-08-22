@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { ArrowLeft, MapPin, Users, Share2, Flag, Lock, Mail, Shield, Calendar, UserPlus } from "lucide-react";
+import { ArrowLeft, MapPin, Users, Share2, Flag, Lock, Mail, Shield, Calendar, UserPlus, Trash2 } from "lucide-react";
 import CommunityPostCard from "./CommunityPostCard";
 import CommunityPostComposer from "./CommunityPostComposer";
 import CommunityMemberRow from "./CommunityMemberRow";
@@ -22,6 +22,7 @@ export default function CommunityDetailView({
   onBack,
   onJoin,
   onLeave,
+  onDeleteCommunity,
   onShare,
   onReportCommunity,
   posts,
@@ -106,7 +107,17 @@ export default function CommunityDetailView({
 
           <div className="mt-4">
             {viewerRole ? (
-              viewerRole !== "owner" && (
+              viewerRole === "owner" ? (
+                onDeleteCommunity && (
+                  <button
+                    onClick={() => window.confirm(`Supprimer définitivement "${community.name}" ? Publications, membres et événements de cette communauté seront aussi supprimés. Cette action est irréversible.`) && onDeleteCommunity(community)}
+                    className="px-4 py-2.5 rounded-full text-sm font-bold flex items-center gap-1.5"
+                    style={{ border: `1px solid rgba(${primaryRgb},.15)`, color: coral }}
+                  >
+                    <Trash2 size={14} /> Supprimer la communauté
+                  </button>
+                )
+              ) : (
                 <button
                   onClick={() => window.confirm("Voulez-vous vraiment quitter cette communauté ?") && onLeave(community)}
                   className="px-4 py-2.5 rounded-full text-sm font-bold"

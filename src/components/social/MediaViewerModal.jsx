@@ -61,6 +61,15 @@ export default function MediaViewerModal({ images, index = 0, onNavigate, url, a
   const resetZoom = () => { setZoom(1); setPan({ x: 0, y: 0 }); };
   const toggleZoom = () => (zoom > 1 ? resetZoom() : setZoom(2.5));
 
+  // Un clic dans le vide (en dehors de l'image elle-même) réinitialise le
+  // zoom s'il y en a un en cours, sinon ferme le visualiseur — évite de
+  // fermer accidentellement toute la visionneuse quand on voulait juste
+  // dézoomer.
+  const handleBackgroundClick = () => {
+    if (zoom > 1) { resetZoom(); return; }
+    onClose();
+  };
+
   // Souris : molette = zoom, glisser = pan (seulement si zoomé), double-clic = toggle zoom
   const onWheel = (e) => {
     e.preventDefault();
@@ -112,7 +121,7 @@ export default function MediaViewerModal({ images, index = 0, onNavigate, url, a
     const dx = t.clientX - touchRef.current.x;
     const dy = t.clientY - touchRef.current.y;
     touchRef.current = null;
-    if (Math.abs(dy) > Math.abs(dx) && dy > SWIPE_THRESHOLD) { onClose(); return; }
+    if (Math.abs(dy) > Math.abs(dx) && dy > SWIPE_THRESHOLD) { handleBackgroundClick(); return; }
     if (Math.abs(dx) > SWIPE_THRESHOLD) { if (dx < 0) goNext(); else goPrev(); }
   };
 
@@ -120,7 +129,7 @@ export default function MediaViewerModal({ images, index = 0, onNavigate, url, a
     <div
       className="bb-fade-in fixed inset-0 z-[80] flex items-center justify-center p-4"
       style={{ background: "rgba(10,13,26,.92)" }}
-      onClick={onClose}
+      onClick={handleBackgroundClick}
       onWheel={onWheel}
       role="dialog"
       aria-modal="true"
@@ -153,7 +162,7 @@ export default function MediaViewerModal({ images, index = 0, onNavigate, url, a
         onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
-        onClick={(e) => e.stopPropagation()}
+        onClick={handleBackgroundClick}
       >
         {imgError ? (
           <p className="text-white/70 text-sm">Image indisponible.</p>
@@ -163,6 +172,7 @@ export default function MediaViewerModal({ images, index = 0, onNavigate, url, a
             src={active.url}
             alt={active.alt || ""}
             onError={() => setImgError(true)}
+            onClick={(e) => e.stopPropagation()}
             onDoubleClick={toggleZoom}
             onMouseDown={onMouseDown}
             draggable={false}

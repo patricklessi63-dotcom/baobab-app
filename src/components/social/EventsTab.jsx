@@ -366,6 +366,21 @@ export default function EventsTab({ currentUser, onError, initialEventId, onCons
     }
   };
 
+  // Suppression definitive (distincte de l'annulation ci-dessus, qui reste
+  // le choix recommande car elle previent les participants) — RLS
+  // (supabase-delete-own-content.sql) n'autorise que le createur ou
+  // is_admin_or_above(), les tables enfants sont deja en cascade.
+  const handleDeleteEvent = async (ev) => {
+    try {
+      const { error } = await supabase.from("events").delete().eq("id", ev.id);
+      if (error) throw error;
+      goHome();
+    } catch (e) {
+      console.error(e);
+      onError("Impossible de supprimer cet événement.");
+    }
+  };
+
   // ---------- Discussion ----------
   const handleSubmitComment = async () => {
     if (!commentDraft.trim() || !currentUser || !event) return;
@@ -582,6 +597,7 @@ export default function EventsTab({ currentUser, onError, initialEventId, onCons
           onReportEvent={openReport}
           onEdit={() => setView("edit")}
           onCancel={handleCancel}
+          onDeleteEvent={handleDeleteEvent}
           communityName={communityName}
           onOpenCommunity={() => {}}
           participants={participants}

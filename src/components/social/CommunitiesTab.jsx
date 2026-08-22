@@ -355,6 +355,22 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
     }
   };
 
+  // Suppression definitive (item : le proprietaire ou un admin peut
+  // supprimer une communaute) — RLS (supabase-delete-own-content.sql)
+  // n'autorise que le proprietaire ou is_admin_or_above(), donc cette
+  // requete echoue proprement pour tout le monde d'autre.
+  const handleDeleteCommunity = async (comm) => {
+    try {
+      const { error } = await supabase.from("communities").delete().eq("id", comm.id);
+      if (error) throw error;
+      onCommunitiesChanged?.();
+      goList();
+    } catch (e) {
+      console.error(e);
+      onError("Impossible de supprimer cette communauté.");
+    }
+  };
+
   // ---------- Admin : demandes d'adhésion ----------
   const handleAcceptRequest = async (req) => {
     try {
@@ -676,6 +692,7 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
           onBack={goList}
           onJoin={handleJoin}
           onLeave={handleLeave}
+          onDeleteCommunity={handleDeleteCommunity}
           onShare={handleShare}
           onReportCommunity={(c) => openReport("community", c.id, REPORT_TARGET_LABEL.community)}
           posts={posts}

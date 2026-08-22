@@ -1359,7 +1359,7 @@ export default function SocialShell({
         {tab === "news" && (
           <ChunkErrorBoundary>
             <Suspense fallback={<TabLoadingFallback />}>
-              <ImmigrationNewsView onBack={() => goTab("feed")} onError={onError} />
+              <ImmigrationNewsView onBack={() => goTab("feed")} onError={onError} currentUser={currentUser} />
             </Suspense>
           </ChunkErrorBoundary>
         )}
