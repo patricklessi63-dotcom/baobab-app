@@ -1,5 +1,5 @@
 import React from "react";
-import { ArrowLeft, MapPin, Flag, Briefcase, GraduationCap, Plane, Sparkles, Heart, Wand2, Cake } from "lucide-react";
+import { ArrowLeft, MapPin, Flag, Briefcase, GraduationCap, Plane, Sparkles, Heart, Wand2, Cake, CheckCheck } from "lucide-react";
 import { C } from "../constants";
 import { useEscapeKey } from "../hooks/useEscapeKey";
 
@@ -18,6 +18,14 @@ const FIELDS = [
 // dans utils/format.js, lu partout où l'âge s'affiche).
 const FOUNDER_FIELDS = [
   { key: "show_birth_year", label: "Afficher mon année de naissance", icon: Cake },
+];
+
+// Messagerie (audit module Messagerie) — désactiver éteint à la fois les
+// coches "lu" et l'indicateur "en train d'écrire...", dans les deux sens
+// (réciprocité : le désactiver retire aussi la visibilité de ceux des
+// autres, voir App.jsx/ConversationPane.jsx).
+const MESSAGING_FIELDS = [
+  { key: "show_read_receipts", label: "Indicateurs de lecture et de saisie", icon: CheckCheck },
 ];
 
 // Personnalisation (Phase 9) — utilise handleToggleField, déjà générique
@@ -59,6 +67,19 @@ export default function PrivacyFieldsModal({ open, onClose, onBack, currentUser,
         ))}
 
         {currentUser?.is_founder && FOUNDER_FIELDS.map(({ key, label, icon: Icon }) => (
+          <label key={key} className="flex items-center justify-between py-2.5" style={{ borderTop: "1px solid rgba(var(--bb-ink-rgb),0.08)", minHeight: 44 }}>
+            <div className="flex items-center gap-2 text-sm"><Icon size={14} color="var(--bb-text)" /> {label}</div>
+            <input
+              type="checkbox"
+              checked={currentUser?.[key] !== false}
+              onChange={(e) => onToggleField?.(key, e.target.checked)}
+              style={{ width: 18, height: 18 }}
+            />
+          </label>
+        ))}
+
+        <div className="mt-4 mb-1 text-xs font-black uppercase tracking-wider" style={{ color: "rgba(var(--bb-ink-rgb),0.5)" }}>Messagerie</div>
+        {MESSAGING_FIELDS.map(({ key, label, icon: Icon }) => (
           <label key={key} className="flex items-center justify-between py-2.5" style={{ borderTop: "1px solid rgba(var(--bb-ink-rgb),0.08)", minHeight: 44 }}>
             <div className="flex items-center gap-2 text-sm"><Icon size={14} color="var(--bb-text)" /> {label}</div>
             <input

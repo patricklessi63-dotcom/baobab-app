@@ -1142,6 +1142,11 @@ export default function App() {
 
   async function markConversationRead(match) {
     if (!currentUser || !match) return;
+    // Réglage de confidentialité (Confidentialité → Indicateurs de lecture) :
+    // si désactivé, ne jamais écrire read_at — l'expéditeur ne voit donc pas
+    // de coche "lu" pour ce lecteur (voir supabase-messaging-read-receipts-
+    // privacy.sql pour la réciprocité côté affichage).
+    if (currentUser.show_read_receipts === false) return;
     try {
       const { error: readError } = await supabase
         .from("messages")
@@ -1501,6 +1506,7 @@ export default function App() {
 
   function broadcastTyping() {
     if (!currentUser || !typingChannelRef.current) return;
+    if (currentUser.show_read_receipts === false) return; // même réglage que les indicateurs de lecture
     typingChannelRef.current.send({
       type: "broadcast",
       event: "typing",

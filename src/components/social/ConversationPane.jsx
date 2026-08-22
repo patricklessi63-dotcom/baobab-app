@@ -1,11 +1,12 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { ArrowLeft, MoreVertical, MoreHorizontal, Reply, X, Flag, Ban, Check, CheckCheck, Circle, ShieldAlert, ShieldCheck, RotateCcw, HeartCrack, Search } from "lucide-react";
+import { ArrowLeft, MoreVertical, MoreHorizontal, Reply, X, Flag, Ban, Check, CheckCheck, Circle, ShieldAlert, ShieldCheck, RotateCcw, HeartCrack, Search, MapPin } from "lucide-react";
 import Avatar from "../Avatar";
 import StatusBadge from "../StatusBadge";
 import ConversationStarters from "./ConversationStarters";
 import { formatLastSeen, formatMessageTime, formatDayLabel } from "../../utils/format";
 import { linkify } from "../../utils/linkify";
 import { detectMoneyRequest } from "../../lib/moneyGuard";
+import { detectPersonalCoordinates } from "../../lib/coordinatesGuard";
 import { checkRateLimit } from "../../lib/messageRateLimit";
 import { detectKindFromMime } from "../../lib/mediaValidation";
 import { useClickOutside } from "../../hooks/useClickOutside";
@@ -85,6 +86,13 @@ export default function ConversationPane({
   useEffect(() => { setSearchOpen(false); setSearchQuery(""); }, [activeMatch?.id]);
   useEscapeKey(searchOpen, () => { setSearchOpen(false); setSearchQuery(""); });
 
+  // Rappel avant un premier partage de coordonnées personnelles (item audit
+  // sécurité) — jamais répété une fois écarté pour cette conversation, pas
+  // de blocage de l'envoi.
+  const [coordsNudgeDismissed, setCoordsNudgeDismissed] = useState(false);
+  useEffect(() => { setCoordsNudgeDismissed(false); }, [activeMatch?.id]);
+  const showCoordsNudge = !coordsNudgeDismissed && detectPersonalCoordinates(messageDraft);
+
   function handleDeleteForEveryone(message) {
     if (window.confirm("Supprimer ce message pour tout le monde ? Cette action est irréversible pour les deux personnes.")) {
       deleteMessageForEveryone(message);
@@ -140,8 +148,8 @@ export default function ConversationPane({
             {activeMatch.name}
             <StatusBadge emailVerified={activeMatch.email_verified} phoneVerified={activeMatch.phone_verified} isFounder={activeMatch.is_founder} isPremium={activeMatch.is_premium} size={13} />
           </div>
-          <div className="text-xs truncate" style={{ color: otherTyping ? coral : muted }}>
-            {otherTyping ? "en train d'écrire…" : activeMatch.is_online ? "En ligne" : formatLastSeen(activeMatch.last_seen)}
+          <div className="text-xs truncate" style={{ color: otherTyping && currentUser.show_read_receipts !== false ? coral : muted }}>
+            {otherTyping && currentUser.show_read_receipts !== false ? "en train d'écrire…" : activeMatch.is_online ? "En ligne" : formatLastSeen(activeMatch.last_seen)}
           </div>
         </div>
         <button
@@ -271,7 +279,7 @@ export default function ConversationPane({
                   {!isSticker && !isDeleted && (
                     <span className="text-[10px] flex-shrink-0 flex items-center gap-0.5" style={{ opacity: 0.7, whiteSpace: "nowrap" }}>
                       {formatMessageTime(m.created_at)}
-                      {isMine && m._status !== "failed" && (m.read_at ? <CheckCheck size={12} color="#7FC7FF" aria-label="Lu" /> : <Check size={12} aria-label="Envoyé" />)}
+                      {isMine && m._status !== "failed" && (m.read_at && currentUser.show_read_receipts !== false ? <CheckCheck size={12} color="#7FC7FF" aria-label="Lu" /> : <Check size={12} aria-label="Envoyé" />)}
                     </span>
                   )}
                   {!isDeleted && typeof m.id !== "string" && (
@@ -324,7 +332,7 @@ export default function ConversationPane({
               {moneyCheck?.flagged && (
                 <div className="max-w-[85%] text-xs px-3.5 py-2.5 rounded-2xl flex items-start gap-2" style={{ alignSelf: "flex-start", background: "#FFF3F1", color: coral, marginTop: 4 }}>
                   <ShieldAlert size={15} className="flex-shrink-0 mt-0.5" />
-                  <span>Ce message pourrait être une demande d'argent. Ne partage jamais tes informations bancaires et ne fais jamais de virement à quelqu'un rencontré sur Baobab.</span>
+                  <span>{moneyCheck.message}</span>
                 </div>
               )}
             </React.Fragment>
@@ -343,6 +351,14 @@ export default function ConversationPane({
         <p className="px-4 pb-1 text-xs shrink-0" style={{ color: coral }}>
           Tu envoies des messages très rapidement, patiente quelques secondes.
         </p>
+      )}
+
+      {showCoordsNudge && (
+        <div className="px-4 pt-2 flex items-start gap-2 shrink-0 bg-[var(--bb-surface)]" style={{ borderTop: `1px solid rgba(${primaryRgb},.08)` }}>
+          <MapPin size={13} className="flex-shrink-0 mt-0.5" color={coral} />
+          <span className="text-xs flex-1" style={{ color: coral }}>Sur le point de partager tes coordonnées ? Pour une première rencontre, privilégie un lieu public.</span>
+          <button onClick={() => setCoordsNudgeDismissed(true)} aria-label="Ignorer ce rappel" className="flex-shrink-0"><X size={13} color={muted} /></button>
+        </div>
       )}
 
       {replyingTo && (

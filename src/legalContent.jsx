@@ -73,7 +73,12 @@ export function PrivacyPolicyContent() {
         <p>Cette politique peut être mise à jour périodiquement. Toute modification substantielle vous sera communiquée dans l'application avant son entrée en vigueur.</p>
       </Section>
 
-      <Section title="11. Contact">
+      <Section title="11. Fonctionnalités assistées par intelligence artificielle">
+        <p>Baobab propose des fonctionnalités facultatives assistées par IA (amorces de conversation, aide à la reformulation, traduction, suggestions de rédaction). Ces fonctionnalités sont désactivables à tout moment dans Confidentialité → Suggestions IA.</p>
+        <p>Le contenu de vos conversations privées n'est jamais utilisé pour entraîner un modèle d'IA ni partagé à des fins autres que de générer, à votre demande explicite, la suggestion demandée pour vous. Seules les informations strictement nécessaires à la fonctionnalité demandée sont transmises au fournisseur du service d'IA, jamais l'historique complet d'une conversation.</p>
+      </Section>
+
+      <Section title="12. Contact">
         <p>Pour toute question relative à vos données personnelles ou pour exercer vos droits, contactez-nous via l'adresse de contact fournie dans l'application. Vous disposez également du droit de déposer une plainte auprès de l'autorité de protection des données compétente (par exemple le Commissariat à la protection de la vie privée du Canada, ou la CNIL en France).</p>
       </Section>
     </div>
