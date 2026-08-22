@@ -723,6 +723,11 @@ export default function SocialShell({
   const favoriteProfiles = profiles.filter((p) => favoriteIds.has(p.id) && !blockedIds.has(p.id));
   const followedProfiles = followedProfilesRaw.filter((p) => !blockedIds.has(p.id));
   const followerProfiles = followerProfilesRaw.filter((p) => !blockedIds.has(p.id));
+  // "stories" est chargé une seule fois (montage / changement de currentUser)
+  // et n'est jamais réinterrogé quand blockPairs change en cours de session
+  // — un statut déjà en cache reste donc affiché juste après avoir bloqué
+  // son auteur, même si la policy RLS l'exclurait d'un prochain fetch.
+  const visibleStories = stories.filter((s) => s.own || !s.profile_id || !blockedIds.has(s.profile_id));
 
   // ---------- Page d'accueil : données dérivées du profil réel, sans appel Supabase additionnel ----------
   const growthStages = ["Graine", "Pousse", "Jeune baobab", "Baobab en croissance", "Baobab épanoui"];
@@ -977,14 +982,14 @@ export default function SocialShell({
   };
 
   const openStoryViewers = () => {
-    const s = stories[storyViewerIndex];
+    const s = visibleStories[storyViewerIndex];
     if (!s?.own || !s?.id) return;
     setStoryViewersOpen(true);
     loadStoryViewers(s.id);
   };
 
   const sendStoryReaction = async (emoji) => {
-    const s = stories[storyViewerIndex];
+    const s = visibleStories[storyViewerIndex];
     if (!s || s.own || !s.id || !currentUser) return;
     const next = myStoryReaction === emoji ? null : emoji;
     setMyStoryReaction(next);
@@ -1000,7 +1005,7 @@ export default function SocialShell({
   };
 
   const openStory = (index) => {
-    const s = stories[index];
+    const s = visibleStories[index];
     if (s?.own && !s.text && !s.media_url) { setStoryComposer(true); return; }
     setStoryViewerIndex(index);
     setViewedStories((prev) => ({ ...prev, [index]: true }));
@@ -1019,12 +1024,12 @@ export default function SocialShell({
     setStoryViewerIndex((i) => {
       if (i === null) return i;
       let next = i + 1;
-      while (next < stories.length && stories[next].own) next++;
-      if (next >= stories.length) { return null; }
+      while (next < visibleStories.length && visibleStories[next].own) next++;
+      if (next >= visibleStories.length) { return null; }
       setViewedStories((prev) => ({ ...prev, [next]: true }));
       setStoryReply("");
       setStoryDurationMs(5000);
-      onStoryShown(stories[next]);
+      onStoryShown(visibleStories[next]);
       return next;
     });
   };
@@ -1033,11 +1038,11 @@ export default function SocialShell({
     setStoryViewerIndex((i) => {
       if (i === null) return i;
       let prev = i - 1;
-      while (prev >= 0 && stories[prev].own) prev--;
+      while (prev >= 0 && visibleStories[prev].own) prev--;
       if (prev < 0) return i;
       setStoryReply("");
       setStoryDurationMs(5000);
-      onStoryShown(stories[prev]);
+      onStoryShown(visibleStories[prev]);
       return prev;
     });
   };
@@ -1048,7 +1053,7 @@ export default function SocialShell({
   // puis ferme le visualiseur et bascule vers la conversation ouverte.
   const sendStoryReply = async () => {
     const text = storyReply.trim();
-    const s = stories[storyViewerIndex];
+    const s = visibleStories[storyViewerIndex];
     if (!text || !s || s.own) return;
     setStoryReply("");
     const target = profiles.find((p) => p.id === s.profile_id)
@@ -1061,7 +1066,7 @@ export default function SocialShell({
   };
 
   const deleteOwnStory = async () => {
-    const s = stories[storyViewerIndex];
+    const s = visibleStories[storyViewerIndex];
     if (!s?.own || !s?.id) { closeStoryViewer(); return; }
     try {
       const { error } = await supabase.from("stories").delete().eq("id", s.id);
@@ -1275,7 +1280,7 @@ export default function SocialShell({
         {tab === "feed" && (
           <FeedTab
             currentUser={currentUser}
-            stories={stories}
+            stories={visibleStories}
             viewedStories={viewedStories}
             openStory={openStory}
             setStoryComposer={setStoryComposer}
@@ -1489,7 +1494,7 @@ export default function SocialShell({
 
       <StoryViewerModal
         storyViewerIndex={storyViewerIndex}
-        stories={stories}
+        stories={visibleStories}
         closeStoryViewer={closeStoryViewer}
         prevStory={prevStory}
         nextStory={nextStory}

@@ -604,7 +604,7 @@ export default function EventsTab({ currentUser, onError, initialEventId, onCons
           participants={participants}
           participantsLoading={participantsLoading}
           onViewParticipantProfile={(p) => setViewedProfile(p)}
-          comments={comments}
+          comments={comments.filter((c) => !blockedIds.has(c.author_id))}
           commentsLoading={commentsLoading}
           commentDraft={commentDraft}
           setCommentDraft={setCommentDraft}
