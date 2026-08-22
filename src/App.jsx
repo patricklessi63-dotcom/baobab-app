@@ -749,6 +749,14 @@ export default function App() {
         .from("reports")
         .insert({ from_id: currentUser.id, to_id: reportTarget.id, reason: reportReason.trim() || null, category: reportCategory });
       if (reportError) throw reportError;
+      // Exclusion immédiate des suggestions futures pour la personne qui
+      // signale (prompt-rencontres-matching-baobab.md, section Sécurité) —
+      // sans attendre l'issue de la modération. Réutilise le mécanisme
+      // "masquer une recommandation" déjà en place (hidden_recommendations),
+      // même table que le bouton "Pas intéressé" du fil Découverte.
+      await supabase.from("hidden_recommendations").insert({ profile_id: currentUser.id, target_type: "profile", target_id: reportTarget.id }).then(({ error: hideError }) => {
+        if (hideError && hideError.code !== "23505") console.error(hideError.message, hideError.code, hideError.details, hideError.hint);
+      });
       setReportSubmitted(true);
     } catch (e) {
       console.error(e);

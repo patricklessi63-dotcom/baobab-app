@@ -22,6 +22,26 @@ function isActiveRecently(p) {
   return Date.now() - new Date(p.last_seen).getTime() < ACTIVE_RECENTLY_WINDOW_MS;
 }
 
+// Filtre "étape d'installation" (item audit rencontres/matching) — regroupe
+// le texte libre déjà saisi à l'onboarding (Step4CanadaJourney, ex. "8 mois",
+// "3 ans") en tranches, sans nouvelle colonne ni nouvelle saisie utilisateur.
+const ARRIVAL_STAGE_OPTIONS = ["🌱 Vient d'arriver (< 1 an)", "1 à 3 ans", "3 à 5 ans", "5 ans et plus"];
+function arrivedMonths(str) {
+  const m = String(str || "").trim().match(/^(\d+)\s*(mois|ans?|ann[ée]es?)$/i);
+  if (!m) return null;
+  const n = Number(m[1]);
+  return /an/i.test(m[2]) ? n * 12 : n;
+}
+function matchesArrivalStage(p, stage) {
+  const months = arrivedMonths(p.arrived_since);
+  if (months === null) return false;
+  if (stage === ARRIVAL_STAGE_OPTIONS[0]) return months < 12;
+  if (stage === ARRIVAL_STAGE_OPTIONS[1]) return months >= 12 && months < 36;
+  if (stage === ARRIVAL_STAGE_OPTIONS[2]) return months >= 36 && months < 60;
+  if (stage === ARRIVAL_STAGE_OPTIONS[3]) return months >= 60;
+  return true;
+}
+
 const SORT_OPTIONS = ["✨ Pertinence", "📍 Proximité", "❤️ Intentions", "🆕 Nouveaux"];
 const GRID_PAGE_SIZE = 12;
 
@@ -60,6 +80,8 @@ export default function DiscoverTab({
   const [interestFilter, setInterestFilter] = useState([]);
   const [languageFilter, setLanguageFilter] = useState([]);
   const [activeRecentlyFilter, setActiveRecentlyFilter] = useState(false);
+  const [arrivalStageFilter, setArrivalStageFilter] = useState("");
+  const [verifiedOnlyFilter, setVerifiedOnlyFilter] = useState(false);
   const [visibleCount, setVisibleCount] = useState(GRID_PAGE_SIZE);
   const [nearbyEnabled, setNearbyEnabled] = useState(false);
   const [nearbyKm, setNearbyKm] = useState(25);
@@ -118,10 +140,12 @@ export default function DiscoverTab({
         if (!languageFilter.some((f) => theirs.includes(f))) return false;
       }
       if (activeRecentlyFilter && !isActiveRecently(p)) return false;
+      if (arrivalStageFilter && !matchesArrivalStage(p, arrivalStageFilter)) return false;
+      if (verifiedOnlyFilter && !(p.email_verified || p.phone_verified)) return false;
       if (nearbyEnabled && !nearbyMap.has(p.id)) return false;
       return true;
     });
-  }, [filteredPeople, hiddenIds, cityFilter, intentionFilter, interestFilter, languageFilter, activeRecentlyFilter, nearbyEnabled, nearbyMap]);
+  }, [filteredPeople, hiddenIds, cityFilter, intentionFilter, interestFilter, languageFilter, activeRecentlyFilter, arrivalStageFilter, verifiedOnlyFilter, nearbyEnabled, nearbyMap]);
 
   const ranked = useMemo(() => rankCandidates(currentUser, filteredForGrid), [currentUser, filteredForGrid]);
 
@@ -333,6 +357,16 @@ export default function DiscoverTab({
                       )}
                       <div className="text-xs font-black uppercase tracking-wider mt-3 mb-1.5" style={{ color: muted }}>Intentions</div>
                       <ChipSelect options={LOOKING_FOR_OPTIONS} value={intentionFilter} onChange={setIntentionFilter} multi />
+
+                      <div className="text-xs font-black uppercase tracking-wider mt-3 mb-1.5" style={{ color: muted }}>Étape d'installation</div>
+                      <ChipSelect options={ARRIVAL_STAGE_OPTIONS} value={arrivalStageFilter} onChange={setArrivalStageFilter} />
+
+                      <div className="flex items-center justify-between mt-3.5">
+                        <label className="flex items-center gap-2 text-sm font-semibold" style={{ color: primary }}>
+                          <input type="checkbox" checked={verifiedOnlyFilter} onChange={(e) => setVerifiedOnlyFilter(e.target.checked)} />
+                          ✅ Profils vérifiés seulement
+                        </label>
+                      </div>
 
                       <div className="flex items-center justify-between mt-3.5">
                         <label className="flex items-center gap-2 text-sm font-semibold" style={{ color: primary }}>
