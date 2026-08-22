@@ -1,5 +1,5 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { ArrowLeft, MoreVertical, MoreHorizontal, Reply, X, Flag, Ban, Check, CheckCheck, Circle, ShieldAlert, ShieldCheck, RotateCcw, HeartCrack } from "lucide-react";
+import { ArrowLeft, MoreVertical, MoreHorizontal, Reply, X, Flag, Ban, Check, CheckCheck, Circle, ShieldAlert, ShieldCheck, RotateCcw, HeartCrack, Search } from "lucide-react";
 import Avatar from "../Avatar";
 import StatusBadge from "../StatusBadge";
 import ConversationStarters from "./ConversationStarters";
@@ -76,6 +76,15 @@ export default function ConversationPane({
   useClickOutside(actionsMenuRef, Boolean(openActionsFor), () => setOpenActionsFor(null));
   useEscapeKey(Boolean(openActionsFor), () => setOpenActionsFor(null));
 
+  // Recherche dans l'historique (item audit — jusqu'ici aucun moyen de
+  // retrouver un message sans faire défiler toute la conversation à la
+  // main). Filtre côté client sur les messages déjà chargés uniquement,
+  // pas de nouvelle requête serveur pour cette première itération.
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  useEffect(() => { setSearchOpen(false); setSearchQuery(""); }, [activeMatch?.id]);
+  useEscapeKey(searchOpen, () => { setSearchOpen(false); setSearchQuery(""); });
+
   function handleDeleteForEveryone(message) {
     if (window.confirm("Supprimer ce message pour tout le monde ? Cette action est irréversible pour les deux personnes.")) {
       deleteMessageForEveryone(message);
@@ -111,7 +120,10 @@ export default function ConversationPane({
     sendMessage();
   };
 
-  const visibleMessages = messages.filter((m) => !(m.deleted_for || []).includes(currentUser.id));
+  const q = searchQuery.trim().toLowerCase();
+  const visibleMessages = messages
+    .filter((m) => !(m.deleted_for || []).includes(currentUser.id))
+    .filter((m) => !q || (m.text || "").toLowerCase().includes(q));
 
   return (
     <div className="flex flex-col h-full w-full min-w-0">
@@ -132,7 +144,16 @@ export default function ConversationPane({
             {otherTyping ? "en train d'écrire…" : activeMatch.is_online ? "En ligne" : formatLastSeen(activeMatch.last_seen)}
           </div>
         </div>
-        <div ref={menuRef} className="ml-auto relative">
+        <button
+          onClick={() => setSearchOpen((v) => !v)}
+          aria-label={searchOpen ? "Fermer la recherche" : "Rechercher dans la conversation"}
+          aria-pressed={searchOpen}
+          className="ml-auto flex items-center justify-center flex-shrink-0 focus-visible:outline focus-visible:outline-2"
+          style={{ width: 40, height: 44 }}
+        >
+          <Search size={17} color={searchOpen ? coral : primary} />
+        </button>
+        <div ref={menuRef} className="relative">
         <button
           onClick={() => setMenuOpen((v) => !v)}
           aria-label="Options de la conversation"
@@ -159,6 +180,22 @@ export default function ConversationPane({
         </div>
       </div>
 
+      {searchOpen && (
+        <div className="flex items-center gap-2 px-4 py-2.5 shrink-0" style={{ borderBottom: `1px solid rgba(${primaryRgb},.08)`, background: bg }}>
+          <Search size={15} color={muted} />
+          <input
+            autoFocus
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Rechercher dans cette conversation..."
+            className="flex-1 bg-transparent outline-none text-sm"
+            style={{ color: primary }}
+          />
+          {searchQuery && <span className="text-xs shrink-0" style={{ color: muted }}>{visibleMessages.length} résultat{visibleMessages.length > 1 ? "s" : ""}</span>}
+          <button onClick={() => { setSearchOpen(false); setSearchQuery(""); }} aria-label="Fermer la recherche"><X size={15} color={muted} /></button>
+        </div>
+      )}
+
       <ChatDropZone onDropFile={(file) => sendMediaMessage(file, detectKindFromMime(file.type))}>
       <div ref={listRef} role="log" aria-live="polite" aria-atomic="false" className="flex-1 p-4 flex flex-col gap-1 overflow-y-auto">
         {hasMoreHistory && (
@@ -169,6 +206,9 @@ export default function ConversationPane({
 
         {messages.length === 0 && (
           <ConversationStarters currentUser={currentUser} match={activeMatch} onPick={(text) => setMessageDraft(text)} />
+        )}
+        {q && visibleMessages.length === 0 && (
+          <p className="text-sm text-center py-6" style={{ color: muted }}>Aucun message ne contient « {searchQuery.trim()} ».</p>
         )}
 
         {visibleMessages.map((m, i) => {
