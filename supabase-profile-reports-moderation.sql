@@ -72,6 +72,12 @@ begin
 end;
 $$;
 
+-- Redéfinit admin_dashboard_stats() en fusionnant les signalements de profil
+-- (ce fichier) avec le bloc "monetization" ajouté par
+-- supabase-premium-messaging.sql (déjà exécutée en prod) : les deux fichiers
+-- font un "create or replace function" sur la même fonction, donc exécuter
+-- celui-ci APRÈS premium-messaging sans fusionner effacerait silencieusement
+-- le champ "monetization" du JSON retourné.
 create or replace function admin_dashboard_stats()
 returns jsonb language plpgsql security definer set search_path = public as $$
 declare v_result jsonb;
@@ -88,7 +94,12 @@ begin
       (select count(*) from info_reports where status = 'open') +
       (select count(*) from reports where status = 'open')
     ),
-    'pending_info_review', (select count(*) from info_articles where status = 'pending_review')
+    'pending_info_review', (select count(*) from info_articles where status = 'pending_review'),
+    'monetization', (select jsonb_build_object(
+      'enabled', monetization_enabled,
+      'threshold', premium_threshold,
+      'free_message_limit', free_message_limit
+    ) from app_config)
   ) into v_result;
   return v_result;
 end;
