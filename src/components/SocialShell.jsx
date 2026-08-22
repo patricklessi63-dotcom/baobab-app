@@ -542,7 +542,7 @@ export default function SocialShell({
     let alive = true;
     supabase
       .from("notifications")
-      .select("id, type, community_id, target_type, target_id, read_at, created_at, actor:actor_id(name, avatar_url)")
+      .select("id, type, community_id, target_type, target_id, actor_id, read_at, created_at, actor:actor_id(name, avatar_url)")
       .eq("recipient_id", currentUser.id)
       .is("read_at", null)
       .order("created_at", { ascending: false })
@@ -572,13 +572,20 @@ export default function SocialShell({
   // périmètre du rapport final). Une clé absente = catégorie activée.
   const notifPrefs = currentUser?.notification_preferences || {};
   const prefEnabled = (key) => notifPrefs[key] !== false;
-  const unreadEventNotifications = prefEnabled("events") ? communityNotifications.filter((n) => n.target_type === "event") : [];
-  const unreadFollowNotifications = prefEnabled("follows") ? communityNotifications.filter((n) => n.type === "new_follower") : [];
-  const unreadDatingNotifications = communityNotifications.filter((n) =>
+  // Un blocage (dans un sens ou l'autre) doit masquer toute notification dont
+  // l'auteur est la personne bloquée — sinon un "X t'a aimé"/"X te suit"/"X
+  // t'a envoyé un message" antérieur au blocage reste affiché avec nom/avatar
+  // cliquables (setViewedProfileId/openChatWithProfileId plus bas), ce qui
+  // recontourne exactement le filtrage blockedIds appliqué partout ailleurs
+  // (DiscoverTab, PostsFeed, CommunitiesTab, recherche, abonnés...).
+  const visibleCommunityNotifications = communityNotifications.filter((n) => !n.actor_id || !blockedIds.has(n.actor_id));
+  const unreadEventNotifications = prefEnabled("events") ? visibleCommunityNotifications.filter((n) => n.target_type === "event") : [];
+  const unreadFollowNotifications = prefEnabled("follows") ? visibleCommunityNotifications.filter((n) => n.type === "new_follower") : [];
+  const unreadDatingNotifications = visibleCommunityNotifications.filter((n) =>
     (n.type === "new_like" && prefEnabled("likes")) || (n.type === "new_match" && prefEnabled("match"))
   );
-  const unreadMessageNotifications = prefEnabled("messages") ? communityNotifications.filter((n) => n.type === "new_message") : [];
-  const unreadCommunityNotifications = prefEnabled("communities") ? communityNotifications.filter((n) =>
+  const unreadMessageNotifications = prefEnabled("messages") ? visibleCommunityNotifications.filter((n) => n.type === "new_message") : [];
+  const unreadCommunityNotifications = prefEnabled("communities") ? visibleCommunityNotifications.filter((n) =>
     n.target_type !== "event" && n.type !== "new_follower" && n.type !== "new_like" && n.type !== "new_match" && n.type !== "new_message"
   ) : [];
   const eventsBadgeCount = unreadCommunityCount > 0 ? unreadEventNotifications.length : 0;
@@ -709,9 +716,11 @@ export default function SocialShell({
     if (error) { console.error(error.message, error.code, error.details, error.hint); return; }
     if (data) openChat(data);
   }
-  const favoriteProfiles = profiles.filter((p) => favoriteIds.has(p.id));
   // Un blocage (dans un sens ou l'autre) retire immédiatement le profil de
-  // ces listes, même si la relation "follows" existe toujours en base.
+  // ces listes, même si la relation "follows"/"favorites" existe toujours en
+  // base — favoriteProfiles manquait ce filtre alors que les deux listes
+  // juste en dessous (abonnements/abonnés) l'appliquaient déjà.
+  const favoriteProfiles = profiles.filter((p) => favoriteIds.has(p.id) && !blockedIds.has(p.id));
   const followedProfiles = followedProfilesRaw.filter((p) => !blockedIds.has(p.id));
   const followerProfiles = followerProfilesRaw.filter((p) => !blockedIds.has(p.id));
 
@@ -1179,7 +1188,7 @@ export default function SocialShell({
                     </button>
                   ))}
                 </div>
-                {incomingFavoritesCount === 0 && communityNotifications.length === 0 ? (
+                {incomingFavoritesCount === 0 && visibleCommunityNotifications.length === 0 ? (
                   <div className="p-6 text-center" onTouchStart={onNotifTouchStart} onTouchEnd={onNotifTouchEnd}>
                     <Bell size={22} className="mx-auto mb-2" color={muted} />
                     <p className="text-xs" style={{ color: muted }}>Aucune notification pour l'instant.</p>

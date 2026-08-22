@@ -218,6 +218,16 @@ export default function DiscoverTab({
                   const transform = `translateX(${isExiting ? exitX : swipeX}px) rotate(${isExiting ? rotate * 2.5 : rotate}deg)`;
                   const likeOpacity = Math.min(Math.max(swipeX, 0) / 100, 1);
                   const passOpacity = Math.min(Math.max(-swipeX, 0) / 100, 1);
+                  // Confidentialité par champ (voir PrivacyFieldsModal.jsx) — la carte de
+                  // Découverte affichait ville/pays/profession/parcours Canada/intérêts sans
+                  // jamais consulter ces réglages, alors que PublicProfileModal les respecte
+                  // déjà : un profil masquant sa ville restait quand même visible ici, sur la
+                  // toute première surface où les autres membres le voient.
+                  const showCity = p.show_city !== false;
+                  const showCountry = p.show_country !== false;
+                  const showOccupation = p.show_occupation !== false;
+                  const showCanadaJourney = p.show_canada_journey !== false;
+                  const showInterests = p.show_interests !== false;
 
                   return (
                     <div
@@ -256,8 +266,8 @@ export default function DiscoverTab({
                         )}
 
                         <div className="absolute top-4 left-4 flex gap-2 z-10">
-                          <span className="px-3 py-1.5 rounded-full bg-white/15 backdrop-blur-md text-white text-[11px] font-bold">{p.city || "Canada"}</span>
-                          {p.country && <span className="px-3 py-1.5 rounded-full bg-white/15 backdrop-blur-md text-white text-[11px] font-bold">🌍 {p.country}</span>}
+                          <span className="px-3 py-1.5 rounded-full bg-white/15 backdrop-blur-md text-white text-[11px] font-bold">{(showCity && p.city) || "Canada"}</span>
+                          {showCountry && p.country && <span className="px-3 py-1.5 rounded-full bg-white/15 backdrop-blur-md text-white text-[11px] font-bold">🌍 {p.country}</span>}
                         </div>
 
                         <div className="absolute top-16 left-6 border-4 rounded-2xl px-3 py-1 z-10" style={{ borderColor: online, transform: `rotate(-14deg)`, opacity: likeOpacity }}>
@@ -277,17 +287,17 @@ export default function DiscoverTab({
                             <StatusBadge emailVerified={p.email_verified} phoneVerified={p.phone_verified} isFounder={p.is_founder} isPremium={p.is_premium} size={20} color="#fff" />
                           </button>
                           <p className="text-xs text-white/60 mt-0.5">Toucher le nom pour voir le profil complet</p>
-                          <div className="text-sm text-white/75 mt-1">📍 {p.city || "Canada"} · {p.occupation || "Nouveau membre"}</div>
+                          <div className="text-sm text-white/75 mt-1">📍 {(showCity && p.city) || "Canada"} · {(showOccupation && p.occupation) || "Nouveau membre"}</div>
                           {p.bio && <p className="text-sm text-white/80 mt-3 leading-6 max-w-lg">{p.bio}</p>}
                           <div className="flex flex-wrap gap-2 mt-4">
                             {p.languages && <span className="px-2.5 py-1 rounded-full bg-white/12 text-xs">🗣 {p.languages}</span>}
-                            {p.arrived_since && <span className="px-2.5 py-1 rounded-full bg-white/12 text-xs">✈️ Au Canada depuis {p.arrived_since}</span>}
+                            {showCanadaJourney && p.arrived_since && <span className="px-2.5 py-1 rounded-full bg-white/12 text-xs">✈️ Au Canada depuis {p.arrived_since}</span>}
                             {p.looking_for && <span className="px-2.5 py-1 rounded-full bg-white/12 text-xs">♡ {p.looking_for}</span>}
                           </div>
                         </div>
                       </div>
                       <div className="p-5 md:p-6">
-                        {p.interests && <div className="mb-4"><div className="text-[11px] font-black uppercase tracking-wider" style={{ color: muted }}>Centres d'intérêt</div><div className="text-sm mt-1">{p.interests}</div></div>}
+                        {showInterests && p.interests && <div className="mb-4"><div className="text-[11px] font-black uppercase tracking-wider" style={{ color: muted }}>Centres d'intérêt</div><div className="text-sm mt-1">{p.interests}</div></div>}
 
                         {(() => {
                           const compat = computeMatch(currentUser, p);
