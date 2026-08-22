@@ -3,70 +3,16 @@ import {
   ArrowLeft, ExternalLink, AlertTriangle, Landmark, ShieldCheck,
   CreditCard, Stethoscope, Wallet, Car, Receipt, Home, Phone,
   GraduationCap, PhoneCall, BadgeCheck, Compass, Search, X, Heart,
+  CheckCircle2, MapPin, Mail, Clock, Building2, Globe2,
 } from "lucide-react";
 import { supabase } from "../../supabaseClient";
 import { primary, navy, coral, muted, card, bg, surface } from "./theme";
+import {
+  ESSENTIAL_DOCUMENTS, BORDER_NOTE, PRIORITY_STEPS, EXTRA_TIPS,
+  PROVINCE_DIRECTORY, FEDERAL_RESOURCES, GUIDE_LIMITS,
+} from "../../lib/newcomerGuideData";
 
-const GUIDE_SECTIONS = [
-  {
-    icon: CreditCard,
-    title: "Numéro d'assurance sociale (NAS)",
-    body: "Indispensable pour travailler et pour accéder à la plupart des prestations. À demander dès l'arrivée auprès de Service Canada, en ligne ou en personne — gratuit.",
-    linkLabel: "Service Canada — NAS",
-    href: "https://www.canada.ca/fr/emploi-developpement-social/services/numero-assurance-sociale.html",
-  },
-  {
-    icon: Stethoscope,
-    title: "Carte d'assurance maladie provinciale",
-    body: "Chaque province gère son propre régime (RAMQ au Québec, OHIP en Ontario, etc.). Un délai de carence de quelques mois s'applique souvent — prévoir une assurance privée temporaire si besoin.",
-    linkLabel: "Trouver le régime de ta province",
-    href: "https://www.canada.ca/fr/sante-canada/services/systeme-soins-sante/rapports-publications/regimes-assurance-maladie-provinciaux-territoriaux.html",
-  },
-  {
-    icon: Wallet,
-    title: "Compte bancaire",
-    body: "La plupart des grandes banques offrent un compte pensé pour les nouveaux arrivants (sans historique de crédit canadien exigé) — utile aussi pour bâtir sa cote de crédit.",
-  },
-  {
-    icon: Car,
-    title: "Permis de conduire",
-    body: "Les règles d'échange d'un permis étranger varient selon la province et le pays d'origine — certains permis s'échangent directement, d'autres exigent des examens.",
-  },
-  {
-    icon: Receipt,
-    title: "Déclaration de revenus (ARC)",
-    body: "Même sans revenu canadien, produire une déclaration dès la première année complète permet souvent de débloquer des crédits et prestations (Allocation canadienne pour enfants, crédit de TPS/TVH, etc.).",
-    linkLabel: "Agence du revenu du Canada",
-    href: "https://www.canada.ca/fr/agence-revenu.html",
-  },
-  {
-    icon: Home,
-    title: "Logement",
-    body: "Bail, dépôt de garantie, droits et obligations du locataire diffèrent selon la province. Vérifie les règles locales avant de signer quoi que ce soit.",
-  },
-  {
-    icon: Phone,
-    title: "Téléphone et internet",
-    body: "Comparer les forfaits est essentiel : certains fournisseurs proposent des offres sans engagement, utiles le temps de bâtir un historique de crédit.",
-  },
-  {
-    icon: GraduationCap,
-    title: "Reconnaissance des diplômes",
-    body: "Selon la profession et la province, une évaluation ou un ordre professionnel peut être requis avant de pratiquer. Les délais peuvent être longs — s'y prendre tôt.",
-  },
-  {
-    icon: BadgeCheck,
-    title: "Carte de résident permanent",
-    body: "Nécessaire pour voyager et revenir au Canada si tu es résident permanent. Vérifie sa date d'expiration et prévois le renouvellement à l'avance.",
-    linkLabel: "IRCC — Carte de RP",
-    href: "https://www.canada.ca/fr/immigration-refugies-citoyennete/services/nouveaux-immigrants/carte-rp.html",
-  },
-  {
-    icon: PhoneCall,
-    title: "Numéros utiles",
-    body: "911 pour toute urgence (police, feu, ambulance). Chaque province a aussi une ligne santé non urgente (ex. Info-Santé 811 au Québec) pour un avis médical par téléphone.",
-  },
-];
+const STEP_ICONS = { CreditCard, Stethoscope, Wallet, Car, Receipt, Home, Phone, GraduationCap, PhoneCall, BadgeCheck };
 
 const CATEGORY_LABELS = {
   procedures: "Procédures d'immigration",
@@ -154,13 +100,18 @@ function NewsCard({ item, featured, isFavorite, onToggleFavorite }) {
   );
 }
 
-function GuideCard({ section }) {
-  const Icon = section.icon;
+function GuideCard({ section, step }) {
+  const Icon = STEP_ICONS[section.icon] || section.icon;
   return (
-    <div className={`${card} p-4`}>
+    <div className={`${card} p-4 relative`}>
       <div className="flex items-start gap-3">
-        <div className="h-9 w-9 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: "rgba(20,110,70,.08)" }}>
+        <div className="h-9 w-9 rounded-full flex items-center justify-center flex-shrink-0 relative" style={{ background: "rgba(20,110,70,.08)" }}>
           <Icon size={17} style={{ color: primary }} />
+          {step && (
+            <span className="absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full text-[9px] font-black text-white flex items-center justify-center" style={{ background: coral }}>
+              {step}
+            </span>
+          )}
         </div>
         <div className="min-w-0">
           <h3 className="text-sm font-black leading-snug" style={{ color: primary }}>{section.title}</h3>
@@ -172,6 +123,106 @@ function GuideCard({ section }) {
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+function DocumentsChecklist() {
+  return (
+    <div className={`${card} p-4 mb-6`}>
+      <h3 className="text-sm font-black mb-3 flex items-center gap-2" style={{ color: primary }}>
+        🎒 Documents essentiels à apporter (en bagage à main)
+      </h3>
+      <ul className="space-y-2">
+        {ESSENTIAL_DOCUMENTS.map((doc) => (
+          <li key={doc} className="flex items-start gap-2 text-xs leading-5" style={{ color: muted }}>
+            <CheckCircle2 size={14} className="flex-shrink-0 mt-0.5" style={{ color: primary }} />
+            <span>{doc}</span>
+          </li>
+        ))}
+      </ul>
+      <p className="text-xs leading-5 mt-3 pt-3" style={{ color: muted, borderTop: `1px solid rgba(20,110,70,.08)` }}>{BORDER_NOTE}</p>
+    </div>
+  );
+}
+
+function OrgEntry({ org }) {
+  return (
+    <div className="py-3 first:pt-0 last:pb-0" style={{ borderBottom: "1px solid rgba(20,110,70,.06)" }}>
+      <h4 className="text-xs font-black" style={{ color: primary }}>{org.name}</h4>
+      <div className="mt-1.5 space-y-1">
+        {org.address && (
+          <p className="text-[11px] leading-4 flex items-start gap-1.5" style={{ color: muted }}>
+            <MapPin size={12} className="flex-shrink-0 mt-0.5" /> {org.address}
+          </p>
+        )}
+        {org.phone && (
+          <p className="text-[11px] leading-4 flex items-start gap-1.5" style={{ color: muted }}>
+            <Phone size={12} className="flex-shrink-0 mt-0.5" /> {org.phone}
+          </p>
+        )}
+        {org.email && (
+          <p className="text-[11px] leading-4 flex items-start gap-1.5" style={{ color: muted }}>
+            <Mail size={12} className="flex-shrink-0 mt-0.5" /> {org.email}
+          </p>
+        )}
+        {org.website && (
+          <p className="text-[11px] leading-4 flex items-start gap-1.5" style={{ color: muted }}>
+            <Globe2 size={12} className="flex-shrink-0 mt-0.5" /> {org.website}
+          </p>
+        )}
+        {org.hours && (
+          <p className="text-[11px] leading-4 flex items-start gap-1.5" style={{ color: muted }}>
+            <Clock size={12} className="flex-shrink-0 mt-0.5" /> {org.hours}
+          </p>
+        )}
+      </div>
+      {org.services && <p className="text-[11px] leading-5 mt-2" style={{ color: muted }}>{org.services}</p>}
+      {org.note && (
+        <p className="text-[11px] leading-5 mt-2 italic" style={{ color: "#A5761F" }}>{org.note}</p>
+      )}
+    </div>
+  );
+}
+
+function ProvinceDirectory() {
+  const [selected, setSelected] = useState(null);
+  const entry = PROVINCE_DIRECTORY.find((p) => p.province === selected);
+  return (
+    <div className={`${card} p-4 mb-6`}>
+      <h3 className="text-sm font-black mb-1 flex items-center gap-2" style={{ color: primary }}>
+        <Building2 size={16} /> Organismes d'accueil francophones
+      </h3>
+      <p className="text-xs leading-5 mb-3" style={{ color: muted }}>
+        Réseau RIF (financé par IRCC) — choisis ta province ou ton territoire.
+      </p>
+      <div className="flex gap-1.5 overflow-x-auto pb-1">
+        {PROVINCE_DIRECTORY.map((p) => (
+          <button
+            key={p.province}
+            onClick={() => setSelected((s) => (s === p.province ? null : p.province))}
+            className="px-3 py-1.5 rounded-full text-[11px] font-bold flex-shrink-0"
+            style={selected === p.province ? { background: primary, color: "#fff" } : { background: bg, color: muted }}
+          >
+            {p.province}
+          </button>
+        ))}
+      </div>
+      {entry && (
+        <div className="mt-4 pt-1">
+          {entry.orgs.length > 0 ? (
+            entry.orgs.map((org) => <OrgEntry key={org.name} org={org} />)
+          ) : (
+            <p className="text-xs leading-5" style={{ color: muted }}>{entry.note}</p>
+          )}
+          {entry.orgs.length > 0 && entry.note && (
+            <p className="text-[11px] leading-5 mt-2 italic" style={{ color: "#A5761F" }}>{entry.note}</p>
+          )}
+        </div>
+      )}
+      {!entry && (
+        <p className="text-xs text-center py-4" style={{ color: muted }}>Sélectionne ta province pour voir les organismes près de toi.</p>
+      )}
     </div>
   );
 }
@@ -294,9 +345,34 @@ export default function ImmigrationNewsView({ onBack, onError, currentUser }) {
               Repères généraux, non exhaustifs et pas un conseil juridique — les démarches exactes varient selon ta province et ta situation. Vérifie toujours auprès des sources officielles.
             </p>
           </div>
-          <div className="grid sm:grid-cols-2 gap-3">
-            {GUIDE_SECTIONS.map((section) => <GuideCard key={section.title} section={section} />)}
+
+          <DocumentsChecklist />
+
+          <h2 className="text-sm font-black mb-3" style={{ color: primary }}>Démarches prioritaires, dans l'ordre</h2>
+          <div className="grid sm:grid-cols-2 gap-3 mb-6">
+            {PRIORITY_STEPS.map((section, i) => <GuideCard key={section.title} section={section} step={i + 1} />)}
           </div>
+
+          <h2 className="text-sm font-black mb-3" style={{ color: primary }}>Autres repères utiles</h2>
+          <div className="grid sm:grid-cols-2 gap-3 mb-6">
+            {EXTRA_TIPS.map((section) => <GuideCard key={section.title} section={section} />)}
+          </div>
+
+          <ProvinceDirectory />
+
+          <div className={`${card} p-4 mb-6`}>
+            <h3 className="text-sm font-black mb-3" style={{ color: primary }}>Ressources fédérales</h3>
+            <div className="space-y-2.5">
+              {FEDERAL_RESOURCES.map((r) => (
+                <a key={r.label} href={r.href} target="_blank" rel="noopener noreferrer" className="block">
+                  <p className="text-xs font-bold flex items-center gap-1.5" style={{ color: coral }}>{r.label} <ExternalLink size={11} /></p>
+                  <p className="text-[11px] mt-0.5" style={{ color: muted }}>{r.detail}</p>
+                </a>
+              ))}
+            </div>
+          </div>
+
+          <p className="text-[11px] leading-5 text-center px-4" style={{ color: muted }}>{GUIDE_LIMITS}</p>
         </>
       ) : (
         <>
