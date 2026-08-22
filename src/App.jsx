@@ -34,6 +34,14 @@ import LocationRequiredGate from "./components/LocationRequiredGate";
 const PUBLIC_ONLY_PATHS = new Set(["/connexion", "/inscription", "/a-propos", "/confidentialite", "/conditions"]);
 
 export default function App() {
+  // Réarme le filet anti-boucle de ChunkErrorBoundary.jsx une fois l'app
+  // montée avec succès, pour qu'un futur déploiement (nouveaux hashs de
+  // chunks) puisse à nouveau déclencher un rechargement automatique.
+  useEffect(() => {
+    const t = setTimeout(() => sessionStorage.removeItem("bb-chunk-reload"), 5000);
+    return () => clearTimeout(t);
+  }, []);
+
   const [session, setSession] = useState(undefined); // undefined = pas encore vérifié, null = pas connecté
   const [view, setView] = useState("loading"); // loading | form | feed | discover | matches | stories
   const { pathname, navigate } = usePathname();

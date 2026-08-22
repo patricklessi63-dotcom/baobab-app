@@ -13,18 +13,26 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
 import { UserError, toUserMessage } from "../_shared/errors.ts";
 
-const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY")!, { apiVersion: "2024-06-20" });
-const SITE_URL = Deno.env.get("SITE_URL")!;
+// Lus paresseusement (pas au chargement du module) : si un secret manque,
+// "new Stripe(undefined)" lève immédiatement et empêche Deno.serve de
+// répondre à QUOI QUE CE SOIT, y compris le préflight OPTIONS — ce qui se
+// manifeste côté navigateur comme une erreur CORS trompeuse plutôt que le
+// vrai message d'erreur ci-dessous.
+const stripeSecret = Deno.env.get("STRIPE_SECRET_KEY");
+const stripe = stripeSecret ? new Stripe(stripeSecret, { apiVersion: "2024-06-20" }) : null;
+const SITE_URL = Deno.env.get("SITE_URL");
 const TRIAL_DAYS = Number(Deno.env.get("STRIPE_TRIAL_DAYS") || "0");
-const PRICE_IDS: Record<string, string> = {
-  monthly: Deno.env.get("STRIPE_PRICE_MONTHLY")!,
-  yearly: Deno.env.get("STRIPE_PRICE_YEARLY")!,
+const PRICE_IDS: Record<string, string | undefined> = {
+  monthly: Deno.env.get("STRIPE_PRICE_MONTHLY"),
+  yearly: Deno.env.get("STRIPE_PRICE_YEARLY"),
 };
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
+    if (!stripe || !SITE_URL) throw new UserError("Abonnement Premium temporairement indisponible.");
+
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) throw new UserError("Non authentifié.");
 
@@ -45,6 +53,8 @@ Deno.serve(async (req) => {
 
     const { plan } = await req.json();
     if (plan !== "monthly" && plan !== "yearly") throw new UserError("Plan invalide.");
+    const priceId = PRICE_IDS[plan];
+    if (!priceId) throw new UserError("Abonnement Premium temporairement indisponible.");
 
     // Réutilise un Customer Stripe déjà existant pour ce profil, pour
     // éviter d'en créer un nouveau à chaque tentative d'abonnement.
@@ -68,7 +78,7 @@ Deno.serve(async (req) => {
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       customer: customerId,
-      line_items: [{ price: PRICE_IDS[plan], quantity: 1 }],
+      line_items: [{ price: priceId, quantity: 1 }],
       subscription_data: subscriptionData,
       success_url: `${SITE_URL}/?premium=success`,
       cancel_url: `${SITE_URL}/?premium=cancelled`,

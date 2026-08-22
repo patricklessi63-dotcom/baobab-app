@@ -23,6 +23,7 @@ import { validateMediaFile } from "../lib/mediaValidation";
 import { beginCriticalOperation, endCriticalOperation } from "../lib/criticalOperationGuard";
 import { trackBetaEvent } from "../lib/trackBetaEvent";
 import BetaFeedbackModal from "./social/BetaFeedbackModal";
+import ChunkErrorBoundary from "./ChunkErrorBoundary";
 
 // Chargées à la demande (item 27 de l'audit Phase 10) : ces 3 onglets sont
 // visités moins souvent que Fil/Découverte/Messages/Profil au démarrage de
@@ -1163,45 +1164,55 @@ export default function SocialShell({
         )}
 
         {tab === "communities" && (
-          <Suspense fallback={<TabLoadingFallback />}>
-            <CommunitiesTab
-              currentUser={currentUser}
-              onError={onError}
-              initialCommunityId={openCommunityId}
-              onConsumedInitial={() => setOpenCommunityId(null)}
-              blockedIds={blockedIds}
-              onOpenEvents={(id) => { setOpenEventId(id || null); goTab("events"); }}
-            />
-          </Suspense>
+          <ChunkErrorBoundary>
+            <Suspense fallback={<TabLoadingFallback />}>
+              <CommunitiesTab
+                currentUser={currentUser}
+                onError={onError}
+                initialCommunityId={openCommunityId}
+                onConsumedInitial={() => setOpenCommunityId(null)}
+                blockedIds={blockedIds}
+                onOpenEvents={(id) => { setOpenEventId(id || null); goTab("events"); }}
+              />
+            </Suspense>
+          </ChunkErrorBoundary>
         )}
 
         {tab === "events" && (
-          <Suspense fallback={<TabLoadingFallback />}>
-            <EventsTab
-              currentUser={currentUser}
-              onError={onError}
-              initialEventId={openEventId}
-              onConsumedInitial={() => setOpenEventId(null)}
-            />
-          </Suspense>
+          <ChunkErrorBoundary>
+            <Suspense fallback={<TabLoadingFallback />}>
+              <EventsTab
+                currentUser={currentUser}
+                onError={onError}
+                initialEventId={openEventId}
+                onConsumedInitial={() => setOpenEventId(null)}
+              />
+            </Suspense>
+          </ChunkErrorBoundary>
         )}
 
         {tab === "premium" && (
-          <Suspense fallback={<TabLoadingFallback />}>
-            <PremiumPage currentUser={currentUser} onBack={() => goTab("feed")} onError={onError} />
-          </Suspense>
+          <ChunkErrorBoundary>
+            <Suspense fallback={<TabLoadingFallback />}>
+              <PremiumPage currentUser={currentUser} onBack={() => goTab("feed")} onError={onError} />
+            </Suspense>
+          </ChunkErrorBoundary>
         )}
 
         {tab === "admin" && myPlatformRole && (
-          <Suspense fallback={<TabLoadingFallback />}>
-            <AdminDashboard onBack={() => goTab("feed")} onError={onError} myPlatformRole={myPlatformRole} />
-          </Suspense>
+          <ChunkErrorBoundary>
+            <Suspense fallback={<TabLoadingFallback />}>
+              <AdminDashboard onBack={() => goTab("feed")} onError={onError} myPlatformRole={myPlatformRole} />
+            </Suspense>
+          </ChunkErrorBoundary>
         )}
 
         {tab === "news" && (
-          <Suspense fallback={<TabLoadingFallback />}>
-            <ImmigrationNewsView onBack={() => goTab("feed")} onError={onError} />
-          </Suspense>
+          <ChunkErrorBoundary>
+            <Suspense fallback={<TabLoadingFallback />}>
+              <ImmigrationNewsView onBack={() => goTab("feed")} onError={onError} />
+            </Suspense>
+          </ChunkErrorBoundary>
         )}
       </main>
 
