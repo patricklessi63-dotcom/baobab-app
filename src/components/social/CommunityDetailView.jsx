@@ -23,6 +23,7 @@ export default function CommunityDetailView({
   onJoin,
   onLeave,
   onDeleteCommunity,
+  isPlatformAdmin = false,
   onShare,
   onReportCommunity,
   posts,
@@ -105,19 +106,9 @@ export default function CommunityDetailView({
 
           {community.description && <p className="text-sm mt-3" style={{ color: body }}>{community.description}</p>}
 
-          <div className="mt-4">
+          <div className="mt-4 flex flex-wrap gap-2">
             {viewerRole ? (
-              viewerRole === "owner" ? (
-                onDeleteCommunity && (
-                  <button
-                    onClick={() => window.confirm(`Supprimer définitivement "${community.name}" ? Publications, membres et événements de cette communauté seront aussi supprimés. Cette action est irréversible.`) && onDeleteCommunity(community)}
-                    className="px-4 py-2.5 rounded-full text-sm font-bold flex items-center gap-1.5"
-                    style={{ border: `1px solid rgba(${primaryRgb},.15)`, color: coral }}
-                  >
-                    <Trash2 size={14} /> Supprimer la communauté
-                  </button>
-                )
-              ) : (
+              viewerRole !== "owner" && (
                 <button
                   onClick={() => window.confirm("Voulez-vous vraiment quitter cette communauté ?") && onLeave(community)}
                   className="px-4 py-2.5 rounded-full text-sm font-bold"
@@ -131,7 +122,7 @@ export default function CommunityDetailView({
             ) : viewerPending ? (
               <span className="px-4 py-2.5 rounded-full text-sm font-bold inline-block" style={{ background: bg, color: muted }}>Demande envoyée</span>
             ) : (
-              <>
+              <div className="w-full">
                 {isPrivate && community.rules && (
                   <div className="rounded-xl p-3 mb-3 text-xs whitespace-pre-wrap" style={{ background: bg, color: body }}>
                     <div className="text-[10px] font-black uppercase tracking-wider mb-1" style={{ color: muted }}>Règles de la communauté</div>
@@ -141,7 +132,16 @@ export default function CommunityDetailView({
                 <button onClick={() => onJoin(community)} className="px-5 py-2.5 rounded-full text-sm font-bold text-white" style={{ background: coral }}>
                   {isPrivate ? "Demander à rejoindre" : "Rejoindre"}
                 </button>
-              </>
+              </div>
+            )}
+            {onDeleteCommunity && (viewerRole === "owner" || isPlatformAdmin) && (
+              <button
+                onClick={() => window.confirm(`Supprimer définitivement "${community.name}" ? Publications, membres et événements de cette communauté seront aussi supprimés. Cette action est irréversible.`) && onDeleteCommunity(community)}
+                className="px-4 py-2.5 rounded-full text-sm font-bold flex items-center gap-1.5"
+                style={{ border: `1px solid rgba(${primaryRgb},.15)`, color: coral }}
+              >
+                <Trash2 size={14} /> Supprimer la communauté{viewerRole !== "owner" ? " (admin)" : ""}
+              </button>
             )}
           </div>
         </div>

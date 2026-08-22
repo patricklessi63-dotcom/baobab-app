@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { X, Send, Volume2, VolumeX, Eye, Trash2 } from "lucide-react";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
 import { navy } from "./theme";
@@ -42,11 +42,13 @@ export default function StoryViewerModal({
 }) {
   const [muted, setMuted] = useState(true);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [videoError, setVideoError] = useState(false);
   const touchStart = useRef(null);
 
   useEscapeKey(storyViewerIndex !== null, closeStoryViewer);
 
   const active = storyViewerIndex !== null && stories[storyViewerIndex];
+  useEffect(() => { setVideoError(false); }, [storyViewerIndex]);
   if (!active) return null;
   const story = stories[storyViewerIndex];
 
@@ -134,15 +136,25 @@ export default function StoryViewerModal({
 
         {story.media_url && (
           story.media_kind === "video" ? (
-            <video
-              src={story.media_url}
-              autoPlay
-              muted={muted}
-              loop
-              playsInline
-              onLoadedMetadata={handleVideoMeta}
-              className="absolute inset-0 w-full h-full object-cover z-[1]"
-            />
+            videoError ? (
+              <div className="absolute inset-0 flex items-center justify-center px-10 text-center z-[1]">
+                <p className="text-white/80 text-sm leading-relaxed">
+                  Cette vidéo ne peut pas être lue sur cet appareil ou ce navigateur.
+                  {story.own && " Republie-la si possible en format MP4."}
+                </p>
+              </div>
+            ) : (
+              <video
+                src={story.media_url}
+                autoPlay
+                muted={muted}
+                loop
+                playsInline
+                onLoadedMetadata={handleVideoMeta}
+                onError={() => setVideoError(true)}
+                className="absolute inset-0 w-full h-full object-cover z-[1]"
+              />
+            )
           ) : (
             <img src={story.media_url} alt="" className="absolute inset-0 w-full h-full object-cover z-[1]" />
           )

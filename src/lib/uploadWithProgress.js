@@ -1,5 +1,6 @@
 import { supabase } from "../supabaseClient";
 import { beginCriticalOperation, endCriticalOperation } from "./criticalOperationGuard";
+import { effectiveMime } from "./mediaConstants";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -32,7 +33,7 @@ function uploadXhr({ bucket, path, file, onProgress, signal, accessToken }) {
     xhr.open("POST", url, true);
     xhr.setRequestHeader("apikey", SUPABASE_ANON_KEY);
     xhr.setRequestHeader("Authorization", `Bearer ${accessToken}`);
-    xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream");
+    xhr.setRequestHeader("Content-Type", effectiveMime(file.type) || "application/octet-stream");
     xhr.setRequestHeader("x-upsert", "false");
 
     xhr.upload.onprogress = (e) => {

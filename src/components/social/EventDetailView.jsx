@@ -40,6 +40,7 @@ export default function EventDetailView({
   onEdit,
   onCancel,
   onDeleteEvent,
+  isPlatformAdmin = false,
   communityName,
   onOpenCommunity,
   participants,
@@ -176,13 +177,13 @@ export default function EventDetailView({
                   <Ban size={14} /> Annuler l'événement
                 </button>
               )}
-              {onDeleteEvent && event.created_by === currentUser?.id && (
+              {onDeleteEvent && (event.created_by === currentUser?.id || isPlatformAdmin) && (
                 <button
                   onClick={() => window.confirm(`Supprimer définitivement "${event.title}" ? Participants, discussions et photos seront aussi supprimés. Cette action est irréversible.`) && onDeleteEvent(event)}
                   className="px-4 py-2.5 rounded-full text-sm font-bold flex items-center gap-1.5"
                   style={{ border: "1px solid rgba(225,107,93,.3)", color: coral }}
                 >
-                  <Trash2 size={14} /> Supprimer l'événement
+                  <Trash2 size={14} /> Supprimer l'événement{event.created_by !== currentUser?.id ? " (admin)" : ""}
                 </button>
               )}
             </div>

@@ -54,7 +54,8 @@ function withParticipantCount(rows) {
   return (rows || []).map((e) => ({ ...e, participantCount: e.event_participant_count || 0 }));
 }
 
-export default function EventsTab({ currentUser, onError, initialEventId, onConsumedInitial = () => {} }) {
+export default function EventsTab({ currentUser, onError, initialEventId, onConsumedInitial = () => {}, myPlatformRole = null }) {
+  const isPlatformAdmin = myPlatformRole === "admin" || myPlatformRole === "super_admin";
   const [view, setView] = useState("home"); // home | detail | create | edit
   const [selectedId, setSelectedId] = useState(null);
 
@@ -598,6 +599,7 @@ export default function EventsTab({ currentUser, onError, initialEventId, onCons
           onEdit={() => setView("edit")}
           onCancel={handleCancel}
           onDeleteEvent={handleDeleteEvent}
+          isPlatformAdmin={isPlatformAdmin}
           communityName={communityName}
           onOpenCommunity={() => {}}
           participants={participants}

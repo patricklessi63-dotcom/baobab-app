@@ -55,8 +55,22 @@ export const MIME_TO_EXT = {
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "xlsx",
 };
 
+// Chrome/Firefox/Edge refusent purement et simplement de lire le type MIME
+// video/quicktime — canPlayType() renvoie "" quel que soit le codec réel à
+// l'intérieur du conteneur .mov. Seul Safari (macOS/iOS) l'accepte. Beaucoup
+// de vidéos envoyées depuis un iPhone sont étiquetées video/quicktime même
+// quand le codec est H.264 (donc lisible partout une fois le conteneur
+// ré-étiqueté en video/mp4). Ré-étiqueter ne change aucun octet du fichier :
+// pour un fichier réellement encodé en HEVC, la lecture échouera quand même
+// (aucun navigateur ne peut décoder un codec qu'il ne supporte pas), mais
+// pour les fichiers H.264 mal étiquetés — le cas le plus courant — ça
+// débloque une lecture qui échouait sans raison liée au codec.
+export function effectiveMime(mime) {
+  return mime === "video/quicktime" ? "video/mp4" : mime;
+}
+
 export function extFromMime(mime) {
-  return MIME_TO_EXT[mime] || "bin";
+  return MIME_TO_EXT[effectiveMime(mime)] || "bin";
 }
 
 export function formatFileSize(bytes) {

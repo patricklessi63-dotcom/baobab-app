@@ -56,7 +56,8 @@ function withMemberCount(rows) {
   return (rows || []).map((c) => ({ ...c, memberCount: c.community_members?.[0]?.count || 0 }));
 }
 
-export default function CommunitiesTab({ currentUser, onError, onCommunitiesChanged, initialCommunityId, onConsumedInitial, blockedIds = new Set(), onOpenEvents = () => {} }) {
+export default function CommunitiesTab({ currentUser, onError, onCommunitiesChanged, initialCommunityId, onConsumedInitial, blockedIds = new Set(), onOpenEvents = () => {}, myPlatformRole = null }) {
+  const isPlatformAdmin = myPlatformRole === "admin" || myPlatformRole === "super_admin";
   const [view, setView] = useState("list"); // list | detail | create
   const [selectedId, setSelectedId] = useState(null);
 
@@ -693,6 +694,7 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
           onJoin={handleJoin}
           onLeave={handleLeave}
           onDeleteCommunity={handleDeleteCommunity}
+          isPlatformAdmin={isPlatformAdmin}
           onShare={handleShare}
           onReportCommunity={(c) => openReport("community", c.id, REPORT_TARGET_LABEL.community)}
           posts={posts}

@@ -1322,6 +1322,7 @@ export default function SocialShell({
                 onConsumedInitial={() => setOpenCommunityId(null)}
                 blockedIds={blockedIds}
                 onOpenEvents={(id) => { setOpenEventId(id || null); goTab("events"); }}
+                myPlatformRole={myPlatformRole}
               />
             </Suspense>
           </ChunkErrorBoundary>
@@ -1335,6 +1336,7 @@ export default function SocialShell({
                 onError={onError}
                 initialEventId={openEventId}
                 onConsumedInitial={() => setOpenEventId(null)}
+                myPlatformRole={myPlatformRole}
               />
             </Suspense>
           </ChunkErrorBoundary>
