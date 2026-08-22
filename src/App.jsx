@@ -8,10 +8,8 @@ import SocialShell from "./components/SocialShell";
 import AppModals from "./components/AppModals";
 import ConnectivityBanner from "./components/ConnectivityBanner";
 import AccountDeletionBanner from "./components/AccountDeletionBanner";
-import SessionExpiryBanner from "./components/SessionExpiryBanner";
 import UpdateNotice from "./components/UpdateNotice";
 import { checkForUpdate, wasRecentlyDismissed, dismissUpdate, CHECK_INTERVAL_MS } from "./lib/version";
-import { isCriticalOperationActive } from "./lib/criticalOperationGuard";
 import EditProfileForm from "./screens/EditProfileForm";
 import UpdatePasswordScreen from "./screens/UpdatePasswordScreen";
 import OnboardingWizard from "./screens/onboarding/OnboardingWizard";
@@ -51,7 +49,6 @@ export default function App() {
   const [passPairs, setPassPairs] = useState([]); // [{from_id, to_id}]
   const likeInFlightRef = useRef(new Set()); // to_id en cours d'envoi — évite un double clic = double insert
   const passInFlightRef = useRef(new Set());
-  const [sessionExpiryWarning, setSessionExpiryWarning] = useState(false);
   const [matchNotice, setMatchNotice] = useState(null);
   const [activeMatch, setActiveMatch] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -313,64 +310,9 @@ export default function App() {
     messagesRef.current = messages;
   }, [messages]);
 
-  // Déconnexion automatique par inactivité — 30 min. Reconstruite proprement
-  // après un premier essai qui se déclenchait après ~2 min d'usage actif :
-  // ici on ne réagit qu'à une vraie activité utilisateur (souris/clavier/
-  // toucher/scroll), jamais à visibilitychange/changement d'onglet, et les
-  // deux minuteurs (avertissement + déconnexion) sont réarmés ensemble à
-  // chaque activité pour éviter tout décalage entre les deux.
-  useEffect(() => {
-    if (!session?.user?.id) return;
-    if (true) return; // eslint-disable-line no-constant-condition -- déconnexion auto par inactivité annulée sur demande explicite
-    const WARNING_MS = 25 * 60 * 1000; // avertit 5 min avant la déconnexion
-    const LOGOUT_MS = 30 * 60 * 1000;
-    let warningTimer;
-    let logoutTimer;
-
-    const clearTimers = () => {
-      clearTimeout(warningTimer);
-      clearTimeout(logoutTimer);
-    };
-
-    const scheduleTimers = () => {
-      clearTimers();
-      warningTimer = setTimeout(() => setSessionExpiryWarning(true), WARNING_MS);
-      // Ne jamais couper un upload/publication en cours (PostsFeed,
-      // CommunityCreateForm, uploadWithProgress) — on réessaie plutôt
-      // toutes les 10s tant que l'opération critique est active.
-      const attemptLogout = () => {
-        if (isCriticalOperationActive()) {
-          logoutTimer = setTimeout(attemptLogout, 10000);
-          return;
-        }
-        handleSignOut().then(() => navigate("/connexion"));
-      };
-      logoutTimer = setTimeout(attemptLogout, LOGOUT_MS);
-    };
-
-    const handleActivity = () => {
-      setSessionExpiryWarning(false);
-      scheduleTimers();
-    };
-
-    const activityEvents = ["mousedown", "keydown", "touchstart", "scroll"];
-    activityEvents.forEach((evt) => document.addEventListener(evt, handleActivity, { passive: true }));
-    scheduleTimers();
-
-    return () => {
-      clearTimers();
-      activityEvents.forEach((evt) => document.removeEventListener(evt, handleActivity));
-    };
-  }, [session?.user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Partagé par les deux rendus de <SessionExpiryBanner> plus bas (vue
-  // "checking-profile" et vue normale) — un simple événement "mousedown"
-  // suffit, capté par le même listener que l'activité réelle de l'effet
-  // ci-dessus.
-  const handleStayConnected = () => {
-    setSessionExpiryWarning(false);
-    document.dispatchEvent(new Event("mousedown"));
-  };
+  // Déconnexion automatique par inactivité : retirée définitivement sur
+  // demande explicite (les sessions ne doivent plus jamais expirer par
+  // simple inactivité).
 
   // Une fois connecté, charger les données et retrouver (ou non) son propre profil
   useEffect(() => {
@@ -1718,10 +1660,6 @@ export default function App() {
         <div className="sticky top-0 z-[95] flex flex-col">
           <ConnectivityBanner />
           <AccountDeletionBanner currentUser={currentUser} onCancelled={handleCancelAccountDeletion} />
-          <SessionExpiryBanner
-            visible={sessionExpiryWarning}
-            onStayConnected={handleStayConnected}
-          />
         </div>
         <UpdateNotice recommended={updateState.recommended} info={updateState.info} onReload={handleUpdateReload} onDismiss={handleUpdateDismiss} />
         <SocialShell
@@ -1836,10 +1774,6 @@ export default function App() {
       <div className="sticky top-0 z-[95] flex flex-col">
         <ConnectivityBanner />
         <AccountDeletionBanner currentUser={currentUser} onCancelled={handleCancelAccountDeletion} />
-        <SessionExpiryBanner
-          visible={sessionExpiryWarning}
-          onStayConnected={handleStayConnected}
-        />
       </div>
       <UpdateNotice recommended={updateState.recommended} info={updateState.info} onReload={handleUpdateReload} onDismiss={handleUpdateDismiss} />
       <style>{`
