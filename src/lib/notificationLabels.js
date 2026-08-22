@@ -1,6 +1,11 @@
-// Libellés partagés entre SocialShell.jsx (menu déroulant) et FeedTab.jsx
-// (panneau vertical dans l'accueil) — une seule source pour éviter la
+// Libellés + catégories partagés entre SocialShell.jsx (menu déroulant) et
+// FeedTab.jsx (panneau dans l'accueil) — une seule source pour éviter la
 // divergence des deux affichages.
+export const NOTIF_CATEGORIES = [
+  ["all", "Tout"], ["messages", "Messages"], ["dating", "Rencontres"],
+  ["communities", "Communautés"], ["events", "Événements"], ["follows", "Abonnés"],
+];
+
 export const NOTIFICATION_LABELS = {
   join_request_received: "Nouvelle demande d'adhésion",
   join_request_accepted: "Ta demande d'adhésion a été acceptée",

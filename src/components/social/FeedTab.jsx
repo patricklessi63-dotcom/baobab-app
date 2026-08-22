@@ -16,7 +16,7 @@ import { rankCandidates } from "../../lib/matching/matchingService";
 import { rankCommunities } from "../../lib/communities/recommendations";
 import { rankEvents } from "../../lib/events/recommendations";
 import { getProfileCompletion } from "../../lib/profileCompletion";
-import { NOTIFICATION_LABELS } from "../../lib/notificationLabels";
+import { NOTIFICATION_LABELS, NOTIF_CATEGORIES } from "../../lib/notificationLabels";
 import { primary, navy, green, coral, gold, bg, muted, card, body, primaryRgb } from "./theme";
 
 // Panneau vertical (item demandé : notifications visibles directement dans
@@ -39,43 +39,52 @@ function NotificationsPanel({
   onOpenChatWithProfile = () => {},
   goTab = () => {},
 }) {
+  const [category, setCategory] = useState("all");
+
   const items = useMemo(() => {
     const rows = [
       ...unreadDatingNotifications.map((n) => ({
         n,
+        category: "dating",
         icon: n.type === "new_match" ? "💞" : "❤️",
         label: n.actor?.name ? `${n.actor.name} — ${n.type === "new_match" ? NOTIFICATION_LABELS.new_match : NOTIFICATION_LABELS.new_like}` : (NOTIFICATION_LABELS[n.type] || "Nouvelle activité"),
         onClick: () => { markOneNotificationRead(n.id); onOpenProfile(n.target_id); },
       })),
       ...unreadMessageNotifications.map((n) => ({
         n,
+        category: "messages",
         icon: "💬",
         label: n.actor?.name ? `Nouveau message de ${n.actor.name}` : NOTIFICATION_LABELS.new_message,
         onClick: () => { markOneNotificationRead(n.id); onOpenChatWithProfile(n.target_id); },
       })),
       ...unreadFollowNotifications.map((n) => ({
         n,
+        category: "follows",
         icon: "👤",
         label: n.actor?.name ? `${n.actor.name} a commencé à te suivre` : NOTIFICATION_LABELS.new_follower,
         onClick: () => { markOneNotificationRead(n.id); onOpenProfile(n.target_id); },
       })),
       ...unreadCommunityNotifications.map((n) => ({
         n,
+        category: "communities",
         icon: n.type?.startsWith("premium_") ? "💎" : "🌍",
         label: NOTIFICATION_LABELS[n.type] || "Nouvelle activité",
         onClick: () => { markOneNotificationRead(n.id); goTab(n.type?.startsWith("premium_") ? "premium" : "communities"); },
       })),
       ...unreadEventNotifications.map((n) => ({
         n,
+        category: "events",
         icon: "🎉",
         label: NOTIFICATION_LABELS[n.type] || "Nouvelle activité",
         onClick: () => { markOneNotificationRead(n.id); goTab("events"); },
       })),
     ];
-    return rows.sort((a, b) => new Date(b.n.created_at) - new Date(a.n.created_at)).slice(0, 8);
+    return rows.sort((a, b) => new Date(b.n.created_at) - new Date(a.n.created_at));
   }, [unreadDatingNotifications, unreadMessageNotifications, unreadFollowNotifications, unreadCommunityNotifications, unreadEventNotifications, markOneNotificationRead, onOpenProfile, onOpenChatWithProfile, goTab]);
 
-  const empty = incomingFavoritesCount === 0 && items.length === 0;
+  const showFavorites = incomingFavoritesCount > 0 && (category === "all" || category === "dating");
+  const filteredItems = (category === "all" ? items : items.filter((row) => row.category === category)).slice(0, 8);
+  const empty = !showFavorites && filteredItems.length === 0;
 
   return (
     <div className={`${card} p-5 mb-6`}>
@@ -90,16 +99,34 @@ function NotificationsPanel({
           </button>
         )}
       </div>
+
+      {/* Balayage horizontal des catégories — même liste que le menu déroulant
+          du header (NOTIF_CATEGORIES partagé), tactile nativement sur mobile
+          (overflow-x-auto, comme la rangée de statuts juste au-dessus). */}
+      <div className="flex gap-1.5 overflow-x-auto pb-1 mb-3 -mx-1 px-1" style={{ scrollbarWidth: "none" }}>
+        {NOTIF_CATEGORIES.map(([key, label]) => (
+          <button
+            key={key}
+            onClick={() => setCategory(key)}
+            aria-pressed={category === key}
+            className="shrink-0 px-3 py-1.5 rounded-full text-xs font-bold focus-visible:outline focus-visible:outline-2"
+            style={{ background: category === key ? navy : bg, color: category === key ? "#fff" : muted }}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
       {empty ? (
         <EmptyState icon={Bell} title="Aucune notification pour l'instant." />
       ) : (
         <div className="flex flex-col gap-1">
-          {incomingFavoritesCount > 0 && (
+          {showFavorites && (
             <div className="px-3 py-2.5 rounded-xl text-sm" style={{ background: "#FFF3D6", color: gold }}>
               ⭐ {incomingFavoritesCount} personne{incomingFavoritesCount > 1 ? "s" : ""} t'a{incomingFavoritesCount > 1 ? "" : ""} ajouté en favori.
             </div>
           )}
-          {items.map(({ n, icon, label, onClick }) => (
+          {filteredItems.map(({ n, icon, label, onClick }) => (
             <button key={n.id} onClick={onClick} className="text-left px-3 py-2.5 rounded-xl text-sm hover:bg-[var(--bb-bg)] focus-visible:outline focus-visible:outline-2">
               {icon} {label}
             </button>

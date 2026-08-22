@@ -7,7 +7,7 @@ import { matchKey, visibleAge } from "../utils/format";
 import { useClickOutside } from "../hooks/useClickOutside";
 import { useEscapeKey } from "../hooks/useEscapeKey";
 import { primary, navy, coral, gold, bg, muted, buttonBase, body, primaryRgb } from "./social/theme";
-import { NOTIFICATION_LABELS } from "../lib/notificationLabels";
+import { NOTIFICATION_LABELS, NOTIF_CATEGORIES } from "../lib/notificationLabels";
 import Skeleton from "./Skeleton";
 import FeedTab from "./social/FeedTab";
 import DiscoverTab from "./social/DiscoverTab";
@@ -141,10 +141,6 @@ export default function SocialShell({
   const [menu, setMenu] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [notifCategory, setNotifCategory] = useState("all");
-  const NOTIF_CATEGORIES = [
-    ["all", "Tout"], ["messages", "Messages"], ["dating", "Rencontres"],
-    ["communities", "Communautés"], ["events", "Événements"], ["follows", "Abonnés"],
-  ];
   const [search, setSearch] = useState("");
   const [stories, setStories] = useState([
     { name: "Votre statut", initial: "+", own: true, color: primary },
