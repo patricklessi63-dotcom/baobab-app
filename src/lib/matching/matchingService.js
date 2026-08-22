@@ -198,6 +198,10 @@ export function filterCandidatesByPreferences(currentUser, candidates) {
   const minAge = currentUser.pref_age_min ?? 18;
   const maxAge = currentUser.pref_age_max ?? 99;
   const distance = currentUser.pref_distance || "";
+  // Filtre dur "type de relation recherché" (item audit) — jusqu'ici
+  // looking_for n'était utilisé que comme signal de score (scoreLookingFor
+  // plus bas), jamais pour exclure explicitement un profil.
+  const wantedTypes = parseList(currentUser.pref_looking_for);
 
   return candidates.filter((c) => {
     if (typeof c.age === "number" && (c.age < minAge || c.age > maxAge)) return false;
@@ -209,6 +213,11 @@ export function filterCandidatesByPreferences(currentUser, candidates) {
       const sameCity = currentUser.city && c.city && c.city.trim().toLowerCase() === currentUser.city.trim().toLowerCase();
       const sameCountry = currentUser.country && c.country && c.country.trim().toLowerCase() === currentUser.country.trim().toLowerCase();
       if (!sameCity && !sameCountry) return false;
+    }
+
+    if (wantedTypes.length > 0) {
+      const candidateTypes = parseList(c.looking_for);
+      if (!candidateTypes.some((t) => wantedTypes.includes(t))) return false;
     }
     return true;
   });

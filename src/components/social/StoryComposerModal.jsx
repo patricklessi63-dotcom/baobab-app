@@ -18,6 +18,7 @@ export default function StoryComposerModal({
   storyMediaKind,
   setStoryMediaKind,
   storyMediaError,
+  storyMediaWarning,
   storyUploading,
   storyUploadProgress,
   storyBgColor,
@@ -87,6 +88,7 @@ export default function StoryComposerModal({
                     </div>
                   )}
                   {storyMediaError && <p className="text-xs mt-2" style={{ color: coral }}>{storyMediaError}</p>}
+                  {!storyMediaError && storyMediaWarning && <p className="text-xs mt-2" style={{ color: "#A5761F" }}>⚠️ {storyMediaWarning}</p>}
                   <div className="grid grid-cols-2 gap-2 mt-4">
                     <button onClick={() => pickStoryMedia("photo")} className="rounded-xl py-3 font-bold" style={{ background: "#FFF3F1", color: coral }}><ImageIcon size={17} className="inline mr-1" />Photo</button>
                     <button onClick={() => pickStoryMedia("video")} className="rounded-xl py-3 font-bold" style={{ background: "#EEF8F4", color: green }}><Camera size={17} className="inline mr-1" />Vidéo</button>
@@ -131,6 +133,7 @@ export default function StoryComposerModal({
                   </div>
                 </div>
                 {storyMediaError && <p className="text-xs px-6" style={{ color: coral }}>{storyMediaError}</p>}
+                {!storyMediaError && storyMediaWarning && <p className="text-xs px-6" style={{ color: "#A5761F" }}>⚠️ {storyMediaWarning}</p>}
                 <div className="p-6 pt-2 shrink-0 flex flex-col gap-2">
                   <button onClick={addStory} disabled={storyUploading} className="w-full rounded-xl py-3 text-white font-bold disabled:opacity-40" style={{ background: coral }}>
                     {storyUploading ? (storyMediaKind && storyUploadProgress > 0 ? `Envoi... ${storyUploadProgress}%` : "Publication...") : "Publier"}

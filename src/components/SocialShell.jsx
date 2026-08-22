@@ -153,6 +153,7 @@ export default function SocialShell({
   const [storyMedia, setStoryMedia] = useState(null);
   const [storyMediaKind, setStoryMediaKind] = useState("");
   const [storyMediaError, setStoryMediaError] = useState("");
+  const [storyMediaWarning, setStoryMediaWarning] = useState("");
   const [storyUploading, setStoryUploading] = useState(false);
   const [storyUploadProgress, setStoryUploadProgress] = useState(0);
   const [storyBgColor, setStoryBgColor] = useState("");
@@ -721,6 +722,20 @@ export default function SocialShell({
     ? profiles.filter((p) => p.id !== currentUser?.id && !blockedIds.has(p.id) && matchesSearch(p, search))
     : [];
 
+  // Recherche "une discussion" du placeholder — jusqu'ici seule promesse non
+  // tenue de la recherche globale (personne/ville étaient déjà correctement
+  // couvertes par matchesSearch ci-dessus, vérifié en direct à l'audit).
+  // Aucune nouvelle requête : matches/lastByKey sont déjà chargés pour la
+  // prévisualisation "Tes conversations" du fil.
+  const conversationResults = search.trim()
+    ? matches.filter((m) => {
+        const last = lastByKey[matchKey(currentUser?.id, m.id)];
+        const words = normalizeForSearch(search).split(/\s+/).filter(Boolean);
+        const haystack = normalizeForSearch(`${m.name} ${last?.text || ""}`);
+        return words.every((w) => haystack.includes(w));
+      })
+    : [];
+
   const topPerson = filteredPeople[0] || null;
   const topPhotos = topPerson
     ? (profilePhotos[topPerson.id]?.length ? profilePhotos[topPerson.id] : (topPerson.avatar_url ? [{ url: topPerson.avatar_url }] : []))
@@ -776,6 +791,12 @@ export default function SocialShell({
       return;
     }
     setStoryMediaError("");
+    // Avertissement non bloquant (item audit) — les .mov iPhone en HEVC ne se
+    // lisent que sur Safari/iOS ; on prévient avant publication plutôt que de
+    // laisser l'utilisateur le découvrir après coup en consultant les vues.
+    setStoryMediaWarning(kind === "video" && file.type === "video/quicktime"
+      ? "Cette vidéo pourrait ne pas se lire sur tous les appareils (format .mov). Si possible, publie-la en MP4."
+      : "");
     setStoryMedia(file);
     setStoryMediaKind(kind);
   };
@@ -836,6 +857,7 @@ export default function SocialShell({
       setStoryMedia(null);
       setStoryMediaKind("");
       setStoryMediaError("");
+      setStoryMediaWarning("");
       setStoryBgColor("");
       setStoryStep("compose");
       setStoryComposer(false);
@@ -1064,7 +1086,21 @@ export default function SocialShell({
               {search && <button onClick={() => setSearch("")} aria-label="Effacer la recherche"><X size={16} color={muted} /></button>}
             </div>
             {search && (
-              <div className="absolute top-14 left-0 right-0 bg-[var(--bb-surface)] rounded-2xl border border-[var(--bb-border)] shadow-2xl p-2 z-50">
+              <div className="absolute top-14 left-0 right-0 bg-[var(--bb-surface)] rounded-2xl border border-[var(--bb-border)] shadow-2xl p-2 z-50 max-h-[70vh] overflow-y-auto">
+                {conversationResults.length > 0 && (
+                  <>
+                    <div className="px-3 py-2 text-[11px] font-black uppercase tracking-wider" style={{ color: muted }}>Discussions</div>
+                    {conversationResults.slice(0, 5).map((m) => {
+                      const last = lastByKey[matchKey(currentUser?.id, m.id)];
+                      return (
+                        <button key={m.id} onClick={() => { setSearch(""); openChat(m); }} className="w-full flex items-center gap-3 p-2.5 rounded-xl hover:bg-[var(--bb-bg)] text-left">
+                          <Avatar name={m.name} url={m.avatar_url} size={38} />
+                          <div className="min-w-0"><div className="text-sm font-bold truncate">{m.name}</div><div className="text-xs truncate" style={{ color: muted }}>{last?.text || "Discussion"}</div></div>
+                        </button>
+                      );
+                    })}
+                  </>
+                )}
                 <div className="px-3 py-2 text-[11px] font-black uppercase tracking-wider" style={{ color: muted }}>Personnes</div>
                 {searchResults.slice(0, 8).map((p) => (
                   <button key={p.id} onClick={() => { setSearch(""); setViewedProfileId(p.id); }} className="w-full flex items-center gap-3 p-2.5 rounded-xl hover:bg-[var(--bb-bg)] text-left">
@@ -1072,7 +1108,7 @@ export default function SocialShell({
                     <div className="min-w-0"><div className="text-sm font-bold truncate">{p.name}{visibleAge(p) ? `, ${visibleAge(p)}` : ""}</div><div className="text-xs" style={{ color: muted }}>{p.city || "Canada"} · {p.country || "Afrique"}</div></div>
                   </button>
                 ))}
-                {searchResults.length === 0 && <div className="px-3 py-3 text-sm" style={{ color: muted }}>Aucun profil trouvé.</div>}
+                {searchResults.length === 0 && conversationResults.length === 0 && <div className="px-3 py-3 text-sm" style={{ color: muted }}>Aucun résultat.</div>}
               </div>
             )}
           </div>
@@ -1422,6 +1458,7 @@ export default function SocialShell({
         storyMediaKind={storyMediaKind}
         setStoryMediaKind={setStoryMediaKind}
         storyMediaError={storyMediaError}
+        storyMediaWarning={storyMediaWarning}
         storyUploading={storyUploading}
         storyUploadProgress={storyUploadProgress}
         storyBgColor={storyBgColor}

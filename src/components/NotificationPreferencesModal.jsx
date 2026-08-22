@@ -15,7 +15,7 @@ const CATEGORIES = [
   { key: "follows", label: "Abonnements", icon: UserPlus },
   { key: "communities", label: "Communautés", icon: Users2 },
   { key: "events", label: "Événements", icon: PartyPopper },
-  { key: "marketing", label: "Marketing", icon: Megaphone },
+  { key: "marketing", label: "Marketing (bientôt)", icon: Megaphone },
 ];
 
 // Filtrage appliqué côté client à l'affichage du panneau de notifications

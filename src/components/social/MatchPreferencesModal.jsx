@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { X } from "lucide-react";
 import ChipSelect from "../ChipSelect";
-import { MATCH_DISTANCE_OPTIONS } from "../../constants";
+import { MATCH_DISTANCE_OPTIONS, LOOKING_FOR_OPTIONS } from "../../constants";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
 import { primary, coral, bg, muted, card, primaryRgb } from "./theme";
 
@@ -9,6 +9,7 @@ export default function MatchPreferencesModal({ open, onClose, currentUser, onSa
   const [ageMin, setAgeMin] = useState(18);
   const [ageMax, setAgeMax] = useState(99);
   const [distance, setDistance] = useState("");
+  const [lookingFor, setLookingFor] = useState([]);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -16,6 +17,7 @@ export default function MatchPreferencesModal({ open, onClose, currentUser, onSa
     setAgeMin(currentUser?.pref_age_min ?? 18);
     setAgeMax(currentUser?.pref_age_max ?? 99);
     setDistance(currentUser?.pref_distance || "");
+    setLookingFor((currentUser?.pref_looking_for || "").split(",").map((s) => s.trim()).filter(Boolean));
     setError("");
   }, [open, currentUser]);
 
@@ -29,7 +31,7 @@ export default function MatchPreferencesModal({ open, onClose, currentUser, onSa
       setError("Choisis une tranche d'âge valide (18 à 99, minimum ≤ maximum).");
       return;
     }
-    onSave({ pref_age_min: min, pref_age_max: max, pref_distance: distance });
+    onSave({ pref_age_min: min, pref_age_max: max, pref_distance: distance, pref_looking_for: lookingFor.join(", ") });
     onClose();
   };
 
@@ -73,6 +75,12 @@ export default function MatchPreferencesModal({ open, onClose, currentUser, onSa
         <label className="block text-xs font-semibold mt-4" style={{ color: muted }}>Distance</label>
         <div className="mt-1.5">
           <ChipSelect options={MATCH_DISTANCE_OPTIONS} value={distance} onChange={setDistance} />
+        </div>
+
+        <label className="block text-xs font-semibold mt-4" style={{ color: muted }}>Ce que la personne recherche</label>
+        <p className="text-[11px] mt-0.5 mb-1.5" style={{ color: muted }}>Laisse vide pour ne filtrer sur aucun critère.</p>
+        <div className="mt-1.5">
+          <ChipSelect options={LOOKING_FOR_OPTIONS} value={lookingFor} onChange={setLookingFor} multi />
         </div>
 
         {error && <p className="text-xs mt-3" style={{ color: coral }}>{error}</p>}
