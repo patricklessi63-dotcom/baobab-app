@@ -49,7 +49,7 @@ export default function UpdatePasswordScreen({ onDone }) {
     <div className="bb-auth min-h-screen flex items-center justify-center px-4" style={{ background: C.dusk, color: C.sand, fontFamily: "Inter, system-ui, sans-serif" }}>
       <style>{`@media (prefers-reduced-motion: reduce) { .bb-auth * { animation: none !important; transition: none !important; } }`}</style>
       <div className="w-full max-w-sm rounded-[30px] p-6 sm:p-7"
-        style={{ background: "rgba(15,21,38,0.80)", border: "1px solid rgba(242,233,220,0.16)",
+        style={{ background: "rgba(13,32,22,0.80)", border: "1px solid rgba(242,233,220,0.16)",
           boxShadow: "0 30px 90px rgba(0,0,0,0.52)", backdropFilter: "blur(22px)" }}>
         <div style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 24 }} className="mb-1">
           Nouveau mot de passe

@@ -27,7 +27,7 @@ export default function PasswordField({
       )}
       <div
         className="bb-field flex items-center gap-3 rounded-2xl px-4"
-        style={{ background: "rgba(35,45,82,0.78)", border: `1px solid ${invalid ? "rgba(193,97,61,0.55)" : "rgba(242,233,220,0.11)"}` }}
+        style={{ background: "rgba(26,54,38,0.78)", border: `1px solid ${invalid ? "rgba(193,97,61,0.55)" : "rgba(242,233,220,0.11)"}` }}
       >
         <Lock size={17} color={C.sandDim} />
         <input
