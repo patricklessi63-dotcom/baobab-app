@@ -60,6 +60,13 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
   const publishingRef = useRef(false);
   const likeInFlightRef = useRef(new Set());
 
+  // Scroll infini + bandeau "nouvelles publications" (item audit — jusqu'ici
+  // seul un bouton "Charger plus" manuel existait, aucun moyen de savoir
+  // qu'il y avait du nouveau contenu sans recharger toute la page).
+  const [newPostsCount, setNewPostsCount] = useState(0);
+  const sentinelRef = useRef(null);
+  const loadingMoreRef = useRef(false);
+
   const [reportTarget, setReportTarget] = useState(null);
   const [reportCategory, setReportCategory] = useState("");
   const [reportReason, setReportReason] = useState("");
@@ -143,7 +150,46 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
   useEffect(() => {
     if (!currentUser) return;
     loadPosts(0);
+    setNewPostsCount(0);
   }, [currentUser?.id, authorId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Détecte les nouvelles publications en direct (Realtime) — n'insère
+  // jamais automatiquement dans la liste affichée (éviterait un décalage
+  // pendant que l'utilisateur lit), se contente d'incrémenter un compteur
+  // affiché en bandeau ; charger le nouveau contenu reste un choix explicite.
+  useEffect(() => {
+    if (!currentUser) return;
+    const filter = authorId ? `author_id=eq.${authorId}` : undefined;
+    const channel = supabase
+      .channel(`posts-feed:${authorId || "all"}`)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "posts", filter }, (payload) => {
+        if (payload.new.author_id === currentUser.id) return; // ses propres publications s'affichent déjà tout de suite
+        if (blockedIds.has(payload.new.author_id)) return;
+        setNewPostsCount((n) => n + 1);
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [currentUser?.id, authorId, blockedIds]);
+
+  const loadNewPosts = () => {
+    loadPosts(0);
+    setNewPostsCount(0);
+  };
+
+  // Sentinelle en fin de liste : charge la page suivante automatiquement
+  // dès qu'elle approche du viewport, le bouton "Charger plus" reste en
+  // repli (utile si l'observer n'est pas supporté ou pour un clic explicite).
+  useEffect(() => {
+    if (!sentinelRef.current || !hasMore) return;
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting && !loadingMoreRef.current) {
+        loadingMoreRef.current = true;
+        loadPosts(page + 1).finally(() => { loadingMoreRef.current = false; });
+      }
+    }, { rootMargin: "400px" });
+    observer.observe(sentinelRef.current);
+    return () => observer.disconnect();
+  }, [hasMore, page]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Brouillon texte uniquement (localStorage) — un média sélectionné (File)
   // ne survit pas à un rechargement de page, donc ne prétend jamais l'être :
@@ -577,7 +623,10 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
               })}
             </div>
             {hasMore && (
-              <button onClick={() => loadPosts(page + 1)} className="w-full mt-3 py-2.5 rounded-xl text-sm font-bold" style={{ background: bg, color: primary }}>Charger plus</button>
+              <>
+                <div ref={sentinelRef} aria-hidden="true" />
+                <button onClick={() => loadPosts(page + 1)} className="w-full mt-3 py-2.5 rounded-xl text-sm font-bold" style={{ background: bg, color: primary }}>Charger plus</button>
+              </>
             )}
           </>
         )}
@@ -599,6 +648,11 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
         <EmptyState icon={ImageIcon} title="Aucune publication pour l'instant." subtitle="Sois le/la premier·ère à partager quelque chose." />
       ) : (
         <>
+          {newPostsCount > 0 && (
+            <button onClick={loadNewPosts} className="w-full mb-3 py-2.5 rounded-xl text-sm font-bold text-white" style={{ background: coral }}>
+              {newPostsCount} nouvelle{newPostsCount > 1 ? "s" : ""} publication{newPostsCount > 1 ? "s" : ""} — voir
+            </button>
+          )}
           <div className="flex flex-col">
             {posts.map((post) => (
               <PostCard
@@ -620,7 +674,10 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
             ))}
           </div>
           {hasMore && (
-            <button onClick={() => loadPosts(page + 1)} className="w-full mt-3 py-2.5 rounded-xl text-sm font-bold" style={{ background: bg, color: primary }}>Charger plus</button>
+            <>
+              <div ref={sentinelRef} aria-hidden="true" />
+              <button onClick={() => loadPosts(page + 1)} className="w-full mt-3 py-2.5 rounded-xl text-sm font-bold" style={{ background: bg, color: primary }}>Charger plus</button>
+            </>
           )}
         </>
       )}
