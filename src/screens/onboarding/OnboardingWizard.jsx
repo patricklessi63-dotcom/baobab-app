@@ -229,6 +229,36 @@ export default function OnboardingWizard({
     setStep((s) => s - 1);
   }
 
+  // "Profil complétable plus tard sans bloquer l'accès" (item audit
+  // onboarding) — à partir de l'étape 5 (identité/photo/localisation déjà
+  // acquises, le minimum pour être un profil utilisable), termine
+  // l'inscription immédiatement avec les données déjà saisies ; le reste
+  // (langues, intentions, projet de vie, centres d'intérêt, bio) reste
+  // complétable après coup depuis Modifier mon profil, comme n'importe quel
+  // autre réglage — jamais reproposé de force au prochain lancement.
+  async function finishLater() {
+    if (!currentUser || saving) return;
+    setSaving(true);
+    setError("");
+    try {
+      const { data, error: updateError } = await supabase
+        .from("profiles")
+        .update({ onboarding_completed_at: new Date().toISOString() })
+        .eq("id", currentUser.id)
+        .select()
+        .single();
+      if (updateError) throw updateError;
+      setCurrentUser(data);
+      setProfiles((prev) => prev.map((p) => (p.id === data.id ? data : p)));
+      setShowNotifPrompt(true);
+    } catch (e) {
+      console.error("onboarding finishLater error:", e?.message, "| code:", e?.code, "| details:", e?.details, "| hint:", e?.hint);
+      setError("Une erreur est survenue. Réessaie.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   const StepComponent = {
     1: Step0Welcome, 2: Step1Identity, 3: Step2Photo, 4: Step3Location, 5: Step4CanadaJourney,
     6: Step5Languages, 7: Step6LookingFor, 8: Step7LifeProject, 9: Step8Interests, 10: Step9PersonalityBio,
@@ -275,6 +305,16 @@ export default function OnboardingWizard({
           style={{ color: "rgba(var(--bb-ink-rgb-static),0.5)" }}
         >
           Passer cette étape
+        </button>
+      )}
+      {step >= 5 && step < STEP_COUNT && (
+        <button
+          onClick={finishLater}
+          disabled={saving}
+          className="w-full mt-2 py-2.5 text-sm font-semibold"
+          style={{ color: "rgba(var(--bb-ink-rgb-static),0.5)" }}
+        >
+          Terminer plus tard — accéder à Baobab maintenant
         </button>
       )}
     </div>
