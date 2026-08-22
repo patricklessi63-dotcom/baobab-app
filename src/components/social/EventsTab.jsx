@@ -104,6 +104,7 @@ export default function EventsTab({ currentUser, onError, initialEventId, onCons
   const [shareSending, setShareSending] = useState(false);
 
   const joinInFlightRef = useRef(new Set());
+  const leaveInFlightRef = useRef(new Set());
 
   const isNeutralHome = !search.trim() && !filterCity.trim() && !filterCategory && !filterDateRange;
 
@@ -328,7 +329,13 @@ export default function EventsTab({ currentUser, onError, initialEventId, onCons
   };
 
   const handleLeave = async (ev) => {
-    if (!currentUser) return;
+    // Garde-fou manquant identifié à l'audit : contrairement à handleJoin
+    // ci-dessus, ce bouton n'a ni confirm() ni état disabled pendant la
+    // requête — un double clic/double tap rapide pouvait déclencher deux
+    // appels avant que myStatuses ne se mette à jour, et donc décrémenter
+    // adjustParticipantCount deux fois pour un seul départ réel.
+    if (!currentUser || leaveInFlightRef.current.has(ev.id)) return;
+    leaveInFlightRef.current.add(ev.id);
     const wasGoing = myStatuses[ev.id] === "going";
     try {
       const { error } = await supabase.from("event_attendees").delete().eq("event_id", ev.id).eq("profile_id", currentUser.id);
@@ -338,6 +345,8 @@ export default function EventsTab({ currentUser, onError, initialEventId, onCons
     } catch (e) {
       console.error(e);
       onError("Impossible de te retirer de cet événement.");
+    } finally {
+      leaveInFlightRef.current.delete(ev.id);
     }
   };
 

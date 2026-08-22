@@ -436,10 +436,13 @@ export default function SocialShell({
         (payload) => {
           const mk = payload.new.match_key;
           if (!keys.has(mk)) return;
+          // L'incrément de unreadByKey pour un INSERT est géré exclusivement
+          // par le canal global "global-messages" plus bas : les deux canaux
+          // reçoivent le même événement (la RLS de "messages" borne déjà ce
+          // canal-ci aux mêmes conversations que "keys"), et incrémenter ICI
+          // EN PLUS doublait le badge de non-lus à chaque message reçu (bug
+          // confirmé à l'audit). Seul lastByKey reste mis à jour ici.
           setLastByKey((prev) => ({ ...prev, [mk]: payload.new }));
-          if (payload.new.from_id !== currentUser.id && !payload.new.read_at) {
-            setUnreadByKey((prev) => ({ ...prev, [mk]: (prev[mk] || 0) + 1 }));
-          }
         }
       )
       .on(
