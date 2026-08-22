@@ -5,7 +5,7 @@ import { getSignedUrl } from "../../lib/signedUrlCache";
 import { formatFileSize } from "../../lib/mediaConstants";
 import { STICKER_GRADIENTS } from "../../lib/stickerData";
 import { formatEventWhen } from "../../utils/format";
-import MediaViewerModal from "./MediaViewerModal";
+import { useImageLightbox } from "../../lib/ImageLightboxContext";
 import { primary, bg, body, primaryRgb } from "./theme";
 
 function useLocalOrSignedUrl(m) {
@@ -74,7 +74,7 @@ function AudioPlayer({ src }) {
 }
 
 export default function MessageBubbleMedia({ m, isMine }) {
-  const [viewerOpen, setViewerOpen] = useState(false);
+  const { openLightbox } = useImageLightbox();
   const [fileUrl, setFileUrl] = useState(null);
   const [resolvingFile, setResolvingFile] = useState(false);
   const url = useLocalOrSignedUrl(m);
@@ -124,7 +124,7 @@ export default function MessageBubbleMedia({ m, isMine }) {
           <img
             src={url}
             alt={m.media_meta?.original_name || "Photo"}
-            onClick={() => !uploading && setViewerOpen(true)}
+            onClick={() => !uploading && openLightbox([{ url, alt: m.media_meta?.original_name }])}
             className="block w-full object-cover cursor-pointer"
             style={{ maxHeight: 260 }}
             loading="lazy"
@@ -133,7 +133,6 @@ export default function MessageBubbleMedia({ m, isMine }) {
           <div className="flex items-center justify-center" style={{ width: 200, height: 150, background: bg }} />
         )}
         <UploadProgress progress={progress} />
-        {viewerOpen && <MediaViewerModal url={url} alt={m.media_meta?.original_name} onClose={() => setViewerOpen(false)} />}
       </div>
     );
   }

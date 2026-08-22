@@ -4,7 +4,7 @@ import Avatar from "../Avatar";
 import StatusBadge from "../StatusBadge";
 import EmptyState from "../home/EmptyState";
 import PostsFeed from "./PostsFeed";
-import MediaViewerModal from "./MediaViewerModal";
+import { useImageLightbox } from "../../lib/ImageLightboxContext";
 import { supabase } from "../../supabaseClient";
 import { getProfileCompletion } from "../../lib/profileCompletion";
 import { categoryIcon, categoryLabel } from "../../lib/communities/communityConfig";
@@ -43,7 +43,11 @@ export default function ProfileTab({
 }) {
           const { isPremium, subscription } = usePremiumStatus(currentUser);
           const [managingSubscription, setManagingSubscription] = useState(false);
-          const [viewerMedia, setViewerMedia] = useState(null); // { url, alt } | null
+          // Passe par le visualiseur global (ImageLightboxContext) plutôt qu'une
+          // instance locale de MediaViewerModal — une instance nichée dans
+          // <main> (z-10, voir SocialShell.jsx) reste piégée sous la barre de
+          // navigation (z-40, fixed) : la nav restait cliquable par-dessus.
+          const { openLightbox } = useImageLightbox();
           const [networkView, setNetworkView] = useState("following");
           const handleManageSubscription = async () => {
             setManagingSubscription(true);
@@ -93,7 +97,7 @@ export default function ProfileTab({
                     ? { background: `url(${currentUser.cover_url}) center/cover`, cursor: "zoom-in" }
                     : { background: `linear-gradient(135deg,${navy},#1E4632 50%,${green})` }
                 }
-                onClick={() => currentUser?.cover_url && setViewerMedia({ url: currentUser.cover_url, alt: "Photo de couverture" })}
+                onClick={() => currentUser?.cover_url && openLightbox([{ url: currentUser.cover_url, alt: "Photo de couverture" }])}
                 role={currentUser?.cover_url ? "button" : undefined}
                 aria-label={currentUser?.cover_url ? "Agrandir la photo de couverture" : undefined}
               >
@@ -110,7 +114,7 @@ export default function ProfileTab({
                   <div
                     className="rounded-full p-1.5 bg-white"
                     style={{ ...(currentUser?.is_founder ? { boxShadow: `0 0 0 3px ${gold}` } : null), cursor: currentUser?.avatar_url ? "zoom-in" : undefined }}
-                    onClick={(e) => { if (currentUser?.avatar_url) { e.stopPropagation(); setViewerMedia({ url: currentUser.avatar_url, alt: "Photo de profil" }); } }}
+                    onClick={(e) => { if (currentUser?.avatar_url) { e.stopPropagation(); openLightbox([{ url: currentUser.avatar_url, alt: "Photo de profil" }]); } }}
                     role={currentUser?.avatar_url ? "button" : undefined}
                     aria-label={currentUser?.avatar_url ? "Agrandir la photo de profil" : undefined}
                   >
@@ -323,7 +327,6 @@ export default function ProfileTab({
                 </div>
               )}
             </div>
-            <MediaViewerModal url={viewerMedia?.url} alt={viewerMedia?.alt} onClose={() => setViewerMedia(null)} />
           </section>
   );
 }
