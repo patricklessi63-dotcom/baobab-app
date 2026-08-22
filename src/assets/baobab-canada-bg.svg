@@ -1,9 +1,9 @@
 <svg viewBox="0 0 1600 1000" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMax slice">
   <defs>
     <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#0B0F22"/>
-      <stop offset="35%" stop-color="#1B2547"/>
-      <stop offset="62%" stop-color="#5A3A52"/>
+      <stop offset="0%" stop-color="#08150F"/>
+      <stop offset="35%" stop-color="#12321F"/>
+      <stop offset="62%" stop-color="#584A2E"/>
       <stop offset="82%" stop-color="#C1613D"/>
       <stop offset="100%" stop-color="#E8A24C"/>
     </linearGradient>
@@ -23,8 +23,8 @@
       <stop offset="100%" stop-color="#D9A441" stop-opacity="0"/>
     </linearGradient>
     <linearGradient id="mountain" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#2B2F52"/>
-      <stop offset="100%" stop-color="#171B33"/>
+      <stop offset="0%" stop-color="#233A2A"/>
+      <stop offset="100%" stop-color="#111F17"/>
     </linearGradient>
     <linearGradient id="savanna" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0%" stop-color="#3A2E28"/>
