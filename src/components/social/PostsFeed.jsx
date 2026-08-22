@@ -95,14 +95,39 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
     post_media: (p.post_media || []).slice().sort((a, b) => a.position - b.position),
   });
 
+  // Requête posts + post_media séparée en deux appels (plutôt qu'un embed
+  // PostgREST "post_media(*)" imbriqué dans le select) : tant que
+  // supabase-post-media.sql n'a pas été exécuté en prod, la table
+  // post_media n'existe pas et PostgREST renvoie une erreur 400 sur TOUT
+  // le select s'il contient l'embed — ce qui cassait le chargement du fil
+  // entier, pas seulement la galerie multi-médias. Ici, un post_media
+  // manquant ne fait que retomber sur des galeries vides (PostCard sait
+  // déjà retomber sur l'ancien media_url/media_kind), jamais casser le fil.
   const loadPosts = async (pageNum) => {
     if (pageNum === 0) setPostsLoading(true);
     try {
-      let query = supabase.from("posts").select("*, profiles(name, avatar_url), post_media(*)").order("created_at", { ascending: false });
+      let query = supabase.from("posts").select("*, profiles(name, avatar_url)").order("created_at", { ascending: false });
       if (authorId) query = query.eq("author_id", authorId);
       const { data, error } = await query.range(pageNum * PAGE_SIZE, pageNum * PAGE_SIZE + PAGE_SIZE - 1);
       if (error) throw error;
-      const rows = (data || []).filter((p) => !blockedIds.has(p.author_id)).map(normalizePost);
+      let mediaByPost = {};
+      const ids = (data || []).map((p) => p.id);
+      if (ids.length > 0) {
+        try {
+          const { data: mediaRows, error: mediaError } = await supabase.from("post_media").select("*").in("post_id", ids);
+          if (mediaError) throw mediaError;
+          (mediaRows || []).forEach((m) => {
+            (mediaByPost[m.post_id] ||= []).push(m);
+          });
+        } catch (mediaErr) {
+          console.error(mediaErr);
+          // post_media pas encore migrée en prod — le fil continue de
+          // fonctionner avec la galerie vide plutôt que planter.
+        }
+      }
+      const rows = (data || [])
+        .filter((p) => !blockedIds.has(p.author_id))
+        .map((p) => normalizePost({ ...p, post_media: mediaByPost[p.id] || [] }));
       setPosts((prev) => (pageNum === 0 ? rows : [...prev, ...rows]));
       setHasMore((data || []).length === PAGE_SIZE);
       setPage(pageNum);
