@@ -16,7 +16,7 @@ import { rankCandidates } from "../../lib/matching/matchingService";
 import { rankCommunities } from "../../lib/communities/recommendations";
 import { rankEvents } from "../../lib/events/recommendations";
 import { getProfileCompletion } from "../../lib/profileCompletion";
-import { NOTIFICATION_LABELS, NOTIF_CATEGORIES } from "../../lib/notificationLabels";
+import { NOTIFICATION_LABELS, NOTIF_CATEGORIES, groupNotificationRows } from "../../lib/notificationLabels";
 import { primary, navy, green, coral, gold, bg, muted, card, body, primaryRgb } from "./theme";
 
 // Panneau vertical (item demandé : notifications visibles directement dans
@@ -106,7 +106,11 @@ function NotificationsPanel({
         onClick: () => { markOneNotificationRead(n.id); goTab("events"); },
       })),
     ];
-    return rows.sort((a, b) => new Date(b.n.created_at) - new Date(a.n.created_at));
+    return groupNotificationRows(rows).map((row) => (
+      row.groupIds
+        ? { ...row, onClick: () => { row.groupIds.forEach(markOneNotificationRead); row.onClick(); } }
+        : row
+    ));
   }, [unreadDatingNotifications, unreadMessageNotifications, unreadFollowNotifications, unreadCommunityNotifications, unreadEventNotifications, markOneNotificationRead, onOpenProfile, onOpenChatWithProfile, goTab]);
 
   const showFavorites = incomingFavoritesCount > 0 && (category === "all" || category === "dating");

@@ -7,7 +7,7 @@ import { matchKey, visibleAge } from "../utils/format";
 import { useClickOutside } from "../hooks/useClickOutside";
 import { useEscapeKey } from "../hooks/useEscapeKey";
 import { primary, navy, coral, gold, bg, muted, buttonBase, body, primaryRgb } from "./social/theme";
-import { NOTIFICATION_LABELS, NOTIF_CATEGORIES } from "../lib/notificationLabels";
+import { NOTIFICATION_LABELS, NOTIF_CATEGORIES, groupNotificationRows } from "../lib/notificationLabels";
 import Skeleton from "./Skeleton";
 import FeedTab from "./social/FeedTab";
 import DiscoverTab from "./social/DiscoverTab";
@@ -1150,31 +1150,43 @@ export default function SocialShell({
                         ⭐ {incomingFavoritesCount} personne{incomingFavoritesCount > 1 ? "s" : ""} t'a{incomingFavoritesCount > 1 ? "" : ""} ajouté en favori.
                       </div>
                     )}
-                    {(notifCategory === "all" || notifCategory === "dating") && unreadDatingNotifications.map((n) => (
-                      <button key={n.id} onClick={() => { setNotificationsOpen(false); markOneNotificationRead(n.id); setViewedProfileId(n.target_id); }} className="text-left px-2 py-2.5 rounded-xl text-sm hover:bg-[var(--bb-bg)] focus-visible:outline focus-visible:outline-2">
-                        {n.type === "new_match" ? "💞" : "❤️"} {n.actor?.name ? `${n.actor.name} — ${n.type === "new_match" ? NOTIFICATION_LABELS.new_match : NOTIFICATION_LABELS.new_like}` : (NOTIFICATION_LABELS[n.type] || "Nouvelle activité")}
-                      </button>
-                    ))}
-                    {(notifCategory === "all" || notifCategory === "messages") && unreadMessageNotifications.map((n) => (
-                      <button key={n.id} onClick={() => { setNotificationsOpen(false); markOneNotificationRead(n.id); openChatWithProfileId(n.target_id); }} className="text-left px-2 py-2.5 rounded-xl text-sm hover:bg-[var(--bb-bg)] focus-visible:outline focus-visible:outline-2">
-                        💬 {n.actor?.name ? `Nouveau message de ${n.actor.name}` : NOTIFICATION_LABELS.new_message}
-                      </button>
-                    ))}
-                    {(notifCategory === "all" || notifCategory === "follows") && unreadFollowNotifications.map((n) => (
-                      <button key={n.id} onClick={() => { setNotificationsOpen(false); markOneNotificationRead(n.id); setViewedProfileId(n.target_id); }} className="text-left px-2 py-2.5 rounded-xl text-sm hover:bg-[var(--bb-bg)] focus-visible:outline focus-visible:outline-2">
-                        👤 {n.actor?.name ? `${n.actor.name} a commencé à te suivre` : NOTIFICATION_LABELS.new_follower}
-                      </button>
-                    ))}
-                    {(notifCategory === "all" || notifCategory === "communities") && unreadCommunityNotifications.map((n) => (
-                      <button key={n.id} onClick={() => { setNotificationsOpen(false); markOneNotificationRead(n.id); goTab(n.type?.startsWith("premium_") ? "premium" : "communities"); }} className="text-left px-2 py-2.5 rounded-xl text-sm hover:bg-[var(--bb-bg)] focus-visible:outline focus-visible:outline-2">
-                        {n.type?.startsWith("premium_") ? "💎" : "🌍"} {NOTIFICATION_LABELS[n.type] || "Nouvelle activité"}
-                      </button>
-                    ))}
-                    {(notifCategory === "all" || notifCategory === "events") && unreadEventNotifications.map((n) => (
-                      <button key={n.id} onClick={() => { setNotificationsOpen(false); markOneNotificationRead(n.id); goTab("events"); }} className="text-left px-2 py-2.5 rounded-xl text-sm hover:bg-[var(--bb-bg)] focus-visible:outline focus-visible:outline-2">
-                        🎉 {NOTIFICATION_LABELS[n.type] || "Nouvelle activité"}
-                      </button>
-                    ))}
+                    {groupNotificationRows([
+                      ...unreadDatingNotifications.map((n) => ({
+                        n, category: "dating", icon: n.type === "new_match" ? "💞" : "❤️",
+                        label: n.actor?.name ? `${n.actor.name} — ${n.type === "new_match" ? NOTIFICATION_LABELS.new_match : NOTIFICATION_LABELS.new_like}` : (NOTIFICATION_LABELS[n.type] || "Nouvelle activité"),
+                        onClick: () => { markOneNotificationRead(n.id); setViewedProfileId(n.target_id); },
+                      })),
+                      ...unreadMessageNotifications.map((n) => ({
+                        n, category: "messages", icon: "💬",
+                        label: n.actor?.name ? `Nouveau message de ${n.actor.name}` : NOTIFICATION_LABELS.new_message,
+                        onClick: () => { markOneNotificationRead(n.id); openChatWithProfileId(n.target_id); },
+                      })),
+                      ...unreadFollowNotifications.map((n) => ({
+                        n, category: "follows", icon: "👤",
+                        label: n.actor?.name ? `${n.actor.name} a commencé à te suivre` : NOTIFICATION_LABELS.new_follower,
+                        onClick: () => { markOneNotificationRead(n.id); setViewedProfileId(n.target_id); },
+                      })),
+                      ...unreadCommunityNotifications.map((n) => ({
+                        n, category: "communities", icon: n.type?.startsWith("premium_") ? "💎" : "🌍",
+                        label: NOTIFICATION_LABELS[n.type] || "Nouvelle activité",
+                        onClick: () => { markOneNotificationRead(n.id); goTab(n.type?.startsWith("premium_") ? "premium" : "communities"); },
+                      })),
+                      ...unreadEventNotifications.map((n) => ({
+                        n, category: "events", icon: "🎉",
+                        label: NOTIFICATION_LABELS[n.type] || "Nouvelle activité",
+                        onClick: () => { markOneNotificationRead(n.id); goTab("events"); },
+                      })),
+                    ])
+                      .filter((row) => notifCategory === "all" || row.category === notifCategory)
+                      .map((row) => (
+                        <button
+                          key={row.n.id}
+                          onClick={() => { setNotificationsOpen(false); if (row.groupIds) row.groupIds.forEach(markOneNotificationRead); row.onClick(); }}
+                          className="text-left px-2 py-2.5 rounded-xl text-sm hover:bg-[var(--bb-bg)] focus-visible:outline focus-visible:outline-2"
+                        >
+                          {row.icon} {row.label}
+                        </button>
+                      ))}
                   </div>
                 )}
               </div>

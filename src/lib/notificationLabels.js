@@ -33,3 +33,30 @@ export const NOTIFICATION_LABELS = {
   premium_payment_failed: "Échec du paiement de ton abonnement",
   premium_renewing_soon: "Ton abonnement Premium se renouvelle bientôt",
 };
+
+// Regroupement client des notifications similaires (item audit — jusqu'ici
+// chaque événement générait sa propre ligne, même 5 "like" identiques sur la
+// même publication). Groupe par (catégorie, type) : conserve la ligne la
+// plus récente comme représentante (icône, action au clic), remplace
+// seulement le libellé affiché par un résumé "Nom, Nom +N — action". Ne
+// touche à aucune donnée en base, purement un regroupement d'affichage.
+export function groupNotificationRows(rows) {
+  const groups = new Map();
+  for (const row of rows) {
+    const key = `${row.category}:${row.n.type}`;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(row);
+  }
+  const result = [];
+  for (const group of groups.values()) {
+    if (group.length === 1) { result.push(group[0]); continue; }
+    const [mostRecent] = group;
+    const baseLabel = NOTIFICATION_LABELS[mostRecent.n.type] || "Nouvelle activité";
+    const names = [...new Set(group.map((r) => r.n.actor?.name).filter(Boolean))];
+    const label = names.length > 0
+      ? `${names.slice(0, 2).join(", ")}${names.length > 2 ? ` +${names.length - 2}` : ""} — ${baseLabel}`
+      : `${group.length} × ${baseLabel}`;
+    result.push({ ...mostRecent, label, groupCount: group.length, groupIds: group.map((r) => r.n.id) });
+  }
+  return result.sort((a, b) => new Date(b.n.created_at) - new Date(a.n.created_at));
+}
