@@ -8,7 +8,7 @@ import EventCard from "./EventCard";
 import EmptyState from "../home/EmptyState";
 import Skeleton from "../Skeleton";
 import { categoryIcon, categoryLabel } from "../../lib/communities/communityConfig";
-import { isStaff, canPost } from "../../lib/communities/permissions";
+import { isStaff, isMod, canPost } from "../../lib/communities/permissions";
 import { primary, green, coral, gold, muted, bg, card, body, primaryRgb, navy } from "./theme";
 
 const SUB_TABS = [["about", "À propos"], ["posts", "Publications"], ["events", "Événements"], ["members", "Membres"]];
@@ -62,11 +62,19 @@ export default function CommunityDetailView({
 }) {
   const [subTab, setSubTab] = useState("posts");
   const staff = isStaff(viewerRole);
+  // Onglet "Gestion" : ouvert dès moderator, pas seulement owner/admin — les
+  // signalements de communauté sont chargés côté serveur pour is_community_mod
+  // (owner/admin/moderator, voir CommunitiesTab.loadReports/community_reports
+  // RLS dans supabase-communities.sql) alors que les demandes d'adhésion
+  // restent réservées à owner/admin (accept_join_request/reject_join_request
+  // exigent is_community_staff). Sans ça, un modérateur avait ses
+  // signalements chargés en mémoire mais aucun moyen de les voir ni d'agir.
+  const mod = isMod(viewerRole);
   const isPrivate = community.visibility === "private";
   const isInviteOnly = community.visibility === "invite_only";
   const canSeeContent = community.visibility === "public" || Boolean(viewerRole);
 
-  const tabs = staff ? [...SUB_TABS, ["admin", "Gestion"]] : SUB_TABS;
+  const tabs = mod ? [...SUB_TABS, ["admin", "Gestion"]] : SUB_TABS;
 
   return (
     <div>
@@ -269,10 +277,11 @@ export default function CommunityDetailView({
           </div>
         )}
 
-        {subTab === "admin" && staff && (
+        {subTab === "admin" && mod && (
           <CommunityAdminPanel
             joinRequests={joinRequests}
             reports={reports}
+            canManageJoinRequests={staff}
             onAccept={onAcceptRequest}
             onReject={onRejectRequest}
             onResolveReport={onResolveReport}

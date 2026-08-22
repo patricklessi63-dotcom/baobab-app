@@ -6,7 +6,7 @@ import EventPhotoGallery from "./EventPhotoGallery";
 import EmptyState from "../home/EmptyState";
 import Skeleton from "../Skeleton";
 import { categoryIcon, categoryLabel, reportCategoryLabel, timezoneLabel } from "../../lib/events/eventConfig";
-import { isEventStaff } from "../../lib/events/permissions";
+import { isEventStaff, isEventMod } from "../../lib/events/permissions";
 import { downloadIcs, googleCalendarUrl } from "../../lib/events/calendarExport";
 import { formatEventWhen } from "../../utils/format";
 import { primary, green, coral, gold, muted, bg, card, body, primaryRgb, navy } from "./theme";
@@ -64,12 +64,19 @@ export default function EventDetailView({
   const [subTab, setSubTab] = useState("about");
   const [shareOpen, setShareOpen] = useState(false);
   const staff = isEventStaff(viewerRole);
+  // Le contenu de l'onglet "Gestion" ici n'est que la file de signalements
+  // (event_reports), dont la RLS autorise is_event_mod — organizer/
+  // co_organizer/moderator (supabase-events-v2.sql) — pas seulement
+  // is_event_staff. EventsTab.loadReports() charge déjà ces données pour un
+  // "moderator" ; sans ce isEventMod ici, l'onglet restait invisible pour ce
+  // rôle malgré des signalements déjà en mémoire.
+  const mod = isEventMod(viewerRole);
   const { openLightbox } = useImageLightbox();
   const canceled = Boolean(event.canceled_at);
   const isPrivate = event.visibility === "private";
   const isCommunityOnly = event.visibility === "community";
   const full = event.max_participants != null && participantCount >= event.max_participants;
-  const tabs = staff ? [...SUB_TABS, ["admin", "Gestion"]] : SUB_TABS;
+  const tabs = mod ? [...SUB_TABS, ["admin", "Gestion"]] : SUB_TABS;
 
   return (
     <div>
@@ -257,7 +264,7 @@ export default function EventDetailView({
           </div>
         )}
 
-        {subTab === "admin" && staff && (
+        {subTab === "admin" && mod && (
           <div className={`${card} p-4`}>
             <div className="flex items-center justify-between mb-3">
               <b className="text-sm" style={{ color: primary }}>Signalements</b>

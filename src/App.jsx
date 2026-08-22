@@ -1067,7 +1067,20 @@ export default function App() {
       if (likeError) throw likeError;
       setLikePairs((k) => [...k, { from_id: currentUser.id, to_id: target.id }]);
       trackActivation(currentUser.id, "first_like");
-      if (hasLiked(target.id, currentUser.id)) {
+      // Vérifié en base plutôt que via hasLiked()/le cache local likePairs :
+      // ce cache n'est chargé qu'une fois par session (loadAll) et n'est
+      // jamais rafraîchi en temps réel. Si l'autre personne a liké pendant
+      // que cette session était déjà ouverte (deux personnes qui se likent
+      // en quasi-simultané), le like reçu n'apparaît pas encore dans
+      // likePairs et le match — bien réel côté serveur — ne déclenchait
+      // jamais la modale de célébration ici.
+      const { data: reciprocal } = await supabase
+        .from("likes")
+        .select("from_id")
+        .eq("from_id", target.id)
+        .eq("to_id", currentUser.id)
+        .maybeSingle();
+      if (reciprocal) {
         setMatchNotice(target);
         trackActivation(currentUser.id, "first_match");
       }
