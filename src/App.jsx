@@ -895,9 +895,11 @@ export default function App() {
         .from("profile_photos")
         .upsert(reordered.map((p, i) => ({ id: p.id, profile_id: p.profile_id, url: p.url, position: i })));
       if (reorderError) throw reorderError;
+      return true;
     } catch (e) {
       console.error(e);
       setError("Impossible de réorganiser les photos.");
+      return false;
     }
   }
 
@@ -905,18 +907,25 @@ export default function App() {
     const idx = existingPhotos.findIndex((p) => p.id === photoId);
     const newIdx = direction === "up" ? idx - 1 : idx + 1;
     if (idx === -1 || newIdx < 0 || newIdx >= existingPhotos.length) return;
+    // Ordre appliqué de façon optimiste — s'il échoue côté serveur (réseau,
+    // RLS...), on revient à l'ordre précédent : sinon la grille restait
+    // affichée dans un ordre qui ne correspondait plus à ce qui est en base,
+    // jusqu'au prochain rechargement complet.
+    const previous = existingPhotos;
     const reordered = [...existingPhotos];
     [reordered[idx], reordered[newIdx]] = [reordered[newIdx], reordered[idx]];
     setExistingPhotos(reordered);
-    persistPhotoOrder(reordered);
+    persistPhotoOrder(reordered).then((ok) => { if (!ok) setExistingPhotos(previous); });
   }
 
   async function setPrimaryPhoto(photoId) {
     const idx = existingPhotos.findIndex((p) => p.id === photoId);
     if (idx <= 0) return;
+    const previous = existingPhotos;
     const reordered = [existingPhotos[idx], ...existingPhotos.filter((_, i) => i !== idx)];
     setExistingPhotos(reordered);
-    await persistPhotoOrder(reordered);
+    const orderOk = await persistPhotoOrder(reordered);
+    if (!orderOk) { setExistingPhotos(previous); return; }
     try {
       const { error: avatarError } = await supabase.from("profiles").update({ avatar_url: reordered[0].url }).eq("id", currentUser.id);
       if (avatarError) throw avatarError;
@@ -924,6 +933,7 @@ export default function App() {
     } catch (e) {
       console.error(e);
       setError("Impossible de définir cette photo comme principale.");
+      setExistingPhotos(previous);
     }
   }
 
