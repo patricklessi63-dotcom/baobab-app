@@ -5,6 +5,8 @@ import { supabase } from "../../supabaseClient";
 import { COMMUNITY_CATEGORIES, COMMUNITY_VISIBILITY } from "../../lib/communities/communityConfig";
 import { invokeAI } from "../../lib/ai/aiClient";
 import { beginCriticalOperation, endCriticalOperation } from "../../lib/criticalOperationGuard";
+import { validateMediaFile } from "../../lib/mediaValidation";
+import { extFromMime } from "../../lib/mediaConstants";
 import { primary, coral, muted, bg, goldTint, goldText, primaryRgb, navy } from "./theme";
 
 const NAME_MAX = 80;
@@ -49,9 +51,15 @@ export default function CommunityCreateForm({ currentUser, onCreated, onCancel, 
     setAiSuggestion(null);
   };
 
-  const onPickCover = (e) => {
+  const onPickCover = async (e) => {
     const file = e.target.files?.[0];
+    e.target.value = "";
     if (!file) return;
+    // Même garde-fou (taille/MIME/signature binaire) que tous les autres
+    // chemins d'upload de l'app (EditProfileForm, EventCreateForm, etc.) —
+    // manquait ici : le fichier partait tel quel vers le bucket "avatars".
+    const { ok, error: validationError } = await validateMediaFile(file, "image");
+    if (!ok) { onError?.(validationError); return; }
     setCoverFile(file);
     setCoverPreview(URL.createObjectURL(file));
   };
@@ -68,7 +76,7 @@ export default function CommunityCreateForm({ currentUser, onCreated, onCancel, 
         // Même convention de chemin/bucket que les autres médias publics
         // de profil (avatars/photos/stories) — voir uploadPhoto (App.jsx)
         // et uploadStoryMedia (SocialShell.jsx).
-        const ext = coverFile.name.split(".").pop();
+        const ext = extFromMime(coverFile.type);
         const path = `${currentUser.user_id}/community-${Date.now()}.${ext}`;
         const { error: uploadError } = await supabase.storage.from("avatars").upload(path, coverFile, { upsert: true });
         if (uploadError) throw uploadError;
