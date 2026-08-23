@@ -11,6 +11,7 @@ import { C } from "./components/auth/authTheme";
 import PasswordField from "./components/auth/PasswordField";
 import PasswordStrengthMeter from "./components/auth/PasswordStrengthMeter";
 import { scorePassword, passwordMeetsMinimum } from "./lib/passwordStrength";
+import { traduireAuthErreur } from "./lib/authErrors";
 
 const RESEND_COOLDOWN_S = 45;
 const RESET_COOLDOWN_S = 45;
@@ -24,30 +25,10 @@ function isEmailNotConfirmed(err) {
   return err?.code === "email_not_confirmed" || (err?.message || "").toLowerCase().includes("email not confirmed");
 }
 
-function traduireErreur(err) {
-  const code = err?.code;
-  const msg = err?.message || "";
-  if (code === "invalid_credentials" || msg.includes("Invalid login credentials"))
-    return "Email ou mot de passe incorrect.";
-  if (code === "user_already_exists" || msg.includes("User already registered"))
-    return "Cette adresse email est déjà associée à un compte Baobab.";
-  if (code === "weak_password" || msg.includes("Password should be at least"))
-    return "Le mot de passe ne respecte pas les règles minimales.";
-  if (code === "validation_failed" || msg.includes("Unable to validate email address"))
-    return "Veuillez entrer une adresse email valide.";
-  if (code === "over_email_send_rate_limit" || msg.includes("rate limit"))
-    return "Trop de tentatives. Réessaie dans quelques minutes.";
-  if (msg.toLowerCase().includes("already confirmed"))
-    return "Cette adresse est déjà vérifiée. Tu peux te connecter directement.";
-  if (code === "otp_expired" || msg.toLowerCase().includes("expired") || msg.toLowerCase().includes("invalid"))
-    return "Code invalide ou expiré. Vérifie les chiffres saisis ou demande un nouveau code.";
-  if (!navigator.onLine) return "Pas de connexion internet.";
-  // Filet de sécurité (item 6 du cahier des charges) : ne jamais renvoyer
-  // le message technique brut de Supabase à l'utilisateur si aucun des cas
-  // ci-dessus ne correspond — seulement l'enregistrer pour le diagnostic.
-  if (msg) console.error("Erreur Supabase Auth non traduite :", msg);
-  return "Une erreur est survenue. Réessaie dans un instant.";
-}
+// Traduction déplacée dans lib/authErrors.js (traduireAuthErreur) — partagée
+// avec UpdatePasswordScreen.jsx, qui affichait auparavant le message anglais
+// brut de Supabase sur les erreurs updateUser().
+const traduireErreur = traduireAuthErreur;
 
 // Écran unique d'authentification (inscription/connexion/reset), étendu
 // avec les nouveaux modes du parcours de vérification email — un seul

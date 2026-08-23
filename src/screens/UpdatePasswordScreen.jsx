@@ -5,6 +5,7 @@ import { C } from "../components/auth/authTheme";
 import PasswordField from "../components/auth/PasswordField";
 import PasswordStrengthMeter from "../components/auth/PasswordStrengthMeter";
 import { scorePassword, passwordMeetsMinimum } from "../lib/passwordStrength";
+import { traduireAuthErreur } from "../lib/authErrors";
 
 // Réaligné sur la palette sombre d'Auth.jsx (Phase 7.5) — utilisait
 // auparavant la palette claire de constants.js, ce qui créait une rupture
@@ -16,6 +17,7 @@ export default function UpdatePasswordScreen({ onDone }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [done, setDone] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
 
   const confirmMatches = confirm.length > 0 && password === confirm;
   const confirmMismatch = confirm.length > 0 && password !== confirm;
@@ -39,9 +41,31 @@ export default function UpdatePasswordScreen({ onDone }) {
       setDone(true);
       setTimeout(() => onDone?.(), 1800);
     } catch (e) {
-      setError(e?.message || "Impossible de mettre à jour le mot de passe.");
+      // Message technique brut de Supabase (souvent en anglais — ex. "Auth
+      // session missing!" quand le lien de récupération a expiré ou a déjà
+      // été utilisé) traduit ici, au lieu de fuiter tel quel comme avant.
+      setError(traduireAuthErreur(e));
     } finally {
       setLoading(false);
+    }
+  }
+
+  // Issue de secours (item b du cahier des charges "auth flows") : si le
+  // lien de récupération est expiré/déjà utilisé, updateUser() échoue en
+  // boucle et l'utilisateur restait bloqué sur cet écran sans aucun moyen
+  // d'en sortir. Se déconnecter fait passer session à null dans App.jsx,
+  // qui bascule alors automatiquement sur l'écran de connexion (effet déjà
+  // existant, ligne ~319-330 d'App.jsx) — permet aussi de redemander un
+  // nouveau lien depuis là.
+  async function handleBackToLogin() {
+    setSigningOut(true);
+    try {
+      await supabase.auth.signOut();
+    } catch (_) {
+      // Rien à faire : App.jsx retombera de toute façon sur l'écran de
+      // connexion si la session est déjà invalide côté serveur.
+    } finally {
+      setSigningOut(false);
     }
   }
 
@@ -103,6 +127,12 @@ export default function UpdatePasswordScreen({ onDone }) {
               {loading && <Loader2 size={16} className="animate-spin" />}
               Mettre à jour le mot de passe
             </button>
+            {error && (
+              <button type="button" onClick={handleBackToLogin} disabled={signingOut}
+                className="text-xs font-semibold text-center disabled:opacity-60" style={{ color: C.sandDim }}>
+                {signingOut ? "..." : "Retour à la connexion"}
+              </button>
+            )}
           </form>
         )}
       </div>
