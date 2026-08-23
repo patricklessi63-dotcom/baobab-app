@@ -809,9 +809,20 @@ export default function SocialShell({
 
   const decideSwipe = (dir) => {
     if (!topPerson || swipeExit) return;
+    const person = topPerson;
     setSwipeExit(dir);
-    setTimeout(() => {
-      dir === "like" ? handleLike(topPerson) : handlePass(topPerson);
+    setTimeout(async () => {
+      const ok = dir === "like" ? await handleLike(person) : await handlePass(person);
+      // Si l'appel échoue (réseau, RLS...), candidates/filteredPeople ne
+      // change pas donc topPerson reste le même — l'effet qui réinitialise
+      // swipeExit ne se déclenche alors jamais (il dépend de topPerson?.id)
+      // et la carte restait bloquée hors écran, sans plus aucune
+      // interaction possible en mode Pile. On la ramène ici pour permettre
+      // un nouveau geste.
+      if (!ok) {
+        setSwipeExit(null);
+        setSwipeX(0);
+      }
     }, 240);
   };
 

@@ -1084,9 +1084,11 @@ export default function App() {
         setMatchNotice(target);
         trackActivation(currentUser.id, "first_match");
       }
+      return true;
     } catch (e) {
       console.error(e);
       setError(friendlyDbError(e) || "Impossible d'enregistrer ce like.");
+      return false;
     } finally {
       likeInFlightRef.current.delete(target.id);
     }
@@ -1123,9 +1125,11 @@ export default function App() {
         .insert({ from_id: currentUser.id, to_id: target.id });
       if (passError) throw passError;
       setPassPairs((k) => [...k, { from_id: currentUser.id, to_id: target.id }]);
+      return true;
     } catch (e) {
       console.error(e);
       setError("Une erreur est survenue.");
+      return false;
     } finally {
       passInFlightRef.current.delete(target.id);
     }
