@@ -5,7 +5,14 @@ import MicPermissionModal from "./MicPermissionModal";
 import { primary, navy, coral, muted, bg } from "./theme";
 
 function pickMimeType() {
-  const candidates = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4", "audio/ogg"];
+  // "audio/mp4" (AAC) en premier : c'est le seul format que Safari (macOS
+  // ET iOS) sait LIRE — un message vocal enregistré en webm/opus (format
+  // que Safari ne sait pas décoder du tout, à l'enregistrement comme à la
+  // lecture) arrivait chez un destinataire iPhone sans aucun son, sans
+  // aucune erreur visible ("le message arrive mais ne se lit pas"). Chrome/
+  // Android/Firefox savent tous lire l'AAC/mp4, donc ce choix maximise la
+  // compatibilité de lecture pour tout le monde, pas seulement l'expéditeur.
+  const candidates = ["audio/mp4", "audio/webm;codecs=opus", "audio/webm", "audio/ogg"];
   for (const type of candidates) {
     if (window.MediaRecorder?.isTypeSupported?.(type)) return type;
   }

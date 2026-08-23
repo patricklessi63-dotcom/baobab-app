@@ -29,11 +29,16 @@ function AudioPlayer({ src }) {
   const [playing, setPlaying] = useState(false);
   const [current, setCurrent] = useState(0);
   const [duration, setDuration] = useState(0);
+  // Un message vocal enregistré en webm/opus (avant le correctif de format
+  // côté enregistrement) reste illisible sur Safari, qui ne décode pas ce
+  // format — sans ceci, cliquer "Écouter" ne faisait simplement rien, sans
+  // aucune indication de ce qui se passe.
+  const [playbackError, setPlaybackError] = useState(false);
 
   const toggle = () => {
     if (!audioRef.current) return;
     if (playing) audioRef.current.pause();
-    else audioRef.current.play();
+    else audioRef.current.play().catch(() => setPlaybackError(true));
   };
 
   const seek = (e) => {
@@ -51,24 +56,31 @@ function AudioPlayer({ src }) {
         onPlay={() => setPlaying(true)}
         onPause={() => setPlaying(false)}
         onEnded={() => setPlaying(false)}
+        onError={() => setPlaybackError(true)}
         onLoadedMetadata={(e) => setDuration(e.currentTarget.duration || 0)}
         onTimeUpdate={(e) => setCurrent(e.currentTarget.currentTime || 0)}
         className="hidden"
       />
-      <button type="button" onClick={toggle} disabled={!src} aria-label={playing ? "Pause" : "Écouter"} className="h-9 w-9 rounded-full flex items-center justify-center flex-shrink-0 disabled:opacity-50" style={{ background: "rgba(255,255,255,.18)" }}>
-        {playing ? <Pause size={14} /> : <Play size={14} />}
-      </button>
-      <input
-        type="range"
-        min={0}
-        max={duration || 0}
-        value={current}
-        onChange={seek}
-        aria-label="Progression audio"
-        className="flex-1"
-        style={{ accentColor: "#fff" }}
-      />
-      <span className="text-[10px] flex-shrink-0" style={{ opacity: 0.8 }}>{fmt(duration ? duration - current : 0)}</span>
+      {playbackError ? (
+        <span className="text-xs flex-1" style={{ opacity: 0.85 }}>Ce message vocal ne peut pas être lu sur cet appareil.</span>
+      ) : (
+        <>
+          <button type="button" onClick={toggle} disabled={!src} aria-label={playing ? "Pause" : "Écouter"} className="h-9 w-9 rounded-full flex items-center justify-center flex-shrink-0 disabled:opacity-50" style={{ background: "rgba(255,255,255,.18)" }}>
+            {playing ? <Pause size={14} /> : <Play size={14} />}
+          </button>
+          <input
+            type="range"
+            min={0}
+            max={duration || 0}
+            value={current}
+            onChange={seek}
+            aria-label="Progression audio"
+            className="flex-1"
+            style={{ accentColor: "#fff" }}
+          />
+          <span className="text-[10px] flex-shrink-0" style={{ opacity: 0.8 }}>{fmt(duration ? duration - current : 0)}</span>
+        </>
+      )}
     </div>
   );
 }
