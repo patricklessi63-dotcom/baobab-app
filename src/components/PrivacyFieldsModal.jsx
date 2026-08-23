@@ -40,7 +40,7 @@ export default function PrivacyFieldsModal({ open, onClose, onBack, currentUser,
   if (!open) return null;
   return (
     <div className="bb-fade-in fixed inset-0 flex items-end md:items-center justify-center z-[70] p-0 md:p-5" style={{ background: "rgba(8,20,14,0.55)", backdropFilter: "blur(3px)" }} onClick={onClose} role="dialog" aria-modal="true" aria-label="Confidentialité des champs">
-      <div className="bb-card p-6 w-full max-w-md rounded-t-[20px] md:rounded-[20px]" style={{ maxHeight: "85vh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
+      <div className="bb-card p-6 w-full max-w-md rounded-t-[20px] md:rounded-[20px]" style={{ maxHeight: "85vh", overflowY: "auto", paddingBottom: "max(1.5rem, env(safe-area-inset-bottom))" }} onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center gap-2 mb-1">
           {onBack && (
             <button onClick={onBack} aria-label="Retour" style={{ color: "var(--bb-text)" }}><ArrowLeft size={16} /></button>
