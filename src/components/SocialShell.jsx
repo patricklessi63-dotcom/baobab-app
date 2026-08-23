@@ -651,20 +651,34 @@ export default function SocialShell({
   // read_at is null côté requête, la retirer localement suffit à la faire
   // disparaître du badge/dropdown sans recharger.
   const markOneNotificationRead = (id) => {
+    const removed = communityNotifications.find((n) => n.id === id);
     setCommunityNotifications((prev) => prev.filter((n) => n.id !== id));
     setUnreadCommunityCount((n) => Math.max(0, n - 1));
     supabase.from("notifications").update({ read_at: new Date().toISOString() }).eq("id", id).then(({ error }) => {
-      if (error) console.error(error.message, error.code, error.details, error.hint);
+      if (error) {
+        console.error(error.message, error.code, error.details, error.hint);
+        // Échec côté serveur : la notification est en fait toujours non lue,
+        // on la remet dans la liste et on ré-incrémente le badge pour ne pas
+        // désynchroniser l'affichage de l'état réel en base.
+        if (removed) setCommunityNotifications((prev) => (prev.some((n) => n.id === id) ? prev : [removed, ...prev]));
+        setUnreadCommunityCount((n) => n + 1);
+      }
     });
   };
 
   const markCommunityNotificationsRead = () => {
     if (unreadCommunityCount === 0 || !currentUser) return;
     const ids = communityNotifications.filter((n) => !n.read_at).map((n) => n.id);
+    const previousCount = unreadCommunityCount;
     setUnreadCommunityCount(0);
     if (ids.length === 0) return;
     supabase.from("notifications").update({ read_at: new Date().toISOString() }).in("id", ids).then(({ error }) => {
-      if (error) console.error(error.message, error.code, error.details, error.hint);
+      if (error) {
+        console.error(error.message, error.code, error.details, error.hint);
+        // Échec côté serveur : les notifications sont toujours non lues,
+        // on restaure le badge pour refléter l'état réel en base.
+        setUnreadCommunityCount(previousCount);
+      }
     });
   };
 
