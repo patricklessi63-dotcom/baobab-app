@@ -289,8 +289,9 @@ export default function EditProfileForm({
         <p className="text-xs" style={{ color: "rgba(var(--bb-ink-rgb-static),0.5)" }}>Une bonne relation repose surtout sur (max 2)</p>
         <ChipSelect options={RELATIONSHIP_NEEDS_OPTIONS} value={editForm.relationshipNeeds} onChange={(v) => set({ relationshipNeeds: v })} multi max={2} />
 
-        <textarea placeholder="Une courte bio..." value={editForm.bio} onChange={(e) => set({ bio: e.target.value })}
-          rows={3} className="bb-input w-full text-sm" />
+        <textarea placeholder="Une courte bio..." value={editForm.bio} onChange={(e) => set({ bio: e.target.value.slice(0, 300) })}
+          rows={3} maxLength={300} className="bb-input w-full text-sm" />
+        <p className="text-xs text-right -mt-1" style={{ color: "rgba(var(--bb-ink-rgb-static),0.4)" }}>{(editForm.bio || "").length}/300</p>
         {currentUser?.ai_suggestions_enabled !== false && (
           <AiSuggestButton
             action="improve_bio"
