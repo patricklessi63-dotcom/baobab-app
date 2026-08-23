@@ -18,6 +18,7 @@ import { trackActivation } from "../../lib/trackActivation";
 import { validateMediaFile } from "../../lib/mediaValidation";
 import { extFromMime } from "../../lib/mediaConstants";
 import { uploadWithProgress } from "../../lib/uploadWithProgress";
+import { escapeLikePattern, escapeOrFilterValue } from "../../lib/searchQuery";
 import { primary, coral, muted, bg, card, navy } from "./theme";
 
 const COMMUNITY_MEDIA_BUCKET = "community-media";
@@ -45,8 +46,11 @@ const REPORT_TARGET_LABEL = { post: "cette publication", comment: "ce commentair
 
 function buildListQuery({ search, filterCity, filterCategory, filterVisibility }) {
   let query = supabase.from("communities").select("*, community_members(count)", { count: "exact" });
-  if (search.trim()) query = query.or(`name.ilike.%${search.trim()}%,description.ilike.%${search.trim()}%`);
-  if (filterCity.trim()) query = query.ilike("city", `%${filterCity.trim()}%`);
+  if (search.trim()) {
+    const term = escapeOrFilterValue(search.trim());
+    query = query.or(`name.ilike."%${term}%",description.ilike."%${term}%"`);
+  }
+  if (filterCity.trim()) query = query.ilike("city", `%${escapeLikePattern(filterCity.trim())}%`);
   if (filterCategory) query = query.eq("category", filterCategory);
   if (filterVisibility) query = query.eq("visibility", filterVisibility);
   // Tri secondaire sur "id" (voir loadMore) : deux communautés créées à la
@@ -607,6 +611,7 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
       if (error) throw error;
       setMembers((m) => m.filter((x) => x.id !== member.id));
       adjustMemberCount(community.id, -1);
+      setMemberCount((n) => Math.max(0, n - 1));
       if (member.profile_id === currentUser.id) {
         setMyMemberships((m) => { const n = { ...m }; delete n[community.id]; return n; });
       }

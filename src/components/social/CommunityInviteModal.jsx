@@ -3,6 +3,7 @@ import { X, Search, UserPlus, Check } from "lucide-react";
 import Avatar from "../Avatar";
 import { supabase } from "../../supabaseClient";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
+import { escapeLikePattern } from "../../lib/searchQuery";
 import { primary, coral, muted, card, primaryRgb } from "./theme";
 
 // Recherche par nom dans profiles (déjà en lecture publique pour la
@@ -27,7 +28,7 @@ export default function CommunityInviteModal({ community, currentUser, memberIds
       const { data, error } = await supabase
         .from("profiles")
         .select("id, name, avatar_url, city")
-        .ilike("name", `%${value.trim()}%`)
+        .ilike("name", `%${escapeLikePattern(value.trim())}%`)
         .neq("id", currentUser.id)
         .limit(15);
       if (error) throw error;

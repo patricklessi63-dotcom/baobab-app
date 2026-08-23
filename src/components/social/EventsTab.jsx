@@ -17,6 +17,7 @@ import { SkeletonCard } from "../Skeleton";
 import { rankEvents } from "../../lib/events/recommendations";
 import { EVENT_REPORT_CATEGORIES } from "../../lib/events/eventConfig";
 import { trackActivation } from "../../lib/trackActivation";
+import { escapeLikePattern, escapeOrFilterValue } from "../../lib/searchQuery";
 import { primary, coral, muted, bg, card, primaryRgb, navy } from "./theme";
 
 const PAGE_SIZE = 20;
@@ -41,8 +42,11 @@ const EVENT_TIPS = {
 
 function buildListQuery({ search, filterCity, filterCategory, dateRange }) {
   let query = supabase.from("events").select("*, event_participant_count", { count: "exact" }).is("canceled_at", null);
-  if (search.trim()) query = query.or(`title.ilike.%${search.trim()}%,description.ilike.%${search.trim()}%`);
-  if (filterCity.trim()) query = query.ilike("city", `%${filterCity.trim()}%`);
+  if (search.trim()) {
+    const term = escapeOrFilterValue(search.trim());
+    query = query.or(`title.ilike."%${term}%",description.ilike."%${term}%"`);
+  }
+  if (filterCity.trim()) query = query.ilike("city", `%${escapeLikePattern(filterCity.trim())}%`);
   if (filterCategory) query = query.eq("category", filterCategory);
   const bounds = dateRangeBounds(dateRange);
   if (bounds) query = query.gte("event_date", bounds.start).lte("event_date", bounds.end);
