@@ -95,14 +95,27 @@ export default function EventCreateForm({ currentUser, onCreated, onCancel, onEr
 
       let finalEvent = data;
       if (coverFile) {
-        // La couverture ne peut être téléversée qu'APRÈS la création : le
-        // chemin Storage est {event_id}/... (supabase-events-v2.sql).
-        const path = `${data.id}/${Date.now()}-cover.${extFromMime(coverFile.type)}`;
-        await uploadWithProgress({ bucket: "event-covers", path, file: coverFile });
-        const { data: signed } = await supabase.storage.from("event-covers").createSignedUrl(path, COVER_URL_EXPIRY);
-        if (signed?.signedUrl) {
-          const { data: updated } = await supabase.from("events").update({ cover_url: signed.signedUrl }).eq("id", data.id).select().single();
-          if (updated) finalEvent = updated;
+        // L'événement existe déjà en base à ce stade (create_event a réussi
+        // ci-dessus) : un échec ici ne doit jamais faire tomber dans le
+        // catch général, qui n'appelle jamais onCreated et laisserait
+        // croire que RIEN n'a été créé — un nouveau clic sur "Créer"
+        // relancerait create_event et créerait un second événement, en
+        // double, celui-ci sans couverture restant invisible pour
+        // l'utilisateur. On continue donc sans couverture plutôt que
+        // d'échouer toute la création.
+        try {
+          // La couverture ne peut être téléversée qu'APRÈS la création : le
+          // chemin Storage est {event_id}/... (supabase-events-v2.sql).
+          const path = `${data.id}/${Date.now()}-cover.${extFromMime(coverFile.type)}`;
+          await uploadWithProgress({ bucket: "event-covers", path, file: coverFile });
+          const { data: signed } = await supabase.storage.from("event-covers").createSignedUrl(path, COVER_URL_EXPIRY);
+          if (signed?.signedUrl) {
+            const { data: updated } = await supabase.from("events").update({ cover_url: signed.signedUrl }).eq("id", data.id).select().single();
+            if (updated) finalEvent = updated;
+          }
+        } catch (coverError) {
+          console.error(coverError);
+          onError?.("Ton événement a été créé, mais l'image de couverture n'a pas pu être envoyée. Tu peux réessayer depuis la modification de l'événement.");
         }
       }
 
