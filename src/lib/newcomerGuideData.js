@@ -238,7 +238,52 @@ export const PROVINCE_DIRECTORY = [
   {
     province: "Québec",
     orgs: [],
-    note: "Le Québec gère son propre système d'immigration, distinct du réseau RIF (le français y est la langue majoritaire). Pour une installation au Québec, se tourner vers le ministère de l'Immigration, de la Francisation et de l'Intégration (MIFI) du gouvernement du Québec plutôt que vers ce répertoire.",
+    note: "Le Québec gère son propre système d'immigration, distinct du réseau RIF (le français y est la langue majoritaire). Pour une installation au Québec, se tourner vers le ministère de l'Immigration, de la Francisation et de l'Intégration (MIFI) du gouvernement du Québec plutôt que vers ce répertoire. Pour l'accueil et l'établissement à Montréal, voir PROMIS dans le répertoire généraliste ci-dessous.",
+  },
+];
+
+// Répertoire des organismes d'établissement généralistes — ouverts à toutes
+// origines et langues, contrairement au réseau RIF ci-dessus (francophone).
+// Ne présuppose jamais qu'une personne francophone préfère le RIF, ni
+// qu'une personne non francophone doive être orientée uniquement ici :
+// les deux répertoires coexistent, à choisir selon la langue et la
+// situation de chacun (voir prompt-guide-nouvel-arrivant.md). Ne couvre
+// pour l'instant que trois grandes villes, point de départ à étendre.
+export const GENERALIST_DIRECTORY = [
+  {
+    city: "Toronto (Ontario)",
+    orgs: [
+      {
+        name: "COSTI Immigrant Services",
+        address: "1710 Dufferin Street, Toronto, ON M6E 3P2",
+        phone: "416-658-1600",
+        email: "info@costi.org",
+        services: "17 emplacements dans le Grand Toronto, services offerts dans plus de 60 langues à plus de 39 000 personnes par an : établissement, emploi, formation linguistique, aide à l'intégration, soutien aux familles et aux réfugiés.",
+      },
+    ],
+  },
+  {
+    city: "Vancouver (Colombie-Britannique)",
+    orgs: [
+      {
+        name: "MOSAIC",
+        phone: "604-254-9626",
+        email: "info@mosaicbc.org",
+        services: "Plusieurs emplacements à Vancouver et dans le Lower Mainland, 47 programmes différents, plus de 33 000 personnes servies par an, interprétation en 70 langues : emploi, cours d'anglais (dont préparation IELTS/CELPIP), établissement et orientation, santé mentale, information juridique de base, soutien aux familles, parrainage de réfugiés, prévention de la violence.",
+      },
+    ],
+  },
+  {
+    city: "Montréal (Québec)",
+    orgs: [
+      {
+        name: "PROMIS (Promotion-Intégration-Société nouvelle)",
+        address: "3333 chemin de la Côte-Sainte-Catherine, Montréal, QC H3T 1C8",
+        phone: "514-345-1615",
+        hours: "Lun-ven 9h-17h",
+        services: "Plus de 35 ans d'expérience : accueil et évaluation des besoins, francisation (cours gratuits jour/soir), soutien scolaire et accompagnement parental, aide à l'emploi, sécurité alimentaire (cuisines et jardins communautaires), accompagnement à l'entrepreneuriat immigrant, logement abordable pour femmes immigrantes seules (résidence Maria-Goretti).",
+      },
+    ],
   },
 ];
 

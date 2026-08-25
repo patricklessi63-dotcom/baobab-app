@@ -9,7 +9,7 @@ import { supabase } from "../../supabaseClient";
 import { primary, navy, coral, muted, card, bg, surface } from "./theme";
 import {
   ESSENTIAL_DOCUMENTS, BORDER_NOTE, PRIORITY_STEPS, EXTRA_TIPS,
-  PROVINCE_DIRECTORY, FEDERAL_RESOURCES, GUIDE_LIMITS,
+  PROVINCE_DIRECTORY, GENERALIST_DIRECTORY, FEDERAL_RESOURCES, GUIDE_LIMITS,
 } from "../../lib/newcomerGuideData";
 
 const STEP_ICONS = { CreditCard, Stethoscope, Wallet, Car, Receipt, Home, Phone, GraduationCap, PhoneCall, BadgeCheck };
@@ -180,6 +180,40 @@ function OrgEntry({ org }) {
       {org.services && <p className="text-[11px] leading-5 mt-2" style={{ color: muted }}>{org.services}</p>}
       {org.note && (
         <p className="text-[11px] leading-5 mt-2 italic" style={{ color: "#A5761F" }}>{org.note}</p>
+      )}
+    </div>
+  );
+}
+
+function GeneralistDirectory() {
+  const [selected, setSelected] = useState(null);
+  const entry = GENERALIST_DIRECTORY.find((c) => c.city === selected);
+  return (
+    <div className={`${card} p-4 mb-6`}>
+      <h3 className="text-sm font-black mb-1 flex items-center gap-2" style={{ color: primary }}>
+        <Globe2 size={16} /> Organismes d'établissement généralistes
+      </h3>
+      <p className="text-xs leading-5 mb-3" style={{ color: muted }}>
+        Ouverts à toutes origines et langues, en plus du réseau francophone ci-dessus — choisis ta ville. Répertoire encore limité à trois grandes villes, à étendre.
+      </p>
+      <div className="flex gap-1.5 overflow-x-auto pb-1">
+        {GENERALIST_DIRECTORY.map((c) => (
+          <button
+            key={c.city}
+            onClick={() => setSelected((s) => (s === c.city ? null : c.city))}
+            className="px-3 py-1.5 rounded-full text-[11px] font-bold flex-shrink-0"
+            style={selected === c.city ? { background: primary, color: "#fff" } : { background: bg, color: muted }}
+          >
+            {c.city}
+          </button>
+        ))}
+      </div>
+      {entry ? (
+        <div className="mt-4 pt-1">
+          {entry.orgs.map((org) => <OrgEntry key={org.name} org={org} />)}
+        </div>
+      ) : (
+        <p className="text-xs text-center py-4" style={{ color: muted }}>Sélectionne ta ville pour voir les organismes près de toi.</p>
       )}
     </div>
   );
@@ -357,6 +391,8 @@ export default function ImmigrationNewsView({ onBack, onError, currentUser }) {
           <div className="grid sm:grid-cols-2 gap-3 mb-6">
             {EXTRA_TIPS.map((section) => <GuideCard key={section.title} section={section} />)}
           </div>
+
+          <GeneralistDirectory />
 
           <ProvinceDirectory />
 
