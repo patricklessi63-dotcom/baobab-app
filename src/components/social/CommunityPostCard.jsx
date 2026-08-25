@@ -6,7 +6,7 @@ import { formatMessageTime, formatDayLabel } from "../../utils/format";
 import { primary, coral, muted, bg, primaryRgb, navy } from "./theme";
 import { useClickOutside } from "../../hooks/useClickOutside";
 
-const QUICK_REACTIONS = ["❤️", "👍", "😂", "😮", "😢", "🎉"];
+const QUICK_REACTIONS = ["❤️", "😂", "👍", "😮", "😢", "🎉"];
 
 export default function CommunityPostCard({
   post,
