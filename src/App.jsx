@@ -29,6 +29,7 @@ import AboutPage from "./screens/public/AboutPage";
 import PrivacyPage from "./screens/public/PrivacyPage";
 import TermsPage from "./screens/public/TermsPage";
 import LocationRequiredGate from "./components/LocationRequiredGate";
+import { useOnlineStatus } from "./hooks/useOnlineStatus";
 
 const PUBLIC_ONLY_PATHS = new Set(["/connexion", "/inscription", "/a-propos", "/confidentialite", "/conditions"]);
 
@@ -43,6 +44,7 @@ export default function App() {
 
   const [session, setSession] = useState(undefined); // undefined = pas encore vérifié, null = pas connecté
   const [view, setView] = useState("loading"); // loading | form | feed | discover | matches | stories
+  const { isOnline } = useOnlineStatus();
   const { pathname, navigate } = usePathname();
   const [profiles, setProfiles] = useState([]);
   const [currentUser, setCurrentUser] = useState(null);
@@ -1425,6 +1427,19 @@ export default function App() {
     setMessages((m) => m.map((x) => (x.id === msg.id ? { ...x, _status: "sending" } : x)));
     sendMessageText(msg.text, msg.id);
   }
+
+  // Dégradation propre en cas de connexion instable (Baobab 3.0) : un message
+  // resté en "failed" attendait jusqu'ici que l'utilisateur remarque le
+  // bouton "Réessayer" et tape dessus. Dès que le navigateur signale un
+  // retour en ligne (useOnlineStatus, déjà utilisé par ConnectivityBanner),
+  // on relance automatiquement les messages en échec de la conversation
+  // ouverte — même mécanisme que retrySend(), juste déclenché tout seul.
+  useEffect(() => {
+    if (!isOnline) return;
+    const failed = messagesRef.current.filter((msg) => msg._status === "failed");
+    failed.forEach((msg) => retrySend(msg));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOnline]);
 
   // Messages en direct + indicateur "en train d'écrire" pour la conversation active
   useEffect(() => {
