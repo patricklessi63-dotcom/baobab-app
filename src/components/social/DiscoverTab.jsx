@@ -188,7 +188,7 @@ export default function DiscoverTab({
               <div className={`${card} p-10 text-center`}>
                 <div className="text-5xl mb-4">🌍</div>
                 <h2 className="text-xl font-black" style={{ color: primary }}>Pas encore de nouveaux profils</h2>
-                <p className="text-sm mt-2" style={{ color: muted }}>Invite des amis africains installés au Canada à rejoindre Baobab.</p>
+                <p className="text-sm mt-2" style={{ color: muted }}>Invite des amis immigrants installés au Canada à rejoindre Baobab.</p>
                 <button onClick={() => navigator.clipboard?.writeText(window.location.href)} className="mt-5 px-5 py-3 rounded-xl text-white font-bold" style={{ background: navy }}>Inviter ma communauté</button>
               </div>
             ) : (

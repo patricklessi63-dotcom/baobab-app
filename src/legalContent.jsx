@@ -23,7 +23,7 @@ export function PrivacyPolicyContent() {
       <p className="mb-4 opacity-70">Dernière mise à jour : {LAST_UPDATE}</p>
 
       <Section title="1. Qui nous sommes">
-        <p>Baobab est une application communautaire qui met en relation des personnes issues de la diaspora africaine installées au Canada. Le responsable du traitement des données est l'exploitant de Baobab, joignable via l'adresse de contact indiquée dans l'application.</p>
+        <p>Baobab est une application communautaire qui met en relation des personnes immigrantes installées au Canada. Le responsable du traitement des données est l'exploitant de Baobab, joignable via l'adresse de contact indiquée dans l'application.</p>
       </Section>
 
       <Section title="2. Données que nous collectons">

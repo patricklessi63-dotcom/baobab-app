@@ -25,7 +25,7 @@ export default function HomeHeader({ currentUser }) {
     <div className="bb-stagger mb-7">
       <div className="flex flex-wrap items-center gap-2">
         <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-[11px] font-black uppercase tracking-wider" style={{ background: "#FFF1EC", color: coral }}>
-          <Sparkles size={13} aria-hidden="true" /> Communauté africaine au Canada
+          <Sparkles size={13} aria-hidden="true" /> Communauté Baobab au Canada
         </div>
         {Boolean(userCount) && (
           <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-black" style={{ background: "#F1F1F9", color: navy }}>

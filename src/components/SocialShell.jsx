@@ -1195,7 +1195,7 @@ export default function SocialShell({
                 {searchResults.slice(0, 8).map((p) => (
                   <button key={p.id} onClick={() => { setSearch(""); setViewedProfileId(p.id); }} className="w-full flex items-center gap-3 p-2.5 rounded-xl hover:bg-[var(--bb-bg)] text-left">
                     <Avatar name={p.name} url={p.avatar_url} size={38} />
-                    <div className="min-w-0"><div className="text-sm font-bold truncate">{p.name}{visibleAge(p) ? `, ${visibleAge(p)}` : ""}</div><div className="text-xs" style={{ color: muted }}>{p.city || "Canada"} · {p.country || "Afrique"}</div></div>
+                    <div className="min-w-0"><div className="text-sm font-bold truncate">{p.name}{visibleAge(p) ? `, ${visibleAge(p)}` : ""}</div><div className="text-xs" style={{ color: muted }}>{[p.city, p.country].filter(Boolean).join(" · ") || "Canada"}</div></div>
                   </button>
                 ))}
                 {searchResults.length === 0 && conversationResults.length === 0 && <div className="px-3 py-3 text-sm" style={{ color: muted }}>Aucun résultat.</div>}

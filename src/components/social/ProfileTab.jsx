@@ -135,7 +135,7 @@ export default function ProfileTab({
                         </span>
                       )}
                     </div>
-                    <p className="text-sm mt-1" style={{ color: muted }}>🟢 En ligne · {currentUser?.city || "Canada"} · {currentUser?.country || "Afrique"}</p>
+                    <p className="text-sm mt-1" style={{ color: muted }}>🟢 En ligne · {[currentUser?.city, currentUser?.country].filter(Boolean).join(" · ") || "Canada"}</p>
                   </div>
                   <button onClick={() => goTab("discover")} className="px-4 py-2.5 rounded-xl font-bold text-sm" style={{ background: "#FFF3F1", color: coral }}>Trouver des personnes</button>
                 </div>

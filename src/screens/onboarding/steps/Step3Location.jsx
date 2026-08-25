@@ -16,7 +16,7 @@ export default function Step3Location({ draft, update }) {
       </p>
 
       <label className="text-xs font-semibold" style={{ color: "rgba(var(--bb-ink-rgb-static),0.55)" }}>Pays d'origine</label>
-      <input value={draft.country} onChange={(e) => update({ country: e.target.value })} placeholder="Ex : Cameroun" className="bb-input w-full text-sm" />
+      <input value={draft.country} onChange={(e) => update({ country: e.target.value })} placeholder="Ex : Sénégal, Philippines, Haïti…" className="bb-input w-full text-sm" />
 
       <label className="text-xs font-semibold mt-1" style={{ color: "rgba(var(--bb-ink-rgb-static),0.55)" }}>Province</label>
       <input value={draft.province} onChange={(e) => update({ province: e.target.value })} placeholder="Ex : Québec" className="bb-input w-full text-sm" />
