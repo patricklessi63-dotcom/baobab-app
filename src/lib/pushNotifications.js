@@ -69,6 +69,19 @@ export async function disablePushNotifications() {
   const subscription = await registration?.pushManager.getSubscription();
   if (!subscription) return;
 
-  await supabase.from("push_subscriptions").delete().eq("endpoint", subscription.endpoint);
+  // Les deux étapes sont tentées indépendamment : si la suppression en base
+  // échoue (réseau coupé, etc.), on désabonne quand même le navigateur pour
+  // que le statut affiché à l'utilisateur reste cohérent avec son geste.
+  // L'erreur de suppression, elle, est reportée à l'appelant pour affichage.
+  let dbError = null;
+  try {
+    const { error } = await supabase.from("push_subscriptions").delete().eq("endpoint", subscription.endpoint);
+    if (error) dbError = error;
+  } catch (e) {
+    dbError = e;
+  }
+
   await subscription.unsubscribe();
+
+  if (dbError) throw dbError;
 }

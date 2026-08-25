@@ -48,8 +48,15 @@ export default function NotificationPreferencesModal({ open, onClose, onBack, cu
   }
 
   async function handleDisablePush() {
-    await disablePushNotifications();
-    setPushStatus(await getPushSubscriptionStatus());
+    setPushStep("requesting");
+    try {
+      await disablePushNotifications();
+      setPushStatus(await getPushSubscriptionStatus());
+      setPushStep("idle");
+    } catch (e) {
+      setPushError(e.message || "Impossible de désactiver les notifications push.");
+      setPushStep("error");
+    }
   }
 
   return (
@@ -85,7 +92,7 @@ export default function NotificationPreferencesModal({ open, onClose, onBack, cu
 
             {pushStep === "requesting" && (
               <div className="py-3 text-center">
-                <p className="text-sm font-bold" style={{ color: "var(--bb-text)" }}>Activation…</p>
+                <p className="text-sm font-bold" style={{ color: "var(--bb-text)" }}>Un instant…</p>
               </div>
             )}
 
