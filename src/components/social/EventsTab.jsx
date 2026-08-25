@@ -61,7 +61,7 @@ function withParticipantCount(rows) {
   return (rows || []).map((e) => ({ ...e, participantCount: e.event_participant_count || 0 }));
 }
 
-export default function EventsTab({ currentUser, onError, initialEventId, onConsumedInitial = () => {}, myPlatformRole = null }) {
+export default function EventsTab({ currentUser, onError, initialEventId, onConsumedInitial = () => {}, myPlatformRole = null, onReportProfile = () => {}, onBlockProfile = () => {} }) {
   const isPlatformAdmin = myPlatformRole === "admin" || myPlatformRole === "super_admin";
   const [view, setView] = useState("home"); // home | detail | create | edit
   const [selectedId, setSelectedId] = useState(null);
@@ -645,7 +645,12 @@ export default function EventsTab({ currentUser, onError, initialEventId, onCons
           blockedIds={blockedIds}
         />
 
-        <PublicProfileModal profile={viewedProfile} onClose={() => setViewedProfile(null)} />
+        <PublicProfileModal
+          profile={viewedProfile}
+          onClose={() => setViewedProfile(null)}
+          onReport={(p) => { setViewedProfile(null); onReportProfile(p); }}
+          onBlock={(p) => { setViewedProfile(null); onBlockProfile(p); }}
+        />
 
         <ReportModal
           target={reportTarget}
