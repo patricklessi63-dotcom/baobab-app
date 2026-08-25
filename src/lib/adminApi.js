@@ -48,6 +48,22 @@ export async function unbanUser(profileId) {
   if (error) throw error;
 }
 
+export async function listFeedback(status = null) {
+  const { data, error } = await supabase.rpc("admin_list_feedback", { p_status: status });
+  if (error) throw error;
+  return data || [];
+}
+
+export async function updateFeedback(id, { status, priority, adminNotes } = {}) {
+  const { error } = await supabase.rpc("admin_update_feedback", {
+    p_id: id,
+    p_status: status ?? null,
+    p_priority: priority ?? null,
+    p_admin_notes: adminNotes ?? null,
+  });
+  if (error) throw error;
+}
+
 export async function grantRole(profileId, role) {
   const { error } = await supabase.rpc("grant_platform_role", { p_profile_id: profileId, p_role: role });
   if (error) throw error;

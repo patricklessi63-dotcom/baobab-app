@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { supabase } from "../../supabaseClient";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
 import { primary, navy, coral, muted, card, primaryRgb } from "./theme";
+import { APP_VERSION, detectDevice, detectBrowser, detectCategories, detectPriority } from "../../lib/feedbackTriage";
 
 // Auto-contenu (contrairement à ReportModal) : pas de state à faire
 // remonter au parent, juste open/onClose/currentUser/screen. Écrit dans
@@ -39,9 +40,23 @@ export default function BetaFeedbackModal({ open, onClose, currentUser, screen }
     setSending(true);
     setError("");
     try {
+      const trimmed = message.trim();
+      // Pré-tri automatique par mots-clés (pas une vraie IA — voir
+      // feedbackTriage.js) : gagne du temps de triage côté admin sans
+      // jamais se substituer à une décision humaine.
       const { error: insertError } = await supabase
         .from("beta_feedback")
-        .insert({ profile_id: currentUser.id, message: message.trim(), category, screen: screen || null });
+        .insert({
+          profile_id: currentUser.id,
+          message: trimmed,
+          category,
+          screen: screen || null,
+          categories: detectCategories(trimmed),
+          priority: detectPriority(trimmed),
+          device: detectDevice(),
+          browser: detectBrowser(),
+          app_version: APP_VERSION,
+        });
       if (insertError) throw insertError;
       setSubmitted(true);
     } catch (e) {
