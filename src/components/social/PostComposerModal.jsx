@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { X, Image as ImageIcon, Camera, ChevronUp, ChevronDown, RotateCcw, Loader2, Check } from "lucide-react";
 import Avatar from "../Avatar";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
+import { useFocusTrap } from "../../hooks/useFocusTrap";
 import AiSuggestButton from "../ai/AiSuggestButton";
 import EmojiPicker from "./EmojiPicker";
 import PostMediaGrid from "./PostMediaGrid";
@@ -39,6 +40,8 @@ export default function PostComposerModal({
 }) {
   useEscapeKey(composer, () => (exitConfirmOpen ? onCancelExit() : onRequestClose()));
   const textareaRef = useRef(null);
+  const dialogRef = useRef(null);
+  useFocusTrap(Boolean(composer), dialogRef);
   const canPublish = Boolean(draft.trim() || mediaItems.length > 0);
   const hasFailedMedia = mediaItems.some((it) => uploadStates[it.id]?.status === "error");
   const hasPendingMedia = mediaItems.some((it) => uploadStates[it.id]?.status !== "done");
@@ -66,7 +69,7 @@ export default function PostComposerModal({
       <input ref={videoInputRef} type="file" accept="video/*" multiple className="hidden" onChange={(e) => onMediaSelected(e, "video")} />
       {composer && createPortal(
         <div className="fixed inset-0 z-[60] flex items-end md:items-center justify-center p-0 md:p-5" style={{ background: `rgba(${primaryRgb},.55)`, backdropFilter: "blur(5px)" }} onClick={onRequestClose} role="dialog" aria-modal="true" aria-label="Créer une publication">
-          <div className="bg-[var(--bb-surface)] w-full max-w-xl rounded-t-[30px] md:rounded-[30px] shadow-2xl relative flex flex-col" style={{ maxHeight: "88dvh", paddingBottom: "env(safe-area-inset-bottom)" }} onClick={(e) => e.stopPropagation()}>
+          <div ref={dialogRef} tabIndex={-1} className="bg-[var(--bb-surface)] w-full max-w-xl rounded-t-[30px] md:rounded-[30px] shadow-2xl relative flex flex-col" style={{ maxHeight: "88dvh", paddingBottom: "env(safe-area-inset-bottom)" }} onClick={(e) => e.stopPropagation()}>
             {draftSavedNotice ? (
               <div className="py-10 text-center p-5 md:p-6">
                 <div className="text-3xl mb-2">✓</div>

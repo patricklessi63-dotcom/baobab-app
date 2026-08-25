@@ -11,6 +11,7 @@ import DeleteAccountModal from "./DeleteAccountModal";
 import ReportModal from "./social/ReportModal";
 import BlockConfirmModal from "./social/BlockConfirmModal";
 import { useEscapeKey } from "../hooks/useEscapeKey";
+import { useFocusTrap } from "../hooks/useFocusTrap";
 import { useTheme } from "../hooks/useTheme";
 import { useLanguage } from "../hooks/useLanguage";
 
@@ -69,6 +70,8 @@ export default function AppModals({
         : { status: "up-to-date" }
     );
   };
+  const settingsDialogRef = React.useRef(null);
+  useFocusTrap(settingsOpen, settingsDialogRef);
   useEscapeKey(settingsOpen, () => setSettingsOpen(false));
   useEscapeKey(blockedOpen, () => setBlockedOpen(false));
   useEscapeKey(privacyOpen, () => setPrivacyOpen(false));
@@ -102,7 +105,7 @@ export default function AppModals({
       {/* ---------- MODAL PARAMÈTRES ---------- */}
       {settingsOpen && (
         <div className="bb-fade-in fixed inset-0 flex items-end md:items-center justify-center z-[70] p-0 md:p-5" style={{ background: "rgba(8,20,14,0.55)", backdropFilter: "blur(3px)" }} onClick={() => setSettingsOpen(false)} role="dialog" aria-modal="true" aria-label="Paramètres">
-          <div className="bb-card p-6 w-full max-w-md rounded-t-[20px] md:rounded-[20px]" style={{ maxHeight: "85vh", overflowY: "auto", paddingBottom: "max(1.5rem, env(safe-area-inset-bottom))" }} onClick={(e) => e.stopPropagation()}>
+          <div ref={settingsDialogRef} tabIndex={-1} className="bb-card p-6 w-full max-w-md rounded-t-[20px] md:rounded-[20px]" style={{ maxHeight: "85vh", overflowY: "auto", paddingBottom: "max(1.5rem, env(safe-area-inset-bottom))" }} onClick={(e) => e.stopPropagation()}>
             <div style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 20, color: "var(--bb-text)" }} className="mb-4">
               Paramètres
             </div>

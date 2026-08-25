@@ -1,6 +1,7 @@
-import React from "react";
+import React, { useRef } from "react";
 import ChipSelect from "../ChipSelect";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
+import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { primary, navy, coral, muted, card, primaryRgb } from "./theme";
 
 const DEFAULT_CATEGORIES = [
@@ -28,6 +29,8 @@ export default function ReportModal({
   targetLabel,
 }) {
   useEscapeKey(Boolean(target) && !submitted, onCancel);
+  const dialogRef = useRef(null);
+  useFocusTrap(Boolean(target), dialogRef);
   if (!target) return null;
 
   const displayLabel = targetLabel || target.name;
@@ -44,7 +47,7 @@ export default function ReportModal({
       aria-modal="true"
       aria-label={submitted ? "Signalement envoyé" : `Signaler ${displayLabel}`}
     >
-      <div className={`${card} p-6 max-w-sm w-full`} onClick={(e) => e.stopPropagation()}>
+      <div ref={dialogRef} tabIndex={-1} className={`${card} p-6 max-w-sm w-full`} onClick={(e) => e.stopPropagation()}>
         {!submitted ? (
           <>
             <h2 className="text-lg font-black" style={{ color: primary }}>Signaler {displayLabel}</h2>

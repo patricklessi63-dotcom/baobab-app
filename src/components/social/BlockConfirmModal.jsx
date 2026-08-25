@@ -1,11 +1,14 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import { Ban } from "lucide-react";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
+import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { primary, coral, muted, card, primaryRgb } from "./theme";
 
 export default function BlockConfirmModal({ target, onCancel, onConfirm }) {
   const [confirming, setConfirming] = useState(false);
   useEscapeKey(Boolean(target) && !confirming, onCancel);
+  const dialogRef = useRef(null);
+  useFocusTrap(Boolean(target), dialogRef);
   if (!target) return null;
 
   const handleConfirm = async () => {
@@ -23,7 +26,7 @@ export default function BlockConfirmModal({ target, onCancel, onConfirm }) {
       aria-modal="true"
       aria-label={`Bloquer ${target.name}`}
     >
-      <div className={`${card} p-6 max-w-xs w-full text-center`} onClick={(e) => e.stopPropagation()}>
+      <div ref={dialogRef} tabIndex={-1} className={`${card} p-6 max-w-xs w-full text-center`} onClick={(e) => e.stopPropagation()}>
         <div className="h-14 w-14 rounded-2xl mx-auto flex items-center justify-center mb-3" style={{ background: "#FFF3F1" }}>
           <Ban size={24} color={coral} />
         </div>

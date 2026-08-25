@@ -1,10 +1,11 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import { X, ChevronLeft, ChevronRight, Heart, MessageCircle, UserPlus, UserCheck, Star, Flag, Ban } from "lucide-react";
 import Avatar from "../Avatar";
 import ClickableImage from "../ClickableImage";
 import StatusBadge from "../StatusBadge";
 import { visibleAge } from "../../utils/format";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
+import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { primary, green, coral, gold, bg, muted, card, body, primaryRgb } from "./theme";
 
 // Allow-list explicite des champs affichés — jamais de spread {...profile},
@@ -40,6 +41,8 @@ export default function PublicProfileModal({
 }) {
   const [photoIdx, setPhotoIdx] = useState(0);
   useEscapeKey(Boolean(profile), onClose);
+  const dialogRef = useRef(null);
+  useFocusTrap(Boolean(profile), dialogRef);
   if (!profile) return null;
 
   const gallery = photos.length > 0 ? photos.map((p) => p.url) : profile.avatar_url ? [profile.avatar_url] : [];
@@ -67,6 +70,8 @@ export default function PublicProfileModal({
       aria-label={`Profil de ${profile.name}`}
     >
       <div
+        ref={dialogRef}
+        tabIndex={-1}
         className={`${card} w-full max-w-md rounded-t-[30px] md:rounded-[30px] max-h-[92vh] overflow-y-auto`}
         style={profile.is_founder ? { borderColor: gold, borderWidth: 2, boxShadow: `0 0 0 1px ${gold}` } : undefined}
         onClick={(e) => e.stopPropagation()}
