@@ -65,6 +65,11 @@ export default function Auth({ justVerified = false, onAcknowledgeVerified = () 
 
   async function handleSubmit(e) {
     e.preventDefault();
+    // Garde-fou double-soumission : le bouton se désactive via `loading`,
+    // mais un onSubmit peut encore être redéclenché avant le prochain rendu
+    // (Enter répété, double-tap tactile). Sans ce retour anticipé, un signup
+    // pouvait partir deux fois (deux appels signUp() concurrents).
+    if (loading) return;
     setError("");
     setNotice("");
     setSignupEmailExists(false);
@@ -104,6 +109,12 @@ export default function Auth({ justVerified = false, onAcknowledgeVerified = () 
         // donc impossible d'écrire dans user_locations (RLS = auth.uid()) —
         // les coordonnées sont stashées et persistées par App.jsx dès que la
         // session s'établit après vérification.
+        // localStorage (pas sessionStorage) : le lien de confirmation reçu
+        // par email s'ouvre presque toujours dans un NOUVEL onglet (parfois
+        // même une autre fenêtre du même navigateur) — sessionStorage est
+        // scopé à l'onglet qui a rempli le formulaire, donc App.jsx ne le
+        // retrouvait jamais dans l'onglet ouvert depuis l'email et la
+        // localisation restait vide en base après vérification.
         const locResult = await getCurrentPositionSafe();
         if (!locResult.ok) {
           setError("La localisation est obligatoire pour créer un compte sur Baobab (accès bêta privé). " + (locResult.message || ""));
@@ -111,7 +122,7 @@ export default function Auth({ justVerified = false, onAcknowledgeVerified = () 
           return;
         }
         try {
-          sessionStorage.setItem("bb-pending-location", JSON.stringify({ latitude: locResult.latitude, longitude: locResult.longitude }));
+          localStorage.setItem("bb-pending-location", JSON.stringify({ latitude: locResult.latitude, longitude: locResult.longitude, savedAt: Date.now() }));
         } catch (_) {}
 
         const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
@@ -191,6 +202,7 @@ export default function Auth({ justVerified = false, onAcknowledgeVerified = () 
   // le même appareil, l'auto-connexion est donc légitime.
   async function handleVerifyCode(e) {
     e.preventDefault();
+    if (verifyLoading) return;
     const cleanCode = otpCode.trim();
     if (!cleanCode) {
       setError("Entre le code reçu par email.");
@@ -220,6 +232,11 @@ export default function Auth({ justVerified = false, onAcknowledgeVerified = () 
     setSignupEmailExists(false);
     setPassword("");
     setPasswordConfirm("");
+    // Sans ce reset, un code OTP partiellement saisi restait dans le champ
+    // au prochain passage par l'écran "vérifie ton email" (ex. inscription
+    // abandonnée puis retentée) — code d'une tentative précédente affiché
+    // comme si valide pour la nouvelle.
+    setOtpCode("");
     if (authLinkError) onDismissLinkError();
   }
 

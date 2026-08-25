@@ -348,14 +348,22 @@ export default function App() {
     fetchMyLocation().then(async (row) => {
       if (!row) {
         try {
-          const pending = sessionStorage.getItem("bb-pending-location");
+          // localStorage (voir Auth.jsx) : partagé entre onglets du même
+          // navigateur, contrairement à sessionStorage — nécessaire car le
+          // lien de confirmation par email s'ouvre typiquement dans un
+          // nouvel onglet, différent de celui où le formulaire d'inscription
+          // a été rempli. Expire après 24h pour ne jamais réutiliser une
+          // position obsolète laissée par une inscription abandonnée.
+          const pending = localStorage.getItem("bb-pending-location");
           if (pending) {
-            const { latitude, longitude } = JSON.parse(pending);
-            row = await upsertMyLocation({ location_enabled: true, latitude_approx: latitude, longitude_approx: longitude });
+            const { latitude, longitude, savedAt } = JSON.parse(pending);
+            if (typeof latitude === "number" && typeof longitude === "number" && Date.now() - (savedAt || 0) < 24 * 60 * 60 * 1000) {
+              row = await upsertMyLocation({ location_enabled: true, latitude_approx: latitude, longitude_approx: longitude });
+            }
           }
         } catch (_) {}
         finally {
-          sessionStorage.removeItem("bb-pending-location");
+          localStorage.removeItem("bb-pending-location");
         }
       }
       setMyLocation(row);

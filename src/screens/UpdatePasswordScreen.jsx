@@ -25,6 +25,9 @@ export default function UpdatePasswordScreen({ onDone }) {
 
   async function handleSubmit(e) {
     e.preventDefault();
+    // Garde-fou double-soumission (même raisonnement que Auth.jsx) : évite
+    // deux appels updateUser() concurrents sur un Enter répété/double-tap.
+    if (loading) return;
     setError("");
     if (!passwordMeetsMinimum(scorePassword(password).checks)) {
       setError("Ton mot de passe ne respecte pas encore toutes les règles minimales.");
