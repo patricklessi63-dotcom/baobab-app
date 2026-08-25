@@ -22,6 +22,7 @@ import { MEDIA_BUCKET, extFromMime } from "./lib/mediaConstants";
 import { trackActivation } from "./lib/trackActivation";
 import { fetchMyLocation, upsertMyLocation, disableMyLocation } from "./lib/locationApi";
 import { getCurrentPositionSafe, LOCATION_ERROR_MESSAGES } from "./lib/geolocation";
+import { isLikelyInCanada, TRAVEL_GRACE_PERIOD_MS } from "./lib/canadaGate";
 import { friendlyDbError } from "./lib/friendlyDbError";
 import { usePathname } from "./hooks/usePathname";
 import LandingPage from "./screens/public/LandingPage";
@@ -398,6 +399,31 @@ export default function App() {
   const locationGateBlocked =
     !!currentUser && locationChecked &&
     (geoPermissionState === "denied" || myLocation?.location_enabled === false);
+
+  // Restriction géographique du module Rencontres au Canada (Baobab 3.0,
+  // prompt-geolocalisation-et-ouverture-baobab.md, Partie A) — distincte du
+  // garde-fou d'accès bêta ci-dessus (qui exige seulement une position, pas
+  // une position canadienne). À chaque position confirmée au Canada, on
+  // avance last_in_canada_at ; un compte déjà établi qui voyage
+  // temporairement hors Canada garde l'accès pendant TRAVEL_GRACE_PERIOD_MS
+  // plutôt que de le perdre au premier déplacement (voir canadaGate.js).
+  const inCanada = myLocation
+    ? isLikelyInCanada(myLocation.latitude_approx, myLocation.longitude_approx)
+    : null;
+  useEffect(() => {
+    if (!currentUser?.id || inCanada !== true || !myLocation) return;
+    const last = myLocation.last_in_canada_at ? new Date(myLocation.last_in_canada_at).getTime() : 0;
+    if (Date.now() - last < 60 * 60 * 1000) return; // déjà à jour depuis moins d'une heure, évite un upsert à chaque rendu
+    upsertMyLocation({ last_in_canada_at: new Date().toISOString() })
+      .then((row) => setMyLocation(row))
+      .catch((e) => console.error(e));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUser?.id, inCanada, myLocation?.last_in_canada_at]);
+
+  const discoverGateBlocked = Boolean(
+    currentUser && myLocation && inCanada === false &&
+    (!myLocation.last_in_canada_at || Date.now() - new Date(myLocation.last_in_canada_at).getTime() > TRAVEL_GRACE_PERIOD_MS)
+  );
 
   // Auparavant, ce bouton se contentait de relire navigator.permissions.query()
   // (un état parfois en cache, qui ne se met pas forcément à jour tant qu'une
@@ -1778,6 +1804,7 @@ export default function App() {
           handleSignOut={handleSignOut}
           onError={setError}
           myLocation={myLocation}
+          discoverGateBlocked={discoverGateBlocked}
           myPlatformRole={myPlatformRole}
           candidates={candidates}
           getMatches={getMatches}

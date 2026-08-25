@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, Suspense, lazy } from "react";
-import { Home, Heart, X, MessageCircle, LogOut, Settings, Cog, UserRound, Search, Bell, Users2, PartyPopper, Megaphone, Shield } from "lucide-react";
+import { Home, Heart, X, MessageCircle, LogOut, Settings, Cog, UserRound, Search, Bell, Users2, PartyPopper, Megaphone, Shield, Globe2 } from "lucide-react";
 import Avatar from "./Avatar";
 import logoIcon from "../assets/logo-baobab-icon.png";
 import { supabase } from "../supabaseClient";
@@ -88,6 +88,7 @@ export default function SocialShell({
   handleSignOut,
   onError = () => {},
   myLocation = null,
+  discoverGateBlocked = false,
   myPlatformRole = null,
   candidates = [],
   getMatches = () => [],
@@ -1356,7 +1357,25 @@ export default function SocialShell({
           />
         )}
 
-        {tab === "discover" && (
+        {tab === "discover" && discoverGateBlocked && (
+          // Baobab 3.0, Partie A (prompt-geolocalisation-et-ouverture-baobab.md) :
+          // Rencontres s'adresse aux personnes physiquement au Canada. Message
+          // respectueux avec un chemin d'action clair, jamais une impasse — le
+          // reste de l'app (dont le Guide du nouvel arrivant) reste accessible.
+          <div className="max-w-md mx-auto text-center py-16 px-6">
+            <div className="mx-auto mb-4 h-16 w-16 rounded-full flex items-center justify-center" style={{ background: "#F1F1F9" }}>
+              <Globe2 size={28} color={navy} />
+            </div>
+            <h2 className="text-lg font-black" style={{ color: primary }}>Rencontres t'attend au Canada</h2>
+            <p className="text-sm mt-2" style={{ color: muted }}>
+              Le module Rencontres de Baobab s'adresse aux personnes déjà au Canada. En attendant ton arrivée, tu peux dès maintenant consulter le guide d'installation pour préparer ton départ.
+            </p>
+            <button onClick={() => goTab("news")} className="mt-5 px-5 py-3 rounded-full text-sm font-bold text-white" style={{ background: navy }}>
+              Voir le guide du nouvel arrivant
+            </button>
+          </div>
+        )}
+        {tab === "discover" && !discoverGateBlocked && (
           <DiscoverTab
             filteredPeople={filteredPeople}
             topPerson={topPerson}
