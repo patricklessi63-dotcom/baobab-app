@@ -23,6 +23,12 @@ export default function MatchCard({
 }) {
   const compatColor = match.level === "high" ? green : match.level === "medium" ? gold : muted;
   const reasons = match.reasons.slice(0, 4);
+  // Confidentialité par champ (voir PrivacyFieldsModal.jsx) — cette carte
+  // (mode grille "Pour toi" de Découverte) affichait la ville sans jamais
+  // consulter ce réglage, contrairement au mode Pile (DiscoverTab.jsx) et à
+  // PublicProfileModal.jsx qui le respectent déjà : un profil masquant sa
+  // ville restait quand même visible ici.
+  const showCity = profile.show_city !== false;
 
   return (
     <div className={`${card} overflow-hidden flex flex-col`}>
@@ -47,11 +53,11 @@ export default function MatchCard({
           <h3 className="text-base font-black truncate" style={{ color: primary }}>{profile.name}{visibleAge(profile) ? `, ${visibleAge(profile)}` : ""}</h3>
           <StatusBadge emailVerified={profile.email_verified} phoneVerified={profile.phone_verified} isFounder={profile.is_founder} isPremium={profile.is_premium} size={14} />
         </div>
-        {profile.city && (
+        {(showCity && profile.city) || typeof distanceKm === "number" ? (
           <p className="text-xs mt-0.5" style={{ color: muted }}>
-            📍 {profile.city}{typeof distanceKm === "number" ? ` · à environ ${distanceKm} km` : ""}
+            📍 {showCity && profile.city ? profile.city : ""}{typeof distanceKm === "number" ? `${showCity && profile.city ? " · " : ""}à environ ${distanceKm} km` : ""}
           </p>
-        )}
+        ) : null}
 
         <div className="flex items-center justify-between mt-2">
           {profile.looking_for && (
