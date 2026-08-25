@@ -80,6 +80,6 @@ export function getProfileCompletion(profile, photos = []) {
 
   return {
     percent: Math.round(Math.min(100, percent)),
-    tips: tips.slice(0, 3),
+    tips,
   };
 }

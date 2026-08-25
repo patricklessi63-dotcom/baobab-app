@@ -149,9 +149,18 @@ export default function ProfileTab({
                     <div className="h-2 rounded-full bg-[var(--bb-surface)] overflow-hidden mb-2">
                       <div className="h-full rounded-full motion-safe:transition-[width] motion-safe:duration-300" style={{ width: `${completion.percent}%`, background: `linear-gradient(90deg,${navy},${gold})` }} />
                     </div>
-                    {completion.tips[0] && (
-                      <p className="text-xs" style={{ color: muted }}>💡 {completion.tips[0]}</p>
+                    {completion.tips.length > 0 && (
+                      <ul className="space-y-1 mb-1">
+                        {completion.tips.map((tip) => (
+                          <li key={tip} className="text-xs flex items-start gap-1.5" style={{ color: muted }}>
+                            <span aria-hidden="true">·</span> {tip}
+                          </li>
+                        ))}
+                      </ul>
                     )}
+                    <button onClick={openEditProfile} className="mt-1 text-xs font-bold" style={{ color: coral }}>
+                      Compléter mon profil →
+                    </button>
                   </div>
                 )}
 
