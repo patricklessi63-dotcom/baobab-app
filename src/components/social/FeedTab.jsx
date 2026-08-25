@@ -293,7 +293,15 @@ export default function FeedTab({
     if (!currentUser || feedbackSent) return;
     setFeedbackSent(true);
     const { error } = await supabase.from("recommendation_feedback").insert({ profile_id: currentUser.id, target_type: "profile", target_id: null, helpful });
-    if (error) console.error(error.message, error.code, error.details, error.hint);
+    if (error) {
+      console.error(error.message, error.code, error.details, error.hint);
+      // L'enregistrement a échoué (réseau, RLS...) : sans ça, "feedbackSent"
+      // restait à true et l'UI affichait "Merci pour ton retour !" comme si
+      // l'avis avait bien été pris en compte, sans jamais l'avoir été et
+      // sans aucun moyen de réessayer.
+      setFeedbackSent(false);
+      onError("Impossible d'enregistrer ton retour. Réessaie.");
+    }
   };
   return (
     <div className="max-w-6xl mx-auto">

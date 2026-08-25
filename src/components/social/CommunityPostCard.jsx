@@ -114,7 +114,15 @@ export default function CommunityPostCard({
               <Flag size={13} />
             </button>
             {canDelete && (
-              <button onClick={() => onDelete(post)} aria-label="Supprimer la publication" className="flex items-center gap-1.5 text-xs font-semibold ml-auto focus-visible:outline focus-visible:outline-2" style={{ color: coral }}>
+              // Même garde-fou que PostCard.jsx (fil personnel) : suppression
+              // irréversible désormais confirmée avant l'appel, cohérent avec
+              // toutes les autres suppressions destructrices de l'app.
+              <button
+                onClick={() => { if (window.confirm("Supprimer cette publication ? Cette action est irréversible.")) onDelete(post); }}
+                aria-label="Supprimer la publication"
+                className="flex items-center gap-1.5 text-xs font-semibold ml-auto focus-visible:outline focus-visible:outline-2"
+                style={{ color: coral }}
+              >
                 <Trash2 size={13} />
               </button>
             )}

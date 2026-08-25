@@ -135,7 +135,18 @@ export default function PostCard({
                 </button>
               )}
               {(isMine || canModerate) && (
-                <button onClick={() => onDelete(post)} aria-label="Supprimer la publication" className={`flex items-center gap-1.5 text-xs font-semibold focus-visible:outline focus-visible:outline-2 ${isMine ? "" : "ml-auto"}`} style={{ color: coral }}>
+                // Suppression irréversible (publication + médias) — confirmation
+                // requise avant l'appel, comme partout ailleurs dans l'app pour
+                // une action destructrice (unmatch, quitter/supprimer une
+                // communauté, supprimer un message pour tout le monde...). Ce
+                // bouton appelait onDelete au premier tap, sans aucune
+                // confirmation ni possibilité d'annuler un tap accidentel.
+                <button
+                  onClick={() => { if (window.confirm("Supprimer cette publication ? Cette action est irréversible.")) onDelete(post); }}
+                  aria-label="Supprimer la publication"
+                  className={`flex items-center gap-1.5 text-xs font-semibold focus-visible:outline focus-visible:outline-2 ${isMine ? "" : "ml-auto"}`}
+                  style={{ color: coral }}
+                >
                   <Trash2 size={13} />
                 </button>
               )}

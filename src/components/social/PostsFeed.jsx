@@ -640,7 +640,12 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
                       <span className="absolute top-1 left-1 rounded-full bg-black/55 text-white text-[10px] font-bold px-1.5 py-0.5">+{extraCount}</span>
                     )}
                     <button
-                      onClick={() => deletePost(p)}
+                      // Grille compacte (72px de côté) où ce bouton × est
+                      // superposé directement sur la vignette — un mistap au
+                      // doigt supprimait la publication (+ ses médias) sans
+                      // aucun moyen d'annuler. Même confirmation que le fil
+                      // en liste (PostCard.jsx) et le reste de l'app.
+                      onClick={() => { if (window.confirm("Supprimer cette publication ? Cette action est irréversible.")) deletePost(p); }}
                       aria-label="Supprimer la publication"
                       className="absolute top-1 right-1 h-6 w-6 rounded-full bg-black/50 text-white items-center justify-center hidden group-hover:flex focus-visible:flex focus-visible:outline focus-visible:outline-2"
                     >
