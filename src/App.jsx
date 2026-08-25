@@ -1241,6 +1241,13 @@ export default function App() {
 
   async function loadOlderMessages() {
     if (!currentUser || !activeMatch || messages.length === 0 || loadingOlder) return;
+    // Capture le jeton de chargement courant (voir chatLoadTokenRef) : si
+    // l'utilisateur change de conversation pendant que cette page d'historique
+    // est en vol, refreshMessages()/closeChat() l'incrémentent. Sans ce
+    // contrôle, la réponse tardive de CETTE conversation venait s'insérer en
+    // tête des messages de la conversation désormais affichée (mélange de
+    // deux discussions différentes).
+    const token = chatLoadTokenRef.current;
     setLoadingOlder(true);
     try {
       const oldest = messages[0]?.created_at;
@@ -1252,6 +1259,7 @@ export default function App() {
         .order("created_at", { ascending: false })
         .limit(MESSAGES_PAGE_SIZE);
       if (olderError) throw olderError;
+      if (chatLoadTokenRef.current !== token) return;
       const older = (data || []).slice().reverse();
       setMessages((m) => [...older, ...m]);
       setHasMoreHistory((data || []).length === MESSAGES_PAGE_SIZE);
@@ -1259,6 +1267,11 @@ export default function App() {
     } catch (e) {
       console.error(e);
     } finally {
+      // Toujours relâcher le spinner du bouton, même pour une réponse
+      // devenue périmée (jeton différent) : sinon "Charger les messages
+      // précédents" resterait désactivé indéfiniment dans la conversation
+      // ouverte ensuite, faute d'un autre endroit qui remette loadingOlder
+      // à false au changement de discussion.
       setLoadingOlder(false);
     }
   }
