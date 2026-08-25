@@ -1552,6 +1552,8 @@ export default function SocialShell({
         myStoryReaction={myStoryReaction}
         sendStoryReaction={sendStoryReaction}
         onOpenProfile={(id) => setViewedProfileId(id)}
+        onReport={setReportTarget}
+        onBlock={handleBlock}
       />
 
       <StoryComposerModal

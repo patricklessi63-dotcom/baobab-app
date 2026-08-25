@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { X, Send, Volume2, VolumeX, Eye, Trash2 } from "lucide-react";
+import { X, Send, Volume2, VolumeX, Eye, Trash2, MoreVertical, Flag, Ban } from "lucide-react";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
 import { navy } from "./theme";
 import Avatar from "../Avatar";
@@ -39,16 +39,19 @@ export default function StoryViewerModal({
   myStoryReaction,
   sendStoryReaction,
   onOpenProfile,
+  onReport,
+  onBlock,
 }) {
   const [muted, setMuted] = useState(true);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [videoError, setVideoError] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const touchStart = useRef(null);
 
   useEscapeKey(storyViewerIndex !== null, closeStoryViewer);
 
   const active = storyViewerIndex !== null && stories[storyViewerIndex];
-  useEffect(() => { setVideoError(false); }, [storyViewerIndex]);
+  useEffect(() => { setVideoError(false); setMenuOpen(false); }, [storyViewerIndex]);
   if (!active) return null;
   const story = stories[storyViewerIndex];
 
@@ -123,6 +126,39 @@ export default function StoryViewerModal({
             <button onClick={() => setMuted((m) => !m)} aria-label={muted ? "Activer le son" : "Couper le son"} className="h-9 w-9 rounded-full bg-white/15 backdrop-blur flex items-center justify-center shrink-0">
               {muted ? <VolumeX size={16} color="#fff" /> : <Volume2 size={16} color="#fff" />}
             </button>
+          )}
+          {!story.own && (
+            <div className="relative shrink-0">
+              <button
+                onClick={() => setMenuOpen((v) => !v)}
+                aria-label="Signaler ou bloquer"
+                aria-haspopup="menu"
+                aria-expanded={menuOpen}
+                className="h-9 w-9 rounded-full bg-white/15 backdrop-blur flex items-center justify-center"
+              >
+                <MoreVertical size={16} color="#fff" />
+              </button>
+              {menuOpen && (
+                <div role="menu" className="absolute top-11 right-0 rounded-xl overflow-hidden shadow-xl bg-white" style={{ minWidth: 160, zIndex: 20 }}>
+                  <button
+                    role="menuitem"
+                    onClick={() => { setMenuOpen(false); closeStoryViewer(); onReport?.({ id: story.profile_id, name: story.name }); }}
+                    className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-left"
+                    style={{ color: "#1a1a1a" }}
+                  >
+                    <Flag size={14} /> Signaler
+                  </button>
+                  <button
+                    role="menuitem"
+                    onClick={() => { setMenuOpen(false); closeStoryViewer(); onBlock?.({ id: story.profile_id, name: story.name }); }}
+                    className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-left border-t border-black/10"
+                    style={{ color: "#e56b5d" }}
+                  >
+                    <Ban size={14} /> Bloquer
+                  </button>
+                </div>
+              )}
+            </div>
           )}
           <button onClick={closeStoryViewer} aria-label="Fermer" className="h-9 w-9 rounded-full bg-white/15 backdrop-blur flex items-center justify-center shrink-0">
             <X size={18} color="#fff" />
