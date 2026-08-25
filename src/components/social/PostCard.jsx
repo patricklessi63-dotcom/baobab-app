@@ -98,7 +98,7 @@ export default function PostCard({
 
           {!editing && mediaList.length === 1 && (
             mediaList[0].kind === "video" ? (
-              <video src={mediaList[0].url} controls className="w-full max-h-96 rounded-xl mt-2.5 object-cover" />
+              <video src={mediaList[0].url} controls preload="metadata" className="w-full max-h-96 rounded-xl mt-2.5 object-cover" />
             ) : (
               <ClickableImage src={mediaList[0].url} alt="" gallery={[{ url: mediaList[0].url, alt: "" }]} className="w-full max-h-96 rounded-xl mt-2.5 object-cover" />
             )

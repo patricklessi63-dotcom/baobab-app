@@ -627,7 +627,7 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
                   <div key={p.id} className="aspect-square relative overflow-hidden group">
                     {mediaUrl ? (
                       mediaKind === "video" ? (
-                        <video src={mediaUrl} className="w-full h-full object-cover" />
+                        <video src={mediaUrl} preload="metadata" className="w-full h-full object-cover" />
                       ) : (
                         <img src={mediaUrl} alt="" className="w-full h-full object-cover" />
                       )

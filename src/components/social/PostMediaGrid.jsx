@@ -33,7 +33,7 @@ export default function PostMediaGrid({ items, className = "", itemClassName = "
           >
             {item.kind === "video" ? (
               <>
-                <video src={item.url || item.previewUrl} className="w-full h-full object-cover" muted />
+                <video src={item.url || item.previewUrl} preload="metadata" className="w-full h-full object-cover" muted />
                 <span className="absolute inset-0 flex items-center justify-center bg-black/20">
                   <Play size={count === 1 ? 40 : 24} color="#fff" fill="#fff" />
                 </span>
