@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { X, Image as ImageIcon, Camera, ArrowLeft } from "lucide-react";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
@@ -35,6 +35,15 @@ export default function StoryComposerModal({
   const canContinue = Boolean(storyText.trim() || storyMedia);
   const previewBg = storyBgColor || BG_PRESETS[0];
 
+  // Une seule URL blob par fichier sélectionné, révoquée au changement/
+  // démontage — auparavant recréée à chaque rendu (ex. à chaque frappe dans
+  // la légende pendant qu'un média est joint), ce qui fuyait une URL objet
+  // en mémoire à chaque caractère tapé sans jamais la libérer.
+  const mediaPreviewUrl = useMemo(() => (storyMedia ? URL.createObjectURL(storyMedia) : null), [storyMedia]);
+  useEffect(() => {
+    return () => { if (mediaPreviewUrl) URL.revokeObjectURL(mediaPreviewUrl); };
+  }, [mediaPreviewUrl]);
+
   const handleClose = () => setStoryComposer(false);
   const goPreview = () => { if (canContinue) setStoryStep("preview"); };
 
@@ -56,9 +65,9 @@ export default function StoryComposerModal({
                   {storyMedia && (
                     <div className="mt-3 rounded-2xl overflow-hidden bg-black max-h-56 relative">
                       {storyMediaKind === "video" ? (
-                        <video src={URL.createObjectURL(storyMedia)} controls className="w-full max-h-56 object-contain" />
+                        <video src={mediaPreviewUrl} controls className="w-full max-h-56 object-contain" />
                       ) : (
-                        <img src={URL.createObjectURL(storyMedia)} alt="" className="w-full max-h-56 object-contain" />
+                        <img src={mediaPreviewUrl} alt="" className="w-full max-h-56 object-contain" />
                       )}
                       <button onClick={() => { setStoryMedia(null); setStoryMediaKind(""); }} aria-label="Retirer le média" className="absolute top-2 right-2 h-7 w-7 rounded-full bg-black/60 text-white flex items-center justify-center">
                         <X size={14} />
@@ -117,9 +126,9 @@ export default function StoryComposerModal({
                   >
                     {storyMedia && (
                       storyMediaKind === "video" ? (
-                        <video src={URL.createObjectURL(storyMedia)} controls className="absolute inset-0 w-full h-full object-cover" />
+                        <video src={mediaPreviewUrl} controls className="absolute inset-0 w-full h-full object-cover" />
                       ) : (
-                        <img src={URL.createObjectURL(storyMedia)} alt="" className="absolute inset-0 w-full h-full object-cover" />
+                        <img src={mediaPreviewUrl} alt="" className="absolute inset-0 w-full h-full object-cover" />
                       )
                     )}
                     {storyText.trim() && (

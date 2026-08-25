@@ -1111,12 +1111,18 @@ export default function SocialShell({
 
   // Auto-avance chaque story après storyDurationMs (5s par défaut, ou la
   // durée réelle d'une vidéo une fois ses métadonnées chargées — voir
-  // StoryViewerModal.jsx, onVideoDuration).
+  // StoryViewerModal.jsx, onVideoDuration). En pause pendant que la personne
+  // tape une réponse ou consulte "qui a vu ce statut" — sinon le minuteur
+  // continuait de tourner en arrière-plan et faisait avancer la story en
+  // plein milieu de la frappe : nextStory()/prevStory() vident storyReply,
+  // donc la réponse en cours disparaissait sans jamais être envoyée, et le
+  // panneau des vues se refermait brusquement sous les yeux de l'utilisateur.
   useEffect(() => {
     if (storyViewerIndex === null) return;
+    if (storyReply.trim() || storyViewersOpen) return;
     const t = setTimeout(() => nextStory(), storyDurationMs);
     return () => clearTimeout(t);
-  }, [storyViewerIndex, storyDurationMs]);
+  }, [storyViewerIndex, storyDurationMs, storyReply, storyViewersOpen]);
 
   const nav = [
     ["feed", Home, "Accueil", null],
