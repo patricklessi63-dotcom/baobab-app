@@ -42,7 +42,12 @@ export default function CommunityMemberRow({ member, viewerRole, currentUserId, 
             </button>
           )}
           {canRemove && (
-            <button onClick={() => onRemove(member)} aria-label={`Retirer ${firstName} de la communauté`} className="h-8 w-8 rounded-full flex items-center justify-center" style={{ color: coral }}>
+            <button
+              onClick={() => window.confirm(`Retirer ${firstName} de cette communauté ?`) && onRemove(member)}
+              aria-label={`Retirer ${firstName} de la communauté`}
+              className="h-8 w-8 rounded-full flex items-center justify-center"
+              style={{ color: coral }}
+            >
               <UserMinus size={15} />
             </button>
           )}

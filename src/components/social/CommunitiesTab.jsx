@@ -111,6 +111,11 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
 
   const joinInFlightRef = useRef(new Set());
   const likeInFlightRef = useRef(new Set());
+  // Devient true une fois myMemberships réellement chargé depuis le
+  // serveur (voir l'effet ci-dessous) — utilisé par goDetail pour savoir si
+  // myMemberships[id] === undefined signifie "non-membre confirmé" ou
+  // simplement "pas encore su" (voir commentaire dans goDetail).
+  const membershipsLoadedRef = useRef(false);
 
   const isNeutralHome = !search.trim() && !filterCity.trim() && !filterCategory && !filterVisibility;
 
@@ -118,12 +123,14 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
   useEffect(() => {
     if (!currentUser) return;
     let alive = true;
+    membershipsLoadedRef.current = false;
     supabase.from("community_members").select("community_id, role").eq("profile_id", currentUser.id).then(({ data, error }) => {
       if (!alive) return;
       if (error) { console.error(error); return; }
       const map = {};
       (data || []).forEach((r) => { map[r.community_id] = r.role; });
       setMyMemberships(map);
+      membershipsLoadedRef.current = true;
     });
     supabase.from("community_join_requests").select("community_id").eq("profile_id", currentUser.id).eq("status", "pending").then(({ data, error }) => {
       if (!alive) return;
@@ -310,7 +317,28 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
       } else {
         setCreatorName("");
       }
-      const role = myMemberships[comm.id];
+      // Rôle lu depuis myMemberships (état alimenté par un effet séparé et
+      // asynchrone au montage) — mais goDetail peut être appelé en lien
+      // direct (notification, "Mes communautés" sur le profil) sur un
+      // composant qui vient de monter, avant que cet effet n'ait fini de
+      // charger myMemberships. Dans ce cas myMemberships[comm.id] vaut
+      // undefined même pour un owner/admin/modérateur, ce qui faisait
+      // sauter silencieusement loadJoinRequests/loadReports ci-dessous :
+      // l'onglet "Gestion" apparaissait bien (recalculé plus tard une fois
+      // myMemberships chargé) mais restait vide tant qu'on ne quittait pas
+      // la communauté pour y revenir. On retombe donc sur une lecture
+      // directe du rôle si myMemberships n'est pas encore garanti à jour.
+      let role = myMemberships[comm.id];
+      if (role === undefined && !membershipsLoadedRef.current && currentUser) {
+        const { data: myRow } = await supabase
+          .from("community_members")
+          .select("role")
+          .eq("community_id", comm.id)
+          .eq("profile_id", currentUser.id)
+          .maybeSingle();
+        role = myRow?.role || null;
+        if (role) setMyMemberships((m) => ({ ...m, [comm.id]: role }));
+      }
       await Promise.all([
         loadPosts(comm.id),
         loadMembers(comm.id),
