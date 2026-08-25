@@ -56,6 +56,12 @@ export default function App() {
   const [activeMatch, setActiveMatch] = useState(null);
   const [messages, setMessages] = useState([]);
   const messagesRef = useRef(messages); // lu par l'effet d'inactivité sans le forcer à se réabonner à chaque message
+  // Jeton anti-race pour refreshMessages : un clic rapide entre deux
+  // conversations lance deux requêtes réseau qui peuvent revenir dans le
+  // désordre ; sans ce garde, la réponse de la conversation A qui arrive
+  // après celle de B écrasait les messages de B (déjà affichés sous le bon
+  // en-tête) avec ceux de A.
+  const chatLoadTokenRef = useRef(0);
   const [messageDraft, setMessageDraft] = useState("");
   const [replyingTo, setReplyingTo] = useState(null);
   const [reactionsByMessageId, setReactionsByMessageId] = useState({}); // { [messageId]: [{profile_id, emoji}] }
@@ -1157,6 +1163,11 @@ export default function App() {
   }
 
   function closeChat() {
+    // Invalide toute requête refreshMessages encore en vol pour la
+    // conversation qu'on quitte (voir chatLoadTokenRef) : sinon une réponse
+    // tardive pouvait repeupler `messages` après que l'utilisateur soit déjà
+    // revenu à la liste des conversations.
+    chatLoadTokenRef.current++;
     setActiveMatch(null);
     setReplyingTo(null);
   }
@@ -1202,6 +1213,7 @@ export default function App() {
 
   async function refreshMessages(match) {
     if (!currentUser || !match) return;
+    const token = ++chatLoadTokenRef.current;
     try {
       const { data, error: msgError } = await supabase
         .from("messages")
@@ -1210,6 +1222,10 @@ export default function App() {
         .order("created_at", { ascending: false })
         .limit(MESSAGES_PAGE_SIZE);
       if (msgError) throw msgError;
+      // Une conversation plus récemment ouverte a déjà émis un jeton plus
+      // grand pendant cette requête : cette réponse est périmée, on l'ignore
+      // pour ne pas écraser les messages de la conversation actuellement affichée.
+      if (chatLoadTokenRef.current !== token) return;
       const chronological = (data || []).slice().reverse();
       setMessages(chronological);
       setHasMoreHistory((data || []).length === MESSAGES_PAGE_SIZE);
@@ -1217,6 +1233,7 @@ export default function App() {
       loadReactionsFor(chronological.map((m) => m.id));
     } catch (e) {
       console.error(e);
+      if (chatLoadTokenRef.current !== token) return;
       setMessages([]);
       setHasMoreHistory(false);
     }
@@ -1336,6 +1353,10 @@ export default function App() {
     const key = matchKey(currentUser.id, activeMatch.id);
     const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2)}`;
     const media_meta = { emoji: sticker.emoji, caption: sticker.caption || null, gradient: sticker.gradient };
+    // Bug corrigé : un sticker envoyé pendant qu'on répond à un message
+    // perdait silencieusement le reply_to_id (jamais transmis à l'insert) et
+    // le bandeau "Réponse à…" restait affiché comme si de rien n'était.
+    const replyToId = replyingTo?.id || null;
     setMessages((m) => [...m, {
       id: tempId,
       match_key: key,
@@ -1344,12 +1365,14 @@ export default function App() {
       text: null,
       media_path: null,
       media_meta,
+      reply_to_id: replyToId,
       created_at: new Date().toISOString(),
       read_at: null,
       _status: "sending",
     }]);
+    setReplyingTo(null);
     await insertMessageRow(
-      { match_key: key, from_id: currentUser.id, kind: "sticker", text: null, media_path: null, media_meta },
+      { match_key: key, from_id: currentUser.id, kind: "sticker", text: null, media_path: null, media_meta, reply_to_id: replyToId },
       tempId
     );
   }
@@ -1367,6 +1390,14 @@ export default function App() {
     const key = matchKey(currentUser.id, activeMatch.id);
     const tempId = tempIdOverride || `temp-${Date.now()}-${Math.random().toString(36).slice(2)}`;
     const media_meta = { original_name: file.name, mime: file.type, size: file.size };
+    // Bug corrigé (même cause que sendStickerMessage) : un média envoyé en
+    // réponse à un message perdait le reply_to_id. Pour un "Réessayer"
+    // (tempIdOverride fourni), le message optimiste existe déjà — on reprend
+    // son reply_to_id au lieu de le recalculer depuis replyingTo (qui a pu
+    // changer ou être vidé entre-temps).
+    const replyToId = tempIdOverride
+      ? messagesRef.current.find((msg) => msg.id === tempId)?.reply_to_id || null
+      : replyingTo?.id || null;
 
     if (tempIdOverride) {
       setMessages((m) => m.map((msg) => (msg.id === tempId ? { ...msg, _status: "uploading", _progress: 0 } : msg)));
@@ -1379,12 +1410,14 @@ export default function App() {
         text: null,
         media_path: null,
         media_meta,
+        reply_to_id: replyToId,
         created_at: new Date().toISOString(),
         read_at: null,
         _status: "uploading",
         _progress: 0,
         _file: file, // local uniquement — jamais envoyé à Supabase (voir insertMessageRow)
       }]);
+      setReplyingTo(null);
     }
 
     const path = `${key}/${Date.now()}-${Math.random().toString(36).slice(2)}.${extFromMime(file.type)}`;
@@ -1402,7 +1435,7 @@ export default function App() {
     }
 
     const inserted = await insertMessageRow(
-      { match_key: key, from_id: currentUser.id, kind, text: null, media_path: path, media_meta },
+      { match_key: key, from_id: currentUser.id, kind, text: null, media_path: path, media_meta, reply_to_id: replyToId },
       tempId
     );
     if (!inserted) {
@@ -1419,13 +1452,16 @@ export default function App() {
     if (msg.kind === "sticker") {
       setMessages((m) => m.map((x) => (x.id === msg.id ? { ...x, _status: "sending" } : x)));
       insertMessageRow(
-        { match_key: msg.match_key, from_id: currentUser.id, kind: "sticker", text: null, media_path: null, media_meta: msg.media_meta },
+        { match_key: msg.match_key, from_id: currentUser.id, kind: "sticker", text: null, media_path: null, media_meta: msg.media_meta, reply_to_id: msg.reply_to_id || null },
         msg.id
       );
       return;
     }
     setMessages((m) => m.map((x) => (x.id === msg.id ? { ...x, _status: "sending" } : x)));
-    sendMessageText(msg.text, msg.id);
+    // Bug corrigé : le reply_to_id du message optimiste n'était jamais
+    // repassé ici — réessayer un message-réponse en échec le renvoyait
+    // comme un message normal, sans lien vers le message cité.
+    sendMessageText(msg.text, msg.id, msg.reply_to_id);
   }
 
   // Dégradation propre en cas de connexion instable (Baobab 3.0) : un message
