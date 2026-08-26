@@ -277,8 +277,13 @@ export default function ConversationPane({
                     ...(isSticker || isDeleted
                       ? {}
                       : {
-                          background: isMine ? primary : bg,
-                          color: isMine ? bg : body,
+                          // Bulle envoyée en dégradé or (refonte visuelle,
+                          // maquette screen-messages.html) au lieu d'un aplat
+                          // uni — "primary" (couleur de texte réactive au
+                          // thème) servait auparavant de fond ici.
+                          background: isMine ? "linear-gradient(155deg,var(--bb-gold-1),var(--bb-gold-2))" : bg,
+                          color: isMine ? "#1C1608" : body,
+                          fontWeight: isMine ? 600 : undefined,
                           borderRadius: 16,
                           ...(isMine ? { borderBottomRightRadius: 4 } : { borderBottomLeftRadius: 4 }),
                           padding: isCompactMedia ? 4 : "10px 14px",

@@ -279,7 +279,7 @@ export default function AudioRecorder({ hasDraft, onSendText, onSendAudio, onAct
           <button type="button" onClick={discardPreview} aria-label="Supprimer l'enregistrement" className="h-9 w-9 rounded-full flex items-center justify-center flex-shrink-0" style={{ color: muted }}>
             <Trash2 size={16} />
           </button>
-          <button type="button" onClick={confirmSend} aria-label="Envoyer le message vocal" className="h-9 w-9 rounded-full flex items-center justify-center flex-shrink-0 text-white" style={{ background: coral }}>
+          <button type="button" onClick={confirmSend} aria-label="Envoyer le message vocal" className="bb-btn-gold h-9 w-9 rounded-full flex items-center justify-center flex-shrink-0">
             <Send size={14} />
           </button>
         </div>
@@ -299,8 +299,7 @@ export default function AudioRecorder({ hasDraft, onSendText, onSendAudio, onAct
       onClick={onSendText}
       disabled={!hasDraft}
       aria-label="Envoyer le message"
-      className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 text-white disabled:opacity-40 focus-visible:outline focus-visible:outline-2"
-      style={{ background: coral }}
+      className="bb-btn-gold w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 disabled:opacity-40 focus-visible:outline focus-visible:outline-2"
     >
       <Send size={16} />
     </button>
