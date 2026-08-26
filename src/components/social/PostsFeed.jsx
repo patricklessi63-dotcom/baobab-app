@@ -28,7 +28,7 @@ const MAX_MEDIA_ITEMS = 10;
 // Supabase avant que l'ajout de médias ne fonctionne en production). Les
 // anciennes publications à média unique (posts.media_url/media_kind)
 // restent lisibles : PostCard retombe dessus quand post_media est vide.
-export default function PostsFeed({ currentUser, blockedIds = new Set(), authorId, layout = "list", onError = () => {} }) {
+export default function PostsFeed({ currentUser, blockedIds = new Set(), authorId, layout = "list", onError = () => {}, onPostCountChange = () => {} }) {
   const [posts, setPosts] = useState([]);
   const [postsLoading, setPostsLoading] = useState(true);
   // Curseur (created_at, id) du dernier post chargé, pour la pagination —
@@ -443,6 +443,11 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
         .single();
       if (error) throw error;
       setPublishedPostId(inserted.id);
+      // Répercute la création sur un compteur affiché ailleurs (ex. tuile
+      // "Publications" du profil, qui ne remonte jamais dans cet arbre de
+      // composants) — même principe que adjustMemberCount côté communautés :
+      // un delta local plutôt qu'un recomptage complet à chaque publication.
+      onPostCountChange(1);
 
       // Optimiste : la publication apparaît dans le fil dès que le texte est
       // en base, sans attendre la fin des uploads (item 21 du cahier des
@@ -483,6 +488,7 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
       const { error } = await supabase.from("posts").delete().eq("id", post.id);
       if (error) throw error;
       setPosts((p) => p.filter((x) => x.id !== post.id));
+      onPostCountChange(-1);
       const marker = `/${POST_MEDIA_BUCKET}/`;
       const cleanupUrl = (url) => {
         if (!url) return;

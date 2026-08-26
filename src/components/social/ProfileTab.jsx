@@ -334,7 +334,19 @@ export default function ProfileTab({
                   )}
                 </div>
               ) : profileTab === "posts" ? (
-                <PostsFeed currentUser={currentUser} authorId={currentUser?.id} layout="grid" onError={onError} />
+                <PostsFeed
+                  currentUser={currentUser}
+                  authorId={currentUser?.id}
+                  layout="grid"
+                  onError={onError}
+                  // Sans ce delta, la tuile "Publications" en haut de page
+                  // (myPostsCount, chargée une seule fois au montage) restait
+                  // figée après avoir créé ou supprimé une publication ici —
+                  // même bug que les compteurs de membres avant correction :
+                  // deux sources d'un même total qui divergent après une
+                  // action, celle-ci ne se remettant à jour qu'au reload.
+                  onPostCountChange={(delta) => setMyPostsCount((n) => Math.max(0, n + delta))}
+                />
               ) : (
                 <div className="p-6">
                   {aboutRows.length === 0 ? (
