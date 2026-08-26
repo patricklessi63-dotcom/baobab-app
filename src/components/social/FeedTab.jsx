@@ -325,7 +325,7 @@ export default function FeedTab({
       {/* ---------- Statuts ---------- */}
       <div className="flex gap-3 overflow-x-auto pb-1 mb-7 -mx-1 px-1" style={{ scrollbarWidth: "none" }}>
         {stories.map((s, i) => {
-          const seen = viewedStories[i];
+          const seen = viewedStories[s.profile_id];
           const hasContent = s.own ? Boolean(s.id) : true;
           const ringStyle = s.own
             ? { boxShadow: "inset 0 0 0 2px rgba(255,255,255,.25)" }

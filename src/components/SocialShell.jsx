@@ -1079,7 +1079,12 @@ export default function SocialShell({
     const s = visibleStories[index];
     if (s?.own && !s.text && !s.media_url) { setStoryComposer(true); return; }
     setStoryViewerIndex(index);
-    setViewedStories((prev) => ({ ...prev, [index]: true }));
+    // Clé = profil, pas l'index dans visibleStories : cet index se décale
+    // dès qu'un blocage (fait ici ou ailleurs, ex. PublicProfileModal)
+    // retire une personne du tableau pendant la session — avec l'index brut
+    // comme clé, l'anneau "déjà vu"/"pas vu" du bandeau de statuts finissait
+    // affiché sur la mauvaise personne après un blocage.
+    if (s?.profile_id) setViewedStories((prev) => ({ ...prev, [s.profile_id]: true }));
     setStoryReply("");
     setStoryDurationMs(5000);
     onStoryShown(s);
@@ -1098,7 +1103,8 @@ export default function SocialShell({
       let next = i + 1;
       while (next < visibleStories.length && visibleStories[next].own) next++;
       if (next >= visibleStories.length) { return null; }
-      setViewedStories((prev) => ({ ...prev, [next]: true }));
+      const nextProfileId = visibleStories[next].profile_id;
+      if (nextProfileId) setViewedStories((prev) => ({ ...prev, [nextProfileId]: true }));
       setStoryReply("");
       setStoryDurationMs(5000);
       onStoryShown(visibleStories[next]);
