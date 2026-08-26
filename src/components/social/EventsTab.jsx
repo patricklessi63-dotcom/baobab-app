@@ -522,15 +522,25 @@ export default function EventsTab({ currentUser, onError, initialEventId, onCons
     setInviteEvent(ev);
     setInviteOpen(true);
     setInviteSending(false);
-    const { data: existing } = await supabase.from("event_invitations").select("invited_profile_id").eq("event_id", ev.id);
+    const [{ data: existing }, { data: attendees }] = await Promise.all([
+      supabase.from("event_invitations").select("invited_profile_id").eq("event_id", ev.id),
+      supabase.from("event_attendees").select("profile_id").eq("event_id", ev.id),
+    ]);
     setInvitedIds(new Set((existing || []).map((r) => r.invited_profile_id)));
 
-    let candidates = myMutualProfiles.filter((p) => !blockedIds.has(p.id));
+    // Exclut aussi les personnes qui participent déjà à l'événement (going,
+    // interessé ou en liste d'attente) : les inviter n'a pas de sens et
+    // créerait une invitation "en trop" (voire une notif push inutile).
+    // On refait une requête fraîche plutôt que d'utiliser `participants`
+    // (l'état local peut encore être vide si la modale s'ouvre avant la
+    // fin du chargement des participants de la vue détail).
+    const alreadyInEvent = new Set((attendees || []).map((r) => r.profile_id));
+    let candidates = myMutualProfiles.filter((p) => !blockedIds.has(p.id) && !alreadyInEvent.has(p.id));
     if (ev.community_id) {
       const { data: members } = await supabase
         .from("community_members").select("profile_id, profiles(id, name, avatar_url)")
         .eq("community_id", ev.community_id);
-      const extra = (members || []).map((m) => m.profiles).filter(Boolean).filter((p) => !blockedIds.has(p.id));
+      const extra = (members || []).map((m) => m.profiles).filter(Boolean).filter((p) => !blockedIds.has(p.id) && !alreadyInEvent.has(p.id));
       const seen = new Set(candidates.map((c) => c.id));
       extra.forEach((p) => { if (!seen.has(p.id)) { candidates.push(p); seen.add(p.id); } });
     }
