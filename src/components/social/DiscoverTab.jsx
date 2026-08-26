@@ -331,11 +331,10 @@ export default function DiscoverTab({
                           );
                         })()}
 
-                        <div className="flex items-center justify-center gap-5">
-                          <button aria-label="Passer ce profil" onPointerDown={(e) => e.stopPropagation()} onClick={() => decideSwipe("pass")} className={`${buttonBase} h-16 w-16 rounded-full border-2 flex items-center justify-center bg-[var(--bb-surface)]`} style={{ borderColor: "var(--bb-border)" }}><X size={28} color={muted} /></button>
-                          <button aria-label="Aimer ce profil" onPointerDown={(e) => e.stopPropagation()} onClick={() => decideSwipe("like")} className={`${buttonBase} h-[72px] w-[72px] rounded-full text-white flex items-center justify-center shadow-xl`} style={{ background: `linear-gradient(135deg,${coral},#D94F70)` }}><Heart size={30} fill="white" /></button>
+                        <div className="flex items-center gap-2.5">
+                          <button aria-label="Passer ce profil" onPointerDown={(e) => e.stopPropagation()} onClick={() => decideSwipe("pass")} className={`${buttonBase} flex-1 h-[46px] rounded-2xl border flex items-center justify-center gap-1.5 font-bold text-sm bg-[var(--bb-surface-2)]`} style={{ borderColor: "var(--bb-border)", color: muted }}><X size={16} />Passer</button>
+                          <button aria-label="Se rencontrer" onPointerDown={(e) => e.stopPropagation()} onClick={() => decideSwipe("like")} className="bb-btn-gold flex-1 h-[46px] rounded-2xl flex items-center justify-center gap-1.5 font-bold text-sm"><Heart size={16} fill="#1C1608" />Se rencontrer</button>
                         </div>
-                        <div className="text-center text-[11px] mt-3" style={{ color: muted }}>♥ Oui si tu veux faire connaissance · × Passer</div>
                       </div>
                     </div>
                   );
