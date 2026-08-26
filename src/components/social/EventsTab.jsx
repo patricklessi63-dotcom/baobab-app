@@ -320,8 +320,19 @@ export default function EventsTab({ currentUser, onError, initialEventId, onCons
   };
 
   // ---------- Participation ----------
-  const adjustParticipantCount = (id, delta) => {
-    setEvents((es) => es.map((e) => (e.id === id ? { ...e, participantCount: Math.max(0, e.participantCount + delta) } : e)));
+  // Rafraîchit le compteur depuis la base plutôt qu'un simple +1/-1 local :
+  // bug identifié à l'audit — quand un participant "going" quitte un
+  // événement avec liste d'attente, le trigger promote_from_waitlist()
+  // (supabase-events-v2.sql) promeut immédiatement la prochaine personne en
+  // attente au statut "going" dans la même transaction, donc le nombre réel
+  // de "going" ne bouge pas. Un simple -1 côté client affichait alors un
+  // compteur trop bas, de façon durable (jamais recorrigé tant que la liste
+  // "events" n'est pas rechargée depuis zéro).
+  const refreshParticipantCount = async (id) => {
+    const { data, error } = await supabase.from("events").select("*, event_participant_count").eq("id", id).single();
+    if (!error && data) {
+      setEvents((es) => es.map((e) => (e.id === id ? { ...e, participantCount: data.event_participant_count || 0 } : e)));
+    }
   };
 
   const handleJoin = async (ev) => {
@@ -331,8 +342,14 @@ export default function EventsTab({ currentUser, onError, initialEventId, onCons
       const { data, error } = await supabase.rpc("join_event", { p_event_id: ev.id });
       if (error) throw error;
       setMyStatuses((s) => ({ ...s, [ev.id]: data.status }));
+      // Rafraîchit aussi la liste des participants affichée dans l'onglet
+      // "Participants" — bug identifié à l'audit : elle restait figée après
+      // avoir rejoint/quitté un événement (le nouveau/l'ancien participant
+      // n'y apparaissait/disparaissait qu'après avoir quitté puis rouvert
+      // le détail de l'événement).
+      if (selectedId === ev.id) loadParticipants(ev.id);
       if (data.status === "going") {
-        adjustParticipantCount(ev.id, 1);
+        refreshParticipantCount(ev.id);
         trackActivation(currentUser.id, "event_joined");
       }
     } catch (e) {
@@ -348,7 +365,7 @@ export default function EventsTab({ currentUser, onError, initialEventId, onCons
     // ci-dessus, ce bouton n'a ni confirm() ni état disabled pendant la
     // requête — un double clic/double tap rapide pouvait déclencher deux
     // appels avant que myStatuses ne se mette à jour, et donc décrémenter
-    // adjustParticipantCount deux fois pour un seul départ réel.
+    // le compteur deux fois pour un seul départ réel.
     if (!currentUser || leaveInFlightRef.current.has(ev.id)) return;
     leaveInFlightRef.current.add(ev.id);
     const wasGoing = myStatuses[ev.id] === "going";
@@ -356,7 +373,8 @@ export default function EventsTab({ currentUser, onError, initialEventId, onCons
       const { error } = await supabase.from("event_attendees").delete().eq("event_id", ev.id).eq("profile_id", currentUser.id);
       if (error) throw error;
       setMyStatuses((s) => { const n = { ...s }; delete n[ev.id]; return n; });
-      if (wasGoing) adjustParticipantCount(ev.id, -1);
+      if (selectedId === ev.id) loadParticipants(ev.id);
+      if (wasGoing) refreshParticipantCount(ev.id);
     } catch (e) {
       console.error(e);
       onError("Impossible de te retirer de cet événement.");

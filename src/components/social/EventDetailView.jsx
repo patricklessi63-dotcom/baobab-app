@@ -76,6 +76,13 @@ export default function EventDetailView({
   const isPrivate = event.visibility === "private";
   const isCommunityOnly = event.visibility === "community";
   const full = event.max_participants != null && participantCount >= event.max_participants;
+  // Bug identifié à l'audit : rien n'empêchait de "Participer" à un
+  // événement déjà passé (accessible via "Mes événements" ou un lien direct
+  // — la liste principale filtre déjà le futur, mais pas ce détail) ; le
+  // RPC join_event ne vérifie pas non plus la date. On masque donc l'action
+  // de rejoindre pour un événement passé, tout en laissant "Ne plus
+  // participer" pour corriger un statut existant.
+  const isPast = new Date(event.event_date).getTime() < Date.now();
   const tabs = mod ? [...SUB_TABS, ["admin", "Gestion"]] : SUB_TABS;
 
   return (
@@ -147,7 +154,7 @@ export default function EventDetailView({
                   </div>
                 )}
               </div>
-              {(isPrivate || isCommunityOnly) && (
+              {(isPrivate || isCommunityOnly) && !canceled && (
                 <button onClick={() => onOpenInvite(event)} aria-label="Inviter" className="h-9 w-9 rounded-full flex items-center justify-center" style={{ background: bg }}>
                   <UserPlus size={15} color={primary} />
                 </button>
@@ -170,6 +177,10 @@ export default function EventDetailView({
                 <button onClick={() => onLeave(event)} className="px-4 py-2.5 rounded-full text-sm font-bold" style={{ background: "#FFF3D6", color: gold }}>
                   Sur liste d'attente — Quitter
                 </button>
+              ) : isPast ? (
+                <span className="px-4 py-2.5 rounded-full text-sm font-bold" style={{ background: bg, color: muted }}>
+                  Cet événement est déjà passé
+                </span>
               ) : full ? (
                 <button onClick={() => onJoin(event)} className="px-5 py-2.5 rounded-full text-sm font-bold text-white" style={{ background: coral }}>
                   Rejoindre la liste d'attente
