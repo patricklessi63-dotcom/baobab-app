@@ -129,12 +129,19 @@ export default function SocialShell({
   toggleReaction = () => {},
   deleteMessageForMe = () => {},
   deleteMessageForEveryone = () => {},
+  initialTab = null,
+  justSubscribed = false,
+  onJustSubscribedHandled = () => {},
 }) {
   const [favoritesOpen, setFavoritesOpen] = useState(false);
   const [admirersOpen, setAdmirersOpen] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [preferencesOpen, setPreferencesOpen] = useState(false);
-  const [tab, setTab] = useState("feed");
+  // initialTab (retour de paiement Stripe) prime sur "feed" au tout premier
+  // montage seulement — un lazy initializer, pas un effet, pour ne jamais
+  // faire sauter l'utilisateur vers "premium" au milieu d'une session s'il
+  // change de valeur plus tard (ex. App.jsx qui la reset à null ensuite).
+  const [tab, setTab] = useState(() => initialTab || "feed");
   // Suivi d'écran minimal (Phase 2 — beta privée) : un événement répété par
   // changement d'onglet, jamais bloquant (voir trackBetaEvent).
   useEffect(() => {
@@ -1566,7 +1573,7 @@ export default function SocialShell({
         {tab === "premium" && (
           <ChunkErrorBoundary>
             <Suspense fallback={<TabLoadingFallback />}>
-              <PremiumPage currentUser={currentUser} onBack={() => goTab("feed")} onError={onError} />
+              <PremiumPage currentUser={currentUser} onBack={() => goTab("feed")} onError={onError} justSubscribed={justSubscribed} onJustSubscribedHandled={onJustSubscribedHandled} />
             </Suspense>
           </ChunkErrorBoundary>
         )}

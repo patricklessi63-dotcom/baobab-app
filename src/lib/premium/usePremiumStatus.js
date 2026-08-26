@@ -12,6 +12,12 @@ import { supabase } from "../../supabaseClient";
 export function usePremiumStatus(currentUser) {
   const [subscription, setSubscription] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [refreshTick, setRefreshTick] = useState(0);
+  // Permet à PremiumPage de revérifier le statut à la demande (ex. juste
+  // après un retour de Stripe Checkout, le temps que le webhook écrive la
+  // ligne "subscriptions" — voir stripe-webhook/index.ts) sans dupliquer
+  // la requête ci-dessous.
+  const refresh = () => setRefreshTick((t) => t + 1);
 
   useEffect(() => {
     if (!currentUser) {
@@ -39,7 +45,7 @@ export function usePremiumStatus(currentUser) {
         setLoading(false);
       });
     return () => { alive = false; };
-  }, [currentUser?.id]);
+  }, [currentUser?.id, refreshTick]);
 
   const isPremium = Boolean(
     subscription
@@ -47,5 +53,5 @@ export function usePremiumStatus(currentUser) {
     && (!subscription.current_period_end || new Date(subscription.current_period_end) > new Date())
   );
 
-  return { isPremium, subscription, loading };
+  return { isPremium, subscription, loading, refresh };
 }

@@ -80,6 +80,8 @@ export default function App() {
   const [reportSubmitted, setReportSubmitted] = useState(false);
   const [blockTarget, setBlockTarget] = useState(null); // profil en attente de confirmation de blocage
   const [successNotice, setSuccessNotice] = useState("");
+  const [initialSocialTab, setInitialSocialTab] = useState(null); // onglet à ouvrir au premier montage de SocialShell (ex. retour de paiement Stripe)
+  const [justSubscribed, setJustSubscribed] = useState(false); // vient de compléter un paiement Stripe Checkout — PremiumPage doit revérifier son statut (le webhook Stripe est asynchrone)
   const [hasMoreHistory, setHasMoreHistory] = useState(false);
   const [loadingOlder, setLoadingOlder] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -204,13 +206,29 @@ export default function App() {
     const params = new URLSearchParams(window.location.search);
     const hash = window.location.hash;
     const verifiedFlag = params.get("verified") === "1";
+    // Retour de Stripe Checkout (success_url/cancel_url — voir
+    // create-checkout-session/index.ts) : aucun routeur ici, donc c'est le
+    // seul endroit qui peut détecter ce retour. Avant ce correctif, ce
+    // paramètre n'était lu nulle part : l'utilisateur revenait sur l'app
+    // sans confirmation ni redirection vers l'onglet Premium.
+    const premiumFlag = params.get("premium"); // "success" | "cancelled"
     let linkErrorCode = null;
     if (hash && hash.includes("error=")) {
       linkErrorCode = new URLSearchParams(hash.replace(/^#/, "")).get("error_code");
     }
     if (verifiedFlag) pendingVerifiedRef.current = true;
     if (linkErrorCode) setAuthLinkError(linkErrorCode);
-    if (verifiedFlag || linkErrorCode) {
+    if (premiumFlag === "success") {
+      setInitialSocialTab("premium");
+      setJustSubscribed(true);
+      setSuccessNotice("Paiement reçu ! Activation de Premium en cours (quelques secondes).");
+      setTimeout(() => setSuccessNotice(""), 6000);
+    } else if (premiumFlag === "cancelled") {
+      setInitialSocialTab("premium");
+      setSuccessNotice("Paiement annulé, aucun montant n'a été prélevé.");
+      setTimeout(() => setSuccessNotice(""), 5000);
+    }
+    if (verifiedFlag || linkErrorCode || premiumFlag) {
       window.history.replaceState({}, "", window.location.pathname);
     }
 
@@ -1932,6 +1950,9 @@ export default function App() {
         <UpdateNotice recommended={updateState.recommended} info={updateState.info} onReload={handleUpdateReload} onDismiss={handleUpdateDismiss} />
         <SocialShell
           updateAvailable={updateState.mandatory || updateState.recommended}
+          initialTab={initialSocialTab}
+          justSubscribed={justSubscribed}
+          onJustSubscribedHandled={() => setJustSubscribed(false)}
           currentUser={currentUser}
           setView={setView}
           handleSignOut={handleSignOut}

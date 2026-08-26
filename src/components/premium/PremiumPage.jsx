@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { ArrowLeft, Check } from "lucide-react";
 import { PREMIUM_PLANS, PREMIUM_FEATURES } from "../../lib/premium/premiumConfig";
 import { startCheckout } from "../../lib/premium/checkout";
@@ -9,10 +9,35 @@ import { primary, coral, gold, green, muted, bg, card, goldText } from "../socia
 // nav dédiée — cohérente avec l'identité visuelle Baobab existante
 // (theme.js), pas une DA "à part" pour Premium. Aucun dark pattern :
 // prix/période/conditions toujours visibles, pas de case pré-cochée.
-export default function PremiumPage({ currentUser, onBack, onError }) {
-  const { isPremium, subscription } = usePremiumStatus(currentUser);
+export default function PremiumPage({ currentUser, onBack, onError, justSubscribed = false, onJustSubscribedHandled = () => {} }) {
+  const { isPremium, subscription, refresh } = usePremiumStatus(currentUser);
   const [selectedPlan, setSelectedPlan] = useState("yearly");
   const [submitting, setSubmitting] = useState(false);
+  const [confirmingPayment, setConfirmingPayment] = useState(justSubscribed);
+  const isPremiumRef = useRef(isPremium);
+  isPremiumRef.current = isPremium;
+
+  // Retour de Stripe Checkout : le webhook (stripe-webhook/index.ts) qui
+  // écrit la ligne "subscriptions" est asynchrone et peut arriver quelques
+  // secondes après la redirection — sans ceci, la page affichait encore
+  // "Choisis un plan" juste après un paiement réussi, jusqu'à un rechargement
+  // manuel. On revérifie quelques fois puis on abandonne silencieusement
+  // (le statut réel reste correct à la prochaine visite, RLS/webhook faisant foi).
+  useEffect(() => {
+    if (!justSubscribed) return;
+    onJustSubscribedHandled();
+    if (isPremiumRef.current) { setConfirmingPayment(false); return; }
+    let attempts = 0;
+    const maxAttempts = 6;
+    const interval = setInterval(() => {
+      if (isPremiumRef.current) { setConfirmingPayment(false); clearInterval(interval); return; }
+      attempts += 1;
+      refresh();
+      if (attempts >= maxAttempts) { setConfirmingPayment(false); clearInterval(interval); }
+    }, 2500);
+    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [justSubscribed]);
 
   const handleSubscribe = async () => {
     setSubmitting(true);
@@ -42,6 +67,12 @@ export default function PremiumPage({ currentUser, onBack, onError }) {
           Baobab reste utilisable gratuitement. Premium ajoute des outils en plus, jamais une version bridée du reste.
         </p>
       </div>
+
+      {confirmingPayment && !isPremium && (
+        <div className={`${card} p-4 mb-6 text-center text-sm font-semibold`} style={{ color: goldText, background: "rgba(242,184,75,.12)" }}>
+          Paiement reçu, confirmation de ton abonnement en cours...
+        </div>
+      )}
 
       {isPremium ? (
         <div className={`${card} p-6 text-center`}>
