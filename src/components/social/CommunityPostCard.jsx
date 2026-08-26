@@ -153,7 +153,7 @@ export default function CommunityPostCard({
                                 onKeyDown={(e) => { if (e.key === "Enter") submitEdit(); }}
                                 aria-label="Modifier le commentaire"
                                 className="flex-1 text-xs rounded-full px-3 py-1.5 outline-none"
-                                style={{ background: "#fff", color: navy }}
+                                style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)", color: primary }}
                                 autoFocus
                               />
                               <button onClick={submitEdit} aria-label="Valider la modification"><Check size={13} color={coral} /></button>

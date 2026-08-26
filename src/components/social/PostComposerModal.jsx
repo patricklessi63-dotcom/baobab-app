@@ -9,7 +9,7 @@ import EmojiPicker from "./EmojiPicker";
 import PostMediaGrid from "./PostMediaGrid";
 import PostDropZone from "./PostDropZone";
 import { formatFileSize } from "../../lib/mediaConstants";
-import { primary, navy, green, coral, bg, muted, primaryRgb } from "./theme";
+import { primary, navy, green, coral, gold, bg, muted, primaryRgb } from "./theme";
 
 export default function PostComposerModal({
   composer,
@@ -86,7 +86,7 @@ export default function PostComposerModal({
                 <p className="text-sm mt-2" style={{ color: muted }}>Que veux-tu faire avant de quitter ?</p>
                 <div className="flex flex-col gap-2 mt-5">
                   <button onClick={onSaveDraft} className="w-full rounded-xl py-3 font-bold text-white" style={{ background: navy }}>Enregistrer en brouillon</button>
-                  <button onClick={onDiscard} className="w-full rounded-xl py-3 font-bold" style={{ background: "#FFF3F1", color: coral }}>Abandonner</button>
+                  <button onClick={onDiscard} className="w-full rounded-xl py-3 font-bold" style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)", color: coral }}>Abandonner</button>
                   <button onClick={onCancelExit} className="w-full rounded-xl py-3 font-semibold" style={{ color: muted }}>Annuler</button>
                 </div>
               </div>
@@ -117,13 +117,13 @@ export default function PostComposerModal({
                 <PostDropZone onDropFiles={onFilesSelected}>
                   <div className="overflow-y-auto p-5 md:p-6 pt-3">
                     {resumedDraft && (
-                      <div className="flex items-center justify-between gap-2 mb-3 px-3 py-2 rounded-xl text-xs" style={{ background: "#FFF9F0", color: "#A5761F" }}>
+                      <div className="flex items-center justify-between gap-2 mb-3 px-3 py-2 rounded-xl text-xs" style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)", color: gold }}>
                         <span>Brouillon repris.</span>
                         <button onClick={onDiscardResumed} className="font-bold underline underline-offset-2">Effacer</button>
                       </div>
                     )}
                     {publishedPostId && hasFailedMedia && (
-                      <div className="mb-3 px-3 py-2 rounded-xl text-xs" style={{ background: "#FFF3F1", color: coral }}>
+                      <div className="mb-3 px-3 py-2 rounded-xl text-xs" style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)", color: coral }}>
                         Ta publication est en ligne. Certains fichiers n'ont pas pu être envoyés — réessaie ci-dessous, ou touche "Terminé" pour laisser tel quel.
                       </div>
                     )}
@@ -205,9 +205,9 @@ export default function PostComposerModal({
 
                     {!publishedPostId && (
                       <div className="grid grid-cols-3 gap-2 mt-3">
-                        <button onClick={() => pickMedia("photo")} className="rounded-xl py-3 font-bold text-xs sm:text-sm" style={{ background: "#FFF3F1", color: coral }}><ImageIcon size={17} className="inline mr-1" />Photo</button>
-                        <button onClick={() => pickMedia("video")} className="rounded-xl py-3 font-bold text-xs sm:text-sm" style={{ background: "#EEF8F4", color: green }}><Camera size={17} className="inline mr-1" />Vidéo</button>
-                        <div className="rounded-xl flex items-center justify-center" style={{ background: "#FFF9F0" }}>
+                        <button onClick={() => pickMedia("photo")} className="rounded-xl py-3 font-bold text-xs sm:text-sm" style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)", color: coral }}><ImageIcon size={17} className="inline mr-1" />Photo</button>
+                        <button onClick={() => pickMedia("video")} className="rounded-xl py-3 font-bold text-xs sm:text-sm" style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)", color: green }}><Camera size={17} className="inline mr-1" />Vidéo</button>
+                        <div className="rounded-xl flex items-center justify-center" style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)" }}>
                           <EmojiPicker onPick={insertEmoji} currentUserId={currentUser?.id} />
                         </div>
                       </div>

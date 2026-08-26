@@ -64,7 +64,7 @@ export default function AdmirersModal({ open, onClose, admirerProfiles = [], cur
                   onClick={() => onLikeBack?.(p)}
                   aria-label={`Aimer ${p.name} en retour`}
                   className="h-9 w-9 rounded-full flex items-center justify-center shrink-0 focus-visible:outline focus-visible:outline-2"
-                  style={{ background: "#FDEAE7" }}
+                  style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)" }}
                 >
                   <Heart size={15} color={coral} fill={coral} />
                 </button>

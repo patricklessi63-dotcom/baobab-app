@@ -27,7 +27,7 @@ export default function BlockConfirmModal({ target, onCancel, onConfirm }) {
       aria-label={`Bloquer ${target.name}`}
     >
       <div ref={dialogRef} tabIndex={-1} className={`${card} p-6 max-w-xs w-full text-center`} onClick={(e) => e.stopPropagation()}>
-        <div className="h-14 w-14 rounded-2xl mx-auto flex items-center justify-center mb-3" style={{ background: "#FFF3F1" }}>
+        <div className="h-14 w-14 rounded-2xl mx-auto flex items-center justify-center mb-3" style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)" }}>
           <Ban size={24} color={coral} />
         </div>
         <h2 className="text-lg font-black" style={{ color: primary }}>Bloquer {target.name} ?</h2>

@@ -12,7 +12,7 @@ import { categoryIcon as eventCategoryIcon, categoryLabel as eventCategoryLabel 
 import { formatEventWhen, visibleAge } from "../../utils/format";
 import { usePremiumStatus } from "../../lib/premium/usePremiumStatus";
 import { openBillingPortal } from "../../lib/premium/checkout";
-import { primary, navy, green, coral, gold, bg, muted, online, verified, goldTint, goldTintDeep, primaryRgb } from "./theme";
+import { primary, navy, green, coral, gold, bg, muted, online, verified, primaryRgb } from "./theme";
 
 export default function ProfileTab({
   currentUser,
@@ -243,7 +243,7 @@ export default function ProfileTab({
                               {p.city && <div className="text-xs truncate" style={{ color: muted }}>{p.city}</div>}
                             </div>
                           </button>
-                          <button onClick={() => onToggleFollow(p)} aria-pressed={followingIds.has(p.id)} className="px-3 py-2 rounded-full text-xs font-bold shrink-0 focus-visible:outline focus-visible:outline-2" style={{ background: followingIds.has(p.id) ? "#fff" : navy, color: followingIds.has(p.id) ? navy : "#fff" }}>
+                          <button onClick={() => onToggleFollow(p)} aria-pressed={followingIds.has(p.id)} className="px-3 py-2 rounded-full text-xs font-bold shrink-0 focus-visible:outline focus-visible:outline-2" style={{ background: followingIds.has(p.id) ? "var(--bb-surface-2)" : navy, border: followingIds.has(p.id) ? "1px solid var(--bb-border)" : "none", color: followingIds.has(p.id) ? primary : "#fff" }}>
                             {followingIds.has(p.id) ? "Abonné(e)" : "Suivre"}
                           </button>
                         </div>
@@ -310,10 +310,10 @@ export default function ProfileTab({
               ) : profileTab === "premium" ? (
                 <div className="p-5">
                   {isPremium ? (
-                    <div className="rounded-2xl p-4" style={{ background: `linear-gradient(180deg, ${goldTint}, ${goldTintDeep})` }}>
+                    <div className="rounded-2xl p-4" style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)" }}>
                       <div className="flex items-center gap-2">
                         <span style={{ fontSize: 20 }}>💎</span>
-                        <span className="text-sm font-black" style={{ color: navy }}>Baobab Premium actif</span>
+                        <span className="text-sm font-black" style={{ color: primary }}>Baobab Premium actif</span>
                       </div>
                       <p className="text-sm mt-2" style={{ color: "rgba(var(--bb-ink-rgb),0.72)" }}>
                         Plan {subscription?.plan === "yearly" ? "annuel" : "mensuel"}

@@ -177,7 +177,7 @@ export default function AdminDashboard({ onBack, onError, myPlatformRole }) {
       </button>
 
       <div className="mb-5">
-        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-[11px] font-black uppercase tracking-wider" style={{ background: "#EEF0FF", color: navy }}>
+        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-[11px] font-black uppercase tracking-wider" style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)", color: navy }}>
           <Shield size={13} /> Baobab Admin
         </div>
         <h1 className="text-2xl font-black mt-2" style={{ color: primary }}>Administration</h1>
@@ -235,7 +235,7 @@ export default function AdminDashboard({ onBack, onError, myPlatformRole }) {
                       <div className="min-w-0 flex-1">
                         <div className="text-sm font-bold truncate flex items-center gap-1.5">
                           {u.name}
-                          {u.role && <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full" style={{ background: "#EEF0FF", color: navy }}>{u.role}</span>}
+                          {u.role && <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full" style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)", color: navy }}>{u.role}</span>}
                         </div>
                         <div className="text-xs" style={{ color: muted }}>
                           {isBanned ? "Banni" : isSuspended ? `Suspendu jusqu'au ${new Date(u.suspended_until).toLocaleDateString("fr-CA")}` : "Actif"}
@@ -250,7 +250,7 @@ export default function AdminDashboard({ onBack, onError, myPlatformRole }) {
                       ) : (
                         <>
                           <button onClick={() => openAction(u, "suspend")} className="text-xs font-bold px-3 py-2 rounded-full flex items-center gap-1" style={{ background: bg, color: gold }}><PauseCircle size={12} /> Suspendre</button>
-                          {isAdmin && <button onClick={() => openAction(u, "ban")} className="text-xs font-bold px-3 py-2 rounded-full flex items-center gap-1" style={{ background: "#FDEAE7", color: coral }}><Ban size={12} /> Bannir</button>}
+                          {isAdmin && <button onClick={() => openAction(u, "ban")} className="text-xs font-bold px-3 py-2 rounded-full flex items-center gap-1" style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)", color: coral }}><Ban size={12} /> Bannir</button>}
                         </>
                       )}
                     </div>

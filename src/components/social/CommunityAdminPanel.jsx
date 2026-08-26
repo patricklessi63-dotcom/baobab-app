@@ -26,7 +26,7 @@ export default function CommunityAdminPanel({ joinRequests = [], reports = [], c
                 <div key={req.id} className="flex items-center gap-3 p-2 rounded-xl" style={{ background: bg }}>
                   <Avatar name={req.profiles?.name} url={req.profiles?.avatar_url} size={36} />
                   <span className="text-sm font-semibold flex-1 truncate">{req.profiles?.name || "Utilisateur"}</span>
-                  <button onClick={() => onReject(req)} aria-label="Refuser la demande" className="h-8 w-8 rounded-full flex items-center justify-center" style={{ color: coral, background: "#fff" }}>
+                  <button onClick={() => onReject(req)} aria-label="Refuser la demande" className="h-8 w-8 rounded-full flex items-center justify-center" style={{ color: coral, background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)" }}>
                     <X size={15} />
                   </button>
                   <button onClick={() => onAccept(req)} aria-label="Accepter la demande" className="h-8 w-8 rounded-full flex items-center justify-center text-white" style={{ background: green }}>

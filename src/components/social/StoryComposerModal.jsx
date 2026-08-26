@@ -99,8 +99,8 @@ export default function StoryComposerModal({
                   {storyMediaError && <p className="text-xs mt-2" style={{ color: coral }}>{storyMediaError}</p>}
                   {!storyMediaError && storyMediaWarning && <p className="text-xs mt-2" style={{ color: "#A5761F" }}>⚠️ {storyMediaWarning}</p>}
                   <div className="grid grid-cols-2 gap-2 mt-4">
-                    <button onClick={() => pickStoryMedia("photo")} className="rounded-xl py-3 font-bold" style={{ background: "#FFF3F1", color: coral }}><ImageIcon size={17} className="inline mr-1" />Photo</button>
-                    <button onClick={() => pickStoryMedia("video")} className="rounded-xl py-3 font-bold" style={{ background: "#EEF8F4", color: green }}><Camera size={17} className="inline mr-1" />Vidéo</button>
+                    <button onClick={() => pickStoryMedia("photo")} className="rounded-xl py-3 font-bold" style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)", color: coral }}><ImageIcon size={17} className="inline mr-1" />Photo</button>
+                    <button onClick={() => pickStoryMedia("video")} className="rounded-xl py-3 font-bold" style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)", color: green }}><Camera size={17} className="inline mr-1" />Vidéo</button>
                   </div>
                 </div>
                 <div className="p-6 pt-0 shrink-0">

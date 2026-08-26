@@ -7,7 +7,7 @@ import { invokeAI } from "../../lib/ai/aiClient";
 import { beginCriticalOperation, endCriticalOperation } from "../../lib/criticalOperationGuard";
 import { validateMediaFile } from "../../lib/mediaValidation";
 import { extFromMime } from "../../lib/mediaConstants";
-import { primary, coral, muted, bg, goldTint, goldText, primaryRgb, navy } from "./theme";
+import { primary, coral, muted, bg, goldText, primaryRgb } from "./theme";
 
 const NAME_MAX = 80;
 const DESCRIPTION_MAX = 300;
@@ -122,7 +122,7 @@ export default function CommunityCreateForm({ currentUser, onCreated, onCancel, 
       </label>
 
       {currentUser?.ai_suggestions_enabled !== false && (
-        <div className="rounded-2xl p-3.5" style={{ background: goldTint, border: "1px solid rgba(242,184,75,.3)" }}>
+        <div className="rounded-2xl p-3.5" style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)" }}>
           <div className="text-[10px] font-black uppercase tracking-wider flex items-center gap-1" style={{ color: goldText }}>
             <Sparkles size={11} /> Suggestion IA
           </div>

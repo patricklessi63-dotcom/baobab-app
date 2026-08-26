@@ -47,7 +47,7 @@ export default function FavoritesModal({ open, onClose, favoriteProfiles = [], o
                   onClick={() => onToggleFavorite?.(p)}
                   aria-label={`Retirer ${p.name} des favoris`}
                   className="h-9 w-9 rounded-full flex items-center justify-center shrink-0 focus-visible:outline focus-visible:outline-2"
-                  style={{ background: "#FFF3D6" }}
+                  style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)" }}
                 >
                   <Star size={15} color={gold} fill={gold} />
                 </button>

@@ -50,7 +50,7 @@ export default function MessagesTab({
     return (
       <section className="max-w-3xl mx-auto">
         <div className="mb-6">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-[11px] font-black uppercase tracking-wider" style={{ background: "#EEF8F4", color: green }}><MessageCircle size={13} /> Connexions réciproques</div>
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-[11px] font-black uppercase tracking-wider" style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)", color: green }}><MessageCircle size={13} /> Connexions réciproques</div>
           <h1 className="text-3xl font-black mt-3" style={{ color: primary }}>Messages</h1>
         </div>
         <div className={`${card} p-10`}>

@@ -6,7 +6,7 @@ import {
   CheckCircle2, MapPin, Mail, Clock, Building2, Globe2,
 } from "lucide-react";
 import { supabase } from "../../supabaseClient";
-import { primary, navy, coral, muted, card, bg, surface } from "./theme";
+import { primary, navy, coral, gold, muted, card, bg, surface } from "./theme";
 import {
   ESSENTIAL_DOCUMENTS, BORDER_NOTE, PRIORITY_STEPS, EXTRA_TIPS,
   PROVINCE_DIRECTORY, GENERALIST_DIRECTORY, FEDERAL_RESOURCES, GUIDE_LIMITS,
@@ -373,9 +373,9 @@ export default function ImmigrationNewsView({ onBack, onError, currentUser }) {
 
       {view === "guide" ? (
         <>
-          <div className="rounded-2xl p-4 mb-6 flex gap-3" style={{ background: "#FFF3D6", border: "1px solid rgba(242,184,75,.3)" }}>
-            <AlertTriangle size={18} className="flex-shrink-0 mt-0.5" style={{ color: "#A5761F" }} />
-            <p className="text-xs leading-5" style={{ color: "#5A4218" }}>
+          <div className="rounded-2xl p-4 mb-6 flex gap-3" style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)" }}>
+            <AlertTriangle size={18} className="flex-shrink-0 mt-0.5" style={{ color: gold }} />
+            <p className="text-xs leading-5" style={{ color: muted }}>
               Repères généraux, non exhaustifs et pas un conseil juridique — les démarches exactes varient selon ta province et ta situation. Vérifie toujours auprès des sources officielles.
             </p>
           </div>
@@ -412,9 +412,9 @@ export default function ImmigrationNewsView({ onBack, onError, currentUser }) {
         </>
       ) : (
         <>
-          <div className="rounded-2xl p-4 mb-6 flex gap-3" style={{ background: "#FFF3D6", border: "1px solid rgba(242,184,75,.3)" }}>
-            <AlertTriangle size={18} className="flex-shrink-0 mt-0.5" style={{ color: "#A5761F" }} />
-            <p className="text-xs leading-5" style={{ color: "#5A4218" }}>
+          <div className="rounded-2xl p-4 mb-6 flex gap-3" style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)" }}>
+            <AlertTriangle size={18} className="flex-shrink-0 mt-0.5" style={{ color: gold }} />
+            <p className="text-xs leading-5" style={{ color: muted }}>
               Ceci n'est pas un conseil juridique ou d'immigration. Baobab indexe uniquement les titres et résumés publiés par les sources officielles ci-dessous — vérifie toujours l'information complète sur le site officiel, ou auprès d'un consultant ou avocat en immigration agréé.
             </p>
           </div>

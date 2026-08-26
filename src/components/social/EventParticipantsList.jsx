@@ -4,8 +4,8 @@ import EmptyState from "../home/EmptyState";
 import { primary, gold, muted } from "./theme";
 
 const STATUS_BADGE = {
-  interested: { label: "Intéressé(e)", color: gold, bg: "#FFF3D6" },
-  waitlisted: { label: "Liste d'attente", color: gold, bg: "#FFF3D6" },
+  interested: { label: "Intéressé(e)", color: gold, bg: "var(--bb-surface-2)" },
+  waitlisted: { label: "Liste d'attente", color: gold, bg: "var(--bb-surface-2)" },
 };
 
 // Photo + prénom seulement, jamais email/téléphone/adresse — même
@@ -32,7 +32,7 @@ export default function EventParticipantsList({ participants = [], blockedIds = 
               {profile.show_city !== false && profile.city && <div className="text-xs truncate" style={{ color: muted }}>📍 {profile.city}</div>}
             </div>
             {badge && (
-              <span className="text-[10px] font-black px-2 py-1 rounded-full flex-shrink-0" style={{ background: badge.bg, color: badge.color }}>
+              <span className="text-[10px] font-black px-2 py-1 rounded-full flex-shrink-0" style={{ background: badge.bg, border: "1px solid var(--bb-border)", color: badge.color }}>
                 {badge.label}
               </span>
             )}

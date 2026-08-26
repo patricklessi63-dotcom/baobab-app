@@ -1992,7 +1992,7 @@ export default function App() {
           </div>
         )}
         {error && (
-          <div role="alert" className="fixed top-4 left-1/2 -translate-x-1/2 z-[95] flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-semibold shadow-xl max-w-[92vw]" style={{ background: C.dangerBg, color: C.clay }}>
+          <div role="alert" className="fixed top-4 left-1/2 -translate-x-1/2 z-[95] flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-semibold shadow-xl max-w-[92vw]" style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)", color: C.clay }}>
             <span>{error}</span>
             <button onClick={() => setError("")} aria-label="Fermer le message d'erreur" className="text-xs font-bold underline flex-shrink-0">Fermer</button>
           </div>

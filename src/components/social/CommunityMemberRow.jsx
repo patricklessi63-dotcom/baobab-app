@@ -21,7 +21,7 @@ export default function CommunityMemberRow({ member, viewerRole, currentUserId, 
           <div className="text-sm font-bold truncate flex items-center gap-1.5" style={{ color: primary }}>
             {firstName}
             {member.role !== "member" && (
-              <span className="text-[10px] font-black px-1.5 py-0.5 rounded-full" style={{ background: member.role === "owner" ? "#FFF3D6" : "#EEF2FF", color: member.role === "owner" ? gold : navy }}>
+              <span className="text-[10px] font-black px-1.5 py-0.5 rounded-full" style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)", color: member.role === "owner" ? gold : navy }}>
                 {roleLabel(member.role)}
               </span>
             )}

@@ -88,7 +88,7 @@ export default function ProfileCard({
                 onClick={() => onLike(profile)}
                 aria-label={`Aimer le profil de ${profile.name}`}
                 className="flex-1 rounded-lg py-2.5 text-[11px] font-bold flex items-center justify-center gap-1 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1"
-                style={{ background: "#FFF3F1", color: coral }}
+                style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)", color: coral }}
               >
                 <Heart size={12} aria-hidden="true" /> J'aime
               </button>
@@ -98,7 +98,7 @@ export default function ProfileCard({
                 onClick={() => onMessage(profile)}
                 aria-label={`Envoyer un message à ${profile.name}`}
                 className="flex-1 rounded-lg py-2.5 flex items-center justify-center transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1"
-                style={{ background: "#EEF8F4", color: green }}
+                style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)", color: green }}
               >
                 <MessageCircle size={14} aria-hidden="true" />
               </button>

@@ -15,9 +15,9 @@ export default function EventCard({ event, participantCount = 0, status, onView 
 
   let badge = null;
   if (status === "going") {
-    badge = <span className="text-xs font-bold px-3 py-1.5 rounded-full" style={{ background: "#EEF8F4", color: green }}>Tu participes ✓</span>;
+    badge = <span className="text-xs font-bold px-3 py-1.5 rounded-full" style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)", color: green }}>Tu participes ✓</span>;
   } else if (status === "waitlisted") {
-    badge = <span className="text-xs font-bold px-3 py-1.5 rounded-full" style={{ background: "#FFF3D6", color: gold }}>Liste d'attente</span>;
+    badge = <span className="text-xs font-bold px-3 py-1.5 rounded-full" style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)", color: gold }}>Liste d'attente</span>;
   } else if (full) {
     badge = <span className="text-xs font-bold px-3 py-1.5 rounded-full" style={{ background: bg, color: muted }}>Complet</span>;
   }
