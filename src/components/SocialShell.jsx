@@ -173,6 +173,13 @@ export default function SocialShell({
   const [favoriteIds, setFavoriteIds] = useState(new Set());
   const storyPhotoInputRef = useRef(null);
   const storyVideoInputRef = useRef(null);
+  // Garde anti double-soumission pour addStory() — même pattern que
+  // publishingRef dans PostsFeed.jsx. Le bouton "Publier" ne se désactive
+  // qu'après le re-rendu déclenché par setStoryUploading(true), donc un
+  // double-tap rapide (fréquent au doigt sur mobile) pouvait déclencher
+  // addStory() une seconde fois avant que le state React n'ait eu le temps
+  // de se propager, créant deux statuts identiques (et deux uploads média).
+  const storyPublishingRef = useRef(false);
   const searchRef = useRef(null);
   const notifRef = useRef(null);
   const menuRef = useRef(null);
@@ -920,9 +927,11 @@ export default function SocialShell({
   };
 
   const addStory = async () => {
+    if (storyPublishingRef.current) return;
     const text = storyText.trim();
     if (!text && !storyMedia) return;
     if (!currentUser) return;
+    storyPublishingRef.current = true;
     setStoryUploading(true);
     setStoryUploadProgress(0);
     beginCriticalOperation();
@@ -965,6 +974,7 @@ export default function SocialShell({
       console.error(e);
       setStoryMediaError("Impossible de publier le statut. Réessaie.");
     } finally {
+      storyPublishingRef.current = false;
       setStoryUploading(false);
       setStoryUploadProgress(0);
       endCriticalOperation();

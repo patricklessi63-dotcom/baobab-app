@@ -245,6 +245,15 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
   const hasUnsavedContent = () => draft.trim().length > 0 || mediaItems.length > 0;
 
   const requestCloseComposer = () => {
+    // La création du post (premier appel à publish(), avant que
+    // publishedPostId ne soit connu) est déjà partie côté serveur : si on
+    // laisse fermer ici, l'utilisateur peut choisir "Abandonner" dans la
+    // confirmation de sortie pendant que l'insertion est en vol, puis voir
+    // la publication apparaître quand même dans le fil juste après (le
+    // insert réussit et closeComposerFully() n'annule rien côté async). On
+    // ignore toute demande de fermeture (X, clic sur le fond, Échap) tant
+    // que ce premier appel n'a pas abouti.
+    if (publishing && !publishedPostId) return;
     // Une publication déjà créée (même avec des médias en échec) ne doit
     // jamais être "perdue" derrière une confirmation de sortie — elle est
     // déjà en base. On ferme directement dans ce cas.

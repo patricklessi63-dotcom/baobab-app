@@ -45,6 +45,11 @@ export default function PostComposerModal({
   const canPublish = Boolean(draft.trim() || mediaItems.length > 0);
   const hasFailedMedia = mediaItems.some((it) => uploadStates[it.id]?.status === "error");
   const hasPendingMedia = mediaItems.some((it) => uploadStates[it.id]?.status !== "done");
+  // Insertion initiale du post en vol (avant que publishedPostId ne soit
+  // connu) : fermer maintenant serait déjà ignoré côté parent (voir
+  // requestCloseComposer), on désactive donc aussi visuellement la croix
+  // pour ne pas laisser croire qu'un clic a un effet.
+  const closeLocked = publishing && !publishedPostId;
 
   // Insère l'emoji à la position du curseur dans le textarea (plutôt qu'à
   // la fin) — comportement attendu de tout sélecteur emoji moderne.
@@ -106,7 +111,7 @@ export default function PostComposerModal({
                         {publishing && <Loader2 size={14} className="animate-spin" />} {publishing ? "Publication..." : "Publier"}
                       </button>
                     )}
-                    <button onClick={onRequestClose} aria-label="Fermer" className="h-9 w-9 rounded-xl flex items-center justify-center" style={{ background: bg }}><X size={18} /></button>
+                    <button onClick={onRequestClose} disabled={closeLocked} aria-label="Fermer" className="h-9 w-9 rounded-xl flex items-center justify-center disabled:opacity-40" style={{ background: bg }}><X size={18} /></button>
                   </div>
                 </div>
                 <PostDropZone onDropFiles={onFilesSelected}>
