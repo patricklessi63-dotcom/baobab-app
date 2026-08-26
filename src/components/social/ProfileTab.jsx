@@ -168,6 +168,28 @@ export default function ProfileTab({
                   {[[matches.length, "Matchs"], [myPostsCount, "Publications"], [candidates.length, "Profils à découvrir"]].map(([value, label]) => <div key={label} className="rounded-2xl p-4 text-center" style={{ background: bg }}><b className="text-xl" style={{ color: primary }}>{value}</b><div className="text-[11px] mt-1" style={{ color: muted }}>{label}</div></div>)}
                 </div>
 
+                <div className="rounded-2xl p-4 mt-4" style={{ background: bg }}>
+                  <div className="text-xs font-black uppercase tracking-wider mb-3" style={{ color: primary }}>Vérification</div>
+                  <div className="flex items-center gap-3">
+                    <span className="h-8 w-8 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: (currentUser?.email_verified && currentUser?.phone_verified) ? "linear-gradient(160deg,var(--bb-gold-1),var(--bb-gold-2))" : "var(--bb-surface-2)", border: (currentUser?.email_verified && currentUser?.phone_verified) ? "none" : "1px solid var(--bb-border)" }}>
+                      <CheckCheck size={15} color={(currentUser?.email_verified && currentUser?.phone_verified) ? "#1C1608" : muted} />
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-bold" style={{ color: primary }}>Téléphone et courriel vérifiés</div>
+                      <div className="text-[11px]" style={{ color: muted }}>Palier 1 · obligatoire</div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 mt-3 pt-3" style={{ borderTop: `1px solid rgba(${primaryRgb},.08)` }}>
+                    <span className="h-8 w-8 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)" }}>
+                      <Star size={14} color={muted} />
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-bold" style={{ color: primary }}>Pièce d'identité + selfie</div>
+                      <div className="text-[11px]" style={{ color: muted }}>Palier 2 · optionnel, débloque le badge vérifié — bientôt disponible</div>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="flex gap-3 mt-4">
                   <button onClick={onOpenFavorites} className="flex-1 flex items-center justify-between rounded-2xl p-4" style={{ background: bg }}>
                     <span className="flex items-center gap-2 text-sm font-bold" style={{ color: primary }}><Star size={16} color={gold} /> Mes favoris {favoritesCount > 0 && `(${favoritesCount})`}</span>
