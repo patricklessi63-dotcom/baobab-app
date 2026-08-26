@@ -51,7 +51,14 @@ export default function StoryViewerModal({
   useEscapeKey(storyViewerIndex !== null, closeStoryViewer);
 
   const active = storyViewerIndex !== null && stories[storyViewerIndex];
-  useEffect(() => { setVideoError(false); setMenuOpen(false); }, [storyViewerIndex]);
+  // confirmDelete doit aussi être remis à zéro ici : ce composant reste monté
+  // en permanence (SocialShell ne le démonte jamais, il rend juste `null` en
+  // interne), donc sans ce reset, fermer le visualiseur juste après avoir
+  // appuyé sur "Supprimer" (sans confirmer ni annuler) laissait l'écran de
+  // confirmation affiché à la prochaine ouverture d'un statut personnel —
+  // même un statut différent republié plus tard — au risque d'une
+  // suppression accidentelle jamais demandée cette fois-ci.
+  useEffect(() => { setVideoError(false); setMenuOpen(false); setConfirmDelete(false); }, [storyViewerIndex]);
   if (!active) return null;
   const story = stories[storyViewerIndex];
 
