@@ -20,7 +20,7 @@ export default function StatusBadge({ isFounder, isPremium, emailVerified, phone
     const c = color || verified;
     return (
       <span title={title} aria-label={title} className="inline-flex items-center justify-center flex-shrink-0" style={{ color: c }}>
-        <ShieldCheck size={size} fill={c === "#fff" ? "rgba(255,255,255,0.2)" : "rgba(56,151,240,0.15)"} />
+        <ShieldCheck size={size} fill={c === "#fff" ? "rgba(255,255,255,0.2)" : "rgba(217,164,65,0.18)"} />
       </span>
     );
   }

@@ -68,7 +68,11 @@ export const C = {
   goldText: "#A5761F",
   online: "#27C56D",
   offline: "#B9BEC9",
-  verified: "#3897F0",
+  // Badge "vérifié" en or (refonte visuelle) au lieu du bleu d'origine —
+  // pointe vers le jeton réactif au thème : or vif en mode sombre (maquettes),
+  // ocre existant en mode clair (déjà cohérent avec sa palette, pas de bleu
+  // à y faire coexister sans référence).
+  verified: "var(--bb-gold-1)",
 };
 
 // Triplet RGB de "primary" (bordures/scrims réactifs au thème via
