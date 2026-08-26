@@ -424,7 +424,7 @@ export default function DiscoverTab({
                           title="Aucun profil ne correspond à ces critères pour l'instant."
                           subtitle="Élargis tes préférences pour voir plus de monde."
                           actionLabel="Réinitialiser les filtres"
-                          onAction={() => { setCityFilter(""); setIntentionFilter([]); setInterestFilter([]); setLanguageFilter([]); setActiveRecentlyFilter(false); setNearbyEnabled(false); }}
+                          onAction={() => { setCityFilter(""); setIntentionFilter([]); setInterestFilter([]); setLanguageFilter([]); setActiveRecentlyFilter(false); setArrivalStageFilter(""); setVerifiedOnlyFilter(false); setNearbyEnabled(false); }}
                         />
                       </div>
                     ) : (

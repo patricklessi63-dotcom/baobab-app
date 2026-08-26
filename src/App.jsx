@@ -753,6 +753,18 @@ export default function App() {
 
   async function handleSavePreferences(prefs) {
     if (!currentUser) return;
+    // Comme les autres bascules de profil (handleToggleField, notifications,
+    // localisation) : mise à jour optimiste puis retour en arrière si
+    // l'écriture Supabase échoue. Sans ce revert, un échec réseau/RLS
+    // silencieux laissait l'utilisateur croire ses préférences enregistrées
+    // (et le filtrage Découverte s'appliquait sur les valeurs jamais
+    // persistées) alors que la base gardait les anciennes valeurs.
+    const previousPrefs = {
+      pref_age_min: currentUser.pref_age_min,
+      pref_age_max: currentUser.pref_age_max,
+      pref_distance: currentUser.pref_distance,
+      pref_looking_for: currentUser.pref_looking_for,
+    };
     setCurrentUser((u) => ({ ...u, ...prefs }));
     try {
       const { error: prefError } = await supabase
@@ -762,6 +774,7 @@ export default function App() {
       if (prefError) throw prefError;
     } catch (e) {
       console.error(e.message, e.code, e.details, e.hint);
+      setCurrentUser((u) => (u ? { ...u, ...previousPrefs } : u));
       setError("Impossible d'enregistrer tes préférences.");
     }
   }
