@@ -1,5 +1,4 @@
 import React, { useState } from "react";
-import { C } from "../constants";
 
 export default function Avatar({ name, size = 44, url }) {
   const initial = (name || "?").trim().charAt(0).toUpperCase();
@@ -43,13 +42,13 @@ export default function Avatar({ name, size = 44, url }) {
         width: size,
         height: size,
         borderRadius: "50%",
-        background: `linear-gradient(135deg, ${C.clay}, ${C.ochre})`,
+        background: "linear-gradient(160deg, var(--bb-gold-1), var(--bb-gold-2))",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        color: "#fff",
+        color: "#1C1608",
         fontFamily: "'Fraunces', serif",
-        fontWeight: 600,
+        fontWeight: 700,
         fontSize: size * 0.4,
         flexShrink: 0,
       }}
