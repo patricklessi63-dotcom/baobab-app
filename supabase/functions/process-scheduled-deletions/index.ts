@@ -7,8 +7,16 @@
 //
 // Corrige aussi la limite connue de delete-account/index.ts (fichiers
 // Storage jamais nettoyés) : cette fonction supprime réellement avatars,
-// chat-media, event-covers et event-media du compte avant de supprimer les
-// lignes de base de données.
+// chat-media et event-media du compte avant de supprimer les lignes de
+// base de données.
+//
+// Important : "communities.created_by" et "events.created_by" sont en
+// "on delete set null" (voir supabase-communities.sql / supabase-events.sql)
+// — une communauté ou un événement créé par ce profil SURVIT à sa
+// suppression (seule l'attribution disparaît). Le nettoyage Storage ne doit
+// donc jamais effacer une image de couverture encore utilisée par une
+// communauté/un événement qui continue d'exister, sous peine d'afficher une
+// image cassée à tous ses membres restants.
 
 import Stripe from "npm:stripe@17";
 import { createClient } from "npm:@supabase/supabase-js@2";
@@ -22,7 +30,29 @@ const admin = createClient(Deno.env.get("SUPABASE_URL")!, serviceRoleKey);
 async function cleanupStorage(profileId: string, userId: string) {
   const { data: avatarFiles } = await admin.storage.from("avatars").list(userId);
   if (avatarFiles?.length) {
-    await admin.storage.from("avatars").remove(avatarFiles.map((f) => `${userId}/${f.name}`));
+    // Les couvertures de communautés créées par ce profil (CommunityCreateForm)
+    // sont uploadées dans ce même dossier "avatars/<userId>/", au milieu des
+    // photos de profil — mais la communauté, elle, n'est pas supprimée (voir
+    // note plus haut). On exclut donc ces fichiers précis de l'effacement : le
+    // "created_by" est encore intact à ce stade (le profil n'est supprimé
+    // qu'après cet appel), donc la requête ne peut pas manquer de communautés.
+    const { data: ownedCommunities } = await admin
+      .from("communities")
+      .select("cover_url")
+      .eq("created_by", profileId);
+    const keepNames = new Set(
+      (ownedCommunities || [])
+        .map((c) => c.cover_url)
+        .filter(Boolean)
+        .map((url) => {
+          const marker = `/avatars/${userId}/`;
+          const idx = url.indexOf(marker);
+          return idx === -1 ? null : decodeURIComponent(url.slice(idx + marker.length));
+        })
+        .filter(Boolean)
+    );
+    const toRemove = avatarFiles.filter((f) => !keepNames.has(f.name)).map((f) => `${userId}/${f.name}`);
+    if (toRemove.length) await admin.storage.from("avatars").remove(toRemove);
   }
 
   const [{ data: asFirst }, { data: asSecond }] = await Promise.all([
@@ -35,11 +65,12 @@ async function cleanupStorage(profileId: string, userId: string) {
     if (files?.length) await admin.storage.from("chat-media").remove(files.map((f) => `${key}/${f.name}`));
   }
 
-  const { data: ownEvents } = await admin.from("events").select("id").eq("created_by", profileId);
-  for (const ev of ownEvents || []) {
-    const { data: files } = await admin.storage.from("event-covers").list(ev.id);
-    if (files?.length) await admin.storage.from("event-covers").remove(files.map((f) => `${ev.id}/${f.name}`));
-  }
+  // Note : les couvertures d'événements ("event-covers") ne sont PAS
+  // nettoyées ici. Contrairement à "event_media" (dont les lignes sont en
+  // "on delete cascade" sur uploaded_by, donc réellement supprimées), un
+  // événement créé par ce profil continue d'exister après la suppression de
+  // son compte (created_by passe à NULL). Effacer sa couverture casserait
+  // l'affichage de l'événement pour tous les participants restants.
 
   const { data: mediaRows } = await admin.from("event_media").select("storage_path").eq("uploaded_by", profileId);
   if (mediaRows?.length) {
