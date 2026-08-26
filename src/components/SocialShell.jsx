@@ -1590,20 +1590,21 @@ export default function SocialShell({
 
 
       <nav className="fixed bottom-0 left-0 right-0 z-40 bb-glass border-t" style={{ borderColor: `rgba(${primaryRgb},.08)`, paddingBottom: "env(safe-area-inset-bottom)" }}>
-        <div className="max-w-xl mx-auto grid grid-cols-6 px-2">
+        <div className="max-w-xl mx-auto grid grid-cols-5 px-2">
           {nav.map(([key, Icon, label, getBadge]) => {
             const badgeCount = getBadge ? getBadge() : 0;
+            const active = tab === key;
             return (
               <button key={key} onClick={() => goTab(key)} aria-label={badgeCount > 0 ? `${label} (${badgeCount} non lus)` : label} className="py-3 flex flex-col items-center gap-1.5 rounded-2xl" style={{ minHeight: 48 }}>
-                <div className={`h-7 w-9 flex items-center justify-center rounded-xl relative motion-safe:transition-colors motion-safe:duration-200 ${tab === key ? "bb-tab-active" : ""}`} style={{ background: tab === key ? "rgba(225,107,93,.11)" : "transparent" }}>
-                  <Icon size={19} color={tab === key ? coral : muted} fill={tab === key && key === "discover" ? coral : "none"} className="motion-safe:transition-colors motion-safe:duration-200" />
+                <div className="h-7 w-9 flex items-center justify-center rounded-xl relative motion-safe:transition-colors motion-safe:duration-200">
+                  <Icon size={19} color={active ? "var(--bb-gold-1)" : muted} fill={active && key === "discover" ? "var(--bb-gold-1)" : "none"} className="motion-safe:transition-colors motion-safe:duration-200" />
                   {badgeCount > 0 && (
                     <span className="absolute -top-0.5 -right-0.5 h-4 min-w-4 px-1 rounded-full text-[9px] font-black text-white flex items-center justify-center" style={{ background: coral }}>
                       {badgeCount}
                     </span>
                   )}
                 </div>
-                <span className={`${key === "communities" ? "text-[7.5px]" : "text-[8px]"} font-black text-center leading-tight w-full whitespace-nowrap overflow-hidden text-ellipsis px-0.5`} style={{ color: tab === key ? primary : muted }}>{label}</span>
+                <span className="text-[8px] font-black text-center leading-tight w-full whitespace-nowrap overflow-hidden text-ellipsis px-0.5" style={{ color: active ? "var(--bb-gold-1)" : muted }}>{label}</span>
               </button>
             );
           })}
