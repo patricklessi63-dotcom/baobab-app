@@ -53,6 +53,10 @@ export default function App() {
   const [passPairs, setPassPairs] = useState([]); // [{from_id, to_id}]
   const likeInFlightRef = useRef(new Set()); // to_id en cours d'envoi — évite un double clic = double insert
   const passInFlightRef = useRef(new Set());
+  const likePairsRef = useRef(likePairs); // lu par l'abonnement realtime "likes" sans le forcer à se réabonner à chaque like
+  const profilesRef = useRef(profiles); // idem, pour retrouver le profil qui vient de matcher
+  const blockPairsRef = useRef([]); // idem, pour ignorer un like venant d'une personne bloquée dans un sens ou l'autre
+  const likesChannelRef = useRef(null);
   const [matchNotice, setMatchNotice] = useState(null);
   const [activeMatch, setActiveMatch] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -319,6 +323,18 @@ export default function App() {
   useEffect(() => {
     messagesRef.current = messages;
   }, [messages]);
+
+  useEffect(() => {
+    likePairsRef.current = likePairs;
+  }, [likePairs]);
+
+  useEffect(() => {
+    profilesRef.current = profiles;
+  }, [profiles]);
+
+  useEffect(() => {
+    blockPairsRef.current = blockPairs;
+  }, [blockPairs]);
 
   // Déconnexion automatique par inactivité : retirée définitivement sur
   // demande explicite (les sessions ne doivent plus jamais expirer par
@@ -1688,6 +1704,55 @@ export default function App() {
       clearTimeout(typingTimeoutRef.current);
     };
   }, [currentUser, activeMatch]);
+
+  // Détection en direct d'un match "passif" : je t'ai déjà liké, et c'est toi
+  // qui viens de me liker en retour pendant que ma session est restée
+  // ouverte. handleLike() ne couvre que l'autre sens (je te like alors que tu
+  // m'avais déjà liké avant), via une lecture directe en base — voir le
+  // commentaire dans handleLike(). Sans cet abonnement, ce match bien réel
+  // côté serveur ne se reflétait jamais dans l'UI (ni modale de célébration,
+  // ni liste des matches à jour) avant un rechargement complet de la page.
+  useEffect(() => {
+    if (likesChannelRef.current) {
+      supabase.removeChannel(likesChannelRef.current);
+      likesChannelRef.current = null;
+    }
+    if (!currentUser) return;
+
+    const channel = supabase
+      .channel(`likes-received:${currentUser.id}`)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "likes", filter: `to_id=eq.${currentUser.id}` },
+        (payload) => {
+          const fromId = payload.new.from_id;
+          const isBlocked = blockPairsRef.current.some(
+            (b) => (b.from_id === currentUser.id && b.to_id === fromId) || (b.from_id === fromId && b.to_id === currentUser.id)
+          );
+          if (isBlocked) return; // même logique que getMatches() : un match avec une personne bloquée ne doit pas apparaître
+          const alreadyMutual = likePairsRef.current.some((l) => l.from_id === currentUser.id && l.to_id === fromId);
+          setLikePairs((prev) =>
+            prev.some((l) => l.from_id === fromId && l.to_id === currentUser.id) ? prev : [...prev, { from_id: fromId, to_id: currentUser.id }]
+          );
+          if (alreadyMutual) {
+            const matchedProfile = profilesRef.current.find((p) => p.id === fromId);
+            if (matchedProfile) {
+              setMatchNotice(matchedProfile);
+              trackActivation(currentUser.id, "first_match");
+            }
+          }
+        }
+      )
+      .subscribe();
+    likesChannelRef.current = channel;
+
+    return () => {
+      if (likesChannelRef.current) {
+        supabase.removeChannel(likesChannelRef.current);
+        likesChannelRef.current = null;
+      }
+    };
+  }, [currentUser?.id]);
 
   function broadcastTyping() {
     if (!currentUser || !typingChannelRef.current) return;
