@@ -155,8 +155,14 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
           // fonctionner avec la galerie vide plutôt que planter.
         }
       }
+      // Pas de filtrage blockedIds ici : si on le fait au moment du
+      // chargement, un blocage effectué ensuite (depuis un profil ouvert,
+      // une story...) pendant que ce fil reste monté ne fait rien
+      // disparaître tant qu'il n'est pas rechargé. Comme pour
+      // EventsTab/CommunitiesTab, on garde les données brutes en état et on
+      // filtre avec la prop blockedIds (réactive) au moment du rendu, plus
+      // bas (visiblePosts).
       const rows = (data || [])
-        .filter((p) => !blockedIds.has(p.author_id))
         .map((p) => normalizePost({ ...p, post_media: mediaByPost[p.id] || [] }));
       setPosts((prev) => (isFirstPage ? rows : [...prev, ...rows]));
       setHasMore((data || []).length === PAGE_SIZE);
@@ -531,7 +537,8 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
         .from("post_comments").select("*, profiles(name, avatar_url)")
         .eq("post_id", postId).order("created_at", { ascending: true });
       if (error) throw error;
-      setCommentsByPost((c) => ({ ...c, [postId]: { items: (data || []).filter((cm) => !blockedIds.has(cm.author_id)) } }));
+      // Idem : pas de filtrage blockedIds ici, il est appliqué au rendu.
+      setCommentsByPost((c) => ({ ...c, [postId]: { items: data || [] } }));
     } catch (e) {
       console.error(e);
       onError("Impossible de charger les commentaires.");
@@ -610,12 +617,17 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
     onDiscardResumed: discardResumedDraft,
   };
 
+  // Filtré ici (au rendu) plutôt qu'au chargement — voir le commentaire
+  // dans loadPosts() : un blocage effectué pendant que ce fil reste monté
+  // doit faire disparaître ses publications immédiatement, sans recharger.
+  const visiblePosts = posts.filter((p) => !blockedIds.has(p.author_id));
+
   if (layout === "grid") {
     return (
       <div className="p-3">
         {postsLoading ? (
           <p className="text-sm text-center py-6" style={{ color: muted }}>Chargement...</p>
-        ) : posts.length === 0 ? (
+        ) : visiblePosts.length === 0 ? (
           <div className="p-10 text-center">
             <ImageIcon size={26} className="mx-auto mb-2" color={muted} />
             <p className="text-sm mb-3" style={{ color: muted }}>Pas encore de publication.</p>
@@ -625,7 +637,7 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
           <>
             <button onClick={openComposer} className="w-full mb-3 py-2.5 rounded-xl font-bold text-sm" style={{ background: bg, color: primary }}>+ Nouvelle publication</button>
             <div className="grid grid-cols-3 gap-0.5">
-              {posts.map((p) => {
+              {visiblePosts.map((p) => {
                 const first = p.post_media?.[0];
                 const mediaUrl = first?.url || p.media_url;
                 const mediaKind = first?.kind || p.media_kind;
@@ -684,7 +696,7 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
 
       {postsLoading ? (
         <p className="text-sm text-center py-6" style={{ color: muted }}>Chargement...</p>
-      ) : posts.length === 0 ? (
+      ) : visiblePosts.length === 0 ? (
         <EmptyState icon={ImageIcon} title="Aucune publication pour l'instant." subtitle="Sois le/la premier·ère à partager quelque chose." />
       ) : (
         <>
@@ -694,7 +706,7 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
             </button>
           )}
           <div className="flex flex-col">
-            {posts.map((post) => (
+            {visiblePosts.map((post) => (
               <PostCard
                 key={post.id}
                 post={post}
@@ -702,7 +714,7 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
                 liked={likedPostIds.has(post.id)}
                 likeCount={postLikeCounts[post.id] || 0}
                 commentCount={postCommentCounts[post.id] || 0}
-                comments={commentsByPost[post.id]?.items || []}
+                comments={(commentsByPost[post.id]?.items || []).filter((c) => !blockedIds.has(c.author_id))}
                 commentsLoaded={Boolean(commentsByPost[post.id])}
                 onToggleLike={toggleLike}
                 onLoadComments={loadComments}
