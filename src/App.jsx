@@ -543,25 +543,42 @@ export default function App() {
   // une conversation partagée. Tout en lecture, RLS self-only déjà en place,
   // aucune nouvelle requête privilégiée nécessaire. Téléchargement direct
   // côté client, rien n'est envoyé à un tiers.
+  // "Exporter mes données" doit couvrir tout le contenu que l'utilisateur a
+  // lui-même créé, pas seulement le fil principal — audit du 2026-08-26 :
+  // il manquait les photos de galerie (table profile_photos, distincte de
+  // profile.avatar_url), les commentaires du fil (post_comments) et TOUTE
+  // l'activité communautaire (community_posts, community_comments) alors
+  // que ces tables existent depuis longtemps (supabase-feed-posts.sql,
+  // supabase-communities.sql). De plus aucune requête ne vérifiait son
+  // "error" : une ligne bloquée par une policy RLS ou une erreur réseau
+  // partielle produisait un export tronqué que Promise.all laissait passer
+  // sans jamais le signaler (le catch englobant n'attrape que les rejets,
+  // pas un { data: null, error } résolu normalement par Supabase).
   async function handleExportData() {
     if (!currentUser) return;
     try {
-      const [postsRes, storiesRes, eventsRes, communitiesRes, messagesRes] = await Promise.all([
-        supabase.from("posts").select("*").eq("author_id", currentUser.id),
-        supabase.from("stories").select("*").eq("profile_id", currentUser.id),
-        supabase.from("event_attendees").select("event_id, status, created_at").eq("profile_id", currentUser.id),
-        supabase.from("community_members").select("community_id, role, created_at").eq("profile_id", currentUser.id),
-        supabase.from("messages").select("id, match_key, kind, text, created_at").eq("from_id", currentUser.id),
-      ]);
-      const payload = {
-        exported_at: new Date().toISOString(),
-        profile: currentUser,
-        posts: postsRes.data || [],
-        stories: storiesRes.data || [],
-        event_participations: eventsRes.data || [],
-        community_memberships: communitiesRes.data || [],
-        messages_sent: messagesRes.data || [],
+      const queries = {
+        posts: supabase.from("posts").select("*").eq("author_id", currentUser.id),
+        photos: supabase.from("profile_photos").select("*").eq("profile_id", currentUser.id),
+        stories: supabase.from("stories").select("*").eq("profile_id", currentUser.id),
+        event_participations: supabase.from("event_attendees").select("event_id, status, created_at").eq("profile_id", currentUser.id),
+        community_memberships: supabase.from("community_members").select("community_id, role, created_at").eq("profile_id", currentUser.id),
+        messages_sent: supabase.from("messages").select("id, match_key, kind, text, created_at").eq("from_id", currentUser.id),
+        post_comments: supabase.from("post_comments").select("id, post_id, body, created_at").eq("author_id", currentUser.id),
+        community_posts: supabase.from("community_posts").select("id, community_id, body, created_at").eq("author_id", currentUser.id),
+        community_comments: supabase.from("community_comments").select("id, post_id, body, created_at").eq("author_id", currentUser.id),
       };
+      const keys = Object.keys(queries);
+      const results = await Promise.all(keys.map((k) => queries[k]));
+
+      const payload = { exported_at: new Date().toISOString(), profile: currentUser };
+      const failedCategories = [];
+      keys.forEach((key, i) => {
+        const { data, error } = results[i];
+        if (error) { console.error(key, error); failedCategories.push(key); }
+        payload[key] = data || [];
+      });
+
       const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -571,6 +588,13 @@ export default function App() {
       a.click();
       a.remove();
       URL.revokeObjectURL(url);
+
+      // Le fichier part quand même (mieux vaut un export partiel que rien),
+      // mais l'utilisateur doit savoir qu'il est incomplet plutôt que de
+      // croire à tort avoir la totalité de ses données.
+      if (failedCategories.length > 0) {
+        setError("Export téléchargé, mais incomplet : certaines données n'ont pas pu être récupérées. Réessaie plus tard ou contacte le support si le problème persiste.");
+      }
     } catch (e) {
       console.error(e);
       setError("Impossible d'exporter tes données pour le moment. Réessaie.");
