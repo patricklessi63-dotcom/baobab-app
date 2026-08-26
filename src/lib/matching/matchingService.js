@@ -88,24 +88,32 @@ function scoreLifeProject(userA, userB) {
 }
 
 function scorePreferences(userA, userB) {
-  let points = 0;
   const hasCustomAgePref = (userA.pref_age_min ?? 18) > 18 || (userA.pref_age_max ?? 99) < 99;
 
+  // Points d'âge et de distance calculés séparément (et non plus cumulés
+  // dans un seul total) : la raison affichée "Son âge correspond à tes
+  // préférences" ne doit se déclencher que si l'ÂGE lui-même est proche,
+  // pas parce que la distance à elle seule (jusqu'à 7 pts) a suffi à
+  // dépasser un seuil combiné pendant qu'un écart d'âge de 10 ans (3 pts)
+  // complétait le total — sinon le texte affirme un rapprochement d'âge
+  // qui n'existe pas vraiment.
+  let agePoints = 0;
   if (typeof userA.age === "number" && typeof userB.age === "number") {
     const gap = Math.abs(userA.age - userB.age);
-    if (gap <= 2) points += 8;
-    else if (gap <= 5) points += 6;
-    else if (gap <= 10) points += 3;
+    if (gap <= 2) agePoints = 8;
+    else if (gap <= 5) agePoints = 6;
+    else if (gap <= 10) agePoints = 3;
   }
 
+  let distancePoints = 0;
   const distancePref = userA.pref_distance || "";
   const sameCity = Boolean(userA.city && userB.city && userA.city.trim().toLowerCase() === userB.city.trim().toLowerCase());
   const sameCountry = Boolean(userA.country && userB.country && userA.country.trim().toLowerCase() === userB.country.trim().toLowerCase());
-  if (distancePref === "Ma ville uniquement" && sameCity) points += 7;
-  else if (distancePref === "Ma ville ou mon pays" && (sameCity || sameCountry)) points += 7;
-  else if (distancePref === "Peu importe") points += 7;
+  if (distancePref === "Ma ville uniquement" && sameCity) distancePoints = 7;
+  else if (distancePref === "Ma ville ou mon pays" && (sameCity || sameCountry)) distancePoints = 7;
+  else if (distancePref === "Peu importe") distancePoints = 7;
 
-  return { points: Math.min(points, MATCH_WEIGHTS.preferences), hasCustomAgePref };
+  return { points: Math.min(agePoints + distancePoints, MATCH_WEIGHTS.preferences), hasCustomAgePref, agePoints };
 }
 
 function scoreLanguages(userA, userB) {
@@ -168,7 +176,7 @@ export function computeMatch(currentUser, candidate) {
   if (lifeProject.points > 0) {
     candidateReasons.push("Vous avez une vision similaire de votre projet de vie");
   }
-  if (preferences.hasCustomAgePref && preferences.points >= 8) {
+  if (preferences.hasCustomAgePref && preferences.agePoints >= 6) {
     candidateReasons.push("Son âge correspond à tes préférences");
   }
   if (languages.shared.length > 0) {
