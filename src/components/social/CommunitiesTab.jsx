@@ -202,6 +202,12 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
   };
 
   // ---------- Détail ----------
+  // Le filtrage blockedIds n'est plus appliqué ici avant setPosts : si on le
+  // fait au moment du chargement, un blocage effectué ensuite (depuis cette
+  // même communauté ou un autre onglet pendant qu'elle reste montée) ne fait
+  // rien disparaître tant que la communauté n'est pas rechargée. Comme pour
+  // EventsTab, on garde les données brutes en état et on filtre avec la prop
+  // blockedIds (réactive) au moment du rendu, plus bas.
   const loadPosts = async (id) => {
     setPostsLoading(true);
     try {
@@ -211,9 +217,8 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
         .eq("community_id", id)
         .order("created_at", { ascending: false });
       if (error) throw error;
-      const visiblePosts = (data || []).filter((p) => !blockedIds.has(p.author_id));
-      setPosts(visiblePosts);
-      const ids = visiblePosts.map((p) => p.id);
+      setPosts(data || []);
+      const ids = (data || []).map((p) => p.id);
       if (ids.length > 0) {
         const [likesRes, commentsRes] = await Promise.all([
           supabase.from("community_post_likes").select("post_id, profile_id, emoji").in("post_id", ids),
@@ -253,9 +258,12 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
       // Le total affiché doit compter tous les membres réels (cohérent avec
       // la carte de liste, qui utilise community_members(count) côté
       // serveur) — seule la liste affichée exclut les profils bloqués, pour
-      // ne pas les montrer à l'écran sans fausser le compteur.
+      // ne pas les montrer à l'écran sans fausser le compteur. Le filtrage
+      // se fait désormais au rendu (comme les publications ci-dessus) pour
+      // qu'un blocage effectué en cours de session masque immédiatement le
+      // membre sans recharger la communauté.
       setMemberCount((data || []).length);
-      setMembers((data || []).filter((m) => !blockedIds.has(m.profile_id)));
+      setMembers(data || []);
     } catch (e) {
       console.error(e);
       onError("Impossible de charger les membres.");
@@ -551,7 +559,8 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
         .from("community_comments").select("*, profiles(name, avatar_url)")
         .eq("post_id", postId).order("created_at", { ascending: true });
       if (error) throw error;
-      setCommentsByPost((c) => ({ ...c, [postId]: { items: (data || []).filter((cm) => !blockedIds.has(cm.author_id)) } }));
+      // Idem : pas de filtrage blockedIds ici, il est appliqué au rendu.
+      setCommentsByPost((c) => ({ ...c, [postId]: { items: data || [] } }));
     } catch (e) {
       console.error(e);
       onError("Impossible de charger les commentaires.");
@@ -726,6 +735,14 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
     goDetail(newCommunity);
   };
 
+  // Commentaires filtrés au rendu (voir loadPosts/loadMembers ci-dessus) :
+  // recalculé à chaque rendu à partir de commentsByPost (brut) et de la prop
+  // blockedIds, pour rester à jour dès qu'un blocage/déblocage survient.
+  const visibleCommentsByPost = {};
+  Object.keys(commentsByPost).forEach((postId) => {
+    visibleCommentsByPost[postId] = { items: (commentsByPost[postId]?.items || []).filter((c) => !blockedIds.has(c.author_id)) };
+  });
+
   // ---------- Rendu ----------
   if (view === "create") {
     return (
@@ -764,7 +781,7 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
           isPlatformAdmin={isPlatformAdmin}
           onShare={handleShare}
           onReportCommunity={(c) => openReport("community", c.id, REPORT_TARGET_LABEL.community)}
-          posts={posts}
+          posts={posts.filter((p) => !blockedIds.has(p.author_id))}
           postsLoading={postsLoading}
           postDraft={postDraft}
           setPostDraft={setPostDraft}
@@ -773,7 +790,7 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
           reactionCounts={reactionCounts}
           myReactions={myReactions}
           onReact={handleReact}
-          commentsByPost={commentsByPost}
+          commentsByPost={visibleCommentsByPost}
           onLoadComments={handleLoadComments}
           onSubmitComment={handleSubmitComment}
           onEditComment={handleEditComment}
@@ -785,7 +802,7 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
           onOpenEvent={(id) => onOpenEvents(id)}
           onCreateEvent={() => onOpenEvents()}
           onOpenInvite={(c) => setInviteTarget(c)}
-          members={members}
+          members={members.filter((m) => !blockedIds.has(m.profile_id))}
           membersLoading={membersLoading}
           onViewMemberProfile={(p) => setViewedMemberProfile(p)}
           onSetMemberRole={handleSetMemberRole}
