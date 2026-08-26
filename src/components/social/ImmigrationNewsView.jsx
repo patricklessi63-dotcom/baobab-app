@@ -194,7 +194,7 @@ function GeneralistDirectory() {
         <Globe2 size={16} /> Organismes d'établissement généralistes
       </h3>
       <p className="text-xs leading-5 mb-3" style={{ color: muted }}>
-        Ouverts à toutes origines et langues, en plus du réseau francophone ci-dessus — choisis ta ville. Répertoire encore limité à trois grandes villes, à étendre.
+        Ouverts à toutes origines et langues, en plus du réseau francophone ci-dessus — choisis ta ville. Répertoire encore limité à sept grandes villes, à étendre.
       </p>
       <div className="flex gap-1.5 overflow-x-auto pb-1">
         {GENERALIST_DIRECTORY.map((c) => (

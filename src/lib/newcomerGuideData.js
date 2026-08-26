@@ -285,6 +285,54 @@ export const GENERALIST_DIRECTORY = [
       },
     ],
   },
+  {
+    city: "Calgary (Alberta)",
+    orgs: [
+      {
+        name: "Centre for Newcomers",
+        address: "#125, 565 – 36 Street NE, Calgary, AB T2A 6K3 (second emplacement à Village Square, 2623, 56 Street NE)",
+        phone: "403-569-3325",
+        hours: "Lun-sam 8h30-16h30",
+        services: "Cours d'anglais (LINC), aide à l'emploi et recherche d'emploi, établissement et intégration, programmes jeunesse, service de garde, développement professionnel.",
+      },
+    ],
+  },
+  {
+    city: "Edmonton (Alberta)",
+    orgs: [
+      {
+        name: "Catholic Social Services — Immigration and Settlement",
+        address: "Alice Colak Centre, 8212, 118 Avenue, Edmonton, AB T5B 0S3",
+        phone: "780-424-3545",
+        services: "Établissement et immigration, accompagnement des nouveaux arrivants, dans le cadre d'un ensemble plus large de services communautaires.",
+      },
+    ],
+  },
+  {
+    city: "Winnipeg (Manitoba)",
+    orgs: [
+      {
+        name: "Immigrant Centre Manitoba (ICM)",
+        address: "100 Adelaide Street, Winnipeg, MB R3A 0W2",
+        phone: "204-943-9158",
+        hours: "Lun-jeu 8h30-20h, ven 8h30-16h30, sam 8h30-16h (services limités)",
+        services: "Établissement, emploi, banque de langues/interprétation, nutrition, préparation à l'examen de citoyenneté, préparation à l'examen théorique de conduite, programme d'accueil de quartier.",
+      },
+    ],
+  },
+  {
+    city: "Halifax (Nouvelle-Écosse)",
+    orgs: [
+      {
+        name: "ISANS (Immigrant Services Association of Nova Scotia)",
+        address: "Mumford Professional Centre, 6960 Mumford Road, bureau 2120, Halifax, NS B3L 4P1",
+        phone: "902-423-3607 · Sans frais (N.-É.) 1-866-431-6472",
+        email: "info@isans.ca",
+        hours: "Lun-ven 8h30-16h30",
+        services: "Établissement (logement, soutien familial, interprétation/traduction), emploi et transition professionnelle, cours d'anglais (LINC), intégration communautaire, accompagnement entrepreneurial, service pré-arrivée (accompagnement avant le départ), réinstallation des réfugiés.",
+      },
+    ],
+  },
 ];
 
 export const FEDERAL_RESOURCES = [
