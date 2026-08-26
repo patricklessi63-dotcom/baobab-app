@@ -372,7 +372,12 @@ export default function ConversationPane({
                 </button>
               )}
               {moneyCheck?.flagged && (
-                <div className="max-w-[85%] text-xs px-3.5 py-2.5 rounded-2xl flex items-start gap-2" style={{ alignSelf: "flex-start", background: "#FFF3F1", color: coral, marginTop: 4 }}>
+                // Fond fixe #FFF3F1 (pensé pour le mode clair) devenait un
+                // pavé rose clair illisible sur fond sombre — remplacé par
+                // les jetons réactifs au thème (comme .system-note de la
+                // maquette screen-messages.html), la couleur d'alerte reste
+                // sur l'icône et le texte pour rester visible dans les deux.
+                <div className="max-w-[85%] text-xs px-3.5 py-2.5 rounded-2xl flex items-start gap-2" style={{ alignSelf: "flex-start", background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)", color: coral, marginTop: 4 }}>
                   <ShieldAlert size={15} className="flex-shrink-0 mt-0.5" />
                   <span>{moneyCheck.message}</span>
                 </div>
