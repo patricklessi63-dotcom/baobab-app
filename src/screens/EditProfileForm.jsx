@@ -174,6 +174,7 @@ export default function EditProfileForm({
           className="bb-input w-full text-sm" />
         <label htmlFor="edit-birth-date" className="text-xs" style={{ color: "rgba(var(--bb-ink-rgb-static),0.5)" }}>Date de naissance (jamais affichée publiquement)</label>
         <input id="edit-birth-date" type="date" value={editForm.birthDate} onChange={(e) => set({ birthDate: e.target.value })}
+          min={`${new Date().getFullYear() - 100}-01-01`} max={`${new Date().getFullYear() - 18}-12-31`}
           className="bb-input w-full text-sm" />
 
         <p className="text-xs font-semibold mt-2" style={{ color: "rgba(var(--bb-ink-rgb-static),0.55)" }}>Localisation</p>

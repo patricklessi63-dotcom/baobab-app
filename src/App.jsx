@@ -1056,12 +1056,24 @@ export default function App() {
     if (!editForm.name || !currentUser) { setError("Le nom est requis."); return; }
     const editAgeNum = editForm.birthDate ? computeAge(editForm.birthDate) : Number(editForm.age);
     if (editAgeNum === null || Number.isNaN(editAgeNum) || editAgeNum < 18) { setError("Tu dois avoir au moins 18 ans."); return; }
+    // Même borne haute que l'onboarding (isStep1Valid) : sans elle, une date
+    // de naissance très ancienne saisie ici (le champ n'a pas de min/max)
+    // passait sans erreur alors qu'elle aurait été rejetée à l'inscription.
+    if (editAgeNum > 100) { setError("Vérifie ta date de naissance."); return; }
     setSavingProfile(true);
     // Chemins Storage (bucket "avatars") tout juste uploadés dans cette
     // tentative — si une étape suivante échoue, on les nettoie dans le catch
     // pour ne jamais laisser de fichier orphelin (même logique que
     // sendMediaMessage/uploadOneMedia ailleurs dans l'app).
     const freshlyUploadedPaths = [];
+    // Lignes profile_photos tout juste insérées dans cette tentative — si une
+    // étape suivante (upload de couverture ou update du profil) échoue après
+    // cet insert, il faut aussi les supprimer en base : sinon on nettoie les
+    // fichiers Storage (freshlyUploadedPaths ci-dessous) sans supprimer les
+    // lignes qui les référencent, ce qui laisse des photos "fantômes" (lignes
+    // pointant vers des fichiers supprimés) affichées comme images cassées
+    // au prochain chargement du profil.
+    let insertedPhotoRowIds = [];
     const urlToStoragePath = (url) => {
       const marker = "/avatars/";
       const idx = url?.indexOf(marker);
@@ -1097,6 +1109,7 @@ export default function App() {
           .select();
         if (photoError) throw photoError;
         newPhotoRows = inserted || [];
+        insertedPhotoRowIds = newPhotoRows.map((p) => p.id).filter(Boolean);
       }
 
       const allPhotos = [...existingPhotos, ...newPhotoRows];
@@ -1175,6 +1188,9 @@ export default function App() {
       // orphelines dans le bucket "avatars" pour toujours.
       if (freshlyUploadedPaths.length > 0) {
         supabase.storage.from("avatars").remove(freshlyUploadedPaths).catch(() => {});
+      }
+      if (insertedPhotoRowIds.length > 0) {
+        supabase.from("profile_photos").delete().in("id", insertedPhotoRowIds).then(() => {}).catch(() => {});
       }
     } finally {
       setSavingProfile(false);
