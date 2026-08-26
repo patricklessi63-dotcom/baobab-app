@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { AlertTriangle, X } from "lucide-react";
 import { C } from "../constants";
 import { useEscapeKey } from "../hooks/useEscapeKey";
@@ -14,6 +14,14 @@ export default function DeleteAccountModal({ open, onClose, currentUser, onReque
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   useEscapeKey(open, onClose);
+  // Cette modale reste montée en permanence (AppModals ne la démonte jamais,
+  // elle rend juste `null` en interne) — sans ce reset, rouvrir la modale
+  // après une fermeture sans confirmation laissait "SUPPRIMER" déjà saisi
+  // (bouton de suppression actif sans nouvelle confirmation explicite) ou
+  // une erreur d'une tentative précédente affichée à tort.
+  useEffect(() => {
+    if (open) { setConfirmText(""); setError(""); }
+  }, [open]);
   if (!open) return null;
 
   const ready = confirmText.trim().toUpperCase() === "SUPPRIMER";
@@ -30,6 +38,7 @@ export default function DeleteAccountModal({ open, onClose, currentUser, onReque
       onRequested();
     } catch (e) {
       setError(e.message);
+    } finally {
       setLoading(false);
     }
   };
