@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { ArrowLeft, MapPin, Calendar, Heart, Compass } from "lucide-react";
 import { C } from "../constants";
 import { useEscapeKey } from "../hooks/useEscapeKey";
@@ -15,6 +15,14 @@ export default function LocationSettingsModal({ open, onClose, onBack, location,
   const [view, setView] = useState("idle"); // idle | consent | requesting | error
   const [errorMessage, setErrorMessage] = useState("");
   useEscapeKey(open, onClose);
+  // Cette modale reste montée en permanence (AppModals ne la démonte jamais,
+  // elle rend juste `null` en interne) — sans ce reset, rouvrir la modale
+  // après une fermeture en plein écran de consentement ou d'erreur de
+  // géolocalisation réaffichait à tort cet écran périmé au lieu de la vue
+  // normale (même classe de bug que DeleteAccountModal/StoryViewerModal).
+  useEffect(() => {
+    if (open) { setView("idle"); setErrorMessage(""); }
+  }, [open]);
   if (!open) return null;
 
   const enabled = Boolean(location?.location_enabled);

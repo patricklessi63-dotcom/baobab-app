@@ -27,8 +27,16 @@ export default function NotificationPreferencesModal({ open, onClose, onBack, cu
   const [pushStatus, setPushStatus] = useState(null);
   const [pushError, setPushError] = useState("");
 
+  // Cette modale reste montée en permanence (AppModals ne la démonte jamais,
+  // elle rend juste `null` en interne) — sans ce reset, rouvrir la modale
+  // après une fermeture en plein écran de consentement push ou d'erreur
+  // réaffichait à tort cet écran périmé au lieu de la liste normale des
+  // préférences (même classe de bug que DeleteAccountModal/StoryViewerModal).
   useEffect(() => {
-    if (!open || !isPushSupported()) return;
+    if (!open) return;
+    setPushStep("idle");
+    setPushError("");
+    if (!isPushSupported()) return;
     getPushSubscriptionStatus().then(setPushStatus);
   }, [open]);
 
