@@ -47,6 +47,14 @@ export const C = {
   bg: "var(--bb-bg)",
   surface: "var(--bb-surface)",
   muted: "var(--bb-muted)",
+  // --- Refonte or/noir (août 2026, maquettes fournies) — surface secondaire
+  // (en-têtes/nav/inputs, un cran plus sombre que "surface" en mode sombre),
+  // dégradé or à deux arrêts (accent dominant des CTA), texte très estompé
+  // (métadonnées). Réactifs au thème comme le reste de ce bloc.
+  surface2: "var(--bb-surface-2)",
+  gold1: "var(--bb-gold-1)",
+  gold2: "var(--bb-gold-2)",
+  textFaint: "var(--bb-text-faint)",
   // "body" : nuance de texte de corps distincte de "primary" (utilisée pour
   // titres/icônes), déjà répétée en dur ~15 fois dans social/ — convention
   // de fait promue en jeton nommé, valeur inchangée.

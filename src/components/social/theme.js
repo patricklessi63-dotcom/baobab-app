@@ -20,6 +20,10 @@ export const goldTint = BASE.goldTint;
 export const goldTintDeep = BASE.goldTintDeep;
 export const goldText = BASE.goldText;
 export const verified = BASE.verified;
+export const surface2 = BASE.surface2;
+export const gold1 = BASE.gold1;
+export const gold2 = BASE.gold2;
+export const textFaint = BASE.textFaint;
 export const primaryRgb = BASE_PRIMARY_RGB;
 export const navyRgb = BASE_NAVY_RGB;
 // Classe Tailwind : la valeur arbitraire doit rester un littéral statique

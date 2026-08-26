@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, Suspense, lazy } from "react";
-import { Home, Heart, X, MessageCircle, LogOut, Settings, Cog, UserRound, Search, Bell, Users2, PartyPopper, Megaphone, Shield, Globe2 } from "lucide-react";
+import { Home, Heart, X, MessageCircle, LogOut, Settings, Cog, UserRound, Search, Bell, Users2, PartyPopper, Megaphone, Shield, Globe2, Compass } from "lucide-react";
 import Avatar from "./Avatar";
 import logoIcon from "../assets/logo-baobab-icon.png";
 import { supabase } from "../supabaseClient";
@@ -1173,12 +1173,17 @@ export default function SocialShell({
     return () => clearTimeout(t);
   }, [storyViewerIndex, storyDurationMs, storyReply, storyViewersOpen]);
 
+  // Navigation à 5 onglets (refonte visuelle août 2026, maquettes fournies) —
+  // remplace l'ancienne barre à 6 onglets. Communautés et Événements ne sont
+  // plus des onglets dédiés (cohérent avec le fil qui les mélange désormais
+  // au reste du contenu) mais restent pleinement accessibles depuis le menu
+  // du profil (voir plus bas) — la fonctionnalité n'est pas retirée, juste
+  // déplacée d'un niveau.
   const nav = [
-    ["feed", Home, "Accueil", null],
+    ["feed", Home, "Découverte", null],
     ["discover", Heart, "Rencontres", null],
     ["matches", MessageCircle, "Messages", () => totalUnreadMessages],
-    ["communities", Users2, "Communautés", () => communitiesBadgeCount],
-    ["events", PartyPopper, "Événements", () => eventsBadgeCount],
+    ["news", Compass, "Intégration", null],
     ["profile", UserRound, "Profil", null],
   ];
 
@@ -1343,6 +1348,12 @@ export default function SocialShell({
                 </div>
                 <button onClick={() => { goTab("profile"); }} className="w-full text-left rounded-xl px-3 py-3 text-sm hover:bg-[var(--bb-bg)]"><UserRound size={16} className="inline mr-3" />Mon profil</button>
                 <button onClick={() => { goTab("discover"); }} className="w-full text-left rounded-xl px-3 py-3 text-sm hover:bg-[var(--bb-bg)]"><Heart size={16} className="inline mr-3" />Découvrir</button>
+                <button onClick={() => { goTab("communities"); }} className="w-full text-left rounded-xl px-3 py-3 text-sm hover:bg-[var(--bb-bg)] relative"><Users2 size={16} className="inline mr-3" />Communautés
+                  {communitiesBadgeCount > 0 && <span className="absolute right-3 top-1/2 -translate-y-1/2 h-2 w-2 rounded-full" style={{ background: coral }} />}
+                </button>
+                <button onClick={() => { goTab("events"); }} className="w-full text-left rounded-xl px-3 py-3 text-sm hover:bg-[var(--bb-bg)] relative"><PartyPopper size={16} className="inline mr-3" />Événements
+                  {eventsBadgeCount > 0 && <span className="absolute right-3 top-1/2 -translate-y-1/2 h-2 w-2 rounded-full" style={{ background: coral }} />}
+                </button>
                 <button onClick={() => { setMenu(false); openEditProfile(); }} className="w-full text-left rounded-xl px-3 py-3 text-sm hover:bg-[var(--bb-bg)]"><Settings size={16} className="inline mr-3" />Modifier mon profil</button>
                 <button onClick={() => { setMenu(false); setSettingsOpen(true); }} className="w-full text-left rounded-xl px-3 py-3 text-sm hover:bg-[var(--bb-bg)] relative">
                   <Cog size={16} className="inline mr-3" />Réglages

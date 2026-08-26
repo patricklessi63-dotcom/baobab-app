@@ -66,30 +66,53 @@
       (texte clair sur fond clair fixe). Même valeur que --bb-ink-rgb, mais
       qui ne bouge jamais. */
       --bb-ink-rgb-static: 43,36,32;
+      /* Repli clair pour les nouveaux jetons de la refonte or/noir (surface
+      secondaire des en-têtes/nav, dégradé or, texte estompé) — redéfinis
+      uniquement en mode sombre ci-dessous ; le mode clair garde des valeurs
+      cohérentes avec sa propre palette existante plutôt que de rester
+      indéfinis. */
+      --bb-surface-2: #F2EEE4;
+      --bb-gold-1: var(--bb-ochre);
+      --bb-gold-2: #C1613D;
+      --bb-text-faint: rgba(43,36,32,0.5);
     }
+    /* Identité or/noir (Baobab 3.0, refonte visuelle août 2026) — mode
+    sombre uniquement, à partir des maquettes fournies par l'utilisateur
+    (screen-fil-accueil / screen-profil / screen-messages / screen-rencontres).
+    Le mode clair n'a pas de maquette équivalente : laissé inchangé
+    (vert/argile/ocre ci-dessus) plutôt que d'inventer une palette claire
+    non demandée. */
     @media (prefers-color-scheme: dark) {
       :root:not([data-theme="light"]) {
-        --bb-bg: #0F1712;
-        --bb-surface: #1A241D;
-        --bb-surface-rgb: 26,36,29;
-        --bb-text: #F4F5FA;
-        --bb-text-rgb: 244,245,250;
-        --bb-body-text: #DCE3DA;
-        --bb-muted: rgba(220,228,218,0.66);
-        --bb-border: rgba(220,228,218,0.12);
-        --bb-ink-rgb: 228,230,224;
+        --bb-bg: #14120D;
+        --bb-surface: #1C1912;
+        --bb-surface-rgb: 28,25,18;
+        --bb-surface-2: #211D15;
+        --bb-text: #F2EDE0;
+        --bb-text-rgb: 242,237,224;
+        --bb-body-text: #F2EDE0;
+        --bb-muted: rgba(168,154,124,0.85);
+        --bb-border: #2B271F;
+        --bb-ink-rgb: 242,237,224;
+        --bb-gold-1: #F6D271;
+        --bb-gold-2: #C9962F;
+        --bb-text-faint: #6E6450;
       }
     }
     :root[data-theme="dark"] {
-      --bb-bg: #0F1712;
-      --bb-surface: #1A241D;
-      --bb-surface-rgb: 26,36,29;
-      --bb-text: #F4F5FA;
-      --bb-text-rgb: 244,245,250;
-      --bb-body-text: #DCE3DA;
-      --bb-muted: rgba(220,228,218,0.66);
-      --bb-border: rgba(220,228,218,0.12);
-      --bb-ink-rgb: 228,230,224;
+      --bb-bg: #14120D;
+      --bb-surface: #1C1912;
+      --bb-surface-rgb: 28,25,18;
+      --bb-surface-2: #211D15;
+      --bb-text: #F2EDE0;
+      --bb-text-rgb: 242,237,224;
+      --bb-body-text: #F2EDE0;
+      --bb-muted: rgba(168,154,124,0.85);
+      --bb-border: #2B271F;
+      --bb-ink-rgb: 242,237,224;
+      --bb-gold-1: #F6D271;
+      --bb-gold-2: #C9962F;
+      --bb-text-faint: #6E6450;
     }
     * { box-sizing: border-box; }
     html { -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
@@ -128,6 +151,12 @@
 
     .bb-btn-heart { background: var(--bb-clay); color: #fff; box-shadow: 0 8px 20px rgba(193,97,61,0.35); }
     .bb-btn-heart:hover:not(:disabled) { background: var(--bb-clay-deep); box-shadow: 0 10px 24px rgba(193,97,61,0.45); transform: translateY(-1px); }
+
+    /* Refonte or/noir — bouton d'action principal (Se rencontrer, Publier,
+    Envoyer...), dégradé à deux arrêts au lieu d'un aplat. Texte toujours
+    très sombre dessus (contraste), peu importe le thème. */
+    .bb-btn-gold { background: linear-gradient(180deg, var(--bb-gold-1), var(--bb-gold-2)); color: #1C1608; box-shadow: 0 8px 20px rgba(201,150,47,0.3); }
+    .bb-btn-gold:hover:not(:disabled) { box-shadow: 0 10px 24px rgba(201,150,47,0.4); transform: translateY(-1px); }
 
     .bb-btn-pass { background: var(--bb-surface); border: 1px solid var(--bb-border); color: var(--bb-text); }
     .bb-btn-pass:hover:not(:disabled) { border-color: rgba(33,27,23,0.28); background: rgba(33,27,23,0.03); }
