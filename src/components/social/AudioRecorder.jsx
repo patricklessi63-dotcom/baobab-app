@@ -64,6 +64,20 @@ export default function AudioRecorder({ hasDraft, onSendText, onSendAudio, onAct
   const blobRef = useRef(null);
   const audioElRef = useRef(null);
   const audioUrlRef = useRef(null);
+  // Verrou synchrone (pas un state React, dispo immédiatement sans attendre
+  // un re-rendu) contre un double appel concurrent à requestMic() — un
+  // double-tap rapide sur le bouton micro alors que la permission est déjà
+  // accordée déclenchait deux getUserMedia()/beginRecording() en parallèle.
+  // streamRef/recorderRef/timerRef/chunksRef n'étant PAS ré-initialisés par
+  // enregistrement (une seule instance de ref partagée), le second appel
+  // écrasait les références du premier : le flux micro du premier
+  // enregistrement restait ouvert indéfiniment (jamais stoppé), et comme le
+  // handler ondataavailable du premier MediaRecorder capture chunksRef (pas
+  // le tableau qu'il contenait), ses données continuaient d'être poussées
+  // dans le tableau du SECOND enregistrement — audio corrompu (mélange des
+  // deux flux), puis le onstop tardif du premier finissait par couper le
+  // flux du second en cours d'enregistrement.
+  const micBusyRef = useRef(false);
 
   useEffect(() => {
     onActiveChange?.(state === "recording" || state === "preview" || permissionOpen);
@@ -128,6 +142,8 @@ export default function AudioRecorder({ hasDraft, onSendText, onSendAudio, onAct
   // site web ne peut forcer cette popup native à réapparaître (règle de
   // sécurité du navigateur) — on bascule alors vers la vue "bloqué".
   const requestMic = async () => {
+    if (micBusyRef.current) return;
+    micBusyRef.current = true;
     setPermissionRequesting(true);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -151,6 +167,7 @@ export default function AudioRecorder({ hasDraft, onSendText, onSendAudio, onAct
       }
     } finally {
       setPermissionRequesting(false);
+      micBusyRef.current = false;
     }
   };
 
@@ -160,6 +177,10 @@ export default function AudioRecorder({ hasDraft, onSendText, onSendAudio, onAct
   // va droit à la vue "bloqué". Sinon, petite confirmation avant le premier
   // vrai appel à getUserMedia().
   const openMicPrompt = async () => {
+    // Même verrou que requestMic() : couvre aussi le court instant de
+    // queryMicPermission() ci-dessous, avant que micBusyRef ne soit posé
+    // par requestMic() lui-même.
+    if (micBusyRef.current) return;
     if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
       showInlineError("Ton navigateur ne prend pas en charge l'enregistrement audio.");
       return;
@@ -288,6 +309,7 @@ export default function AudioRecorder({ hasDraft, onSendText, onSendAudio, onAct
       <button
         type="button"
         onClick={openMicPrompt}
+        disabled={permissionRequesting}
         aria-label="Message vocal"
         className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 disabled:opacity-60 focus-visible:outline focus-visible:outline-2"
         style={{ background: bg, color: primary }}
