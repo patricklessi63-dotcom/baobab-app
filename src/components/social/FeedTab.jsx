@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Luggage, ThumbsUp, ThumbsDown, Users, X, Landmark, Bell, Play, Plus } from "lucide-react";
+import { Luggage, ThumbsUp, ThumbsDown, Users, X, Landmark, Bell, Play, Plus, CheckCircle2, ChevronRight } from "lucide-react";
 import Avatar from "../Avatar";
 import HomeHeader from "../home/HomeHeader";
 import BaobabHero from "../home/BaobabHero";
@@ -16,6 +16,7 @@ import { rankCandidates } from "../../lib/matching/matchingService";
 import { rankCommunities } from "../../lib/communities/recommendations";
 import { rankEvents } from "../../lib/events/recommendations";
 import { getProfileCompletion } from "../../lib/profileCompletion";
+import { PRIORITY_STEPS } from "../../lib/newcomerGuideData";
 import { NOTIFICATION_LABELS, NOTIF_CATEGORIES, groupNotificationRows } from "../../lib/notificationLabels";
 import { primary, navy, green, coral, gold, bg, muted, card, body, primaryRgb } from "./theme";
 
@@ -306,6 +307,26 @@ export default function FeedTab({
   return (
     <div className="max-w-6xl mx-auto">
       <HomeHeader currentUser={currentUser} />
+
+      {/* Rappel Intégration (refonte visuelle, maquette screen-fil-accueil.html)
+          — pas de suivi par utilisateur des démarches déjà faites (aucune
+          table pour ça aujourd'hui), donc affiche simplement la première
+          démarche prioritaire du guide plutôt que d'inventer une
+          personnalisation qui n'existe pas encore réellement. */}
+      {PRIORITY_STEPS[0] && (
+        <button
+          onClick={() => goTab("news")}
+          className="w-full flex items-center gap-3 rounded-2xl p-3.5 mb-3 text-left"
+          style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)" }}
+        >
+          <CheckCircle2 size={20} color="var(--bb-gold-1)" className="flex-shrink-0" />
+          <div className="flex-1 min-w-0">
+            <div className="text-[13px] font-bold truncate" style={{ color: primary }}>Prochaine étape : {PRIORITY_STEPS[0].title.toLowerCase()}</div>
+            <div className="text-[11.5px] mt-0.5 truncate" style={{ color: muted }}>Consulte le Guide du nouvel arrivant</div>
+          </div>
+          <ChevronRight size={16} color={muted} className="flex-shrink-0" />
+        </button>
+      )}
 
       {showCompletionNudge && (
         <div className={`${card} p-4 mb-6 flex items-center gap-3`}>
