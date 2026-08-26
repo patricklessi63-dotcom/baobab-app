@@ -10,6 +10,11 @@ const DEFAULT_CATEGORIES = [
   { value: "faux_profil", label: "Faux profil" },
   { value: "contenu_inapproprie", label: "Contenu inapproprié" },
   { value: "arnaque", label: "Arnaque" },
+  // Catégorie à part (pas fondue dans "faux profil") : priorité de
+  // traitement la plus haute (prompt-securite-verification-moderation-baobab.md)
+  // — voir la mise à jour correspondante d'admin_list_reports() qui trie ces
+  // signalements en premier.
+  { value: "mineur_suspecte", label: "Mineur suspecté" },
   { value: "autre", label: "Autre" },
 ];
 
