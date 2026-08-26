@@ -173,7 +173,10 @@ export default function CommunityPostCard({
                               <button onClick={() => startEdit(c)} aria-label="Modifier ce commentaire" className="focus-visible:outline focus-visible:outline-2"><Pencil size={12} color={muted} /></button>
                             )}
                             {(c.author_id === currentUserId || canModerate) && (
-                              <button onClick={() => onDeleteComment(post.id, c.id)} aria-label="Supprimer ce commentaire" className="focus-visible:outline focus-visible:outline-2"><X size={12} color={muted} /></button>
+                              // Même garde-fou que la suppression de publication ci-dessus
+                              // et que EventCommentsSection.jsx : évite la suppression
+                              // irréversible d'un commentaire sur un tap accidentel.
+                              <button onClick={() => { if (window.confirm("Supprimer ce commentaire ? Cette action est irréversible.")) onDeleteComment(post.id, c.id); }} aria-label="Supprimer ce commentaire" className="focus-visible:outline focus-visible:outline-2"><X size={12} color={muted} /></button>
                             )}
                           </div>
                         )}
