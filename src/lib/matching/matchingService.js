@@ -71,6 +71,16 @@ function scoreInterests(userA, userB) {
   return { points: Math.min(shared.length * 5, MATCH_WEIGHTS.interests), shared };
 }
 
+// Valeurs "non-réponse" ou catégorie fourre-tout qui ne doivent jamais
+// compter comme un point commun : si les deux profils ont choisi "Je préfère
+// ne pas répondre" (enfants) ou "Autre" (projet professionnel), ce n'est pas
+// un signe de vision de vie partagée — juste deux non-réponses identiques.
+// Sans ce garde, "Vous avez une vision similaire de votre projet de vie"
+// s'affichait pour deux personnes qui n'avaient justement rien indiqué de
+// comparable (même bug de principe que la raison sur l'âge : un texte qui
+// affirme une similarité que les données ne montrent pas vraiment).
+const LIFE_PROJECT_NON_SIGNAL_VALUES = new Set(["je préfère ne pas répondre", "autre"]);
+
 function scoreLifeProject(userA, userB) {
   let points = 0;
   const fields = [
@@ -82,7 +92,7 @@ function scoreLifeProject(userA, userB) {
   for (const [field, weight] of fields) {
     const a = (userA[field] || "").trim();
     const b = (userB[field] || "").trim();
-    if (a && b && a === b) points += weight;
+    if (a && b && a === b && !LIFE_PROJECT_NON_SIGNAL_VALUES.has(a.toLowerCase())) points += weight;
   }
   return { points: Math.min(points, MATCH_WEIGHTS.lifeProject) };
 }
