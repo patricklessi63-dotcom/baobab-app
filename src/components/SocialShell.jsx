@@ -169,6 +169,11 @@ export default function SocialShell({
   const [storyViewersOpen, setStoryViewersOpen] = useState(false);
   const [storyViewCount, setStoryViewCount] = useState(0);
   const [myStoryReaction, setMyStoryReaction] = useState(null);
+  // Id de la story actuellement affichée, tenu à jour de façon synchrone
+  // (contrairement à storyViewerIndex, dont la mise à jour via un swipe
+  // rapide peut arriver après la résolution d'une requête réseau lancée pour
+  // la story précédente) — sert à ignorer les réponses tardives ci-dessous.
+  const activeStoryIdRef = useRef(null);
   const [viewedProfileId, setViewedProfileId] = useState(null);
   const [favoriteIds, setFavoriteIds] = useState(new Set());
   const storyPhotoInputRef = useRef(null);
@@ -994,12 +999,22 @@ export default function SocialShell({
   const loadMyStoryReaction = async (storyId) => {
     if (!storyId || !currentUser) { setMyStoryReaction(null); return; }
     const { data } = await supabase.from("story_reactions").select("emoji").eq("story_id", storyId).eq("profile_id", currentUser.id).maybeSingle();
+    // Idem loadStoryViewCount : si l'utilisateur a déjà tourné plusieurs
+    // stories pendant l'aller-retour réseau (plusieurs requêtes en vol,
+    // résolues dans le désordre), une réponse tardive affichait le cœur/emoji
+    // réagi sur la MAUVAISE story — celle affichée au moment de la réponse,
+    // pas celle pour laquelle la réaction a réellement été chargée.
+    if (activeStoryIdRef.current !== storyId) return;
     setMyStoryReaction(data?.emoji || null);
   };
 
   const loadStoryViewCount = async (storyId) => {
     if (!storyId) { setStoryViewCount(0); return; }
     const { count } = await supabase.from("story_views").select("id", { count: "exact", head: true }).eq("story_id", storyId);
+    // Ignore une réponse arrivée après que l'utilisateur a déjà navigué vers
+    // une autre story (swipe rapide) — sinon le compteur de vues affiché
+    // pouvait appartenir à la story précédente.
+    if (activeStoryIdRef.current !== storyId) return;
     setStoryViewCount(count || 0);
   };
 
@@ -1007,6 +1022,7 @@ export default function SocialShell({
   // pour un statut d'autrui, compteur de vues pour son propre statut.
   const onStoryShown = (s) => {
     setStoryViewersOpen(false);
+    activeStoryIdRef.current = s?.id ?? null;
     if (!s) return;
     if (s.own) {
       setMyStoryReaction(null);
@@ -1073,6 +1089,7 @@ export default function SocialShell({
     setStoryViewerIndex(null);
     setStoryViewersOpen(false);
     setStoryViewers([]);
+    activeStoryIdRef.current = null;
   };
 
   const nextStory = () => {
