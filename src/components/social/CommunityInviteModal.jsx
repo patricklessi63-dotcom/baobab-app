@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { X, Search, UserPlus, Check } from "lucide-react";
 import Avatar from "../Avatar";
 import { supabase } from "../../supabaseClient";
@@ -18,6 +18,18 @@ export default function CommunityInviteModal({ community, currentUser, memberIds
   const [sendingId, setSendingId] = useState(null);
 
   useEscapeKey(Boolean(community), onClose);
+  // Cette modale reste montée en permanence (CommunitiesTab ne la démonte
+  // jamais, elle rend juste `null` en interne) — sans ce reset, rouvrir la
+  // modale pour une AUTRE communauté gardait la recherche et les résultats
+  // de la communauté précédente, avec des profils encore marqués "Invité·e"
+  // (invitedIds) alors qu'ils n'ont jamais été invités dans cette nouvelle
+  // communauté.
+  useEffect(() => {
+    setSearch("");
+    setResults([]);
+    setInvitedIds(new Set());
+    setSendingId(null);
+  }, [community?.id]);
   if (!community) return null;
 
   const runSearch = async (value) => {

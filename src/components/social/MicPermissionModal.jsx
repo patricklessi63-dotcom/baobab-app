@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Mic, MicOff, Copy, Check } from "lucide-react";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
 import { primary, coral, muted, bg, card, body, primaryRgb, navy } from "./theme";
@@ -68,6 +68,17 @@ export default function MicPermissionModal({ open, phase, requesting, onAllow, o
   useEscapeKey(open, onDismiss);
   const [showHelp, setShowHelp] = useState(false);
   const [copied, setCopied] = useState(false);
+
+  // Cette modale reste montée en permanence sous AudioRecorder (elle rend
+  // juste `null` en interne) — sans ce reset, une fois l'aide "Comment
+  // autoriser ?" dépliée une première fois, elle restait dépliée à toutes
+  // les réouvertures suivantes du blocage micro, y compris de futures
+  // sessions d'enregistrement bien après le rejet initial — contraire au
+  // commentaire ci-dessus ("aide repliée par défaut... jamais affichée
+  // d'emblée").
+  useEffect(() => {
+    if (open) { setShowHelp(false); setCopied(false); }
+  }, [open]);
 
   if (!open) return null;
   const blocked = phase === "blocked";
