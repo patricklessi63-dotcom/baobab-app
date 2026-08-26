@@ -144,7 +144,7 @@ export default function StoryComposerModal({
                 {storyMediaError && <p className="text-xs px-6" style={{ color: coral }}>{storyMediaError}</p>}
                 {!storyMediaError && storyMediaWarning && <p className="text-xs px-6" style={{ color: "#A5761F" }}>⚠️ {storyMediaWarning}</p>}
                 <div className="p-6 pt-2 shrink-0 flex flex-col gap-2">
-                  <button onClick={addStory} disabled={storyUploading} className="w-full rounded-xl py-3 text-white font-bold disabled:opacity-40" style={{ background: coral }}>
+                  <button onClick={addStory} disabled={storyUploading} className="bb-btn-gold w-full rounded-xl py-3 font-bold disabled:opacity-40">
                     {storyUploading ? (storyMediaKind && storyUploadProgress > 0 ? `Envoi... ${storyUploadProgress}%` : "Publication...") : "Publier"}
                   </button>
                   <button onClick={() => setStoryStep("compose")} disabled={storyUploading} className="w-full rounded-xl py-3 font-semibold disabled:opacity-40" style={{ color: primary, opacity: 0.7 }}>
