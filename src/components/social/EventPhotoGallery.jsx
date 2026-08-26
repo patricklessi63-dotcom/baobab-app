@@ -76,7 +76,7 @@ export default function EventPhotoGallery({ photos = [], loading, canUpload, cur
               ) : null}
               {(p.uploaded_by === currentUserId || canModerate) && (
                 <button
-                  onClick={() => onDelete(p)}
+                  onClick={() => { if (window.confirm("Supprimer cette photo ? Cette action est irréversible.")) onDelete(p); }}
                   aria-label="Supprimer cette photo"
                   className="absolute top-1 right-1 h-7 w-7 rounded-full flex items-center justify-center"
                   style={{ background: `rgba(${primaryRgb},.6)` }}

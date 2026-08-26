@@ -469,10 +469,18 @@ export default function EventsTab({ currentUser, onError, initialEventId, onCons
 
   const handleDeletePhoto = async (photo) => {
     try {
-      await supabase.storage.from("event-media").remove([photo.storage_path]);
+      // La ligne event_media fait foi : on la supprime d'abord, et on ne
+      // nettoie le fichier Storage qu'une fois ce DELETE confirmé en base
+      // (même ordre que deletePost dans PostsFeed.jsx). L'ancien ordre
+      // (Storage puis base) laissait une ligne event_media orpheline,
+      // pointant vers un fichier déjà effacé (image cassée pour toujours
+      // dans la galerie), si le DELETE en base échouait après coup — et
+      // .remove() ne rejette de toute façon jamais sur une erreur Storage
+      // (elle passait inaperçue faute de vérifier error).
       const { error } = await supabase.from("event_media").delete().eq("id", photo.id);
       if (error) throw error;
       setPhotos((ph) => ph.filter((p) => p.id !== photo.id));
+      supabase.storage.from("event-media").remove([photo.storage_path]).catch(() => {});
     } catch (e) {
       console.error(e);
       onError("Impossible de supprimer cette photo.");

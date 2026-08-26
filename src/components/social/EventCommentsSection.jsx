@@ -52,7 +52,7 @@ export default function EventCommentsSection({ comments = [], loading, canPost, 
                   <p className="text-sm mt-0.5 whitespace-pre-wrap break-words" style={{ color: body }}>{c.body}</p>
                 </div>
                 {canDelete && (
-                  <button onClick={() => onDelete(c)} aria-label="Supprimer ce message" className="flex-shrink-0" style={{ color: muted }}>
+                  <button onClick={() => { if (window.confirm("Supprimer ce message ? Cette action est irréversible.")) onDelete(c); }} aria-label="Supprimer ce message" className="flex-shrink-0" style={{ color: muted }}>
                     <Trash2 size={14} />
                   </button>
                 )}
