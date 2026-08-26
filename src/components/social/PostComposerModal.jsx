@@ -100,14 +100,14 @@ export default function PostComposerModal({
                   <div className="flex items-center gap-2 shrink-0">
                     {publishedPostId ? (
                       hasPendingMedia ? (
-                        <button onClick={publish} disabled={publishing} className="rounded-xl px-4 py-2.5 text-sm text-white font-bold disabled:opacity-60 flex items-center gap-1.5" style={{ background: navy }}>
+                        <button onClick={publish} disabled={publishing} className="bb-btn-gold rounded-xl px-4 py-2.5 text-sm font-bold disabled:opacity-60 flex items-center gap-1.5">
                           {publishing && <Loader2 size={14} className="animate-spin" />} Réessayer
                         </button>
                       ) : (
-                        <button onClick={onRequestClose} className="rounded-xl px-4 py-2.5 text-sm text-white font-bold" style={{ background: navy }}>Terminé</button>
+                        <button onClick={onRequestClose} className="bb-btn-gold rounded-xl px-4 py-2.5 text-sm font-bold">Terminé</button>
                       )
                     ) : (
-                      <button onClick={publish} disabled={!canPublish || publishing} className="rounded-xl px-4 py-2.5 text-sm text-white font-bold disabled:opacity-40 flex items-center gap-1.5" style={{ background: navy }}>
+                      <button onClick={publish} disabled={!canPublish || publishing} className="bb-btn-gold rounded-xl px-4 py-2.5 text-sm font-bold disabled:opacity-40 flex items-center gap-1.5">
                         {publishing && <Loader2 size={14} className="animate-spin" />} {publishing ? "Publication..." : "Publier"}
                       </button>
                     )}
