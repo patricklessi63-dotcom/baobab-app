@@ -916,7 +916,8 @@ export default function App() {
     try {
       const { error: delError } = await supabase.from("profile_photos").delete().eq("id", photo.id);
       if (delError) throw delError;
-      setExistingPhotos((prev) => prev.filter((p) => p.id !== photo.id));
+      const remaining = existingPhotos.filter((p) => p.id !== photo.id);
+      setExistingPhotos(remaining);
       // Nettoyage réel du fichier Storage — sans ça, chaque suppression de
       // photo laissait un fichier orphelin permanent dans le bucket public.
       const marker = "/avatars/";
@@ -924,6 +925,23 @@ export default function App() {
       if (idx !== -1 && idx !== undefined) {
         const storagePath = decodeURIComponent(photo.url.slice(idx + marker.length));
         supabase.storage.from("avatars").remove([storagePath]).catch(() => {});
+      }
+      // Si la photo supprimée était la photo principale (avatar_url) : cette
+      // suppression est immédiate (indépendante du bouton "Enregistrer" du
+      // formulaire), donc sans cette mise à jour le profil continuait de
+      // pointer vers un fichier Storage tout juste effacé — avatar cassé
+      // partout dans l'app (en-tête, cartes, messages...), pour soi comme
+      // pour les autres utilisateurs, jusqu'au prochain enregistrement
+      // complet du profil.
+      if (currentUser && photo.url === currentUser.avatar_url) {
+        const newAvatarUrl = remaining[0]?.url || null;
+        const { error: avatarError } = await supabase
+          .from("profiles")
+          .update({ avatar_url: newAvatarUrl })
+          .eq("id", currentUser.id);
+        if (!avatarError) {
+          setCurrentUser((u) => (u ? { ...u, avatar_url: newAvatarUrl } : u));
+        }
       }
     } catch (e) {
       console.error(e);
@@ -975,6 +993,13 @@ export default function App() {
     } catch (e) {
       console.error(e);
       setError("Impossible de définir cette photo comme principale.");
+      // L'ordre (position) avait déjà été persisté en base par
+      // persistPhotoOrder ci-dessus avant que la mise à jour d'avatar_url
+      // n'échoue : revenir seulement à l'état local sans annuler aussi
+      // l'ordre côté serveur laissait la grille affichée dans l'ancien
+      // ordre alors que la base contenait déjà le nouveau, jusqu'au
+      // prochain rechargement complet (incohérence silencieuse).
+      persistPhotoOrder(previous);
       setExistingPhotos(previous);
     }
   }
@@ -1006,7 +1031,16 @@ export default function App() {
 
       let newPhotoRows = [];
       if (uploadedUrls.length > 0) {
-        const startPos = existingPhotos.length;
+        // Dérivé du plus grand "position" existant, pas de la longueur du
+        // tableau : après une suppression de photo pendant cette même
+        // session d'édition, existingPhotos.length ne correspond plus au
+        // position max (ex. positions restantes 0 et 2 -> length vaut 2),
+        // ce qui créait une position dupliquée avec une photo existante et
+        // rendait l'ordre d'affichage (et la photo principale) imprévisible
+        // après rechargement.
+        const startPos = existingPhotos.length
+          ? Math.max(...existingPhotos.map((p) => p.position ?? 0)) + 1
+          : 0;
         const rows = uploadedUrls.map((url, idx) => ({
           profile_id: currentUser.id, url, position: startPos + idx,
         }));
