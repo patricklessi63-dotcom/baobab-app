@@ -12,7 +12,7 @@ import { usePremiumStatus } from "../../lib/premium/usePremiumStatus";
 import { useHiddenRecommendations } from "../../lib/useHiddenRecommendations";
 import { fetchNearbyProfiles } from "../../lib/locationApi";
 import { LOOKING_FOR_OPTIONS, INTERESTS_OPTIONS, LANGUAGES_OPTIONS } from "../../constants";
-import { primary, navy, navyRgb, green, coral, gold, bg, muted, card, buttonBase, online, body, primaryRgb } from "./theme";
+import { primary, navy, navyRgb, green, coral, gold, gold1, surface2, bg, muted, card, buttonBase, online, body, primaryRgb } from "./theme";
 
 const ACTIVE_RECENTLY_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
 
@@ -89,6 +89,17 @@ export default function DiscoverTab({
   const [nearbyError, setNearbyError] = useState("");
   const { isPremium } = usePremiumStatus(currentUser);
   const { hiddenIds, hide: hideProfile } = useHiddenRecommendations(currentUser, "profile");
+
+  // Résumé (lecture seule) de la ville/langues du profil courant, pour la
+  // rangée de puces au-dessus de la carte en mode "Pile" — voir le
+  // commentaire au niveau du rendu de cette rangée pour l'explication de
+  // pourquoi ce sont de simples puces d'info et pas des filtres cliquables.
+  const myCity = (currentUser?.city || "").trim();
+  const myLanguagesLabel = (currentUser?.languages || "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .join(" & ");
 
   useEffect(() => {
     if (!nearbyEnabled) return;
@@ -192,6 +203,47 @@ export default function DiscoverTab({
                 <button onClick={() => navigator.clipboard?.writeText(window.location.href)} className="bb-btn-gold mt-5 px-5 py-3 rounded-xl font-bold">Inviter ma communauté</button>
               </div>
             ) : (
+              <>
+                {/*
+                  Rangée de puces "préférences actives" (maquette fournie : ville + langues).
+                  Volontairement en lecture seule, PAS de filtres cliquables ici : la pile
+                  (topPerson/topPhotos/swipeX...) est entièrement pilotée par des props reçues
+                  du parent SocialShell.jsx, où `topPerson = filteredPeople[0]` et
+                  `filteredPeople = candidates.filter(matchesSearch)` — un calcul indépendant
+                  de cityFilter/languageFilter, qui eux ne s'appliquent qu'au mode "Pour toi"
+                  local (filteredForGrid, ci-dessus). Brancher un vrai filtre sur la pile
+                  demanderait de faire remonter cet état jusqu'à SocialShell (voire App.jsx) et
+                  de toucher le calcul de filteredPeople/topPerson, dont dépend aussi l'effet de
+                  réinitialisation du swipe (swipeExit, discoverPhotoIndex, voir SocialShell.jsx
+                  ~L840-860) — trop risqué pour ce chantier purement visuel. On affiche donc un
+                  résumé non cliquable des ville/langues déjà déclarées par l'utilisateur.
+                */}
+                <div className="flex justify-center gap-2 mb-4 flex-wrap">
+                  {myCity && (
+                    <div
+                      className="inline-flex items-center gap-[5px] text-[11.5px] font-bold px-[11px] py-[6px] rounded-full border"
+                      style={{ color: gold1, background: "rgba(230,189,99,0.1)", borderColor: "rgba(230,189,99,0.35)" }}
+                    >
+                      {myCity}
+                    </div>
+                  )}
+                  {myLanguagesLabel && (
+                    <div
+                      className="inline-flex items-center gap-[5px] text-[11.5px] font-bold px-[11px] py-[6px] rounded-full border"
+                      style={{ color: gold1, background: "rgba(230,189,99,0.1)", borderColor: "rgba(230,189,99,0.35)" }}
+                    >
+                      {myLanguagesLabel}
+                    </div>
+                  )}
+                  {!myCity && !myLanguagesLabel && (
+                    <div
+                      className="inline-flex items-center gap-[5px] text-[11.5px] font-bold px-[11px] py-[6px] rounded-full border"
+                      style={{ color: muted, background: surface2, borderColor: "var(--bb-border)" }}
+                    >
+                      Ajoute ta ville et tes langues dans ton profil
+                    </div>
+                  )}
+                </div>
               <div className="relative h-[620px] select-none" style={{ touchAction: "pan-y" }}>
                 <style>{`
                   @keyframes bbCardIn { from { opacity: 0; transform: scale(.96) translateY(8px); } to { opacity: 1; transform: scale(1) translateY(0); } }
@@ -340,6 +392,7 @@ export default function DiscoverTab({
                   );
                 })()}
               </div>
+              </>
             )
             ) : (
               <div>
