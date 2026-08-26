@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { Loader2 } from "lucide-react";
 import { supabase } from "./supabaseClient";
 import Auth from "./Auth.jsx";
@@ -1242,12 +1242,24 @@ export default function App() {
 
   // Les deux sens du blocage — utilisé pour filtrer toute liste montrant des
   // profils (suivis/abonnés inclus), pas seulement le blocage que j'ai fait.
-  const blockedIds = new Set(
-    currentUser
-      ? blockPairs
-          .filter((b) => b.from_id === currentUser.id || b.to_id === currentUser.id)
-          .map((b) => (b.from_id === currentUser.id ? b.to_id : b.from_id))
-      : []
+  // useMemo (et non un simple const recalculé à chaque rendu) : ce Set était
+  // recréé à chaque re-rendu de App — quelle qu'en soit la cause, y compris
+  // sans rapport avec les blocages — et redescendait donc en prop avec une
+  // nouvelle référence à chaque fois. PostsFeed.jsx inclut blockedIds dans
+  // les dépendances de son effet d'abonnement Realtime ("posts-feed:..."),
+  // ce qui provoquait un désabonnement/réabonnement du canal à chaque rendu
+  // de toute l'appli (bug confirmé à l'audit) au lieu de seulement quand les
+  // blocages changent réellement.
+  const blockedIds = useMemo(
+    () =>
+      new Set(
+        currentUser
+          ? blockPairs
+              .filter((b) => b.from_id === currentUser.id || b.to_id === currentUser.id)
+              .map((b) => (b.from_id === currentUser.id ? b.to_id : b.from_id))
+          : []
+      ),
+    [blockPairs, currentUser?.id]
   );
 
   async function handleLike(target) {
