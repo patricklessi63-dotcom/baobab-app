@@ -1510,6 +1510,7 @@ export default function SocialShell({
                 onError={onError}
                 initialEventId={openEventId}
                 onConsumedInitial={() => setOpenEventId(null)}
+                blockedIds={blockedIds}
                 myPlatformRole={myPlatformRole}
                 onReportProfile={setReportTarget}
                 onBlockProfile={handleBlock}

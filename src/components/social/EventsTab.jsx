@@ -61,7 +61,7 @@ function withParticipantCount(rows) {
   return (rows || []).map((e) => ({ ...e, participantCount: e.event_participant_count || 0 }));
 }
 
-export default function EventsTab({ currentUser, onError, initialEventId, onConsumedInitial = () => {}, myPlatformRole = null, onReportProfile = () => {}, onBlockProfile = () => {} }) {
+export default function EventsTab({ currentUser, onError, initialEventId, onConsumedInitial = () => {}, myPlatformRole = null, onReportProfile = () => {}, onBlockProfile = () => {}, blockedIds = new Set() }) {
   const isPlatformAdmin = myPlatformRole === "admin" || myPlatformRole === "super_admin";
   const [view, setView] = useState("home"); // home | detail | create | edit
   const [selectedId, setSelectedId] = useState(null);
@@ -78,7 +78,6 @@ export default function EventsTab({ currentUser, onError, initialEventId, onCons
 
   const [myStatuses, setMyStatuses] = useState({}); // eventId -> going|interested|not_going|waitlisted
   const [myCommunityIds, setMyCommunityIds] = useState([]);
-  const [blockedIds, setBlockedIds] = useState(new Set());
   const [myMutualProfiles, setMyMutualProfiles] = useState([]); // connexions mutuelles réelles (likes croisés)
 
   const [event, setEvent] = useState(null);
@@ -116,7 +115,10 @@ export default function EventsTab({ currentUser, onError, initialEventId, onCons
   const isNeutralHome = !search.trim() && !filterCity.trim() && !filterCategory && !filterDateRange;
 
   // ---------- Données de session : mes participations, mes communautés,
-  // mes blocages, mes connexions mutuelles — une fois au montage. ----------
+  // mes connexions mutuelles — une fois au montage. Les blocages viennent
+  // désormais de la prop blockedIds (état partagé de SocialShell), pour
+  // rester synchronisés si un blocage/déblocage a lieu depuis un autre
+  // onglet pendant que celui-ci reste monté. ----------
   useEffect(() => {
     if (!currentUser) return;
     let alive = true;
@@ -129,12 +131,6 @@ export default function EventsTab({ currentUser, onError, initialEventId, onCons
     supabase.from("community_members").select("community_id").eq("profile_id", currentUser.id).then(({ data, error }) => {
       if (!alive || error) { if (error) console.error(error); return; }
       setMyCommunityIds((data || []).map((r) => r.community_id));
-    });
-    supabase.from("blocks").select("from_id, to_id").or(`from_id.eq.${currentUser.id},to_id.eq.${currentUser.id}`).then(({ data, error }) => {
-      if (!alive || error) { if (error) console.error(error); return; }
-      const ids = new Set();
-      (data || []).forEach((b) => ids.add(b.from_id === currentUser.id ? b.to_id : b.from_id));
-      setBlockedIds(ids);
     });
     (async () => {
       const [{ data: sent }, { data: received }] = await Promise.all([
