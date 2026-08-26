@@ -985,11 +985,23 @@ export default function App() {
     const editAgeNum = editForm.birthDate ? computeAge(editForm.birthDate) : Number(editForm.age);
     if (editAgeNum === null || Number.isNaN(editAgeNum) || editAgeNum < 18) { setError("Tu dois avoir au moins 18 ans."); return; }
     setSavingProfile(true);
+    // Chemins Storage (bucket "avatars") tout juste uploadés dans cette
+    // tentative — si une étape suivante échoue, on les nettoie dans le catch
+    // pour ne jamais laisser de fichier orphelin (même logique que
+    // sendMediaMessage/uploadOneMedia ailleurs dans l'app).
+    const freshlyUploadedPaths = [];
+    const urlToStoragePath = (url) => {
+      const marker = "/avatars/";
+      const idx = url?.indexOf(marker);
+      return idx !== -1 && idx !== undefined ? decodeURIComponent(url.slice(idx + marker.length)) : null;
+    };
     try {
       const uploadedUrls = [];
       for (let i = 0; i < newPhotoFiles.length; i++) {
         const url = await uploadPhoto(session.user.id, newPhotoFiles[i], existingPhotos.length + i);
         uploadedUrls.push(url);
+        const p = urlToStoragePath(url);
+        if (p) freshlyUploadedPaths.push(p);
       }
 
       let newPhotoRows = [];
@@ -1022,6 +1034,8 @@ export default function App() {
         coverUrl = null;
       } else if (coverFile) {
         coverUrl = await uploadPhoto(session.user.id, coverFile, "cover");
+        const p = urlToStoragePath(coverUrl);
+        if (p) freshlyUploadedPaths.push(p);
       }
 
       const payload = {
@@ -1074,6 +1088,13 @@ export default function App() {
     } catch (e) {
       console.error("handleSaveProfile error:", e?.message, "| code:", e?.code, "| details:", e?.details, "| hint:", e?.hint);
       setError("Erreur lors de la mise à jour du profil.");
+      // Upload(s) Storage réussi(s) mais une étape suivante (insertion
+      // profile_photos ou mise à jour du profil) a échoué : sans ce
+      // nettoyage, les photos/couverture fraîchement envoyées restaient
+      // orphelines dans le bucket "avatars" pour toujours.
+      if (freshlyUploadedPaths.length > 0) {
+        supabase.storage.from("avatars").remove(freshlyUploadedPaths).catch(() => {});
+      }
     } finally {
       setSavingProfile(false);
     }

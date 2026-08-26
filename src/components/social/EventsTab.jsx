@@ -459,7 +459,13 @@ export default function EventsTab({ currentUser, onError, initialEventId, onCons
         .from("event_media")
         .insert({ event_id: event.id, uploaded_by: currentUser.id, storage_path: path })
         .select().single();
-      if (error) throw error;
+      if (error) {
+        // Upload Storage réussi mais insertion event_media échouée : sans ce
+        // nettoyage la photo restait orpheline dans le bucket "event-media",
+        // invisible et jamais reliée à l'événement.
+        supabase.storage.from("event-media").remove([path]).catch(() => {});
+        throw error;
+      }
       const { data: signed } = await supabase.storage.from("event-media").createSignedUrl(path, PHOTO_URL_EXPIRY);
       setPhotos((ph) => [{ ...data, url: signed?.signedUrl || null }, ...ph]);
     },

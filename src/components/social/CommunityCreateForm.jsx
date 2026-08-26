@@ -72,6 +72,7 @@ export default function CommunityCreateForm({ currentUser, onCreated, onCancel, 
     beginCriticalOperation(); // évite que la déconnexion auto par inactivité (App.jsx) coupe un upload/création en cours
     try {
       let coverUrl = null;
+      let uploadedPath = null;
       if (coverFile) {
         // Même convention de chemin/bucket que les autres médias publics
         // de profil (avatars/photos/stories) — voir uploadPhoto (App.jsx)
@@ -80,6 +81,7 @@ export default function CommunityCreateForm({ currentUser, onCreated, onCancel, 
         const path = `${currentUser.user_id}/community-${Date.now()}.${ext}`;
         const { error: uploadError } = await supabase.storage.from("avatars").upload(path, coverFile, { upsert: true });
         if (uploadError) throw uploadError;
+        uploadedPath = path;
         coverUrl = supabase.storage.from("avatars").getPublicUrl(path).data.publicUrl;
       }
 
@@ -92,7 +94,13 @@ export default function CommunityCreateForm({ currentUser, onCreated, onCancel, 
         p_cover_url: coverUrl,
         p_rules: rules.trim() || null,
       });
-      if (error) throw error;
+      if (error) {
+        // Upload Storage réussi mais création de la communauté échouée (nom
+        // en double, etc.) : sans ce nettoyage l'image de couverture restait
+        // orpheline dans le bucket "avatars" pour toujours.
+        if (uploadedPath) supabase.storage.from("avatars").remove([uploadedPath]).catch(() => {});
+        throw error;
+      }
       onCreated(data);
     } catch (e) {
       console.error(e);

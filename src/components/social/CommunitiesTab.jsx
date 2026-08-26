@@ -459,11 +459,13 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
     setPostSubmitting(true);
     try {
       let mediaUrl = null;
+      let uploadedPath = null;
       if (mediaFile) {
         const { ok, error: validationError } = await validateMediaFile(mediaFile, mediaKind);
         if (!ok) { onError(validationError); setPostSubmitting(false); return; }
         const path = `${community.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.${extFromMime(mediaFile.type)}`;
         await uploadWithProgress({ bucket: COMMUNITY_MEDIA_BUCKET, path, file: mediaFile });
+        uploadedPath = path;
         const { data: signed } = await supabase.storage.from(COMMUNITY_MEDIA_BUCKET).createSignedUrl(path, 60 * 60 * 24 * 365 * 5);
         mediaUrl = signed?.signedUrl || null;
       }
@@ -477,7 +479,13 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
           media_kind: mediaUrl ? mediaKind : null,
         })
         .select("*, profiles(name, avatar_url)").single();
-      if (error) throw error;
+      if (error) {
+        // Upload Storage réussi mais insertion community_posts échouée :
+        // sans ce nettoyage le fichier restait orphelin dans le bucket, plus
+        // jamais référencé par rien.
+        if (uploadedPath) supabase.storage.from(COMMUNITY_MEDIA_BUCKET).remove([uploadedPath]).catch(() => {});
+        throw error;
+      }
       setPosts((p) => [data, ...p]);
       setPostDraft("");
     } catch (e) {

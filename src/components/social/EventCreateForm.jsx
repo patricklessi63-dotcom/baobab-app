@@ -103,18 +103,25 @@ export default function EventCreateForm({ currentUser, onCreated, onCancel, onEr
         // double, celui-ci sans couverture restant invisible pour
         // l'utilisateur. On continue donc sans couverture plutôt que
         // d'échouer toute la création.
+        let uploadedPath = null;
         try {
           // La couverture ne peut être téléversée qu'APRÈS la création : le
           // chemin Storage est {event_id}/... (supabase-events-v2.sql).
           const path = `${data.id}/${Date.now()}-cover.${extFromMime(coverFile.type)}`;
           await uploadWithProgress({ bucket: "event-covers", path, file: coverFile });
+          uploadedPath = path;
           const { data: signed } = await supabase.storage.from("event-covers").createSignedUrl(path, COVER_URL_EXPIRY);
           if (signed?.signedUrl) {
-            const { data: updated } = await supabase.from("events").update({ cover_url: signed.signedUrl }).eq("id", data.id).select().single();
+            const { data: updated, error: coverUpdateError } = await supabase.from("events").update({ cover_url: signed.signedUrl }).eq("id", data.id).select().single();
+            if (coverUpdateError) throw coverUpdateError;
             if (updated) finalEvent = updated;
           }
         } catch (coverError) {
           console.error(coverError);
+          // Upload Storage réussi mais liaison à l'événement échouée (ex :
+          // l'UPDATE cover_url a échoué après un upload OK) : sans ce
+          // nettoyage le fichier restait orphelin dans "event-covers".
+          if (uploadedPath) supabase.storage.from("event-covers").remove([uploadedPath]).catch(() => {});
           onError?.("Ton événement a été créé, mais l'image de couverture n'a pas pu être envoyée. Tu peux réessayer depuis la modification de l'événement.");
         }
       }

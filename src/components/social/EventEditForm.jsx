@@ -71,11 +71,13 @@ export default function EventEditForm({ event, onSaved, onCancel, onError }) {
         return;
       }
       let coverUrl = event.cover_url;
+      let uploadedPath = null;
       if (coverFile) {
         const { ok, error: validationError } = await validateMediaFile(coverFile, "image");
         if (!ok) { setError(validationError); setSubmitting(false); return; }
         const path = `${event.id}/${Date.now()}-cover.${extFromMime(coverFile.type)}`;
         await uploadWithProgress({ bucket: "event-covers", path, file: coverFile });
+        uploadedPath = path;
         const { data: signed } = await supabase.storage.from("event-covers").createSignedUrl(path, COVER_URL_EXPIRY);
         if (signed?.signedUrl) coverUrl = signed.signedUrl;
       }
@@ -98,7 +100,13 @@ export default function EventEditForm({ event, onSaved, onCancel, onError }) {
         .eq("id", event.id)
         .select()
         .single();
-      if (updateError) throw updateError;
+      if (updateError) {
+        // Nouvelle couverture envoyée avec succès mais mise à jour de
+        // l'événement échouée : sans ce nettoyage l'ancienne couverture
+        // restait en place ET la nouvelle traînait orpheline dans le bucket.
+        if (uploadedPath) supabase.storage.from("event-covers").remove([uploadedPath]).catch(() => {});
+        throw updateError;
+      }
       onSaved(data);
     } catch (e) {
       console.error(e);

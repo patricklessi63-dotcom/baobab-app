@@ -362,7 +362,14 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
         .insert({ post_id: postId, url: publicUrlData.publicUrl, kind: item.kind === "video" ? "video" : "photo", position })
         .select()
         .single();
-      if (mediaError) throw mediaError;
+      if (mediaError) {
+        // Upload Storage réussi mais insertion post_media échouée : sans ce
+        // nettoyage le fichier restait orphelin dans le bucket pour toujours
+        // (rien en base ne le référence, "Réessayer" uploade un nouveau
+        // chemin sans jamais toucher à celui-ci).
+        supabase.storage.from(POST_MEDIA_BUCKET).remove([path]).catch(() => {});
+        throw mediaError;
+      }
       setUploadStates((prev) => ({ ...prev, [item.id]: { status: "done", progress: 100 } }));
       return mediaRow;
     } catch (err) {
