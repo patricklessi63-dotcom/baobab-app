@@ -137,7 +137,7 @@ export default function ProfileTab({
                     </div>
                     <p className="text-sm mt-1" style={{ color: muted }}>🟢 En ligne · {[currentUser?.city, currentUser?.country].filter(Boolean).join(" · ") || "Canada"}</p>
                   </div>
-                  <button onClick={() => goTab("discover")} className="px-4 py-2.5 rounded-xl font-bold text-sm" style={{ background: "#FFF3F1", color: coral }}>Trouver des personnes</button>
+                  <button onClick={() => goTab("discover")} className="px-4 py-2.5 rounded-xl font-bold text-sm" style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)", color: coral }}>Trouver des personnes</button>
                 </div>
                 {currentUser?.bio && <p className="text-sm leading-6 mt-5 max-w-2xl">{currentUser.bio}</p>}
 
@@ -259,7 +259,7 @@ export default function ProfileTab({
                     <div className="text-center py-6">
                       <Users2 size={24} className="mx-auto mb-2" color={muted} />
                       <p className="text-sm" style={{ color: muted }}>Tu n'as pas encore rejoint de communauté.</p>
-                      <button onClick={() => onOpenCommunities()} className="mt-3 px-4 py-2.5 rounded-xl font-bold text-sm" style={{ background: navy, color: "#fff" }}>Découvrir les communautés</button>
+                      <button onClick={() => onOpenCommunities()} className="bb-btn-gold mt-3 px-4 py-2.5 rounded-xl font-bold text-sm">Découvrir les communautés</button>
                     </div>
                   ) : (
                     <div className="grid sm:grid-cols-2 gap-3">
@@ -287,7 +287,7 @@ export default function ProfileTab({
                     <div className="text-center py-6">
                       <PartyPopper size={24} className="mx-auto mb-2" color={muted} />
                       <p className="text-sm" style={{ color: muted }}>Aucun événement à venir pour l'instant.</p>
-                      <button onClick={() => onOpenEvents()} className="mt-3 px-4 py-2.5 rounded-xl font-bold text-sm" style={{ background: navy, color: "#fff" }}>Découvrir les événements</button>
+                      <button onClick={() => onOpenEvents()} className="bb-btn-gold mt-3 px-4 py-2.5 rounded-xl font-bold text-sm">Découvrir les événements</button>
                     </div>
                   ) : (
                     <div className="grid sm:grid-cols-2 gap-3">
@@ -320,7 +320,7 @@ export default function ProfileTab({
                         {subscription?.current_period_end && ` — renouvellement le ${new Date(subscription.current_period_end).toLocaleDateString("fr-CA")}`}
                         {subscription?.cancel_at_period_end && " (annulation programmée à cette date)"}
                       </p>
-                      <button onClick={handleManageSubscription} disabled={managingSubscription} className="mt-3 px-4 py-2.5 rounded-xl font-bold text-sm disabled:opacity-60" style={{ background: navy, color: "#fff" }}>
+                      <button onClick={handleManageSubscription} disabled={managingSubscription} className="bb-btn-gold mt-3 px-4 py-2.5 rounded-xl font-bold text-sm disabled:opacity-60">
                         {managingSubscription ? "Ouverture..." : "Gérer mon abonnement"}
                       </button>
                       <p className="text-[11px] mt-2" style={{ color: "rgba(var(--bb-ink-rgb),0.72)" }}>Annulation, moyen de paiement et factures — géré directement par Stripe, en dehors de Baobab.</p>
@@ -329,7 +329,7 @@ export default function ProfileTab({
                     <div className="text-center py-6">
                       <span style={{ fontSize: 28 }}>💎</span>
                       <p className="text-sm mt-2" style={{ color: muted }}>Tu es sur le plan gratuit.</p>
-                      <button onClick={() => goTab("premium")} className="mt-3 px-4 py-2.5 rounded-xl font-bold text-sm" style={{ background: navy, color: "#fff" }}>Découvrir Premium</button>
+                      <button onClick={() => goTab("premium")} className="bb-btn-gold mt-3 px-4 py-2.5 rounded-xl font-bold text-sm">Découvrir Premium</button>
                     </div>
                   )}
                 </div>
@@ -340,7 +340,7 @@ export default function ProfileTab({
                   {aboutRows.length === 0 ? (
                     <div className="text-center py-6">
                       <p className="text-sm" style={{ color: muted }}>Complète ton profil pour donner plus de contexte aux autres membres.</p>
-                      <button onClick={openEditProfile} className="mt-3 px-4 py-2.5 rounded-xl font-bold text-sm" style={{ background: navy, color: "#fff" }}>Compléter mon profil</button>
+                      <button onClick={openEditProfile} className="bb-btn-gold mt-3 px-4 py-2.5 rounded-xl font-bold text-sm">Compléter mon profil</button>
                     </div>
                   ) : (
                     <div className="grid md:grid-cols-2 gap-3">

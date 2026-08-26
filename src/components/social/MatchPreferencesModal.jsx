@@ -85,7 +85,7 @@ export default function MatchPreferencesModal({ open, onClose, currentUser, onSa
 
         {error && <p className="text-xs mt-3" style={{ color: coral }}>{error}</p>}
 
-        <button onClick={save} className="w-full mt-5 py-3 rounded-full text-sm font-bold text-white" style={{ background: coral }}>
+        <button onClick={save} className="bb-btn-gold w-full mt-5 py-3 rounded-full text-sm font-bold">
           Enregistrer
         </button>
       </div>

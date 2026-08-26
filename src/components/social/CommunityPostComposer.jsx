@@ -2,7 +2,7 @@ import React, { useRef, useState } from "react";
 import { ImagePlus, Video, X } from "lucide-react";
 import Avatar from "../Avatar";
 import { validateMediaFile } from "../../lib/mediaValidation";
-import { coral, muted, bg, primaryRgb } from "./theme";
+import { muted, bg, primaryRgb } from "./theme";
 
 const MAX_LENGTH = 4000; // miroir de la contrainte community_posts.body
 
@@ -79,8 +79,7 @@ export default function CommunityPostComposer({ currentUser, draft, setDraft, on
           <button
             onClick={handleSubmit}
             disabled={!canSubmit}
-            className="text-xs font-bold px-4 py-2 rounded-full text-white disabled:opacity-40"
-            style={{ background: coral }}
+            className="bb-btn-gold text-xs font-bold px-4 py-2 rounded-full disabled:opacity-40"
           >
             {submitting ? "Publication..." : "Publier"}
           </button>

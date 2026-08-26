@@ -138,7 +138,7 @@ export default function CommunityDetailView({
                     {community.rules}
                   </div>
                 )}
-                <button onClick={() => onJoin(community)} className="px-5 py-2.5 rounded-full text-sm font-bold text-white" style={{ background: coral }}>
+                <button onClick={() => onJoin(community)} className="bb-btn-gold px-5 py-2.5 rounded-full text-sm font-bold">
                   {isPrivate ? "Demander à rejoindre" : "Rejoindre"}
                 </button>
               </div>
@@ -234,7 +234,7 @@ export default function CommunityDetailView({
           ) : (
             <div>
               {Boolean(viewerRole) && (
-                <button onClick={onCreateEvent} className="w-full mb-4 py-3 rounded-full text-sm font-bold text-white flex items-center justify-center gap-2" style={{ background: coral }}>
+                <button onClick={onCreateEvent} className="bb-btn-gold w-full mb-4 py-3 rounded-full text-sm font-bold flex items-center justify-center gap-2">
                   <Calendar size={15} /> Créer un événement
                 </button>
               )}

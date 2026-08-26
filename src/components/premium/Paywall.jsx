@@ -1,5 +1,5 @@
 import React from "react";
-import { primary, coral, muted, card, goldTint, goldTintDeep } from "../social/theme";
+import { primary, muted, card, goldTint, goldTintDeep } from "../social/theme";
 
 // Paywall réutilisable — barrière d'UX (pas de sécurité, la donnée
 // derrière reste déjà lisible ; c'est juste la commodité de filtrage qui
@@ -13,7 +13,7 @@ export default function Paywall({ title = "Fonction Premium", description, onDis
       </div>
       <h3 className="text-base font-black mt-3" style={{ color: primary }}>{title}</h3>
       {description && <p className="text-sm mt-1.5 max-w-sm mx-auto" style={{ color: muted }}>{description}</p>}
-      <button onClick={onDiscover} className="mt-4 px-5 py-2.5 rounded-full text-sm font-bold text-white" style={{ background: coral }}>
+      <button onClick={onDiscover} className="bb-btn-gold mt-4 px-5 py-2.5 rounded-full text-sm font-bold">
         Découvrir Premium
       </button>
     </div>

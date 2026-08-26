@@ -92,7 +92,7 @@ export default function MicPermissionModal({ open, phase, requesting, onAllow, o
       aria-label="Accès au microphone"
     >
       <div className={`${card} p-5 max-w-[300px] w-full text-center`} onClick={(e) => e.stopPropagation()}>
-        <div className="h-12 w-12 rounded-full mx-auto flex items-center justify-center" style={{ background: "#FFF3F1" }}>
+        <div className="h-12 w-12 rounded-full mx-auto flex items-center justify-center" style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)" }}>
           {blocked ? <MicOff size={20} color={coral} /> : <Mic size={20} color={coral} />}
         </div>
 
@@ -105,8 +105,7 @@ export default function MicPermissionModal({ open, phase, requesting, onAllow, o
             <button
               onClick={onAllow}
               disabled={requesting}
-              className="w-full mt-4 py-2.5 rounded-full text-sm font-bold text-white disabled:opacity-60"
-              style={{ background: coral }}
+              className="bb-btn-gold w-full mt-4 py-2.5 rounded-full text-sm font-bold disabled:opacity-60"
             >
               {requesting ? "Demande en cours..." : "Autoriser le microphone"}
             </button>
@@ -123,8 +122,7 @@ export default function MicPermissionModal({ open, phase, requesting, onAllow, o
             <button
               onClick={onAllow}
               disabled={requesting}
-              className="w-full mt-4 py-2.5 rounded-full text-sm font-bold text-white disabled:opacity-60"
-              style={{ background: coral }}
+              className="bb-btn-gold w-full mt-4 py-2.5 rounded-full text-sm font-bold disabled:opacity-60"
             >
               {requesting ? "Vérification..." : "Réessayer"}
             </button>
@@ -140,7 +138,7 @@ export default function MicPermissionModal({ open, phase, requesting, onAllow, o
                     type="button"
                     onClick={handleCopy}
                     className="w-full mb-1 py-2 rounded-full text-xs font-bold flex items-center justify-center gap-1.5"
-                    style={{ background: "#fff", color: navy, border: "1px solid #E4E6EF" }}
+                    style={{ background: "var(--bb-surface-2)", color: primary, border: "1px solid var(--bb-border)" }}
                   >
                     {copied ? <Check size={13} color={coral} /> : <Copy size={13} />}
                     {copied ? "Lien copié !" : "Copier le lien des réglages"}

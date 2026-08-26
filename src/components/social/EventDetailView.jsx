@@ -170,11 +170,11 @@ export default function EventDetailView({
           {!canceled && (
             <div className="mt-4 flex items-center gap-2 flex-wrap">
               {viewerStatus === "going" ? (
-                <button onClick={() => onLeave(event)} className="px-4 py-2.5 rounded-full text-sm font-bold" style={{ background: "#EEF8F4", color: green }}>
+                <button onClick={() => onLeave(event)} className="px-4 py-2.5 rounded-full text-sm font-bold" style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)", color: green }}>
                   Tu participes ✓ — Ne plus participer
                 </button>
               ) : viewerStatus === "waitlisted" ? (
-                <button onClick={() => onLeave(event)} className="px-4 py-2.5 rounded-full text-sm font-bold" style={{ background: "#FFF3D6", color: gold }}>
+                <button onClick={() => onLeave(event)} className="px-4 py-2.5 rounded-full text-sm font-bold" style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)", color: gold }}>
                   Sur liste d'attente — Quitter
                 </button>
               ) : isPast ? (
@@ -182,11 +182,11 @@ export default function EventDetailView({
                   Cet événement est déjà passé
                 </span>
               ) : full ? (
-                <button onClick={() => onJoin(event)} className="px-5 py-2.5 rounded-full text-sm font-bold text-white" style={{ background: coral }}>
+                <button onClick={() => onJoin(event)} className="bb-btn-gold px-5 py-2.5 rounded-full text-sm font-bold">
                   Rejoindre la liste d'attente
                 </button>
               ) : (
-                <button onClick={() => onJoin(event)} className="px-5 py-2.5 rounded-full text-sm font-bold text-white" style={{ background: coral }}>
+                <button onClick={() => onJoin(event)} className="bb-btn-gold px-5 py-2.5 rounded-full text-sm font-bold">
                   🎟️ Participer
                 </button>
               )}

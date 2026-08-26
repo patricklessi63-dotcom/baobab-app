@@ -32,7 +32,7 @@ export default function AiSuggestButton({ action, buildPayload, onApply, label =
         <p className="text-sm mt-1.5 whitespace-pre-wrap" style={{ color: navy }}>{suggestion}</p>
         <div className="flex gap-2 mt-3">
           <button type="button" onClick={() => setSuggestion("")} className="flex-1 py-2 rounded-xl text-xs font-bold" style={{ background: bg, color: primary }}>Annuler</button>
-          <button type="button" onClick={() => { onApply(suggestion); setSuggestion(""); }} className="flex-1 py-2 rounded-xl text-xs font-bold text-white" style={{ background: coral }}>Utiliser</button>
+          <button type="button" onClick={() => { onApply(suggestion); setSuggestion(""); }} className="bb-btn-gold flex-1 py-2 rounded-xl text-xs font-bold">Utiliser</button>
         </div>
       </div>
     );

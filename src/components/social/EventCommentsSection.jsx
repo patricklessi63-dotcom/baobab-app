@@ -3,7 +3,7 @@ import { Send, Trash2 } from "lucide-react";
 import Avatar from "../Avatar";
 import EmptyState from "../home/EmptyState";
 import Skeleton from "../Skeleton";
-import { primary, coral, muted, bg, body, primaryRgb } from "./theme";
+import { primary, muted, bg, body, primaryRgb } from "./theme";
 
 // Discussion légère liée à l'événement — table event_comments dédiée,
 // pas une extension de la messagerie 1:1 (voir rapport final pour le
@@ -28,8 +28,7 @@ export default function EventCommentsSection({ comments = [], loading, canPost, 
             onClick={onSubmit}
             disabled={!trimmed}
             aria-label="Envoyer"
-            className="h-10 w-10 rounded-full flex items-center justify-center text-white disabled:opacity-40 flex-shrink-0"
-            style={{ background: coral }}
+            className="bb-btn-gold h-10 w-10 rounded-full flex items-center justify-center disabled:opacity-40 flex-shrink-0"
           >
             <Send size={15} />
           </button>

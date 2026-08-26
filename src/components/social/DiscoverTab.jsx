@@ -171,7 +171,7 @@ export default function DiscoverTab({
     <>
           <section className="max-w-2xl mx-auto">
             <div className="text-center mb-4 bb-stagger">
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-[11px] font-black uppercase tracking-wider" style={{ background: "#FFF1EC", color: coral }}><Heart size={13} fill={coral} /> Connexions qui ont du sens</div>
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-[11px] font-black uppercase tracking-wider" style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)", color: coral }}><Heart size={13} fill={coral} /> Connexions qui ont du sens</div>
               <h1 className="text-3xl md:text-4xl font-black tracking-tight mt-3" style={{ color: primary }}>Découvrir</h1>
               <p className="text-sm mt-1" style={{ color: muted }}>{mode === "pile" ? "Glisse à droite pour aimer, à gauche pour passer." : "Des profils classés selon ta compatibilité estimée."}</p>
             </div>
@@ -189,7 +189,7 @@ export default function DiscoverTab({
                 <div className="text-5xl mb-4">🌍</div>
                 <h2 className="text-xl font-black" style={{ color: primary }}>Pas encore de nouveaux profils</h2>
                 <p className="text-sm mt-2" style={{ color: muted }}>Invite des amis immigrants installés au Canada à rejoindre Baobab.</p>
-                <button onClick={() => navigator.clipboard?.writeText(window.location.href)} className="mt-5 px-5 py-3 rounded-xl text-white font-bold" style={{ background: navy }}>Inviter ma communauté</button>
+                <button onClick={() => navigator.clipboard?.writeText(window.location.href)} className="bb-btn-gold mt-5 px-5 py-3 rounded-xl font-bold">Inviter ma communauté</button>
               </div>
             ) : (
               <div className="relative h-[620px] select-none" style={{ touchAction: "pan-y" }}>
@@ -322,7 +322,7 @@ export default function DiscoverTab({
                               {compat.commonInterests.length > 0 && (
                                 <div className="flex flex-wrap gap-1.5 mt-3">
                                   {compat.commonInterests.map((t) => (
-                                    <span key={t} className="px-2 py-0.5 rounded-full text-[10px] font-semibold capitalize" style={{ background: "#FFF3F1", color: coral }}>{t}</span>
+                                    <span key={t} className="px-2 py-0.5 rounded-full text-[10px] font-semibold capitalize" style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)", color: coral }}>{t}</span>
                                   ))}
                                 </div>
                               )}

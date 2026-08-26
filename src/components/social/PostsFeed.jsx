@@ -640,7 +640,7 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
           <div className="p-10 text-center">
             <ImageIcon size={26} className="mx-auto mb-2" color={muted} />
             <p className="text-sm mb-3" style={{ color: muted }}>Pas encore de publication.</p>
-            <button onClick={openComposer} className="px-4 py-2.5 rounded-xl font-bold text-sm" style={{ background: navy, color: "#fff" }}>Créer ma première publication</button>
+            <button onClick={openComposer} className="bb-btn-gold px-4 py-2.5 rounded-xl font-bold text-sm">Créer ma première publication</button>
           </div>
         ) : (
           <>
@@ -710,7 +710,7 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
       ) : (
         <>
           {newPostsCount > 0 && (
-            <button onClick={loadNewPosts} className="w-full mb-3 py-2.5 rounded-xl text-sm font-bold text-white" style={{ background: coral }}>
+            <button onClick={loadNewPosts} className="bb-btn-gold w-full mb-3 py-2.5 rounded-xl text-sm font-bold">
               {newPostsCount} nouvelle{newPostsCount > 1 ? "s" : ""} publication{newPostsCount > 1 ? "s" : ""} — voir
             </button>
           )}

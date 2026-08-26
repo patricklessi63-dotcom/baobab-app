@@ -55,7 +55,7 @@ export default function AiConversationSuggestions({ currentUser, match, onPick }
           </div>
 
           {!suggestions && !loading && !error && (
-            <button type="button" onClick={generate} className="w-full py-2 rounded-xl text-xs font-bold text-white" style={{ background: coral }}>
+            <button type="button" onClick={generate} className="bb-btn-gold w-full py-2 rounded-xl text-xs font-bold">
               Générer des suggestions
             </button>
           )}

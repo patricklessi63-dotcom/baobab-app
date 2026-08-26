@@ -12,7 +12,7 @@ export default function CommunityGroupCard({ community, memberCount = 0, joined,
 
   let cta = null;
   if (joined) {
-    cta = <span className="text-xs font-bold px-3 py-2 rounded-full" style={{ background: "#EEF8F4", color: green }}>Membre</span>;
+    cta = <span className="text-xs font-bold px-3 py-2 rounded-full" style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)", color: green }}>Membre</span>;
   } else if (isInviteOnly) {
     cta = <span className="text-xs font-bold px-3 py-2 rounded-full flex items-center gap-1" style={{ background: bg, color: muted }}><Mail size={12} /> Sur invitation</span>;
   } else if (pending) {
@@ -21,8 +21,7 @@ export default function CommunityGroupCard({ community, memberCount = 0, joined,
     cta = (
       <button
         onClick={(e) => { e.stopPropagation(); onJoin(community); }}
-        className="text-xs font-bold px-4 py-2 rounded-full text-white"
-        style={{ background: coral }}
+        className="bb-btn-gold text-xs font-bold px-4 py-2 rounded-full"
       >
         {isPrivate ? "Demander à rejoindre" : "Rejoindre"}
       </button>

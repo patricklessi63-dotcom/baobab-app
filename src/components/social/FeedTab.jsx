@@ -157,7 +157,7 @@ function NotificationsPanel({
         ) : (
           <div className="flex flex-col gap-1">
             {showFavorites && (
-              <div className="px-3 py-2.5 rounded-xl text-sm" style={{ background: "#FFF3D6", color: gold }}>
+              <div className="px-3 py-2.5 rounded-xl text-sm" style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)", color: gold }}>
                 ⭐ {incomingFavoritesCount} personne{incomingFavoritesCount > 1 ? "s" : ""} t'a{incomingFavoritesCount > 1 ? "" : ""} ajouté en favori.
               </div>
             )}
@@ -334,7 +334,7 @@ export default function FeedTab({
             <b className="text-sm" style={{ color: primary }}>Profil à {completion.percent}%</b>
             <p className="text-xs mt-0.5 truncate" style={{ color: muted }}>{completion.tips[0]}</p>
           </div>
-          <button onClick={openEditProfile} className="shrink-0 text-xs font-bold px-3 py-1.5 rounded-full text-white focus-visible:outline focus-visible:outline-2" style={{ background: coral }}>
+          <button onClick={openEditProfile} className="bb-btn-gold shrink-0 text-xs font-bold px-3 py-1.5 rounded-full focus-visible:outline focus-visible:outline-2">
             Compléter
           </button>
           <button onClick={dismissNudge} aria-label="Fermer" className="shrink-0 p-1 rounded-full focus-visible:outline focus-visible:outline-2" style={{ color: muted }}>
@@ -390,8 +390,7 @@ export default function FeedTab({
                   tabIndex={0}
                   onKeyDown={(e) => { if (e.key === "Enter") { e.stopPropagation(); setStoryComposer(true); } }}
                   aria-label="Ajouter un statut"
-                  className="absolute top-2 right-2 h-6 w-6 rounded-full flex items-center justify-center text-white border-2 border-white"
-                  style={{ background: coral }}
+                  className="bb-btn-gold absolute top-2 right-2 h-6 w-6 rounded-full flex items-center justify-center border-2 border-white"
                 >
                   <Plus size={14} />
                 </span>
@@ -656,7 +655,7 @@ export default function FeedTab({
               <h2 className="text-lg font-black" style={{ color: primary }}>🎉 Événements Baobab</h2>
               <p className="text-sm mt-1" style={{ color: muted }}>Découvre, participe, rencontre.</p>
             </div>
-            <button onClick={() => goTab("events")} className="text-sm font-bold px-4 py-2.5 rounded-full text-white flex-shrink-0" style={{ background: coral }}>
+            <button onClick={() => goTab("events")} className="bb-btn-gold text-sm font-bold px-4 py-2.5 rounded-full flex-shrink-0">
               Voir les événements →
             </button>
           </div>

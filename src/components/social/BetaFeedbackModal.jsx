@@ -107,7 +107,7 @@ export default function BetaFeedbackModal({ open, onClose, currentUser, screen }
               maxLength={2000}
               placeholder="Décris le bug ou ton idée... (facultatif si tu as choisi une réaction ci-dessus)"
               className="w-full p-3 rounded-lg text-sm"
-              style={{ border: `1px solid rgba(${primaryRgb},.12)`, background: "#fff", color: navy }}
+              style={{ border: "1px solid var(--bb-border)", background: "var(--bb-surface-2)", color: primary }}
               autoFocus
             />
             <div className="flex gap-2 mt-4">
@@ -117,8 +117,7 @@ export default function BetaFeedbackModal({ open, onClose, currentUser, screen }
               <button
                 onClick={handleSubmit}
                 disabled={sending || !canSubmit}
-                className="flex-1 py-2.5 rounded-full text-sm font-bold text-white disabled:opacity-50"
-                style={{ background: coral }}
+                className="bb-btn-gold flex-1 py-2.5 rounded-full text-sm font-bold disabled:opacity-50"
               >
                 {sending ? "Envoi..." : "Envoyer"}
               </button>
@@ -128,7 +127,7 @@ export default function BetaFeedbackModal({ open, onClose, currentUser, screen }
           <>
             <h2 className="text-lg font-black" style={{ color: primary }}>Merci !</h2>
             <p className="text-sm mt-2" style={{ color: muted }}>Ton retour a bien été transmis à l'équipe.</p>
-            <button onClick={handleClose} className="w-full mt-4 py-2.5 rounded-full text-sm font-bold text-white" style={{ background: navy }}>
+            <button onClick={handleClose} className="bb-btn-gold w-full mt-4 py-2.5 rounded-full text-sm font-bold">
               Fermer
             </button>
           </>

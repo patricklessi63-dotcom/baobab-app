@@ -92,17 +92,17 @@ export default function MatchCard({
             </button>
           )}
           {onLike && (
-            <button onClick={() => onLike(profile)} aria-label={`Aimer le profil de ${profile.name}`} className="flex-1 rounded-full py-2.5 text-sm font-bold text-white flex items-center justify-center gap-1.5 focus-visible:outline focus-visible:outline-2" style={{ background: coral }}>
+            <button onClick={() => onLike(profile)} aria-label={`Aimer le profil de ${profile.name}`} className="bb-btn-gold flex-1 rounded-full py-2.5 text-sm font-bold flex items-center justify-center gap-1.5 focus-visible:outline focus-visible:outline-2">
               <Heart size={15} /> J'aime
             </button>
           )}
           {isMatch && onMessage && (
-            <button onClick={() => onMessage(profile)} aria-label={`Envoyer un message à ${profile.name}`} className="flex-1 rounded-full py-2.5 text-sm font-bold flex items-center justify-center gap-1.5 focus-visible:outline focus-visible:outline-2" style={{ background: "#EEF8F4", color: green }}>
+            <button onClick={() => onMessage(profile)} aria-label={`Envoyer un message à ${profile.name}`} className="flex-1 rounded-full py-2.5 text-sm font-bold flex items-center justify-center gap-1.5 focus-visible:outline focus-visible:outline-2" style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)", color: green }}>
               <MessageCircle size={15} /> Message
             </button>
           )}
           {onToggleFavorite && (
-            <button onClick={() => onToggleFavorite(profile)} aria-label={`Ajouter ${profile.name} aux favoris`} aria-pressed={isFavorite} className="h-10 w-10 rounded-full flex items-center justify-center shrink-0 focus-visible:outline focus-visible:outline-2" style={{ background: isFavorite ? "#FFF3D6" : bg }}>
+            <button onClick={() => onToggleFavorite(profile)} aria-label={`Ajouter ${profile.name} aux favoris`} aria-pressed={isFavorite} className="h-10 w-10 rounded-full flex items-center justify-center shrink-0 focus-visible:outline focus-visible:outline-2" style={{ background: isFavorite ? "var(--bb-surface-2)" : bg }}>
               <Star size={15} color={isFavorite ? gold : muted} fill={isFavorite ? gold : "none"} />
             </button>
           )}

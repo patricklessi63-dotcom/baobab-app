@@ -224,10 +224,10 @@ export default function EventCreateForm({ currentUser, onCreated, onCancel, onEr
               onClick={() => setVisibility(v.value)}
               disabled={v.value === "community" && myCommunities.length === 0}
               className="text-left p-3 rounded-xl disabled:opacity-40"
-              style={{ background: visibility === v.value ? "#FFF3F1" : bg, border: visibility === v.value ? `1px solid ${coral}` : "1px solid transparent" }}
+              style={{ background: visibility === v.value ? "var(--bb-surface-2)" : bg, border: visibility === v.value ? `1px solid ${coral}` : "1px solid transparent" }}
             >
               <div className="text-sm font-bold" style={{ color: visibility === v.value ? coral : primary }}>{v.label}</div>
-              <div className="text-xs mt-0.5" style={{ color: visibility === v.value ? "rgba(43,36,32,0.6)" : muted }}>{v.description}</div>
+              <div className="text-xs mt-0.5" style={{ color: muted }}>{v.description}</div>
             </button>
           ))}
         </div>
@@ -249,7 +249,7 @@ export default function EventCreateForm({ currentUser, onCreated, onCancel, onEr
         <button onClick={onCancel} className="flex-1 py-3 rounded-full text-sm font-semibold" style={{ border: `1px solid rgba(${primaryRgb},.12)`, color: primary }}>
           Annuler
         </button>
-        <button onClick={handleSubmit} disabled={!canSubmit} className="flex-1 py-3 rounded-full text-sm font-bold text-white disabled:opacity-40" style={{ background: coral }}>
+        <button onClick={handleSubmit} disabled={!canSubmit} className="bb-btn-gold flex-1 py-3 rounded-full text-sm font-bold disabled:opacity-40">
           {submitting ? "Création..." : "Créer l'événement"}
         </button>
       </div>

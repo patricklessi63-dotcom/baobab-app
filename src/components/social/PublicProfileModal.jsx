@@ -154,7 +154,7 @@ export default function PublicProfileModal({
 
           <div className="flex items-center gap-2 mt-5 flex-wrap">
             {onLike && !isLiked && (
-              <button onClick={() => onLike(profile)} className="flex-1 min-w-[100px] rounded-full py-2.5 text-sm font-bold text-white flex items-center justify-center gap-1.5 focus-visible:outline focus-visible:outline-2" style={{ background: coral }}>
+              <button onClick={() => onLike(profile)} className="bb-btn-gold flex-1 min-w-[100px] rounded-full py-2.5 text-sm font-bold flex items-center justify-center gap-1.5 focus-visible:outline focus-visible:outline-2">
                 <Heart size={15} /> J'aime
               </button>
             )}
@@ -179,7 +179,7 @@ export default function PublicProfileModal({
               </button>
             )}
             {onToggleFavorite && (
-              <button onClick={() => onToggleFavorite(profile)} aria-pressed={isFavorite} aria-label={isFavorite ? `Retirer ${profile.name} des favoris` : `Ajouter ${profile.name} aux favoris`} className="h-10 w-10 rounded-full flex items-center justify-center shrink-0 focus-visible:outline focus-visible:outline-2" style={{ background: isFavorite ? "#FFF3D6" : bg }}>
+              <button onClick={() => onToggleFavorite(profile)} aria-pressed={isFavorite} aria-label={isFavorite ? `Retirer ${profile.name} des favoris` : `Ajouter ${profile.name} aux favoris`} className="h-10 w-10 rounded-full flex items-center justify-center shrink-0 focus-visible:outline focus-visible:outline-2" style={{ background: isFavorite ? "var(--bb-surface-2)" : bg }}>
                 <Star size={16} color={isFavorite ? gold : muted} fill={isFavorite ? gold : "none"} />
               </button>
             )}

@@ -1290,7 +1290,7 @@ export default function SocialShell({
                 ) : (
                   <div className="flex flex-col gap-1 max-h-72 overflow-y-auto" onTouchStart={onNotifTouchStart} onTouchEnd={onNotifTouchEnd}>
                     {incomingFavoritesCount > 0 && (notifCategory === "all" || notifCategory === "dating") && (
-                      <div className="px-2 py-2.5 rounded-xl text-sm" style={{ background: "#FFF3D6", color: gold }}>
+                      <div className="px-2 py-2.5 rounded-xl text-sm" style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)", color: gold }}>
                         ⭐ {incomingFavoritesCount} personne{incomingFavoritesCount > 1 ? "s" : ""} t'a{incomingFavoritesCount > 1 ? "" : ""} ajouté en favori.
                       </div>
                     )}
@@ -1422,14 +1422,14 @@ export default function SocialShell({
           // respectueux avec un chemin d'action clair, jamais une impasse — le
           // reste de l'app (dont le Guide du nouvel arrivant) reste accessible.
           <div className="max-w-md mx-auto text-center py-16 px-6">
-            <div className="mx-auto mb-4 h-16 w-16 rounded-full flex items-center justify-center" style={{ background: "#F1F1F9" }}>
+            <div className="mx-auto mb-4 h-16 w-16 rounded-full flex items-center justify-center" style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)" }}>
               <Globe2 size={28} color={navy} />
             </div>
             <h2 className="text-lg font-black" style={{ color: primary }}>Rencontres t'attend au Canada</h2>
             <p className="text-sm mt-2" style={{ color: muted }}>
               Le module Rencontres de Baobab s'adresse aux personnes déjà au Canada. En attendant ton arrivée, tu peux dès maintenant consulter le guide d'installation pour préparer ton départ.
             </p>
-            <button onClick={() => goTab("news")} className="mt-5 px-5 py-3 rounded-full text-sm font-bold text-white" style={{ background: navy }}>
+            <button onClick={() => goTab("news")} className="bb-btn-gold mt-5 px-5 py-3 rounded-full text-sm font-bold">
               Voir le guide du nouvel arrivant
             </button>
           </div>

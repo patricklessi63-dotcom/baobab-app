@@ -3,7 +3,7 @@ import { X, Check } from "lucide-react";
 import Avatar from "../Avatar";
 import EmptyState from "../home/EmptyState";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
-import { primary, coral, muted, card, primaryRgb } from "./theme";
+import { primary, muted, card, primaryRgb } from "./theme";
 
 // Source d'invitation = connexions mutuelles (likes croisés — il n'existe
 // pas de table "matches" dans ce schéma) + membres de la communauté
@@ -32,15 +32,14 @@ export default function EventInviteModal({ open, candidates = [], invitedIds = n
                   <Avatar name={p.name} url={p.avatar_url} size={38} />
                   <span className="text-sm font-semibold flex-1 truncate">{p.name}</span>
                   {invited ? (
-                    <span className="text-xs font-bold px-3 py-1.5 rounded-full flex items-center gap-1" style={{ background: "#EEF8F4", color: "#2F8F6B" }}>
+                    <span className="text-xs font-bold px-3 py-1.5 rounded-full flex items-center gap-1" style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)", color: "#2F8F6B" }}>
                       <Check size={12} /> Invité
                     </span>
                   ) : (
                     <button
                       onClick={() => onInvite(p)}
                       disabled={sending}
-                      className="text-xs font-bold px-3.5 py-1.5 rounded-full text-white disabled:opacity-50"
-                      style={{ background: coral }}
+                      className="bb-btn-gold text-xs font-bold px-3.5 py-1.5 rounded-full disabled:opacity-50"
                     >
                       Inviter
                     </button>

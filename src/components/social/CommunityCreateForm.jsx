@@ -132,15 +132,15 @@ export default function CommunityCreateForm({ currentUser, onCreated, onCancel, 
               <p className="text-xs mt-0.5" style={{ color: muted }}>{aiSuggestion.description}</p>
               <div className="flex gap-2 mt-2.5">
                 <button type="button" onClick={() => setAiSuggestion(null)} className="flex-1 py-2 rounded-xl text-xs font-bold" style={{ background: bg, color: primary }}>Annuler</button>
-                <button type="button" onClick={applyAiSuggestion} className="flex-1 py-2 rounded-xl text-xs font-bold text-white" style={{ background: coral }}>Utiliser</button>
+                <button type="button" onClick={applyAiSuggestion} className="bb-btn-gold flex-1 py-2 rounded-xl text-xs font-bold">Utiliser</button>
               </div>
             </>
           ) : (
             <>
               <p className="text-xs mt-1.5" style={{ color: muted }}>Décris ton idée en quelques mots, l'IA propose un nom, une description et une catégorie.</p>
               <div className="flex gap-2 mt-2">
-                <input value={aiIdea} onChange={(e) => setAiIdea(e.target.value)} placeholder="Ex : club de course pour nouveaux arrivants à Montréal" className="flex-1 rounded-xl px-3 py-2 text-xs outline-none" style={{ background: "#fff", color: navy }} />
-                <button type="button" onClick={handleAiSuggest} disabled={aiLoading || !aiIdea.trim()} className="px-3 py-2 rounded-xl text-xs font-bold text-white disabled:opacity-50 flex items-center gap-1" style={{ background: coral }}>
+                <input value={aiIdea} onChange={(e) => setAiIdea(e.target.value)} placeholder="Ex : club de course pour nouveaux arrivants à Montréal" className="flex-1 rounded-xl px-3 py-2 text-xs outline-none" style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)", color: primary }} />
+                <button type="button" onClick={handleAiSuggest} disabled={aiLoading || !aiIdea.trim()} className="bb-btn-gold px-3 py-2 rounded-xl text-xs font-bold disabled:opacity-50 flex items-center gap-1">
                   {aiLoading ? <Loader2 size={12} className="animate-spin" /> : "Suggérer"}
                 </button>
               </div>
@@ -204,10 +204,10 @@ export default function CommunityCreateForm({ currentUser, onCreated, onCancel, 
               key={v.value}
               onClick={() => setVisibility(v.value)}
               className="text-left p-3 rounded-xl"
-              style={{ background: visibility === v.value ? "#FFF3F1" : bg, border: visibility === v.value ? `1px solid ${coral}` : "1px solid transparent" }}
+              style={{ background: visibility === v.value ? "var(--bb-surface-2)" : bg, border: visibility === v.value ? `1px solid ${coral}` : "1px solid transparent" }}
             >
               <div className="text-sm font-bold" style={{ color: visibility === v.value ? coral : primary }}>{v.label}</div>
-              <div className="text-xs mt-0.5" style={{ color: visibility === v.value ? "rgba(43,36,32,0.6)" : muted }}>{v.description}</div>
+              <div className="text-xs mt-0.5" style={{ color: muted }}>{v.description}</div>
             </button>
           ))}
         </div>
@@ -230,7 +230,7 @@ export default function CommunityCreateForm({ currentUser, onCreated, onCancel, 
         <button onClick={onCancel} className="flex-1 py-3 rounded-full text-sm font-semibold" style={{ border: `1px solid rgba(${primaryRgb},.12)`, color: primary }}>
           Annuler
         </button>
-        <button onClick={handleSubmit} disabled={!canSubmit} className="flex-1 py-3 rounded-full text-sm font-bold text-white disabled:opacity-40" style={{ background: coral }}>
+        <button onClick={handleSubmit} disabled={!canSubmit} className="bb-btn-gold flex-1 py-3 rounded-full text-sm font-bold disabled:opacity-40">
           {submitting ? "Création..." : "Créer la communauté"}
         </button>
       </div>

@@ -771,7 +771,7 @@ export default function EventsTab({ currentUser, onError, initialEventId, onCons
   return (
     <section className="max-w-6xl mx-auto">
       <div className="mb-5">
-        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-[11px] font-black uppercase tracking-wider" style={{ background: "#FFF3F1", color: coral }}>
+        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-[11px] font-black uppercase tracking-wider" style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)", color: coral }}>
           <PartyPopper size={13} /> Événements Baobab
         </div>
         <div className="flex items-center justify-between gap-3 mt-3 flex-wrap">
@@ -779,7 +779,7 @@ export default function EventsTab({ currentUser, onError, initialEventId, onCons
             <h1 className="text-3xl font-black" style={{ color: primary }}>🎉 Événements Baobab</h1>
             <p className="text-sm mt-1" style={{ color: muted }}>Découvre, participe, rencontre.</p>
           </div>
-          <button onClick={() => setView("create")} className="flex items-center gap-1.5 px-4 py-2.5 rounded-full text-sm font-bold text-white flex-shrink-0" style={{ background: coral }}>
+          <button onClick={() => setView("create")} className="bb-btn-gold flex items-center gap-1.5 px-4 py-2.5 rounded-full text-sm font-bold flex-shrink-0">
             <Plus size={16} /> Créer
           </button>
         </div>

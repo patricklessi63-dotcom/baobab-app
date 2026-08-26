@@ -70,7 +70,7 @@ export default function ReportModal({
               rows={3}
               placeholder={commentRequired ? "Explique brièvement pourquoi (obligatoire pour \"Autre\")..." : "Commentaire (facultatif)..."}
               className="w-full p-3 rounded-lg text-sm mt-3"
-              style={{ border: `1px solid rgba(${primaryRgb},.12)`, background: "#fff", color: navy }}
+              style={{ border: "1px solid var(--bb-border)", background: "var(--bb-surface-2)", color: primary }}
             />
 
             <div className="flex gap-2 mt-4">
@@ -108,7 +108,7 @@ export default function ReportModal({
             ) : (
               <>
                 <p className="text-sm mt-2" style={{ color: muted }}>Merci, notre équipe va l'examiner.</p>
-                <button onClick={onDismissAfterSubmit} className="w-full mt-4 py-2.5 rounded-full text-sm font-bold text-white" style={{ background: navy }}>
+                <button onClick={onDismissAfterSubmit} className="bb-btn-gold w-full mt-4 py-2.5 rounded-full text-sm font-bold">
                   Fermer
                 </button>
               </>
