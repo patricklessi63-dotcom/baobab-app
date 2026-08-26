@@ -18,7 +18,12 @@
   <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
   <link rel="apple-touch-icon" href="/icon-192.png" />
   <link rel="manifest" href="/manifest.webmanifest" />
-  <meta name="theme-color" content="#14432A" />
+  <!-- Deux balises plutôt qu'une seule (support natif Safari/Chrome des
+  attributs media sur theme-color, pas besoin de JS) — la barre d'état du
+  PWA/onglet suit désormais la palette or/noir en mode sombre système,
+  au lieu de rester figée sur le vert du mode clair. -->
+  <meta name="theme-color" content="#14432A" media="(prefers-color-scheme: light)" />
+  <meta name="theme-color" content="#14120D" media="(prefers-color-scheme: dark)" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,500;0,600;1,500&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
