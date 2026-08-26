@@ -1,11 +1,17 @@
 import React from "react";
 import { C, MAX_PHOTOS } from "../../../constants";
 
-export function isStep2Valid(photoPreviews) {
-  return photoPreviews.length >= 1;
+// Une photo déjà enregistrée en base (retour arrière puis nouveau passage
+// sur cette étape, sans reselectionner de fichier) compte comme valide :
+// photoPreviews est un state local (fichiers choisis dans cette session)
+// jamais réhydraté depuis les photos déjà envoyées, donc s'y fier seul
+// bloquait "Continuer" et laissait croire que la photo avait disparu.
+export function isStep2Valid(photoPreviews, hasExistingPhoto) {
+  return photoPreviews.length >= 1 || !!hasExistingPhoto;
 }
 
-export default function Step2Photo({ photoPreviews, handlePhotosSelected, removePhotoFile }) {
+export default function Step2Photo({ photoPreviews, handlePhotosSelected, removePhotoFile, existingAvatarUrl }) {
+  const showExisting = photoPreviews.length === 0 && !!existingAvatarUrl;
   return (
     <div className="flex flex-col gap-3">
       <h2 style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 22, color: C.indigo }}>
@@ -16,6 +22,14 @@ export default function Step2Photo({ photoPreviews, handlePhotosSelected, remove
       </p>
 
       <div className="flex flex-wrap gap-2 mt-1">
+        {showExisting && (
+          <div style={{ position: "relative" }}>
+            <img src={existingAvatarUrl} alt="Photo déjà enregistrée" style={{ width: 84, height: 84, borderRadius: "var(--bb-radius-sm)", objectFit: "cover", boxShadow: "var(--bb-shadow-sm)" }} />
+            <span className="absolute bottom-1 left-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: C.ochre, color: C.indigoDeep }}>
+              Déjà enregistrée
+            </span>
+          </div>
+        )}
         {photoPreviews.map((src, i) => (
           <div key={i} style={{ position: "relative" }}>
             <img src={src} alt={`Photo ${i + 1}`} style={{ width: 84, height: 84, borderRadius: "var(--bb-radius-sm)", objectFit: "cover", boxShadow: "var(--bb-shadow-sm)" }} />

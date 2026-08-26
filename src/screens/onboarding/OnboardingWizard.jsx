@@ -80,7 +80,7 @@ export default function OnboardingWizard({
     switch (step) {
       case 1: return isStep0Valid(draft);
       case 2: return isStep1Valid(draft);
-      case 3: return isStep2Valid(photoPreviews);
+      case 3: return isStep2Valid(photoPreviews, !!currentUser?.avatar_url);
       case 4: return isStep3Valid(draft);
       case 5: return isStep4Valid(draft);
       case 6: return isStep5Valid(draft);
@@ -102,6 +102,24 @@ export default function OnboardingWizard({
         // l'étape 2) pour que la toute première question posée à un
         // nouvel utilisateur soit "qu'est-ce que tu recherches ?", pas
         // son prénom.
+        //
+        // Si la ligne existe déjà (l'utilisateur est revenu en arrière
+        // jusqu'à cette étape après l'avoir validée une première fois),
+        // il faut la mettre à jour et non la recréer : un second INSERT
+        // viole la contrainte unique profiles_user_id_unique et bloquait
+        // définitivement l'onboarding avec une erreur générique.
+        if (currentUser?.id) {
+          const { data, error: updateError } = await supabase
+            .from("profiles")
+            .update({ usage_goals: draft.usageGoals.join(", "), onboarding_step: 1 })
+            .eq("id", currentUser.id)
+            .select()
+            .single();
+          if (updateError) throw updateError;
+          setCurrentUser(data);
+          setProfiles((prev) => prev.map((p) => (p.id === data.id ? data : p)));
+          return data;
+        }
         const payload = {
           user_id: session.user.id,
           usage_goals: draft.usageGoals.join(", "),
@@ -280,7 +298,7 @@ export default function OnboardingWizard({
 
       <div key={step} className="bb-fade-in">
         {step === 3 ? (
-          <StepComponent photoPreviews={photoPreviews} handlePhotosSelected={handlePhotosSelected} removePhotoFile={removePhotoFile} />
+          <StepComponent photoPreviews={photoPreviews} handlePhotosSelected={handlePhotosSelected} removePhotoFile={removePhotoFile} existingAvatarUrl={currentUser?.avatar_url} />
         ) : (
           <StepComponent draft={draft} update={update} />
         )}
