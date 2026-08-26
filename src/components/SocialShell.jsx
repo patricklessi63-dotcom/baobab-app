@@ -352,6 +352,16 @@ export default function SocialShell({
       isFollowing ? next.delete(profile.id) : next.add(profile.id);
       return next;
     });
+    // followedProfilesRaw alimente la liste "Abonnements" de l'onglet Profil ;
+    // sans cette mise à jour ici, elle ne provenait que du fetch initial et
+    // restait figée après un suivre/ne plus suivre tant que l'onglet n'était
+    // pas remonté (le bouton changeait d'état mais la personne restait/
+    // n'apparaissait pas dans la liste, et le compteur ne bougeait pas).
+    setFollowedProfilesRaw((prev) =>
+      isFollowing
+        ? prev.filter((p) => p.id !== profile.id)
+        : (prev.some((p) => p.id === profile.id) ? prev : [profile, ...prev])
+    );
     try {
       if (isFollowing) {
         const { error } = await supabase
@@ -373,6 +383,11 @@ export default function SocialShell({
         isFollowing ? next.add(profile.id) : next.delete(profile.id);
         return next;
       });
+      setFollowedProfilesRaw((prev) =>
+        isFollowing
+          ? (prev.some((p) => p.id === profile.id) ? prev : [profile, ...prev])
+          : prev.filter((p) => p.id !== profile.id)
+      );
       onError(friendlyDbError(e) || "Impossible de mettre à jour ton abonnement.");
     } finally {
       followInFlightRef.current.delete(profile.id);
