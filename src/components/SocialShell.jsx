@@ -873,7 +873,7 @@ export default function SocialShell({
   // "Masquer" faite à l'utilisateur. Le hook est maintenant instancié ici et
   // ses hiddenIds excluent aussi la pile ; hiddenIds/hide redescendent en
   // props à DiscoverTab (qui n'instancie plus son propre hook).
-  const { hiddenIds: hiddenProfileIds, hide: hideProfile } = useHiddenRecommendations(currentUser, "profile");
+  const { hiddenIds: hiddenProfileIds, hide: hideProfile } = useHiddenRecommendations(currentUser, "profile", onError);
 
   // Filtre la pile de découverte par la recherche (comportement existant,
   // inchangé de portée — reste borné à candidates) — voir searchResults
