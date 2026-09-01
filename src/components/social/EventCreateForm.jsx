@@ -58,6 +58,17 @@ export default function EventCreateForm({ currentUser, onCreated, onCancel, onEr
     setCoverPreview(URL.createObjectURL(file));
   };
 
+  // Révoque l'URL blob de l'aperçu à chaque remplacement et au démontage —
+  // sans ça, chaque couverture sélectionnée fuyait en mémoire (jamais
+  // révoquée), même après création de l'événement ou annulation.
+  useEffect(() => {
+    return () => {
+      if (coverPreview && coverPreview.startsWith("blob:")) {
+        try { URL.revokeObjectURL(coverPreview); } catch (_) {}
+      }
+    };
+  }, [coverPreview]);
+
   const canSubmit = title.trim().length > 0 && category && date && time && city.trim().length > 0 && !submitting
     && (visibility !== "community" || communityId);
 

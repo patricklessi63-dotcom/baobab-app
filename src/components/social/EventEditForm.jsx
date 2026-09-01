@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { ImagePlus } from "lucide-react";
 import ChipSelect from "../ChipSelect";
 import { supabase } from "../../supabaseClient";
@@ -56,6 +56,18 @@ export default function EventEditForm({ event, onSaved, onCancel, onError }) {
     setCoverFile(file);
     setCoverPreview(URL.createObjectURL(file));
   };
+
+  // Révoque l'URL blob de l'aperçu à chaque remplacement et au démontage —
+  // sans ça, chaque couverture sélectionnée fuyait en mémoire (jamais
+  // révoquée). coverPreview peut aussi être l'URL signée d'origine de
+  // l'événement (pas un blob) : on ne révoque que les URL blob créées ici.
+  useEffect(() => {
+    return () => {
+      if (coverPreview && coverPreview.startsWith("blob:")) {
+        try { URL.revokeObjectURL(coverPreview); } catch (_) {}
+      }
+    };
+  }, [coverPreview]);
 
   const canSubmit = title.trim().length > 0 && category && date && time && city.trim().length > 0 && !submitting;
 

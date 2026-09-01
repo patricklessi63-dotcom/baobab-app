@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { ImagePlus, Sparkles, Loader2 } from "lucide-react";
 import ChipSelect from "../ChipSelect";
 import { supabase } from "../../supabaseClient";
@@ -63,6 +63,17 @@ export default function CommunityCreateForm({ currentUser, onCreated, onCancel, 
     setCoverFile(file);
     setCoverPreview(URL.createObjectURL(file));
   };
+
+  // Révoque l'URL blob de l'aperçu à chaque remplacement et au démontage —
+  // sans ça, chaque couverture sélectionnée fuyait en mémoire (jamais
+  // révoquée), même après création de la communauté ou annulation.
+  useEffect(() => {
+    return () => {
+      if (coverPreview) {
+        try { URL.revokeObjectURL(coverPreview); } catch (_) {}
+      }
+    };
+  }, [coverPreview]);
 
   const canSubmit = name.trim().length > 0 && category && !submitting;
 
