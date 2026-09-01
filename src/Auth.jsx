@@ -212,8 +212,14 @@ export default function Auth({ justVerified = false, onAcknowledgeVerified = () 
     setError("");
     setNotice("");
     try {
+      // Même normalisation que dans handleSubmit/handleResend (email.trim()
+      // seul ne suffit pas) : le state `email` garde la casse telle que
+      // tapée par l'utilisateur, alors que signUp() envoie déjà l'email en
+      // minuscule. Un email tapé "Nom@Domaine.com" faisait échouer la
+      // vérification du code ("code invalide") car il ne correspondait plus
+      // à l'adresse réellement enregistrée par signUp().
       const { error: verifyError } = await supabase.auth.verifyOtp({
-        email: email.trim(), token: cleanCode, type: "signup",
+        email: email.trim().toLowerCase(), token: cleanCode, type: "signup",
       });
       if (verifyError) throw verifyError;
       // Pas de setMode ici : onAuthStateChange (App.jsx) détecte la session

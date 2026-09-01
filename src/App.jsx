@@ -368,7 +368,17 @@ export default function App() {
     }
     if (PUBLIC_ONLY_PATHS.has(window.location.pathname)) navigate("/");
     loadAll().then(() => {
-      setView("checking-profile");
+      // Bug : la session de récupération de mot de passe (événement
+      // PASSWORD_RECOVERY, voir plus haut) est une session Supabase valide
+      // comme une autre — elle déclenche donc aussi cet effet. Sans cette
+      // garde, loadAll() se terminait après le setView("update-password")
+      // du listener onAuthStateChange et écrasait la vue : l'utilisateur
+      // qui cliquait sur le lien "mot de passe oublié" reçu par email se
+      // retrouvait directement connecté dans l'app, sans jamais passer par
+      // l'écran de saisie du nouveau mot de passe. UpdatePasswordScreen
+      // repasse lui-même à "checking-profile" une fois le mot de passe mis
+      // à jour (onDone).
+      setView((v) => (v === "update-password" ? v : "checking-profile"));
     });
   }, [session, loadAll]); // eslint-disable-line react-hooks/exhaustive-deps
 
