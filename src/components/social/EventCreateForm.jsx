@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { ImagePlus } from "lucide-react";
 import ChipSelect from "../ChipSelect";
 import { supabase } from "../../supabaseClient";
-import { EVENT_CATEGORIES, EVENT_VISIBILITY, CANADA_TIMEZONE_OPTIONS, closestCanadaTimezone } from "../../lib/events/eventConfig";
+import { EVENT_CATEGORIES, EVENT_VISIBILITY, CANADA_TIMEZONE_OPTIONS, closestCanadaTimezone, zonedInputsToUtc } from "../../lib/events/eventConfig";
 import { validateMediaFile } from "../../lib/mediaValidation";
 import { extFromMime } from "../../lib/mediaConstants";
 import { uploadWithProgress } from "../../lib/uploadWithProgress";
@@ -85,7 +85,9 @@ export default function EventCreateForm({ currentUser, onCreated, onCancel, onEr
     setSubmitting(true);
     setError("");
     try {
-      const eventDateTime = new Date(`${date}T${time}`);
+      // Composé dans le fuseau CHOISI (timezone), pas celui du navigateur —
+      // voir zonedInputsToUtc dans eventConfig.js.
+      const eventDateTime = zonedInputsToUtc(date, time, timezone);
       if (Number.isNaN(eventDateTime.getTime()) || eventDateTime <= new Date()) {
         setError("Choisis une date et une heure dans le futur.");
         setSubmitting(false);

@@ -68,6 +68,70 @@ export function closestCanadaTimezone(detected) {
   return "America/Toronto";
 }
 
+// Convertit une date/heure de formulaire (valeurs d'<input type="date"> et
+// <input type="time">, sans fuseau) en instant UTC réel, en les interprétant
+// dans le fuseau CHOISI par l'utilisateur (champ "Fuseau horaire" du
+// formulaire) — pas dans celui du navigateur. Bug corrigé : EventCreateForm/
+// EventEditForm faisaient `new Date(`${date}T${time}`)`, que le moteur JS
+// interprète toujours dans le fuseau LOCAL du navigateur. Un organisateur à
+// Toronto planifiant "20h" pour un événement en fuseau Pacifique se
+// retrouvait donc avec un événement stocké à 20h HNE (= 17h HNP), pas 20h
+// HNP comme sélectionné — décalage silencieux de plusieurs heures, visible
+// par tous les participants (formatEventWhen affiche bien dans le fuseau de
+// l'événement, donc l'erreur de fond se voit).
+// Algorithme classique (une itération suffit hors instant de bascule DST) :
+// on suppose d'abord que les composants saisis sont en UTC, on regarde à
+// quelle heure locale cet instant correspond dans le fuseau cible, puis on
+// corrige par l'écart constaté.
+export function zonedInputsToUtc(dateStr, timeStr, timeZone) {
+  if (!dateStr || !timeStr) return new Date(NaN);
+  const [y, mo, d] = dateStr.split("-").map(Number);
+  const [h, mi] = timeStr.split(":").map(Number);
+  const guess = Date.UTC(y, mo - 1, d, h, mi);
+  if (!timeZone) return new Date(guess);
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone, hourCycle: "h23",
+    year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", second: "2-digit",
+  }).formatToParts(new Date(guess)).reduce((acc, p) => {
+    if (p.type !== "literal") acc[p.type] = Number(p.value);
+    return acc;
+  }, {});
+  const asUtcIfSameWallClock = Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour === 24 ? 0 : parts.hour, parts.minute, parts.second);
+  return new Date(guess - (asUtcIfSameWallClock - guess));
+}
+
+// Opération inverse : décompose un instant UTC stocké (event.event_date) en
+// { date, time } pour pré-remplir le formulaire, en lisant l'heure locale
+// dans le fuseau de l'ÉVÉNEMENT (pas celui du navigateur qui édite). Même
+// bug côté lecture : EventEditForm utilisait `new Date(iso).getHours()` etc,
+// qui lit l'heure locale du navigateur — pré-remplissant le formulaire avec
+// la mauvaise heure dès que l'éditeur n'est pas dans le même fuseau que
+// l'événement, et donc en RE-décalant l'événement à l'enregistrement, même
+// sans rien changer.
+export function utcToZonedInputs(iso, timeZone) {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return { date: "", time: "" };
+  if (!timeZone) {
+    return {
+      date: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`,
+      time: `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`,
+    };
+  }
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone, hourCycle: "h23",
+    year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit",
+  }).formatToParts(d).reduce((acc, p) => {
+    if (p.type !== "literal") acc[p.type] = p.value;
+    return acc;
+  }, {});
+  return {
+    date: `${parts.year}-${parts.month}-${parts.day}`,
+    time: `${parts.hour === "24" ? "00" : parts.hour}:${parts.minute}`,
+  };
+}
+
 export function categoryLabel(value) {
   return EVENT_CATEGORIES.find((c) => c.value === value)?.label || value;
 }

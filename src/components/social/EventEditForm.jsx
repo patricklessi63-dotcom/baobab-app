@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { ImagePlus } from "lucide-react";
 import ChipSelect from "../ChipSelect";
 import { supabase } from "../../supabaseClient";
-import { EVENT_CATEGORIES, CANADA_TIMEZONE_OPTIONS, closestCanadaTimezone } from "../../lib/events/eventConfig";
+import { EVENT_CATEGORIES, CANADA_TIMEZONE_OPTIONS, closestCanadaTimezone, zonedInputsToUtc, utcToZonedInputs } from "../../lib/events/eventConfig";
 import { validateMediaFile } from "../../lib/mediaValidation";
 import { extFromMime } from "../../lib/mediaConstants";
 import { uploadWithProgress } from "../../lib/uploadWithProgress";
@@ -12,21 +12,27 @@ const TITLE_MAX = 80;
 const DESCRIPTION_MAX = 500;
 const COVER_URL_EXPIRY = 60 * 60 * 24 * 365 * 5;
 
-// Doit utiliser les composants de date LOCAUX (comme toTimeInput ci-dessous),
-// pas toISOString() qui renvoie la date en UTC : pour un événement en soirée
-// (ex. 20h à Toronto = 00h UTC le lendemain), le champ date affichait le
-// lendemain alors que le champ heure affichait l'heure locale — en
-// recombinant ces deux valeurs incohérentes à l'enregistrement (même sans
-// rien modifier), l'événement se décalait silencieusement d'un jour entier.
-function toDateInput(iso) {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "";
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
-function toTimeInput(iso) {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "";
-  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+// Doit utiliser les composants de date LOCAUX, pas toISOString() qui renvoie
+// la date en UTC : pour un événement en soirée (ex. 20h à Toronto = 00h UTC
+// le lendemain), le champ date affichait le lendemain alors que le champ
+// heure affichait l'heure locale — en recombinant ces deux valeurs
+// incohérentes à l'enregistrement (même sans rien modifier), l'événement se
+// décalait silencieusement d'un jour entier.
+//
+// Deuxième bug corrigé sur le même terrain : "locales" veut dire "dans le
+// fuseau de l'ÉVÉNEMENT" (event.timezone), pas celui du navigateur qui
+// édite. utcToZonedInputs/zonedInputsToUtc (eventConfig.js) lisent et
+// recomposent la date/heure dans ce fuseau précis — avant, un éditeur situé
+// dans un fuseau différent de celui de l'événement voyait un mauvais
+// date/heure pré-rempli, et le ré-enregistrer (même sans rien changer)
+// décalait l'événement de l'écart entre les deux fuseaux.
+function resolveInitialTimezone(ev) {
+  if (ev.timezone) return ev.timezone;
+  try {
+    return closestCanadaTimezone(Intl.DateTimeFormat().resolvedOptions().timeZone);
+  } catch {
+    return "America/Toronto";
+  }
 }
 
 // Modifie titre/description/catégorie/image/date/heure/durée/lieu/plafond
@@ -39,20 +45,13 @@ export default function EventEditForm({ event, onSaved, onCancel, onError }) {
   const [category, setCategory] = useState(event.category || "");
   const [coverFile, setCoverFile] = useState(null);
   const [coverPreview, setCoverPreview] = useState(event.cover_url || "");
-  const [date, setDate] = useState(toDateInput(event.event_date));
-  const [time, setTime] = useState(toTimeInput(event.event_date));
+  const [date, setDate] = useState(() => utcToZonedInputs(event.event_date, resolveInitialTimezone(event)).date);
+  const [time, setTime] = useState(() => utcToZonedInputs(event.event_date, resolveInitialTimezone(event)).time);
   const [durationMinutes, setDurationMinutes] = useState(event.duration_minutes || "");
   const [city, setCity] = useState(event.city || "");
   const [location, setLocation] = useState(event.location || "");
   const [maxParticipants, setMaxParticipants] = useState(event.max_participants || "");
-  const [timezone, setTimezone] = useState(() => {
-    if (event.timezone) return event.timezone;
-    try {
-      return closestCanadaTimezone(Intl.DateTimeFormat().resolvedOptions().timeZone);
-    } catch {
-      return "America/Toronto";
-    }
-  });
+  const [timezone, setTimezone] = useState(() => resolveInitialTimezone(event));
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   // Le formulaire se démonte dès que l'utilisateur clique "← Annuler" en
@@ -90,7 +89,9 @@ export default function EventEditForm({ event, onSaved, onCancel, onError }) {
     setSubmitting(true);
     setError("");
     try {
-      const eventDateTime = new Date(`${date}T${time}`);
+      // Composé dans le fuseau actuellement sélectionné (timezone), pas
+      // celui du navigateur — voir zonedInputsToUtc dans eventConfig.js.
+      const eventDateTime = zonedInputsToUtc(date, time, timezone);
       if (Number.isNaN(eventDateTime.getTime())) {
         setError("Date ou heure invalide.");
         setSubmitting(false);
