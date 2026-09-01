@@ -325,6 +325,27 @@ export default function ProfileTab({
                       </button>
                       <p className="text-[11px] mt-2" style={{ color: "rgba(var(--bb-ink-rgb),0.72)" }}>Annulation, moyen de paiement et factures — géré directement par Stripe, en dehors de Baobab.</p>
                     </div>
+                  ) : subscription?.status === "past_due" ? (
+                    // Paiement de renouvellement refusé (invoice.payment_failed — voir
+                    // stripe-webhook/index.ts) : Stripe retente automatiquement pendant
+                    // plusieurs jours sur CET abonnement, qui existe toujours côté Stripe.
+                    // Avant ce correctif, on affichait "Tu es sur le plan gratuit" avec un
+                    // bouton "Découvrir Premium" qui renvoyait vers le choix de plan — un
+                    // utilisateur qui cliquait dessus souscrivait un DEUXIÈME abonnement
+                    // Stripe (même client, nouvelle session Checkout) au lieu de simplement
+                    // mettre à jour son moyen de paiement sur l'abonnement existant.
+                    <div className="rounded-2xl p-4" style={{ background: "rgba(217,88,60,.12)", border: "1px solid rgba(217,88,60,.35)" }}>
+                      <div className="flex items-center gap-2">
+                        <span style={{ fontSize: 20 }}>⚠️</span>
+                        <span className="text-sm font-black" style={{ color: primary }}>Échec de ton dernier paiement</span>
+                      </div>
+                      <p className="text-sm mt-2" style={{ color: "rgba(var(--bb-ink-rgb),0.72)" }}>
+                        Ton abonnement {subscription?.plan === "yearly" ? "annuel" : "mensuel"} est toujours actif chez Stripe, mais le dernier prélèvement a échoué. Mets à jour ton moyen de paiement pour éviter l'annulation.
+                      </p>
+                      <button onClick={handleManageSubscription} disabled={managingSubscription} className="bb-btn-gold mt-3 px-4 py-2.5 rounded-xl font-bold text-sm disabled:opacity-60">
+                        {managingSubscription ? "Ouverture..." : "Mettre à jour mon moyen de paiement"}
+                      </button>
+                    </div>
                   ) : (
                     <div className="text-center py-6">
                       <span style={{ fontSize: 28 }}>💎</span>

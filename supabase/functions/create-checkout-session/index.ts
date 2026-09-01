@@ -59,9 +59,20 @@ Deno.serve(async (req) => {
     // Réutilise un Customer Stripe déjà existant pour ce profil, pour
     // éviter d'en créer un nouveau à chaque tentative d'abonnement.
     const { data: existing } = await supabase
-      .from("subscriptions").select("stripe_customer_id")
+      .from("subscriptions").select("stripe_customer_id, status")
       .eq("profile_id", profile.id).not("stripe_customer_id", "is", null)
       .order("created_at", { ascending: false }).limit(1).maybeSingle();
+
+    // Bloque la création d'un DEUXIÈME abonnement Stripe si le profil en a
+    // déjà un vivant (actif, en essai, en retard de paiement ou impayé) :
+    // sans ce garde-fou, un utilisateur en "past_due" (paiement refusé, mais
+    // Stripe retente automatiquement l'abonnement existant) qui repasse par
+    // "Choisir un plan" se retrouvait avec deux abonnements actifs sur le
+    // même compte, donc potentiellement double facturé. Rien côté client
+    // n'empêchait cet appel direct à l'Edge Function.
+    if (existing && ["active", "trialing", "past_due", "unpaid"].includes(existing.status)) {
+      throw new UserError("Tu as déjà un abonnement en cours. Gère-le depuis ton profil, onglet \"Abonnement\", plutôt que d'en créer un nouveau.");
+    }
 
     let customerId = existing?.stripe_customer_id as string | undefined;
     if (!customerId) {

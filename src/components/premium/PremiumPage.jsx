@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { ArrowLeft, Check } from "lucide-react";
 import { PREMIUM_PLANS, PREMIUM_FEATURES } from "../../lib/premium/premiumConfig";
-import { startCheckout } from "../../lib/premium/checkout";
+import { startCheckout, openBillingPortal } from "../../lib/premium/checkout";
 import { usePremiumStatus } from "../../lib/premium/usePremiumStatus";
 import { primary, coral, gold, green, muted, bg, card, goldText } from "../social/theme";
 
@@ -50,6 +50,17 @@ export default function PremiumPage({ currentUser, onBack, onError, justSubscrib
     }
   };
 
+  const handleManagePastDue = async () => {
+    setSubmitting(true);
+    try {
+      await openBillingPortal();
+    } catch (e) {
+      console.error(e);
+      onError?.(e.message);
+      setSubmitting(false);
+    }
+  };
+
   const selected = PREMIUM_PLANS.find((p) => p.id === selectedPlan);
 
   return (
@@ -83,6 +94,24 @@ export default function PremiumPage({ currentUser, onBack, onError, justSubscrib
             {subscription?.current_period_end && ` — renouvellement le ${new Date(subscription.current_period_end).toLocaleDateString("fr-CA")}`}
           </p>
           <p className="text-xs mt-3" style={{ color: muted }}>Gère ton abonnement depuis ton profil, onglet "Abonnement".</p>
+        </div>
+      ) : subscription?.status === "past_due" ? (
+        // Abonnement existant chez Stripe mais dernier prélèvement refusé
+        // (invoice.payment_failed). L'abonnement n'est PAS annulé : Stripe le
+        // retente automatiquement pendant plusieurs jours. Avant ce correctif,
+        // on affichait ici le choix de plan comme pour un nouvel utilisateur —
+        // "s'abonner" créait alors une session Checkout qui ouvrait un DEUXIÈME
+        // abonnement Stripe en plus du premier (toujours vivant, en cours de
+        // relance), au lieu de simplement corriger le moyen de paiement.
+        <div className={`${card} p-6 text-center`}>
+          <span style={{ fontSize: 32 }}>⚠️</span>
+          <h2 className="text-lg font-black mt-2" style={{ color: primary }}>Échec de ton dernier paiement</h2>
+          <p className="text-sm mt-1" style={{ color: muted }}>
+            Ton abonnement {subscription?.plan === "yearly" ? "annuel" : "mensuel"} est toujours actif, mais le dernier prélèvement a échoué. Mets à jour ton moyen de paiement pour éviter l'annulation.
+          </p>
+          <button onClick={handleManagePastDue} disabled={submitting} className="mt-4 px-5 py-3 rounded-2xl text-sm font-bold text-white disabled:opacity-60" style={{ background: `linear-gradient(135deg, ${coral}, ${gold})` }}>
+            {submitting ? "Ouverture..." : "Mettre à jour mon moyen de paiement"}
+          </button>
         </div>
       ) : (
         <>
