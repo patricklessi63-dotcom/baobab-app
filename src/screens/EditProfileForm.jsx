@@ -298,7 +298,7 @@ export default function EditProfileForm({
             action="improve_bio"
             label="Améliorer ma bio"
             buildPayload={() => ({ text: editForm.bio || "" })}
-            onApply={(text) => set({ bio: text })}
+            onApply={(text) => set({ bio: text.slice(0, 300) })}
             disabled={!(editForm.bio || "").trim()}
           />
         )}

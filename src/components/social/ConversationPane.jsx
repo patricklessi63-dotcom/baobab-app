@@ -425,7 +425,7 @@ export default function ConversationPane({
           <AiSuggestButton
             action="reformulate_message"
             buildPayload={() => ({ text: messageDraft })}
-            onApply={(text) => setMessageDraft(text)}
+            onApply={(text) => setMessageDraft(text.slice(0, 4000))}
             label="Reformuler avec l'IA"
           />
         </div>
@@ -439,7 +439,7 @@ export default function ConversationPane({
           />
         )}
         {!recorderActive && (
-          <AiConversationSuggestions currentUser={currentUser} match={activeMatch} onPick={(text) => setMessageDraft(text)} />
+          <AiConversationSuggestions currentUser={currentUser} match={activeMatch} onPick={(text) => setMessageDraft(text.slice(0, 4000))} />
         )}
         {!recorderActive && (
           <textarea

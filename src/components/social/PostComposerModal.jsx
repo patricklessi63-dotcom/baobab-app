@@ -145,7 +145,7 @@ export default function PostComposerModal({
                               action="improve_post"
                               label="Améliorer mon texte"
                               buildPayload={() => ({ text: draft })}
-                              onApply={setDraft}
+                              onApply={(text) => setDraft(text.slice(0, 4000))}
                               disabled={!draft.trim()}
                             />
                           ) : <span />}
