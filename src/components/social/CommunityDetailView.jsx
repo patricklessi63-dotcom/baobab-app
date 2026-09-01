@@ -38,6 +38,7 @@ export default function CommunityDetailView({
   myReactions = {},
   onReact = () => {},
   commentsByPost,
+  postCommentCounts = {},
   onLoadComments,
   onSubmitComment,
   onEditComment = () => {},
@@ -209,6 +210,7 @@ export default function CommunityDetailView({
                     currentUserId={currentUser?.id}
                     reactionCounts={reactionCounts[post.id] || {}}
                     myReaction={myReactions[post.id] || null}
+                    commentCount={postCommentCounts[post.id] || 0}
                     comments={commentsByPost[post.id]?.items || []}
                     commentsLoaded={Boolean(commentsByPost[post.id])}
                     onReact={onReact}

@@ -799,6 +799,7 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
           myReactions={myReactions}
           onReact={handleReact}
           commentsByPost={visibleCommentsByPost}
+          postCommentCounts={postCommentCounts}
           onLoadComments={handleLoadComments}
           onSubmitComment={handleSubmitComment}
           onEditComment={handleEditComment}
