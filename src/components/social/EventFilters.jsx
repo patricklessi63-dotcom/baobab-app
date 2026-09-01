@@ -61,7 +61,12 @@ export function dateRangeBounds(range) {
   if (range === "today") {
     end = new Date(start); end.setHours(23, 59, 59, 999);
   } else if (range === "week") {
-    end = new Date(start); end.setDate(end.getDate() + (7 - end.getDay())); end.setHours(23, 59, 59, 999);
+    // "% 7" est indispensable (comme pour "weekend" juste en dessous) : un
+    // dimanche, end.getDay() vaut 0, donc "7 - 0 = 7" repoussait la borne de
+    // fin sept jours trop loin (au dimanche suivant) au lieu de garder la
+    // fin de journée du jour même, incluant à tort toute la semaine d'après
+    // dans le filtre "Cette semaine".
+    end = new Date(start); end.setDate(end.getDate() + ((7 - end.getDay()) % 7)); end.setHours(23, 59, 59, 999);
   } else if (range === "weekend") {
     const day = start.getDay();
     const toSaturday = (6 - day + 7) % 7;
