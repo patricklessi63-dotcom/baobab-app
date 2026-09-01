@@ -12,9 +12,16 @@ const TITLE_MAX = 80;
 const DESCRIPTION_MAX = 500;
 const COVER_URL_EXPIRY = 60 * 60 * 24 * 365 * 5;
 
+// Doit utiliser les composants de date LOCAUX (comme toTimeInput ci-dessous),
+// pas toISOString() qui renvoie la date en UTC : pour un événement en soirée
+// (ex. 20h à Toronto = 00h UTC le lendemain), le champ date affichait le
+// lendemain alors que le champ heure affichait l'heure locale — en
+// recombinant ces deux valeurs incohérentes à l'enregistrement (même sans
+// rien modifier), l'événement se décalait silencieusement d'un jour entier.
 function toDateInput(iso) {
   const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? "" : d.toISOString().slice(0, 10);
+  if (Number.isNaN(d.getTime())) return "";
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 function toTimeInput(iso) {
   const d = new Date(iso);
