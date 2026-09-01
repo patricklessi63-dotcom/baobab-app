@@ -337,7 +337,12 @@ export default function ConversationPane({
                         <Loader2 size={11} className="animate-spin" /> Traduction…
                       </p>
                     ) : translations[m.id].error ? (
-                      <p className="text-xs mt-1" style={{ color: coral }}>{translations[m.id].error}</p>
+                      <p className="text-xs mt-1 flex items-center gap-1.5 flex-wrap" style={{ color: coral }}>
+                        {translations[m.id].error}
+                        <button onClick={() => handleTranslate(m)} className="font-bold underline">
+                          Réessayer
+                        </button>
+                      </p>
                     ) : (
                       <div className="text-xs mt-1 px-3 py-1.5 rounded-xl" style={{ background: `rgba(${primaryRgb},.05)`, color: body, maxWidth: "100%" }}>
                         <div className="text-[10px] font-black uppercase tracking-wider mb-0.5" style={{ color: muted }}>🌐 Traduit automatiquement</div>
