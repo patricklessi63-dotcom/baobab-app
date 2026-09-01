@@ -44,7 +44,14 @@ export default function StoryComposerModal({
     return () => { if (mediaPreviewUrl) URL.revokeObjectURL(mediaPreviewUrl); };
   }, [mediaPreviewUrl]);
 
-  const handleClose = () => setStoryComposer(false);
+  // Ignore la fermeture (fond, croix, Échap) pendant l'envoi : le fond
+  // couvre tout le modal quelle que soit l'étape (y compris "preview"
+  // pendant addStory()), donc un clic dessus pouvait fermer visuellement
+  // le composeur alors que l'ajout du statut restait en vol. À la
+  // résolution, addStory() réinitialise quand même storyText/storyMedia —
+  // ce qui écrasait ce que l'utilisateur venait de retaper en rouvrant
+  // aussitôt le composeur pour un nouveau statut.
+  const handleClose = () => { if (!storyUploading) setStoryComposer(false); };
   const goPreview = () => { if (canContinue) setStoryStep("preview"); };
 
   return (

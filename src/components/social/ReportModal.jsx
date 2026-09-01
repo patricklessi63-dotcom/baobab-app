@@ -47,7 +47,7 @@ export default function ReportModal({
     <div
       className="fixed inset-0 z-[85] flex items-center justify-center p-5"
       style={{ background: `rgba(${primaryRgb},.55)`, backdropFilter: "blur(4px)" }}
-      onClick={submitted ? undefined : onCancel}
+      onClick={submitted || sending ? undefined : onCancel}
       role="dialog"
       aria-modal="true"
       aria-label={submitted ? "Signalement envoyé" : `Signaler ${displayLabel}`}
@@ -74,7 +74,13 @@ export default function ReportModal({
             />
 
             <div className="flex gap-2 mt-4">
-              <button onClick={onCancel} className="flex-1 py-2.5 rounded-full text-sm font-semibold" style={{ border: `1px solid rgba(${primaryRgb},.12)`, color: primary }}>
+              {/* disabled={sending} : sinon un clic pendant l'envoi met reportTarget/
+                  reportSubmitted à zéro (fermeture) alors que submitReport() continue
+                  en vol — si l'utilisateur rouvre aussitôt cette modale pour signaler
+                  quelqu'un d'autre, la résolution tardive de l'ancien envoi écrasait
+                  submitted à true et affichait "Signalement envoyé" pour ce nouveau
+                  signalement, jamais réellement envoyé. */}
+              <button onClick={onCancel} disabled={sending} className="flex-1 py-2.5 rounded-full text-sm font-semibold disabled:opacity-40" style={{ border: `1px solid rgba(${primaryRgb},.12)`, color: primary }}>
                 Annuler
               </button>
               <button

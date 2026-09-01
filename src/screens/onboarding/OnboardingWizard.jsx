@@ -289,7 +289,13 @@ export default function OnboardingWizard({
   return (
     <div className="p-6 max-w-md mx-auto w-full">
       {step > 1 && (
-        <button onClick={goBack} className="flex items-center gap-1 text-sm mb-4" style={{ color: C.indigo }}>
+        // disabled={saving} : sinon un clic pendant l'enregistrement de
+        // l'étape courante (goNext en vol) déplaçait bien l'affichage vers
+        // l'étape précédente, mais goNext (fermeture stale sur `step`)
+        // rappelait ensuite setStep((s) => s + 1) une fois la sauvegarde
+        // résolue — annulant silencieusement ce retour et renvoyant
+        // l'utilisateur vers l'étape qu'il venait de quitter.
+        <button onClick={goBack} disabled={saving} className="flex items-center gap-1 text-sm mb-4 disabled:opacity-40" style={{ color: C.indigo }}>
           <ArrowLeft size={16} /> Retour
         </button>
       )}
