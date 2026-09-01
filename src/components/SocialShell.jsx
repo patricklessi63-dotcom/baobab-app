@@ -1786,7 +1786,19 @@ export default function SocialShell({
         onClose={() => setAdmirersOpen(false)}
         admirerProfiles={admirers}
         currentUser={currentUser}
-        onLikeBack={(p) => { handleLike(p); setAdmirersOpen(false); }}
+        /* Bug : la modale "Qui m'a aimé" se fermait entièrement après avoir
+           aimé une seule personne en retour, alors qu'elle peut contenir
+           plusieurs admirateur·ices. `admirers` (= getAdmirers()) est déjà
+           recalculé automatiquement dès que le like part (la personne
+           bascule dans les matchs et sort naturellement de la liste, comme
+           le documente le commentaire au-dessus de getAdmirers() dans
+           App.jsx) — inutile de fermer la modale, elle doit rester ouverte
+           pour laisser liker les admirateur·ices restant·es, exactement
+           comme FavoritesModal ci-dessus ne se ferme pas après un
+           toggleFavorite. La modale de célébration de match (z-[90]) passe
+           de toute façon au-dessus (z-[70] ici) sans avoir besoin qu'on la
+           ferme. */
+        onLikeBack={(p) => handleLike(p)}
         onViewProfile={(p) => { setAdmirersOpen(false); setViewedProfileId(p.id); }}
         onUpgrade={() => { setAdmirersOpen(false); goTab("premium"); }}
       />
