@@ -644,9 +644,28 @@ export default function SocialShell({
   const unreadCommunityNotifications = prefEnabled("communities") ? visibleCommunityNotifications.filter((n) =>
     n.target_type !== "event" && n.type !== "new_follower" && n.type !== "new_like" && n.type !== "new_match" && n.type !== "new_message"
   ) : [];
-  const eventsBadgeCount = unreadCommunityCount > 0 ? unreadEventNotifications.length : 0;
-  const communitiesBadgeCount = unreadCommunityCount > 0 ? unreadCommunityNotifications.length : 0;
-  const followsBadgeCount = unreadCommunityCount > 0 ? unreadFollowNotifications.length : 0;
+  // Bug corrigé à l'audit : ces badges se basaient sur
+  // `unreadCommunityCount > 0 ? X.length : 0`, c'est-à-dire la taille TOTALE
+  // de la liste par catégorie dès que le compteur agrégé repassait au-dessus
+  // de zéro — pas le nombre d'éléments réellement non lus de cette
+  // catégorie. Or "Tout marquer comme lu" (markCommunityNotificationsRead)
+  // remet le compteur agrégé à zéro sans jamais modifier read_at localement
+  // sur les entrées de communityNotifications (volontaire : la liste doit
+  // rester visible pendant que le menu reste ouvert, voir plus haut). Donc
+  // dès qu'UNE SEULE notification d'un autre type arrivait ensuite (ex. un
+  // "like" après avoir tout marqué lu), le compteur agrégé redevenait > 0 et
+  // rouvrait la porte : les anciennes notifications Abonnés/Communautés/
+  // Événements, pourtant déjà lues côté serveur, réapparaissaient comme
+  // pastilles rouges sur ces onglets. On filtre désormais directement sur
+  // read_at (mis à jour localement par markCommunityNotificationsRead
+  // ci-dessous), la vraie source de vérité par élément.
+  const eventsBadgeCount = unreadEventNotifications.filter((n) => !n.read_at).length;
+  const communitiesBadgeCount = unreadCommunityNotifications.filter((n) => !n.read_at).length;
+  const followsBadgeCount = unreadFollowNotifications.filter((n) => !n.read_at).length;
+  // Même logique pour les notifications "Rencontres" (like/match) — utilisée
+  // uniquement pour la pastille de la cloche ci-dessous (voir bug #2 : ce
+  // type n'était compté nulle part dans la pastille du header).
+  const datingBadgeCount = unreadDatingNotifications.filter((n) => !n.read_at).length;
   const [openCommunityId, setOpenCommunityId] = useState(null);
 
   // "Mes communautés" pour l'onglet Profil — communautés réellement
@@ -722,14 +741,24 @@ export default function SocialShell({
     if (unreadCommunityCount === 0 || !currentUser) return;
     const ids = communityNotifications.filter((n) => !n.read_at).map((n) => n.id);
     const previousCount = unreadCommunityCount;
+    const nowIso = new Date().toISOString();
     setUnreadCommunityCount(0);
+    // Marque aussi read_at localement (sans retirer les entrées du tableau,
+    // qui doit rester affiché tel quel pendant que le menu reste ouvert) —
+    // faute de quoi eventsBadgeCount/communitiesBadgeCount/followsBadgeCount
+    // ci-dessus recomptaient ces entrées comme non lues dès qu'une nouvelle
+    // notification d'un autre type rouvrait le compteur agrégé (bug corrigé
+    // à l'audit, voir commentaire au-dessus de ces trois constantes).
+    setCommunityNotifications((prev) => prev.map((n) => (ids.includes(n.id) ? { ...n, read_at: nowIso } : n)));
     if (ids.length === 0) return;
-    supabase.from("notifications").update({ read_at: new Date().toISOString() }).in("id", ids).then(({ error }) => {
+    supabase.from("notifications").update({ read_at: nowIso }).in("id", ids).then(({ error }) => {
       if (error) {
         console.error(error.message, error.code, error.details, error.hint);
         // Échec côté serveur : les notifications sont toujours non lues,
-        // on restaure le badge pour refléter l'état réel en base.
+        // on restaure le badge et le read_at local pour refléter l'état réel
+        // en base (sinon les badges resteraient éteints à tort).
         setUnreadCommunityCount(previousCount);
+        setCommunityNotifications((prev) => prev.map((n) => (ids.includes(n.id) ? { ...n, read_at: null } : n)));
       }
     });
   };
@@ -1285,7 +1314,7 @@ export default function SocialShell({
             <div ref={notifRef} className="relative">
             <button onClick={() => { setNotificationsOpen((v) => !v); setMenu(false); }} aria-label={`Notifications${totalUnreadMessages > 0 ? ` (${totalUnreadMessages} non lus)` : ""}`} className={`${buttonBase} h-11 w-11 rounded-2xl hidden sm:flex items-center justify-center relative focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1`} style={{ background: bg }}>
               <Bell size={19} color={primary} />
-              {(totalUnreadMessages > 0 || incomingFavoritesCount > 0 || communitiesBadgeCount > 0 || eventsBadgeCount > 0 || followsBadgeCount > 0) && (
+              {(totalUnreadMessages > 0 || incomingFavoritesCount > 0 || communitiesBadgeCount > 0 || eventsBadgeCount > 0 || followsBadgeCount > 0 || datingBadgeCount > 0) && (
                 <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full" style={{ background: coral }} />
               )}
             </button>
