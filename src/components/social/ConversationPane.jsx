@@ -100,9 +100,17 @@ export default function ConversationPane({
   // l'autre personne a écrit dans cette langue.
   const [translations, setTranslations] = useState({}); // { [messageId]: {loading, text, error} }
   useEffect(() => { setTranslations({}); }, [activeMatch?.id]);
+  // Ce composant est remonté à chaque changement de conversation
+  // (key={activeMatch.id} dans MessagesTab) : si on clique "Traduire" puis
+  // qu'on change de conversation avant la réponse IA, le composant est déjà
+  // démonté quand invokeAI résout. Sans cette garde, setTranslations()
+  // s'exécutait quand même (avertissement React, état perdu dans le vide).
+  const mountedRef = useRef(true);
+  useEffect(() => () => { mountedRef.current = false; }, []);
   const handleTranslate = async (m) => {
     setTranslations((prev) => ({ ...prev, [m.id]: { loading: true } }));
     const { data, error } = await invokeAI("translate_message", { text: m.text, targetLanguage: "français" });
+    if (!mountedRef.current) return; // conversation changée pendant l'appel IA
     setTranslations((prev) => ({ ...prev, [m.id]: error ? { error } : { text: data?.text || "" } }));
   };
 
