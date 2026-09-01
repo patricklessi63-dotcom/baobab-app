@@ -35,6 +35,18 @@ export default function MediaViewerModal({ images, index = 0, onNavigate, url, a
     setImgError(false);
   }, [index, url]);
 
+  // Bug corrigé : dézoomer avec la molette (onWheel) ou en pinçant sur
+  // tactile ramène "zoom" à 1 progressivement, mais ne touchait jamais à
+  // "pan" — un panoramique fait pendant qu'on était zoomé restait donc
+  // appliqué même une fois revenu à zoom normal (image visiblement décalée,
+  // parfois coupée, sans qu'aucun zoom ne soit pourtant actif). Seuls le
+  // double-tap/double-clic (toggleZoom -> resetZoom) et le changement de
+  // photo remettaient pan à zéro. On le fait maintenant pour tout retour à
+  // zoom<=1, quelle qu'en soit la cause.
+  useEffect(() => {
+    if (zoom <= 1) setPan((p) => (p.x === 0 && p.y === 0 ? p : { x: 0, y: 0 }));
+  }, [zoom]);
+
   useEffect(() => {
     if (!active) return;
     const onKey = (e) => {
