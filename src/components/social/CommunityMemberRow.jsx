@@ -1,5 +1,5 @@
 import React from "react";
-import { ChevronUp, ChevronDown, UserMinus } from "lucide-react";
+import { ChevronUp, ChevronDown, ChevronsUp, ChevronsDown, UserMinus } from "lucide-react";
 import Avatar from "../Avatar";
 import { roleLabel } from "../../lib/communities/communityConfig";
 import { canSetRole, canRemoveMember } from "../../lib/communities/permissions";
@@ -11,6 +11,18 @@ export default function CommunityMemberRow({ member, viewerRole, currentUserId, 
   const isSelf = member.profile_id === currentUserId;
   const canPromoteToMod = canSetRole(viewerRole, member.role, "moderator") && member.role === "member";
   const canDemoteToMember = canSetRole(viewerRole, member.role, "member") && member.role === "moderator";
+  // Bug corrigé : le rôle "admin" existe bel et bien dans le modèle de
+  // permissions (communityConfig.js, permissions.js, RLS "Changement de
+  // rôle selon la hiérarchie" dans supabase-communities.sql — la branche
+  // owner y est illimitée sur le rôle cible) mais aucun bouton ne
+  // permettait jamais de l'atteindre : seules les paires membre<->modérateur
+  // étaient câblées ici. Un·e propriétaire n'avait donc aucun moyen de
+  // déléguer une administration complète, même en admin/gestion — il restait
+  // le seul point de défaillance de sa communauté. canSetRole refuse déjà
+  // ce changement à un simple admin (la cible doit être modérateur/membre),
+  // donc ces boutons ne peuvent apparaître que pour un·e propriétaire.
+  const canPromoteToAdmin = canSetRole(viewerRole, member.role, "admin") && member.role === "moderator";
+  const canDemoteToModerator = canSetRole(viewerRole, member.role, "moderator") && member.role === "admin";
   const canRemove = canRemoveMember(viewerRole, member.role, isSelf) && !isSelf;
 
   return (
@@ -29,7 +41,7 @@ export default function CommunityMemberRow({ member, viewerRole, currentUserId, 
           {profile.show_city !== false && profile.city && <div className="text-xs truncate" style={{ color: muted }}>📍 {profile.city}</div>}
         </div>
       </button>
-      {(canPromoteToMod || canDemoteToMember || canRemove) && (
+      {(canPromoteToMod || canDemoteToMember || canPromoteToAdmin || canDemoteToModerator || canRemove) && (
         <div className="flex items-center gap-1 flex-shrink-0">
           {canPromoteToMod && (
             <button onClick={() => onSetRole(member, "moderator")} aria-label={`Promouvoir ${firstName} modérateur`} className="h-8 w-8 rounded-full flex items-center justify-center" style={{ color: muted }}>
@@ -39,6 +51,16 @@ export default function CommunityMemberRow({ member, viewerRole, currentUserId, 
           {canDemoteToMember && (
             <button onClick={() => onSetRole(member, "member")} aria-label={`Rétrograder ${firstName}`} className="h-8 w-8 rounded-full flex items-center justify-center" style={{ color: muted }}>
               <ChevronDown size={16} />
+            </button>
+          )}
+          {canPromoteToAdmin && (
+            <button onClick={() => onSetRole(member, "admin")} aria-label={`Promouvoir ${firstName} administrateur`} className="h-8 w-8 rounded-full flex items-center justify-center" style={{ color: gold }}>
+              <ChevronsUp size={16} />
+            </button>
+          )}
+          {canDemoteToModerator && (
+            <button onClick={() => onSetRole(member, "moderator")} aria-label={`Rétrograder ${firstName} modérateur`} className="h-8 w-8 rounded-full flex items-center justify-center" style={{ color: muted }}>
+              <ChevronsDown size={16} />
             </button>
           )}
           {canRemove && (
