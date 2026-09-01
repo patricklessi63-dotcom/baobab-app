@@ -184,6 +184,12 @@ export default function SocialShell({
   const activeStoryIdRef = useRef(null);
   const [viewedProfileId, setViewedProfileId] = useState(null);
   const [favoriteIds, setFavoriteIds] = useState(new Set());
+  // Profils complets récupérés via jointure directe sur "favorites" (même
+  // correctif que followedProfilesRaw plus bas) — un profil mis en favori
+  // hors du cache local "profiles" (plafonné à 500 lignes, triées par
+  // ancienneté) ne doit jamais disparaître silencieusement de la modale
+  // "Mes favoris".
+  const [favoriteProfilesRaw, setFavoriteProfilesRaw] = useState([]);
   const storyPhotoInputRef = useRef(null);
   const storyVideoInputRef = useRef(null);
   // Garde anti double-soumission pour addStory() — même pattern que
@@ -282,12 +288,13 @@ export default function SocialShell({
     let alive = true;
     supabase
       .from("favorites")
-      .select("to_id")
+      .select("to_id, profile:to_id(id,name,avatar_url,city,age,show_birth_year,looking_for,email_verified,phone_verified)")
       .eq("from_id", currentUser.id)
       .then(({ data, error }) => {
         if (!alive) return;
         if (error) { console.error(error.message, error.code, error.details, error.hint); return; }
         setFavoriteIds(new Set((data || []).map((r) => r.to_id)));
+        setFavoriteProfilesRaw((data || []).map((r) => r.profile).filter(Boolean));
       });
     return () => { alive = false; };
   }, [currentUser]);
@@ -303,6 +310,15 @@ export default function SocialShell({
       isFav ? next.delete(profile.id) : next.add(profile.id);
       return next;
     });
+    // favoriteProfilesRaw alimente la modale "Mes favoris" (voir déclaration
+    // plus haut) ; sans cette mise à jour ici, un ajout aux favoris d'un
+    // profil absent du cache local "profiles" resterait invisible dans la
+    // modale jusqu'au prochain rechargement complet de la page.
+    setFavoriteProfilesRaw((prev) =>
+      isFav
+        ? prev.filter((p) => p.id !== profile.id)
+        : (prev.some((p) => p.id === profile.id) ? prev : [profile, ...prev])
+    );
     try {
       if (isFav) {
         const { error } = await supabase
@@ -324,6 +340,11 @@ export default function SocialShell({
         isFav ? next.add(profile.id) : next.delete(profile.id);
         return next;
       });
+      setFavoriteProfilesRaw((prev) =>
+        isFav
+          ? (prev.some((p) => p.id === profile.id) ? prev : [profile, ...prev])
+          : prev.filter((p) => p.id !== profile.id)
+      );
       onError("Impossible de mettre à jour tes favoris.");
     } finally {
       favoriteInFlightRef.current.delete(profile.id);
@@ -818,9 +839,14 @@ export default function SocialShell({
   }
   // Un blocage (dans un sens ou l'autre) retire immédiatement le profil de
   // ces listes, même si la relation "follows"/"favorites" existe toujours en
-  // base — favoriteProfiles manquait ce filtre alors que les deux listes
-  // juste en dessous (abonnements/abonnés) l'appliquaient déjà.
-  const favoriteProfiles = profiles.filter((p) => favoriteIds.has(p.id) && !blockedIds.has(p.id));
+  // base. favoriteProfiles part maintenant de favoriteProfilesRaw (jointure
+  // directe sur "favorites", comme followedProfilesRaw/followerProfilesRaw
+  // juste en dessous) et non plus d'un filtrage du cache local "profiles" —
+  // ce cache est plafonné à 500 lignes triées par ancienneté, donc un profil
+  // mis en favori mais absent de ces 500 premières lignes (n'importe quel
+  // profil créé après ce plafond) disparaissait silencieusement de la
+  // modale "Mes favoris" bien que le favori existait toujours en base.
+  const favoriteProfiles = favoriteProfilesRaw.filter((p) => !blockedIds.has(p.id));
   const followedProfiles = followedProfilesRaw.filter((p) => !blockedIds.has(p.id));
   const followerProfiles = followerProfilesRaw.filter((p) => !blockedIds.has(p.id));
   // "stories" est chargé une seule fois (montage / changement de currentUser)
