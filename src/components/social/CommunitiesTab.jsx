@@ -249,9 +249,17 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
   const loadMembers = async (id) => {
     setMembersLoading(true);
     try {
+      // "id" est indispensable dans la sélection imbriquée ci-dessous, pas
+      // seulement les champs affichés : CommunityMemberRow transmet ce
+      // profil tel quel à onViewProfile -> PublicProfileModal, dont les
+      // boutons Signaler/Bloquer envoient profile.id comme to_id (App.jsx).
+      // Même bug que celui déjà corrigé pour l'onglet "Participants" d'un
+      // événement (EventsTab.jsx) : sans "id" ici, Signaler et Bloquer
+      // échouaient silencieusement (to_id undefined) pour tout profil
+      // ouvert depuis l'onglet "Membres" d'une communauté.
       const { data, error } = await supabase
         .from("community_members")
-        .select("*, profiles(name, avatar_url, city, show_city)")
+        .select("*, profiles(id, name, avatar_url, city, show_city)")
         .eq("community_id", id)
         .order("joined_at", { ascending: true });
       if (error) throw error;
