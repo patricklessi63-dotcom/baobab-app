@@ -76,7 +76,14 @@ $$;
 -- ----------------------------------------------------------------------------
 -- 4. Étend admin_dashboard_stats() avec le nombre de retours non fermés —
 -- redéfinition complète (CREATE OR REPLACE) pour ne pas perdre les champs
--- existants (voir supabase-admin.sql, section 7).
+-- existants (voir supabase-admin.sql, section 7). CORRIGÉ (audit du 1er
+-- septembre 2026) : cette redéfinition était repartie de la version DE BASE
+-- de supabase-admin.sql et effaçait silencieusement "monetization" (ajouté
+-- par supabase-premium-messaging.sql) ainsi que les signalements de profil
+-- dans "open_reports" (ajoutés par supabase-profile-reports-moderation.sql,
+-- table "reports" — rencontre/messagerie). Voir supabase-admin-dashboard-
+-- stats-fix.sql pour le correctif à exécuter si cette version a déjà tourné
+-- en prod ; la version ci-dessous fusionne tout pour un run complet propre.
 -- ----------------------------------------------------------------------------
 create or replace function admin_dashboard_stats()
 returns jsonb language plpgsql security definer set search_path = public as $$
@@ -91,9 +98,15 @@ begin
       (select count(*) from community_reports where status = 'open') +
       (select count(*) from event_reports where status = 'open') +
       (select count(*) from post_reports where coalesce(status,'open') = 'open') +
-      (select count(*) from info_reports where status = 'open')
+      (select count(*) from info_reports where status = 'open') +
+      (select count(*) from reports where status = 'open')
     ),
     'pending_info_review', (select count(*) from info_articles where status = 'pending_review'),
+    'monetization', (select jsonb_build_object(
+      'enabled', monetization_enabled,
+      'threshold', premium_threshold,
+      'free_message_limit', free_message_limit
+    ) from app_config),
     'open_feedback', (select count(*) from beta_feedback where status not in ('resolu','ferme')),
     'critical_feedback', (select count(*) from beta_feedback where priority = 'critique' and status not in ('resolu','ferme'))
   ) into v_result;

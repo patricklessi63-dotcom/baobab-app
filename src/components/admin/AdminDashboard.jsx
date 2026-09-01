@@ -104,7 +104,16 @@ export default function AdminDashboard({ onBack, onError, myPlatformRole }) {
     setFeedbackSaving(item.id);
     try {
       await adminApi.updateFeedback(item.id, { status });
-      setFeedback((fs) => fs.map((f) => (f.id === item.id ? { ...f, status } : f)));
+      // Si un filtre de statut est actif et que le nouveau statut ne correspond
+      // plus au filtre, on retire la carte de la liste affichée (même logique
+      // que handleResolve pour les signalements) — sinon la carte reste visible
+      // dans un filtre qu'elle ne devrait plus satisfaire, ce qui donne
+      // l'impression que le changement de statut n'a pas été pris en compte.
+      setFeedback((fs) =>
+        feedbackStatusFilter && status !== feedbackStatusFilter
+          ? fs.filter((f) => f.id !== item.id)
+          : fs.map((f) => (f.id === item.id ? { ...f, status } : f))
+      );
     } catch (e) {
       console.error(e);
       onError("Impossible de mettre à jour ce retour.");
