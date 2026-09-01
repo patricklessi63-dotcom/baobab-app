@@ -1376,15 +1376,39 @@ export default function SocialShell({
                         label: n.actor?.name ? `${n.actor.name} a commencé à te suivre` : NOTIFICATION_LABELS.new_follower,
                         onClick: () => { markOneNotificationRead(n.id); setViewedProfileId(n.target_id); },
                       })),
+                      // Bug corrigé à l'audit : community_id est bien sélectionné dans
+                      // la requête "notifications" ci-dessus (utile pour "demande
+                      // d'adhésion", "invitation", "signalement"...) mais n'était
+                      // jamais réutilisé ici — le clic renvoyait toujours vers la
+                      // liste générale des communautés, jamais vers la communauté
+                      // concernée. Un admin qui recevait "Nouvelle demande
+                      // d'adhésion" devait donc retrouver lui-même la bonne
+                      // communauté dans la liste avant de pouvoir agir. Réutilise
+                      // exactement le même mécanisme (openCommunityId/
+                      // initialCommunityId) que "Mes communautés" sur le profil.
                       ...unreadCommunityNotifications.map((n) => ({
                         n, category: "communities", icon: n.type?.startsWith("premium_") ? "💎" : "🌍",
                         label: NOTIFICATION_LABELS[n.type] || "Nouvelle activité",
-                        onClick: () => { markOneNotificationRead(n.id); goTab(n.type?.startsWith("premium_") ? "premium" : "communities"); },
+                        onClick: () => {
+                          markOneNotificationRead(n.id);
+                          if (n.type?.startsWith("premium_")) { goTab("premium"); return; }
+                          if (n.community_id) setOpenCommunityId(n.community_id);
+                          goTab("communities");
+                        },
                       })),
+                      // Même bug, même correctif : target_id porte l'id de
+                      // l'événement (target_type === "event", voir le filtre de
+                      // unreadEventNotifications plus haut) mais n'était jamais
+                      // transmis à EventsTab, qui rouvrait systématiquement sur la
+                      // liste au lieu de l'événement concerné.
                       ...unreadEventNotifications.map((n) => ({
                         n, category: "events", icon: "🎉",
                         label: NOTIFICATION_LABELS[n.type] || "Nouvelle activité",
-                        onClick: () => { markOneNotificationRead(n.id); goTab("events"); },
+                        onClick: () => {
+                          markOneNotificationRead(n.id);
+                          if (n.target_id) setOpenEventId(n.target_id);
+                          goTab("events");
+                        },
                       })),
                     ])
                       .filter((row) => notifCategory === "all" || row.category === notifCategory)
