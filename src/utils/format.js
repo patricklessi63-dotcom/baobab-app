@@ -40,6 +40,12 @@ export function formatDayLabel(iso) {
 }
 
 export function messagePreviewLabel(m) {
+  // Un message supprimé "pour tout le monde" (deleted_at, voir
+  // ConversationPane.jsx qui affiche déjà "Message supprimé" dans le fil)
+  // affichait encore son contenu original ici, dans l'aperçu de la liste
+  // des conversations (MessagesTab.jsx) — le seul autre endroit de l'app
+  // qui rendait ce texte sans jamais regarder deleted_at.
+  if (m?.deleted_at) return "Message supprimé";
   switch (m?.kind) {
     case "image": return "📷 Photo";
     case "video": return "🎥 Vidéo";

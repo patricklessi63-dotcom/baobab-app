@@ -434,7 +434,7 @@ export default function SocialShell({
     const keys = matchIdsKey.split(",").map((id) => matchKey(currentUser.id, id));
     supabase
       .from("messages")
-      .select("id, match_key, from_id, kind, text, media_path, media_meta, created_at, read_at")
+      .select("id, match_key, from_id, kind, text, media_path, media_meta, created_at, read_at, deleted_at, deleted_for")
       .in("match_key", keys)
       .order("created_at", { ascending: false })
       .limit(500)
@@ -443,6 +443,15 @@ export default function SocialShell({
         if (error) { console.error(error.message, error.code, error.details, error.hint); return; }
         const lastMap = {}, unreadMap = {};
         for (const m of data || []) {
+          // Un message supprimé "pour moi" (deleted_for) ne doit ni servir
+          // d'aperçu dans la liste des conversations, ni compter comme non
+          // lu pour moi — avant ce correctif, deleted_for/deleted_at
+          // n'étaient même pas sélectionnées ici, donc un message que je
+          // venais de masquer de mon côté restait affiché tel quel comme
+          // "dernier message" (voir aussi messagePreviewLabel, format.js,
+          // pour le cas "supprimé pour tout le monde").
+          const hiddenForMe = (m.deleted_for || []).includes(currentUser.id);
+          if (hiddenForMe) continue;
           if (!lastMap[m.match_key]) lastMap[m.match_key] = m;
           if (m.from_id !== currentUser.id && !m.read_at) unreadMap[m.match_key] = (unreadMap[m.match_key] || 0) + 1;
         }
@@ -535,8 +544,16 @@ export default function SocialShell({
   useEffect(() => {
     if (!activeMatch || !currentUser || messages.length === 0) return;
     const key = matchKey(currentUser.id, activeMatch.id);
-    const latest = messages[messages.length - 1];
-    if (!latest || latest.id?.toString().startsWith("temp-")) return;
+    const lastRaw = messages[messages.length - 1];
+    if (!lastRaw || lastRaw.id?.toString().startsWith("temp-")) return;
+    // Un message que je viens de supprimer "pour moi" (deleted_for) reste
+    // dans ce tableau brut — seul l'affichage le filtre (voir
+    // ConversationPane.jsx, visibleMessages). Le prendre tel quel ici le
+    // faisait réapparaître avec son contenu original dans l'aperçu de la
+    // liste de conversations juste après l'avoir masqué de mon côté ; on
+    // retombe donc sur le message le plus récent qui reste visible pour moi.
+    const latest = [...messages].reverse().find((m) => !(m.deleted_for || []).includes(currentUser.id));
+    if (!latest) return;
     setLastByKey((prev) => {
       const existing = prev[key];
       if (existing && new Date(existing.created_at) >= new Date(latest.created_at)) return prev;
