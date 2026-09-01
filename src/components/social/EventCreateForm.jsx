@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { ImagePlus } from "lucide-react";
 import ChipSelect from "../ChipSelect";
 import { supabase } from "../../supabaseClient";
@@ -37,6 +37,14 @@ export default function EventCreateForm({ currentUser, onCreated, onCancel, onEr
   const [myCommunities, setMyCommunities] = useState([]);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  // Le formulaire se démonte dès que l'utilisateur clique "← Annuler" en
+  // haut d'écran (setView() dans EventsTab, hors du bouton "Annuler" du
+  // pied de formulaire) : sans cette garde, un create_event() encore en
+  // vol au moment du clic appelait quand même onCreated() après coup et
+  // renavigait de force vers l'événement que l'utilisateur venait
+  // d'annuler.
+  const mountedRef = useRef(true);
+  useEffect(() => () => { mountedRef.current = false; }, []);
 
   useEffect(() => {
     if (!currentUser) return;
@@ -85,6 +93,7 @@ export default function EventCreateForm({ currentUser, onCreated, onCancel, onEr
       }
       if (coverFile) {
         const { ok, error: validationError } = await validateMediaFile(coverFile, "image");
+        if (!mountedRef.current) return;
         if (!ok) { setError(validationError); setSubmitting(false); return; }
       }
 
@@ -137,12 +146,14 @@ export default function EventCreateForm({ currentUser, onCreated, onCancel, onEr
         }
       }
 
+      if (!mountedRef.current) return; // annulé entre-temps : l'événement existe déjà, mais on ne force pas la navigation
       onCreated(finalEvent);
     } catch (e) {
       console.error(e);
+      if (!mountedRef.current) return;
       setError(e.message || "Impossible de créer l'événement. Réessaie.");
     } finally {
-      setSubmitting(false);
+      if (mountedRef.current) setSubmitting(false);
     }
   };
 
@@ -257,7 +268,7 @@ export default function EventCreateForm({ currentUser, onCreated, onCancel, onEr
       {error && <p role="alert" className="text-xs" style={{ color: coral }}>{error}</p>}
 
       <div className="flex gap-2 mt-2">
-        <button onClick={onCancel} className="flex-1 py-3 rounded-full text-sm font-semibold" style={{ border: `1px solid rgba(${primaryRgb},.12)`, color: primary }}>
+        <button onClick={onCancel} disabled={submitting} className="flex-1 py-3 rounded-full text-sm font-semibold disabled:opacity-40" style={{ border: `1px solid rgba(${primaryRgb},.12)`, color: primary }}>
           Annuler
         </button>
         <button onClick={handleSubmit} disabled={!canSubmit} className="bb-btn-gold flex-1 py-3 rounded-full text-sm font-bold disabled:opacity-40">

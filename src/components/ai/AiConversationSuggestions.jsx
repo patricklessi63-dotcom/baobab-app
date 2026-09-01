@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { Sparkles, Loader2 } from "lucide-react";
 import { coral, muted, bg, goldText, primary } from "../social/theme";
 import { useClickOutside } from "../../hooks/useClickOutside";
@@ -21,8 +21,10 @@ export default function AiConversationSuggestions({ currentUser, match, onPick }
   const [error, setError] = useState("");
   const [suggestions, setSuggestions] = useState(null);
   const ref = useRef(null);
+  const mountedRef = useRef(true);
   useClickOutside(ref, open, () => setOpen(false));
   useEscapeKey(open, () => setOpen(false));
+  useEffect(() => () => { mountedRef.current = false; }, []);
 
   const generate = async () => {
     setLoading(true);
@@ -31,6 +33,7 @@ export default function AiConversationSuggestions({ currentUser, match, onPick }
       me: { firstName: firstName(currentUser?.name), city: currentUser?.city, interests: currentUser?.interests },
       them: { firstName: firstName(match?.name), city: match?.city, interests: match?.interests },
     });
+    if (!mountedRef.current) return; // composant démonté pendant l'appel IA
     setLoading(false);
     if (err) { setError(err); return; }
     setSuggestions(Array.isArray(data?.suggestions) ? data.suggestions : []);

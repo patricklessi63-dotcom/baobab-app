@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { ImagePlus, Sparkles, Loader2 } from "lucide-react";
 import ChipSelect from "../ChipSelect";
 import { supabase } from "../../supabaseClient";
@@ -27,6 +27,14 @@ export default function CommunityCreateForm({ currentUser, onCreated, onCancel, 
   const [aiLoading, setAiLoading] = useState(false);
   const [aiSuggestion, setAiSuggestion] = useState(null);
   const [aiError, setAiError] = useState("");
+  // Le formulaire se démonte dès que l'utilisateur clique "← Annuler" en
+  // haut d'écran (setView() dans CommunitiesTab, hors du bouton "Annuler"
+  // du pied de formulaire) : sans cette garde, une génération IA ou une
+  // création encore en vol au moment du clic appelait quand même setState/
+  // onCreated() après coup (avertissement React, voire renavigation forcée
+  // vers la communauté que l'utilisateur venait d'annuler).
+  const mountedRef = useRef(true);
+  useEffect(() => () => { mountedRef.current = false; }, []);
 
   // Suggestion IA (item 20) — résultat à 3 champs (nom/description/
   // catégorie), donc géré ici plutôt que par le AiSuggestButton générique
@@ -38,6 +46,7 @@ export default function CommunityCreateForm({ currentUser, onCreated, onCancel, 
     setAiError("");
     setAiSuggestion(null);
     const { data, error } = await invokeAI("suggest_community", { text: aiIdea.trim() });
+    if (!mountedRef.current) return;
     setAiLoading(false);
     if (error) { setAiError(error); return; }
     if (!data?.name) { setAiError("Réponse IA invalide, réessaie."); return; }
@@ -112,13 +121,14 @@ export default function CommunityCreateForm({ currentUser, onCreated, onCancel, 
         if (uploadedPath) supabase.storage.from("avatars").remove([uploadedPath]).catch(() => {});
         throw error;
       }
+      if (!mountedRef.current) return; // annulé entre-temps : on ne force pas la navigation vers la communauté créée
       onCreated(data);
     } catch (e) {
       console.error(e);
-      onError?.("Impossible de créer la communauté. Réessaie.");
+      if (mountedRef.current) onError?.("Impossible de créer la communauté. Réessaie.");
     } finally {
       endCriticalOperation();
-      setSubmitting(false);
+      if (mountedRef.current) setSubmitting(false);
     }
   };
 
@@ -238,7 +248,7 @@ export default function CommunityCreateForm({ currentUser, onCreated, onCancel, 
       </label>
 
       <div className="flex gap-2 mt-2">
-        <button onClick={onCancel} className="flex-1 py-3 rounded-full text-sm font-semibold" style={{ border: `1px solid rgba(${primaryRgb},.12)`, color: primary }}>
+        <button onClick={onCancel} disabled={submitting} className="flex-1 py-3 rounded-full text-sm font-semibold disabled:opacity-40" style={{ border: `1px solid rgba(${primaryRgb},.12)`, color: primary }}>
           Annuler
         </button>
         <button onClick={handleSubmit} disabled={!canSubmit} className="bb-btn-gold flex-1 py-3 rounded-full text-sm font-bold disabled:opacity-40">

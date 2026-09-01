@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { Sparkles, Loader2 } from "lucide-react";
 import { invokeAI } from "../../lib/ai/aiClient";
 import { primary, coral, bg, goldText, body } from "../social/theme";
@@ -12,12 +12,15 @@ export default function AiSuggestButton({ action, buildPayload, onApply, label =
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [suggestion, setSuggestion] = useState("");
+  const mountedRef = useRef(true);
+  useEffect(() => () => { mountedRef.current = false; }, []);
 
   const handleClick = async () => {
     setLoading(true);
     setError("");
     setSuggestion("");
     const { data, error: err } = await invokeAI(action, buildPayload());
+    if (!mountedRef.current) return; // composant démonté pendant l'appel IA
     setLoading(false);
     if (err) { setError(err); return; }
     setSuggestion(data?.text || "");

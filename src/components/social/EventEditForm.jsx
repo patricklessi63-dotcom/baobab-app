@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { ImagePlus } from "lucide-react";
 import ChipSelect from "../ChipSelect";
 import { supabase } from "../../supabaseClient";
@@ -48,6 +48,13 @@ export default function EventEditForm({ event, onSaved, onCancel, onError }) {
   });
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  // Le formulaire se démonte dès que l'utilisateur clique "← Annuler" en
+  // haut d'écran (setView() dans EventsTab, hors du bouton "Annuler" du
+  // pied de formulaire) : sans cette garde, un enregistrement encore en
+  // vol au moment du clic appelait quand même onSaved() après coup et
+  // écrasait silencieusement les données affichées.
+  const mountedRef = useRef(true);
+  useEffect(() => () => { mountedRef.current = false; }, []);
 
   const onPickCover = (e) => {
     const file = e.target.files?.[0];
@@ -86,6 +93,7 @@ export default function EventEditForm({ event, onSaved, onCancel, onError }) {
       let uploadedPath = null;
       if (coverFile) {
         const { ok, error: validationError } = await validateMediaFile(coverFile, "image");
+        if (!mountedRef.current) return;
         if (!ok) { setError(validationError); setSubmitting(false); return; }
         const path = `${event.id}/${Date.now()}-cover.${extFromMime(coverFile.type)}`;
         await uploadWithProgress({ bucket: "event-covers", path, file: coverFile });
@@ -119,12 +127,14 @@ export default function EventEditForm({ event, onSaved, onCancel, onError }) {
         if (uploadedPath) supabase.storage.from("event-covers").remove([uploadedPath]).catch(() => {});
         throw updateError;
       }
+      if (!mountedRef.current) return; // annulé entre-temps : on ne force pas la mise à jour de l'écran quitté
       onSaved(data);
     } catch (e) {
       console.error(e);
+      if (!mountedRef.current) return;
       setError("Impossible d'enregistrer les modifications. Réessaie.");
     } finally {
-      setSubmitting(false);
+      if (mountedRef.current) setSubmitting(false);
     }
   };
 
@@ -200,7 +210,7 @@ export default function EventEditForm({ event, onSaved, onCancel, onError }) {
       {error && <p role="alert" className="text-xs" style={{ color: coral }}>{error}</p>}
 
       <div className="flex gap-2 mt-2">
-        <button onClick={onCancel} className="flex-1 py-3 rounded-full text-sm font-semibold" style={{ border: `1px solid rgba(${primaryRgb},.12)`, color: primary }}>
+        <button onClick={onCancel} disabled={submitting} className="flex-1 py-3 rounded-full text-sm font-semibold disabled:opacity-40" style={{ border: `1px solid rgba(${primaryRgb},.12)`, color: primary }}>
           Annuler
         </button>
         <button onClick={handleSubmit} disabled={!canSubmit} className="bb-btn-gold flex-1 py-3 rounded-full text-sm font-bold disabled:opacity-40">
