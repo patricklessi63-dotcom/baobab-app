@@ -27,6 +27,7 @@ import { trackBetaEvent } from "../lib/trackBetaEvent";
 import { friendlyDbError } from "../lib/friendlyDbError";
 import BetaFeedbackModal from "./social/BetaFeedbackModal";
 import ChunkErrorBoundary from "./ChunkErrorBoundary";
+import { useHiddenRecommendations } from "../lib/useHiddenRecommendations";
 
 // Chargées à la demande (item 27 de l'audit Phase 10) : ces 3 onglets sont
 // visités moins souvent que Fil/Découverte/Messages/Profil au démarrage de
@@ -862,10 +863,22 @@ export default function SocialShell({
 
   const newArrivals = candidates.filter((p) => p.arrived_since && p.arrived_since.trim());
 
+  // Bug corrigé : "Masquer" un profil (bouton Masquer/EyeOff de MatchCard,
+  // mode Grille "Pour toi") écrivait bien en base via useHiddenRecommendations,
+  // mais ce hook n'était instancié que dans DiscoverTab.jsx et son filtrage
+  // (hiddenIds.has(p.id)) n'était appliqué qu'à filteredForGrid, local à ce
+  // mode. La pile de swipe (topPerson/filteredPeople, calculée ici) ignorait
+  // totalement hiddenIds : un profil masqué depuis la grille continuait donc
+  // d'apparaître dans la pile "Pile" juste après, contredisant la promesse
+  // "Masquer" faite à l'utilisateur. Le hook est maintenant instancié ici et
+  // ses hiddenIds excluent aussi la pile ; hiddenIds/hide redescendent en
+  // props à DiscoverTab (qui n'instancie plus son propre hook).
+  const { hiddenIds: hiddenProfileIds, hide: hideProfile } = useHiddenRecommendations(currentUser, "profile");
+
   // Filtre la pile de découverte par la recherche (comportement existant,
   // inchangé de portée — reste borné à candidates) — voir searchResults
   // plus bas pour la recherche globale du menu déroulant de l'en-tête.
-  const filteredPeople = candidates.filter((p) => matchesSearch(p, search));
+  const filteredPeople = candidates.filter((p) => matchesSearch(p, search) && !hiddenProfileIds.has(p.id));
 
   // Recherche globale (en-tête) — corrige le bug identifié à l'audit :
   // l'ancienne recherche ne portait que sur le pool de matching restant
@@ -1508,6 +1521,8 @@ export default function SocialShell({
             matches={matches}
             favoriteIds={favoriteIds}
             toggleFavorite={toggleFavorite}
+            hiddenIds={hiddenProfileIds}
+            hideProfile={hideProfile}
             setReportTarget={setReportTarget}
             handleBlock={handleBlock}
             onUnmatch={handleUnmatch}

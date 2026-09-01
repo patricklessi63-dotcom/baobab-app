@@ -9,7 +9,6 @@ import EmptyState from "../home/EmptyState";
 import Paywall from "../premium/Paywall";
 import { computeMatch, rankCandidates } from "../../lib/matching/matchingService";
 import { usePremiumStatus } from "../../lib/premium/usePremiumStatus";
-import { useHiddenRecommendations } from "../../lib/useHiddenRecommendations";
 import { fetchNearbyProfiles } from "../../lib/locationApi";
 import { LOOKING_FOR_OPTIONS, INTERESTS_OPTIONS, LANGUAGES_OPTIONS } from "../../constants";
 import { primary, navy, navyRgb, green, coral, gold, gold1, surface2, bg, muted, card, buttonBase, online, body, primaryRgb } from "./theme";
@@ -65,6 +64,8 @@ export default function DiscoverTab({
   matches = [],
   favoriteIds = new Set(),
   toggleFavorite = () => {},
+  hiddenIds = new Set(),
+  hideProfile = () => {},
   setReportTarget = () => {},
   handleBlock = () => {},
   onUnmatch = () => {},
@@ -88,7 +89,6 @@ export default function DiscoverTab({
   const [nearbyMap, setNearbyMap] = useState(new Map());
   const [nearbyError, setNearbyError] = useState("");
   const { isPremium } = usePremiumStatus(currentUser);
-  const { hiddenIds, hide: hideProfile } = useHiddenRecommendations(currentUser, "profile");
 
   // Résumé (lecture seule) de la ville/langues du profil courant, pour la
   // rangée de puces au-dessus de la carte en mode "Pile" — voir le
