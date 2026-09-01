@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft, ExternalLink, AlertTriangle, Landmark, ShieldCheck,
   CreditCard, Stethoscope, Wallet, Car, Receipt, Home, Phone,
@@ -269,6 +269,14 @@ export default function ImmigrationNewsView({ onBack, onError, currentUser }) {
   const [search, setSearch] = useState("");
   const [favoriteIds, setFavoriteIds] = useState(new Set());
   const [favoritesOnly, setFavoritesOnly] = useState(false);
+  // Garde synchrone contre le double clic/tap rapide sur le cœur : sans elle,
+  // deux appels quasi simultanés lisent tous les deux favoriteIds.has(newsId)
+  // avant que le premier setFavoriteIds ne soit commité, partent tous les
+  // deux en insertion, le second échoue sur la contrainte unique
+  // (profile_id, news_id) et son catch — construit avec un isFav figé au
+  // moment du clic, donc faux — retire à tort le favori que le premier appel
+  // venait d'ajouter avec succès. Même pattern que likeInFlightRef (App.jsx).
+  const favoriteInFlightRef = useRef(new Set());
 
   useEffect(() => {
     let alive = true;
@@ -292,7 +300,8 @@ export default function ImmigrationNewsView({ onBack, onError, currentUser }) {
   }, [onError, currentUser]);
 
   const toggleFavorite = async (newsId) => {
-    if (!currentUser) return;
+    if (!currentUser || favoriteInFlightRef.current.has(newsId)) return;
+    favoriteInFlightRef.current.add(newsId);
     const isFav = favoriteIds.has(newsId);
     setFavoriteIds((prev) => {
       const next = new Set(prev);
@@ -315,6 +324,8 @@ export default function ImmigrationNewsView({ onBack, onError, currentUser }) {
         return next;
       });
       onError?.("Impossible de mettre à jour tes favoris. Réessaie.");
+    } finally {
+      favoriteInFlightRef.current.delete(newsId);
     }
   };
 
