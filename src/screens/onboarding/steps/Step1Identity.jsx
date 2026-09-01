@@ -46,8 +46,17 @@ export default function Step1Identity({ draft, update }) {
   function setDate({ year, month, day }) {
     const y = year ?? selYear;
     const m = month ?? selMonth ?? 1;
-    const d = day ?? selDay ?? 1;
+    let d = day ?? selDay ?? 1;
     if (!y) { update({ birthDate: "" }); return; }
+    // Changer le mois (ou l'année, pour un 29 février) après avoir choisi
+    // un jour peut laisser un jour désormais hors bornes (ex. 31 puis
+    // Avril) : on l'écrit tel quel dans birthDate sans le reclamper. New
+    // Date() du navigateur "digère" silencieusement ce débordement (roule
+    // sur le mois suivant) mais la colonne `date` de Postgres le rejette
+    // franchement à l'enregistrement — sauvegarde de l'étape en échec avec
+    // un message générique, sans lien évident avec la date choisie.
+    const maxDay = new Date(y, m, 0).getDate();
+    if (d > maxDay) d = maxDay;
     update({ birthDate: `${y}-${pad2(m)}-${pad2(d)}` });
   }
 
