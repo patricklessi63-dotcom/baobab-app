@@ -1565,6 +1565,7 @@ export default function SocialShell({
                 myPlatformRole={myPlatformRole}
                 onReportProfile={setReportTarget}
                 onBlockProfile={handleBlock}
+                onOpenCommunities={(id) => { setOpenCommunityId(id || null); goTab("communities"); }}
               />
             </Suspense>
           </ChunkErrorBoundary>

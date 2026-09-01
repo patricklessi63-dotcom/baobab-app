@@ -61,7 +61,7 @@ function withParticipantCount(rows) {
   return (rows || []).map((e) => ({ ...e, participantCount: e.event_participant_count || 0 }));
 }
 
-export default function EventsTab({ currentUser, onError, initialEventId, onConsumedInitial = () => {}, myPlatformRole = null, onReportProfile = () => {}, onBlockProfile = () => {}, blockedIds = new Set() }) {
+export default function EventsTab({ currentUser, onError, initialEventId, onConsumedInitial = () => {}, myPlatformRole = null, onReportProfile = () => {}, onBlockProfile = () => {}, blockedIds = new Set(), onOpenCommunities = () => {} }) {
   const isPlatformAdmin = myPlatformRole === "admin" || myPlatformRole === "super_admin";
   const [view, setView] = useState("home"); // home | detail | create | edit
   const [selectedId, setSelectedId] = useState(null);
@@ -198,9 +198,17 @@ export default function EventsTab({ currentUser, onError, initialEventId, onCons
   const loadParticipants = async (id) => {
     setParticipantsLoading(true);
     try {
+      // "id" est indispensable dans la sélection imbriquée ci-dessous, pas
+      // seulement les champs affichés : EventParticipantsList transmet ce
+      // profil tel quel à onViewParticipantProfile -> PublicProfileModal,
+      // dont les boutons Signaler/Bloquer envoient profile.id comme to_id
+      // (App.jsx). Bug identifié à l'audit : sans "id" ici, Signaler et
+      // Bloquer échouaient silencieusement (to_id undefined -> violation de
+      // contrainte côté base) pour tout profil ouvert depuis l'onglet
+      // "Participants" d'un événement.
       const { data, error } = await supabase
         .from("event_attendees")
-        .select("*, profiles(name, avatar_url, city, show_city)")
+        .select("*, profiles(id, name, avatar_url, city, show_city)")
         .eq("event_id", id)
         .order("created_at", { ascending: true });
       if (error) throw error;
@@ -663,7 +671,12 @@ export default function EventsTab({ currentUser, onError, initialEventId, onCons
           onDeleteEvent={handleDeleteEvent}
           isPlatformAdmin={isPlatformAdmin}
           communityName={communityName}
-          onOpenCommunity={() => {}}
+          // Bug identifié à l'audit : ce bouton était câblé sur un no-op
+          // (() => {}) — il s'affichait comme un lien cliquable ("Organisé
+          // par X →") mais ne faisait jamais rien au clic. CommunitiesTab a
+          // déjà le sens inverse (onOpenEvents), il manquait juste le
+          // symétrique ici.
+          onOpenCommunity={() => event.community_id && onOpenCommunities(event.community_id)}
           participants={participants}
           participantsLoading={participantsLoading}
           onViewParticipantProfile={(p) => setViewedProfile(p)}

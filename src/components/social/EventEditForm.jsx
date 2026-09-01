@@ -97,6 +97,23 @@ export default function EventEditForm({ event, onSaved, onCancel, onError }) {
         setSubmitting(false);
         return;
       }
+      // Bug identifié à l'audit : create_event() (RPC) refuse une date
+      // passée à la création (supabase-events-v2.sql), mais cet
+      // enregistrement passe par un simple .update() sans RPC ni contrainte
+      // serveur équivalente — rien n'empêchait un organisateur de faire
+      // basculer par erreur (mauvais mois/jour) un événement À VENIR vers
+      // une date passée. Conséquence silencieuse : buildListQuery filtre le
+      // listing par défaut sur `event_date >= now()`, donc l'événement
+      // disparaissait purement et simplement de la découverte pour tous ses
+      // participants déjà inscrits, sans le moindre message d'erreur. On ne
+      // bloque pas pour autant l'édition d'un événement déjà passé
+      // (corriger une description après coup doit rester possible).
+      const wasAlreadyPast = new Date(event.event_date).getTime() < Date.now();
+      if (!wasAlreadyPast && eventDateTime <= new Date()) {
+        setError("Choisis une date et une heure dans le futur.");
+        setSubmitting(false);
+        return;
+      }
       let coverUrl = event.cover_url;
       let uploadedPath = null;
       if (coverFile) {
