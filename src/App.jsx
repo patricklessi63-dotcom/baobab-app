@@ -2230,9 +2230,20 @@ export default function App() {
         setTermsOpen={setTermsOpen}
         aboutOpen={aboutOpen}
         setAboutOpen={setAboutOpen}
+        myLocation={myLocation}
+        onEnableLocation={handleEnableLocation}
+        onDisableLocation={handleDisableLocation}
+        onUpdateLocationPref={handleUpdateLocationPref}
         onAccountDeletionRequested={handleAccountDeletionRequested}
         onExportData={handleExportData}
       />
+      {/* Bug corrigé ci-dessus : cette deuxième instance d'AppModals (rendue pour
+          les écrans Onboarding/Édition de profil) ne recevait pas myLocation/
+          onEnableLocation/onDisableLocation/onUpdateLocationPref, contrairement à
+          l'instance principale plus haut. Sans elles, LocationSettingsModal recevait
+          location=undefined et des callbacks undefined : les cases à cocher restaient
+          figées et les changements n'étaient jamais persistés si cette modale
+          s'affichait depuis ces écrans. */}
 
     </div>
   );

@@ -224,6 +224,17 @@ export default function AppModals({
               <span className="flex items-center gap-2 text-sm"><Info size={14} color="var(--bb-text)" /> Conditions d'utilisation</span>
               <ArrowLeft size={14} style={{ transform: "rotate(180deg)", color: "rgba(var(--bb-ink-rgb),0.35)" }} />
             </button>
+            {/* Bug corrigé : cette entrée n'existait nulle part dans l'app — ni ici, ni
+                dans le menu déroulant de SocialShell — donc `aboutOpen`/`setAboutOpen`
+                (numéro de version + vérification manuelle de mise à jour) était du code
+                mort côté UI, impossible à atteindre pour un utilisateur. */}
+            <button onClick={() => { setSettingsOpen(false); setAboutOpen(true); }} className="w-full flex items-center justify-between py-3" style={{ borderTop: "1px solid rgba(var(--bb-ink-rgb),0.08)", minHeight: 44 }}>
+              <span className="flex items-center gap-2 text-sm"><Info size={14} color="var(--bb-text)" /> À propos de Baobab</span>
+              <span className="flex items-center gap-2">
+                <span className="text-xs font-bold" style={{ color: "rgba(var(--bb-ink-rgb),0.4)" }}>v{CURRENT_VERSION}</span>
+                <ArrowLeft size={14} style={{ transform: "rotate(180deg)", color: "rgba(var(--bb-ink-rgb),0.35)" }} />
+              </span>
+            </button>
             <button onClick={onExportData} className="w-full flex items-center justify-between py-3 mt-2" style={{ borderTop: "1px solid rgba(var(--bb-ink-rgb),0.08)", minHeight: 44 }}>
               <span className="flex items-center gap-2 text-sm"><Download size={14} color="var(--bb-text)" /> Exporter mes données</span>
               <ArrowLeft size={14} style={{ transform: "rotate(180deg)", color: "rgba(var(--bb-ink-rgb),0.35)" }} />
