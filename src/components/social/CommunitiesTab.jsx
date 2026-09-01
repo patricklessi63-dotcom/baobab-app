@@ -549,11 +549,25 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
     if (previous) applyReactionDelta(post.id, previous, -1);
     if (!removing) applyReactionDelta(post.id, emoji, 1);
     try {
-      if (previous) {
+      if (removing) {
         const { error } = await supabase.from("community_post_likes").delete().eq("post_id", post.id).eq("profile_id", currentUser.id);
         if (error) throw error;
-      }
-      if (!removing) {
+      } else if (previous) {
+        // Changer d'émoji sur une réaction déjà posée : une seule requête
+        // UPDATE de la ligne existante (contrainte unique post_id+profile_id),
+        // au lieu d'un DELETE puis un INSERT séparés comme avant. Avec deux
+        // requêtes, une coupure réseau entre les deux pouvait laisser le
+        // DELETE réussir puis l'INSERT échouer : le catch ci-dessous
+        // restaurait alors l'ancienne réaction seulement en local, alors que
+        // la base n'avait plus aucune ligne — l'utilisateur voyait sa
+        // réaction affichée jusqu'au prochain rechargement, qui la faisait
+        // disparaître sans action de sa part.
+        // Nécessite la policy RLS UPDATE ajoutée par supabase-communities-4.sql
+        // (absente jusque-là : community_post_likes n'autorisait que
+        // SELECT/INSERT/DELETE, d'où le choix initial du delete+insert).
+        const { error } = await supabase.from("community_post_likes").update({ emoji }).eq("post_id", post.id).eq("profile_id", currentUser.id);
+        if (error) throw error;
+      } else {
         const { error } = await supabase.from("community_post_likes").insert({ post_id: post.id, profile_id: currentUser.id, emoji });
         if (error) throw error;
       }
