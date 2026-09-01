@@ -55,14 +55,27 @@ async function cleanupStorage(profileId: string, userId: string) {
     if (toRemove.length) await admin.storage.from("avatars").remove(toRemove);
   }
 
-  const [{ data: asFirst }, { data: asSecond }] = await Promise.all([
-    admin.from("messages").select("match_key").ilike("match_key", `${profileId}__%`),
-    admin.from("messages").select("match_key").ilike("match_key", `%__${profileId}`),
-  ]);
-  const matchKeys = [...new Set([...(asFirst || []), ...(asSecond || [])].map((r) => r.match_key))];
-  for (const key of matchKeys) {
-    const { data: files } = await admin.storage.from("chat-media").list(key);
-    if (files?.length) await admin.storage.from("chat-media").remove(files.map((f) => `${key}/${f.name}`));
+  // Bug corrigé : le dossier chat-media/<match_key>/ est PARTAGÉ par les
+  // deux participants (voir supabase-chat-media-storage.sql, "convention de
+  // chemin"). "messages.from_id" est en "on delete cascade" — seuls les
+  // messages ENVOYÉS par ce profil disparaissent de la table ; les messages
+  // de l'autre participant restent bien réels, media_path compris. L'ancien
+  // code listait puis vidait le dossier ENTIER du match_key dès qu'un des
+  // deux participants supprimait son compte, effaçant au passage les
+  // images/vidéos/audios/fichiers envoyés par l'autre personne — qui se
+  // retrouvait avec des messages cassés dans une conversation qu'elle n'a
+  // pourtant pas supprimée. Correctif : ne supprimer que les fichiers
+  // réellement envoyés par CE profil (from_id = profileId), récupérés via
+  // messages.media_path avant que la ligne "profiles" (et donc la cascade
+  // sur messages.from_id) ne soit déclenchée plus bas.
+  const { data: ownMedia } = await admin
+    .from("messages")
+    .select("media_path")
+    .eq("from_id", profileId)
+    .not("media_path", "is", null);
+  const ownMediaPaths = [...new Set((ownMedia || []).map((r) => r.media_path).filter(Boolean))];
+  if (ownMediaPaths.length) {
+    await admin.storage.from("chat-media").remove(ownMediaPaths);
   }
 
   // Note : les couvertures d'événements ("event-covers") ne sont PAS
