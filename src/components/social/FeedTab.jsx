@@ -282,9 +282,16 @@ export default function FeedTab({
   // remontrer une fois écartée.
   const completion = getProfileCompletion(currentUser, profilePhotos[currentUser?.id] || []);
   const nudgeDismissKey = currentUser?.id ? `bb_completion_nudge_dismissed_${currentUser.id}` : null;
-  const [nudgeDismissed, setNudgeDismissed] = useState(() => nudgeDismissKey ? localStorage.getItem(nudgeDismissKey) === "1" : true);
+  // localStorage peut jeter (navigation privée stricte, stockage désactivé
+  // par politique navigateur) : sans try/catch, l'initialiseur useState
+  // jetterait pendant le rendu et ferait planter tout l'onglet Découvrir,
+  // pour une simple préférence d'affichage cosmétique.
+  const [nudgeDismissed, setNudgeDismissed] = useState(() => {
+    if (!nudgeDismissKey) return true;
+    try { return localStorage.getItem(nudgeDismissKey) === "1"; } catch (_) { return false; }
+  });
   const dismissNudge = () => {
-    if (nudgeDismissKey) localStorage.setItem(nudgeDismissKey, "1");
+    if (nudgeDismissKey) { try { localStorage.setItem(nudgeDismissKey, "1"); } catch (_) {} }
     setNudgeDismissed(true);
   };
   const showCompletionNudge = !nudgeDismissed && completion.percent < 80 && completion.tips.length > 0;

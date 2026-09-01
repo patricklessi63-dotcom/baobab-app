@@ -234,7 +234,12 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
 
   const openComposer = () => {
     const key = draftKey();
-    const saved = key ? localStorage.getItem(key) : null;
+    // Stockage potentiellement indisponible (navigation privée stricte,
+    // politique navigateur) : une exception ici ne doit pas empêcher
+    // l'ouverture du composeur, juste priver l'utilisateur de la reprise
+    // de brouillon.
+    let saved = null;
+    try { saved = key ? localStorage.getItem(key) : null; } catch (_) {}
     if (saved) {
       setDraft(saved);
       setResumedDraft(true);
@@ -283,8 +288,10 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
   const saveDraftAndClose = () => {
     const key = draftKey();
     if (key) {
-      if (draft.trim()) localStorage.setItem(key, draft.trim());
-      else localStorage.removeItem(key);
+      try {
+        if (draft.trim()) localStorage.setItem(key, draft.trim());
+        else localStorage.removeItem(key);
+      } catch (_) {}
     }
     setExitConfirmOpen(false);
     setDraftSavedNotice(true);
@@ -293,13 +300,13 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
 
   const discardComposer = () => {
     const key = draftKey();
-    if (key) localStorage.removeItem(key);
+    if (key) { try { localStorage.removeItem(key); } catch (_) {} }
     closeComposerFully();
   };
 
   const discardResumedDraft = () => {
     const key = draftKey();
-    if (key) localStorage.removeItem(key);
+    if (key) { try { localStorage.removeItem(key); } catch (_) {} }
     setDraft("");
     setResumedDraft(false);
   };
@@ -469,8 +476,13 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
         // Reste ouvert : l'utilisateur voit quels items ont échoué et peut
         // réessayer individuellement, ou fermer directement via "Terminé".
       } else {
+        // La publication est déjà en base à ce stade (insert + médias
+        // réussis) — un échec de localStorage.removeItem (stockage
+        // désactivé/plein) ne doit jamais remonter jusqu'au catch ci-dessous
+        // et faire croire à l'utilisateur que "Impossible de publier" alors
+        // que sa publication a bel et bien réussi.
         const key = draftKey();
-        if (key) localStorage.removeItem(key);
+        if (key) { try { localStorage.removeItem(key); } catch (_) {} }
         closeComposerFully();
       }
     } catch (e) {

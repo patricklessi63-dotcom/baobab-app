@@ -27,10 +27,22 @@ export default class ChunkErrorBoundary extends React.Component {
     const isChunkError = /dynamically imported module|Failed to fetch|Loading chunk|ChunkLoadError/i.test(
       String(error?.message || error)
     );
-    if (isChunkError && !sessionStorage.getItem("bb-chunk-reload")) {
-      sessionStorage.setItem("bb-chunk-reload", "1");
-      window.location.reload();
-    }
+    // sessionStorage peut lui-même jeter (navigation privée stricte,
+    // stockage désactivé par politique navigateur/entreprise) — sans ce
+    // try/catch, ce filet de sécurité censé éviter l'écran vide provoquait
+    // lui-même un écran vide : une erreur dans componentDidCatch n'est
+    // rattrapée par aucune limite (il n'y a pas de boundary autour de la
+    // boundary), ce qui démonte tout l'arbre React.
+    // Si sessionStorage jette, on ne peut plus garder trace du "déjà
+    // rechargé une fois" : on renonce au rechargement automatique plutôt
+    // que de risquer une boucle de rechargement infinie, et on laisse
+    // simplement render() afficher le message "Réessayer" ci-dessous.
+    try {
+      if (isChunkError && !sessionStorage.getItem("bb-chunk-reload")) {
+        sessionStorage.setItem("bb-chunk-reload", "1");
+        window.location.reload();
+      }
+    } catch (_) {}
   }
 
   render() {
@@ -41,7 +53,7 @@ export default class ChunkErrorBoundary extends React.Component {
           Impossible de charger cette section. Vérifie ta connexion et réessaie.
         </p>
         <button
-          onClick={() => { sessionStorage.removeItem("bb-chunk-reload"); window.location.reload(); }}
+          onClick={() => { try { sessionStorage.removeItem("bb-chunk-reload"); } catch (_) {} window.location.reload(); }}
           className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-bold text-white"
           style={{ background: C.navy, minHeight: 44 }}
         >
