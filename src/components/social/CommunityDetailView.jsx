@@ -24,6 +24,7 @@ export default function CommunityDetailView({
   onJoin,
   onLeave,
   onDeleteCommunity,
+  onError = () => {},
   isPlatformAdmin = false,
   onShare,
   onReportCommunity,
@@ -193,7 +194,7 @@ export default function CommunityDetailView({
             <div className={`${card} p-5`}>
               {canPost(viewerRole) && (
                 <div className="pb-4 mb-1" style={{ borderBottom: `1px solid rgba(${primaryRgb},.06)` }}>
-                  <CommunityPostComposer currentUser={currentUser} draft={postDraft} setDraft={setPostDraft} onSubmit={onSubmitPost} submitting={postSubmitting} />
+                  <CommunityPostComposer currentUser={currentUser} draft={postDraft} setDraft={setPostDraft} onSubmit={onSubmitPost} submitting={postSubmitting} onError={onError} />
                 </div>
               )}
               {postsLoading ? (

@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { ImagePlus, Video, X } from "lucide-react";
 import Avatar from "../Avatar";
 import { validateMediaFile } from "../../lib/mediaValidation";
@@ -6,7 +6,7 @@ import { muted, bg, primaryRgb } from "./theme";
 
 const MAX_LENGTH = 4000; // miroir de la contrainte community_posts.body
 
-export default function CommunityPostComposer({ currentUser, draft, setDraft, onSubmit, submitting }) {
+export default function CommunityPostComposer({ currentUser, draft, setDraft, onSubmit, submitting, onError = () => {} }) {
   const [mediaFile, setMediaFile] = useState(null);
   const [mediaKind, setMediaKind] = useState("");
   const [mediaPreview, setMediaPreview] = useState("");
@@ -18,11 +18,25 @@ export default function CommunityPostComposer({ currentUser, draft, setDraft, on
     e.target.value = "";
     if (!file) return;
     const { ok, error } = await validateMediaFile(file, kind === "image" ? "image" : "video");
-    if (!ok) return;
+    // Sans ce retour, un fichier invalide (trop lourd, mauvais format) ne
+    // donnait strictement aucun retour à l'utilisateur : le sélecteur se
+    // fermait et rien ne se passait, comme si le clic n'avait rien fait.
+    if (!ok) { onError(error); return; }
     setMediaFile(file);
     setMediaKind(kind);
     setMediaPreview(URL.createObjectURL(file));
   };
+
+  // Révoque l'URL blob de l'aperçu à chaque remplacement et au démontage —
+  // sans ça, chaque photo/vidéo sélectionnée fuyait en mémoire (jamais
+  // révoquée), même après publication ou annulation.
+  useEffect(() => {
+    return () => {
+      if (mediaPreview) {
+        try { URL.revokeObjectURL(mediaPreview); } catch (_) {}
+      }
+    };
+  }, [mediaPreview]);
 
   const clearMedia = () => {
     setMediaFile(null);
@@ -30,9 +44,14 @@ export default function CommunityPostComposer({ currentUser, draft, setDraft, on
     setMediaPreview("");
   };
 
-  const handleSubmit = () => {
-    onSubmit(mediaFile, mediaKind);
-    clearMedia();
+  const handleSubmit = async () => {
+    // On n'efface le média que si la publication a réussi : onSubmit
+    // retourne false en cas d'échec (validation, upload ou insertion), et
+    // avant ce correctif le média était vidé inconditionnellement dès le
+    // clic — une publication échouée faisait perdre la photo/vidéo
+    // choisie, obligeant à la resélectionner pour réessayer.
+    const ok = await onSubmit(mediaFile, mediaKind);
+    if (ok) clearMedia();
   };
 
   const canSubmit = !submitting && (draft.trim() || mediaFile);

@@ -460,9 +460,14 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
   };
 
   // ---------- Publications / réactions / commentaires ----------
+  // Retourne true si la publication a bien été créée, false sinon — le
+  // composeur (CommunityPostComposer) s'en sert pour décider s'il doit
+  // vider le média sélectionné : sans ce retour, il le videtait
+  // inconditionnellement dès le clic, faisant perdre la photo/vidéo
+  // choisie en cas d'échec (validation, upload ou insertion).
   const handleSubmitPost = async (mediaFile, mediaKind) => {
-    if ((!postDraft.trim() && !mediaFile) || !currentUser || !community) return;
-    if (postSubmittingRef.current) return;
+    if ((!postDraft.trim() && !mediaFile) || !currentUser || !community) return false;
+    if (postSubmittingRef.current) return false;
     postSubmittingRef.current = true;
     setPostSubmitting(true);
     try {
@@ -470,7 +475,7 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
       let uploadedPath = null;
       if (mediaFile) {
         const { ok, error: validationError } = await validateMediaFile(mediaFile, mediaKind);
-        if (!ok) { onError(validationError); setPostSubmitting(false); return; }
+        if (!ok) { onError(validationError); setPostSubmitting(false); return false; }
         const path = `${community.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.${extFromMime(mediaFile.type)}`;
         await uploadWithProgress({ bucket: COMMUNITY_MEDIA_BUCKET, path, file: mediaFile });
         uploadedPath = path;
@@ -496,9 +501,11 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
       }
       setPosts((p) => [data, ...p]);
       setPostDraft("");
+      return true;
     } catch (e) {
       console.error(e);
       onError("Impossible de publier. Réessaie.");
+      return false;
     } finally {
       postSubmittingRef.current = false;
       setPostSubmitting(false);
@@ -787,6 +794,7 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
           setPostDraft={setPostDraft}
           onSubmitPost={handleSubmitPost}
           postSubmitting={postSubmitting}
+          onError={onError}
           reactionCounts={reactionCounts}
           myReactions={myReactions}
           onReact={handleReact}
