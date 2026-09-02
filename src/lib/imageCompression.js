@@ -27,6 +27,16 @@ export async function compressImageIfNeeded(file) {
     canvas.width = targetW;
     canvas.height = targetH;
     const ctx = canvas.getContext("2d");
+    // Le canvas est transparent par défaut, mais la sortie ci-dessous est
+    // toujours du JPEG (qui ne supporte pas la transparence) : sans fond
+    // opaque peint avant le dessin, les navigateurs (Chrome/Firefox)
+    // compositent les zones transparentes du PNG/WebP source en NOIR à
+    // l'export JPEG — une image à fond transparent devenait donc une image
+    // à fond noir après compression, silencieusement, dès qu'elle dépassait
+    // MAX_DIMENSION. Un fond blanc est le choix le moins surprenant (cohérent
+    // avec un fond de post/carte clair) pour ce cas marginal mais réel.
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, targetW, targetH);
     ctx.drawImage(bitmap, 0, 0, targetW, targetH);
     bitmap.close();
 
