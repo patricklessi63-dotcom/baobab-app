@@ -10,6 +10,16 @@ export default function MatchCard({
   match,
   isMatch = false,
   isFavorite = false,
+  // Bug corrigé à l'audit : cette carte (mode grille "Pour toi" de
+  // Découverte) n'avait aucun moyen de savoir qu'un like avait déjà été
+  // envoyé — contrairement à PublicProfileModal (même state hasLiked, voir
+  // SocialShell.jsx) qui masque déjà "J'aime" une fois isLiked. Sans cette
+  // prop, le bouton "J'aime" restait affiché et cliquable indéfiniment sur
+  // un profil déjà aimé (ou déjà matché) : handleLike() se contente de
+  // renvoyer silencieusement sans rien faire (garde hasLiked() côté
+  // App.jsx), donc le clic ne produisait strictement aucun retour visible —
+  // un bouton qui paraît fonctionner mais ne fait jamais rien.
+  isLiked = false,
   onLike,
   onPass,
   onMessage,
@@ -98,7 +108,7 @@ export default function MatchCard({
               <X size={16} color={muted} />
             </button>
           )}
-          {onLike && (
+          {onLike && !isLiked && (
             <button onClick={() => onLike(profile)} aria-label={`Aimer le profil de ${profile.name}`} className="bb-btn-gold flex-1 rounded-full py-2.5 text-sm font-bold flex items-center justify-center gap-1.5 focus-visible:outline focus-visible:outline-2">
               <Heart size={15} /> J'aime
             </button>

@@ -1718,6 +1718,7 @@ export default function SocialShell({
             handlePass={handlePass}
             matches={matches}
             favoriteIds={favoriteIds}
+            hasLiked={hasLiked}
             toggleFavorite={toggleFavorite}
             hiddenIds={hiddenProfileIds}
             hideProfile={hideProfile}

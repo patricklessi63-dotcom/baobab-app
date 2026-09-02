@@ -69,6 +69,11 @@ export default function DiscoverTab({
   handlePass = () => {},
   matches = [],
   favoriteIds = new Set(),
+  // Bug corrigé à l'audit : jamais transmis depuis SocialShell.jsx alors que
+  // PublicProfileModal (même écran, même state) l'utilise déjà pour cacher
+  // son bouton "J'aime" une fois le profil aimé — voir le commentaire sur
+  // MatchCard.jsx pour l'effet concret (bouton mort, sans aucun retour).
+  hasLiked = () => false,
   toggleFavorite = () => {},
   hiddenIds = new Set(),
   hideProfile = () => {},
@@ -536,6 +541,7 @@ export default function DiscoverTab({
                               match={match}
                               isMatch={matches.some((m) => m.id === p.id)}
                               isFavorite={favoriteIds.has(p.id)}
+                              isLiked={currentUser ? hasLiked(currentUser.id, p.id) : false}
                               onLike={handleLike}
                               onPass={handlePass}
                               onMessage={openChat}
