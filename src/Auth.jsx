@@ -320,8 +320,15 @@ export default function Auth({ justVerified = false, onAcknowledgeVerified = () 
         ))}
       </div>
 
-      <div className="bb-hero relative z-10 hidden md:block w-full max-w-6xl mr-auto">
-        <div className="max-w-lg pl-4 lg:pl-10">
+      {/* Bug corrigé : le bloc hero (texte "Nouvelle vie...") apparaissait dès
+          md (768px), largeur à laquelle il chevauchait visuellement la carte
+          d'authentification (absolument positionnée à droite dès md aussi) —
+          jusqu'à ~1075px de large, le texte "Nouvelles connexions." et le
+          paragraphe étaient tronqués sous la carte. On aligne l'apparition du
+          hero sur lg (1024px) et on réduit sa largeur max pour garantir que
+          les deux blocs ne se touchent plus à la largeur lg minimale. */}
+      <div className="bb-hero relative z-10 hidden lg:block w-full max-w-6xl mr-auto">
+        <div className="max-w-md pl-4 lg:pl-10">
           <div className="bb-badge inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-semibold"
             style={{ background: "rgba(13,32,22,0.52)", border: "1px solid rgba(242,233,220,0.16)", backdropFilter: "blur(12px)" }}>
             <MapPin size={14} color={C.ochre} /> Une communauté partout au Canada
@@ -336,7 +343,7 @@ export default function Auth({ justVerified = false, onAcknowledgeVerified = () 
         </div>
       </div>
 
-      <section className="relative z-20 w-full max-w-md md:absolute md:right-[5vw] lg:right-[7vw]" aria-label="Authentification Baobab">
+      <section className="relative z-20 w-full max-w-md lg:absolute lg:right-[7vw]" aria-label="Authentification Baobab">
         <div className="bb-card rounded-[30px] p-5 sm:p-7 md:p-8"
           style={{ background: "rgba(13,32,22,0.80)", border: "1px solid rgba(242,233,220,0.16)",
             boxShadow: "0 30px 90px rgba(0,0,0,0.52)", backdropFilter: "blur(22px)", WebkitBackdropFilter: "blur(22px)" }}>
