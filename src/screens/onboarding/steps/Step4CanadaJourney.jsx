@@ -22,7 +22,13 @@ export function parseArrivedSince(str) {
 
 export function formatArrivedSince(amount, unit) {
   const n = Number(amount);
-  if (!amount || !Number.isFinite(n) || n <= 0) return "";
+  // n === 0 est une valeur légitime ("arrivé au Canada il y a moins d'un
+  // mois") — le champ number a min={0} précisément pour l'autoriser. Un
+  // ancien `n <= 0` rejetait ce cas comme vide : formatArrivedSince("0", …)
+  // renvoyait "" et le prochain rendu re-parsait "" en {amount:"", unit:
+  // "mois"}, effaçant silencieusement le 0 tapé (et l'unité Années si elle
+  // était sélectionnée) et laissant "Continuer" bloqué sans raison visible.
+  if (!amount || !Number.isFinite(n) || n < 0) return "";
   if (unit === "annees") return `${n} ${n > 1 ? "ans" : "an"}`;
   return `${n} mois`;
 }
