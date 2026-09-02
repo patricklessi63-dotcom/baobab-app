@@ -250,7 +250,14 @@ export default function ConversationPane({
         )}
 
         {messages.length === 0 && (
-          <ConversationStarters currentUser={currentUser} match={activeMatch} onPick={(text) => setMessageDraft(text)} />
+          // .slice(0, 4000) : même contrainte que TOUS les autres chemins qui
+          // écrivent dans messageDraft (frappe clavier via maxLength, emoji,
+          // reformulation IA, suggestions de réponse IA — voir plus bas) —
+          // ce chemin-ci l'oubliait. Les questions brise-glace intègrent le
+          // nom/la ville/le pays du match (texte libre, sans plafond strict)
+          // : sans troncature, un texte anormalement long aurait pu porter
+          // messageDraft au-delà de la limite avant même la première frappe.
+          <ConversationStarters currentUser={currentUser} match={activeMatch} onPick={(text) => setMessageDraft(text.slice(0, 4000))} />
         )}
         {q && visibleMessages.length === 0 && (
           <p className="text-sm text-center py-6" style={{ color: muted }}>Aucun message ne contient « {searchQuery.trim()} ».</p>
