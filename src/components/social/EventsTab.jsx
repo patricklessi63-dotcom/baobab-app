@@ -61,7 +61,18 @@ function withParticipantCount(rows) {
   return (rows || []).map((e) => ({ ...e, participantCount: e.event_participant_count || 0 }));
 }
 
-export default function EventsTab({ currentUser, onError, initialEventId, onConsumedInitial = () => {}, initialCreateCommunityId = null, onConsumedInitialCreate = () => {}, myPlatformRole = null, onReportProfile = () => {}, onBlockProfile = () => {}, blockedIds = new Set(), onOpenCommunities = () => {} }) {
+export default function EventsTab({ currentUser, onError, initialEventId, onConsumedInitial = () => {}, initialCreateCommunityId = null, onConsumedInitialCreate = () => {}, myPlatformRole = null, onReportProfile = () => {}, onBlockProfile = () => {}, blockedIds = new Set(), onOpenCommunities = () => {},
+  // Bug identifié à l'audit (passe 94) : PublicProfileModal ouvert depuis la
+  // liste des participants d'un événement n'avait ni onMessage, ni onLike/
+  // onUnlike, ni onToggleFollow, ni onToggleFavorite — contrairement à la
+  // même modale ouverte depuis Découverte/Favoris/Fil (SocialShell.jsx).
+  // Seuls Signaler/Bloquer avaient été ajoutés (voir 8207416) ; un·e
+  // participant·e restait donc impossible à suivre, ajouter en favori,
+  // liker ou contacter sans quitter l'écran. Mêmes props déjà branchées
+  // ailleurs dans SocialShell, aucune nouvelle logique.
+  matches = [], favoriteIds = new Set(), followingIds = new Set(), hasLiked = () => false,
+  onLikeProfile = () => {}, onUnlikeProfile = () => {}, onToggleFavoriteProfile = () => {}, onToggleFollowProfile = () => {}, onMessageProfile = () => {},
+}) {
   const isPlatformAdmin = myPlatformRole === "admin" || myPlatformRole === "super_admin";
   const [view, setView] = useState("home"); // home | detail | create | edit
   const [selectedId, setSelectedId] = useState(null);
@@ -656,6 +667,13 @@ export default function EventsTab({ currentUser, onError, initialEventId, onCons
     onError("Le partage vers le fil sera visible une fois le fil général rendu persistant (limite connue, voir rapport).");
   };
 
+  // Match/like de la personne dont le profil est ouvert (participant) —
+  // même calcul que viewedProfileIsMatch/viewedProfileIsLiked dans
+  // SocialShell.jsx, pour que "Message"/"J'aime" se comportent à
+  // l'identique depuis cette modale.
+  const viewedProfileIsMatch = viewedProfile ? matches.some((m) => m.id === viewedProfile.id) : false;
+  const viewedProfileIsLiked = viewedProfile && currentUser ? hasLiked(currentUser.id, viewedProfile.id) : false;
+
   // ---------- Rendu ----------
   if (view === "create") {
     return (
@@ -731,6 +749,15 @@ export default function EventsTab({ currentUser, onError, initialEventId, onCons
         <PublicProfileModal
           profile={viewedProfile}
           onClose={() => setViewedProfile(null)}
+          isMatch={viewedProfileIsMatch}
+          isFavorite={favoriteIds.has(viewedProfile?.id)}
+          isFollowing={followingIds.has(viewedProfile?.id)}
+          isLiked={viewedProfileIsLiked}
+          onLike={viewedProfileIsMatch ? null : (p) => onLikeProfile(p)}
+          onUnlike={viewedProfileIsMatch ? null : (p) => onUnlikeProfile(p)}
+          onMessage={(p) => { setViewedProfile(null); onMessageProfile(p); }}
+          onToggleFavorite={onToggleFavoriteProfile}
+          onToggleFollow={onToggleFollowProfile}
           onReport={(p) => { setViewedProfile(null); onReportProfile(p); }}
           onBlock={(p) => { setViewedProfile(null); onBlockProfile(p); }}
         />

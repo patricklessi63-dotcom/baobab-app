@@ -1742,6 +1742,15 @@ export default function SocialShell({
                 myPlatformRole={myPlatformRole}
                 onReportProfile={setReportTarget}
                 onBlockProfile={handleBlock}
+                matches={matches}
+                favoriteIds={favoriteIds}
+                followingIds={followingIds}
+                hasLiked={hasLiked}
+                onLikeProfile={handleLike}
+                onUnlikeProfile={handleUnlike}
+                onToggleFavoriteProfile={toggleFavorite}
+                onToggleFollowProfile={toggleFollow}
+                onMessageProfile={openChat}
               />
             </Suspense>
           </ChunkErrorBoundary>
@@ -1762,6 +1771,15 @@ export default function SocialShell({
                 onReportProfile={setReportTarget}
                 onBlockProfile={handleBlock}
                 onOpenCommunities={(id) => { setOpenCommunityId(id || null); goTab("communities"); }}
+                matches={matches}
+                favoriteIds={favoriteIds}
+                followingIds={followingIds}
+                hasLiked={hasLiked}
+                onLikeProfile={handleLike}
+                onUnlikeProfile={handleUnlike}
+                onToggleFavoriteProfile={toggleFavorite}
+                onToggleFollowProfile={toggleFollow}
+                onMessageProfile={openChat}
               />
             </Suspense>
           </ChunkErrorBoundary>

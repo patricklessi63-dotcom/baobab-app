@@ -63,7 +63,18 @@ function withMemberCount(rows) {
   return (rows || []).map((c) => ({ ...c, memberCount: c.community_members?.[0]?.count || 0 }));
 }
 
-export default function CommunitiesTab({ currentUser, onError, onCommunitiesChanged, initialCommunityId, onConsumedInitial, blockedIds = new Set(), onOpenEvents = () => {}, onCreateEventInCommunity = () => {}, myPlatformRole = null, onReportProfile = () => {}, onBlockProfile = () => {} }) {
+export default function CommunitiesTab({ currentUser, onError, onCommunitiesChanged, initialCommunityId, onConsumedInitial, blockedIds = new Set(), onOpenEvents = () => {}, onCreateEventInCommunity = () => {}, myPlatformRole = null, onReportProfile = () => {}, onBlockProfile = () => {},
+  // Bug identifié à l'audit (passe 94) : PublicProfileModal ouvert depuis la
+  // liste des membres d'une communauté n'avait ni onMessage, ni onLike/
+  // onUnlike, ni onToggleFollow, ni onToggleFavorite — contrairement à la
+  // même modale ouverte depuis Découverte/Favoris/Fil (SocialShell.jsx).
+  // Seuls Signaler/Bloquer avaient été ajoutés (voir 8207416) ; un membre de
+  // communauté restait donc impossible à suivre, ajouter en favori, liker ou
+  // contacter sans quitter l'écran pour aller le retrouver ailleurs. Mêmes
+  // props déjà branchées ailleurs dans SocialShell, aucune nouvelle logique.
+  matches = [], favoriteIds = new Set(), followingIds = new Set(), hasLiked = () => false,
+  onLikeProfile = () => {}, onUnlikeProfile = () => {}, onToggleFavoriteProfile = () => {}, onToggleFollowProfile = () => {}, onMessageProfile = () => {},
+}) {
   const isPlatformAdmin = myPlatformRole === "admin" || myPlatformRole === "super_admin";
   const [view, setView] = useState("list"); // list | detail | create
   const [selectedId, setSelectedId] = useState(null);
@@ -803,6 +814,12 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
     visibleCommentsByPost[postId] = { items: (commentsByPost[postId]?.items || []).filter((c) => !blockedIds.has(c.author_id)) };
   });
 
+  // Match/like du membre dont le profil est ouvert — même calcul que
+  // viewedProfileIsMatch/viewedProfileIsLiked dans SocialShell.jsx, pour que
+  // "Message"/"J'aime" se comportent à l'identique depuis cette modale.
+  const viewedMemberIsMatch = viewedMemberProfile ? matches.some((m) => m.id === viewedMemberProfile.id) : false;
+  const viewedMemberIsLiked = viewedMemberProfile && currentUser ? hasLiked(currentUser.id, viewedMemberProfile.id) : false;
+
   // ---------- Rendu ----------
   if (view === "create") {
     return (
@@ -885,6 +902,15 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
         <PublicProfileModal
           profile={viewedMemberProfile}
           onClose={() => setViewedMemberProfile(null)}
+          isMatch={viewedMemberIsMatch}
+          isFavorite={favoriteIds.has(viewedMemberProfile?.id)}
+          isFollowing={followingIds.has(viewedMemberProfile?.id)}
+          isLiked={viewedMemberIsLiked}
+          onLike={viewedMemberIsMatch ? null : (p) => onLikeProfile(p)}
+          onUnlike={viewedMemberIsMatch ? null : (p) => onUnlikeProfile(p)}
+          onMessage={(p) => { setViewedMemberProfile(null); onMessageProfile(p); }}
+          onToggleFavorite={onToggleFavoriteProfile}
+          onToggleFollow={onToggleFollowProfile}
           onReport={(p) => { setViewedMemberProfile(null); onReportProfile(p); }}
           onBlock={(p) => { setViewedMemberProfile(null); onBlockProfile(p); }}
         />
