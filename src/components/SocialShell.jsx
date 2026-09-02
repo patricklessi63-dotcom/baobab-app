@@ -1322,6 +1322,19 @@ export default function SocialShell({
     try {
       const { error } = await supabase.from("stories").delete().eq("id", s.id);
       if (error) throw error;
+      // Nettoyage du fichier Storage associé — même geste que pour les photos
+      // de profil (removeExistingPhoto, App.jsx) et les médias de
+      // publications/événements : sans ça, chaque statut supprimé laissait un
+      // fichier orphelin permanent dans le bucket "avatars" (uploadStoryMedia
+      // ci-dessus y publie les médias de statut), et l'expiration à 24h
+      // (supabase-stories-expiration.sql) ne fait que masquer la ligne, elle
+      // ne supprime ni la ligne ni le fichier.
+      const marker = "/avatars/";
+      const idx = s.media_url?.indexOf(marker);
+      if (idx !== -1 && idx !== undefined) {
+        const storagePath = decodeURIComponent(s.media_url.slice(idx + marker.length));
+        supabase.storage.from("avatars").remove([storagePath]).catch(() => {});
+      }
       setStories((prev) => prev.map((st) =>
         st.own ? { ...st, id: undefined, text: "", media_url: null, media_kind: null } : st
       ));

@@ -171,6 +171,23 @@ export default function EventEditForm({ event, onSaved, onCancel, onError }) {
         if (uploadedPath) supabase.storage.from("event-covers").remove([uploadedPath]).catch(() => {});
         throw updateError;
       }
+      // Nettoyage de l'ANCIENNE couverture, seulement maintenant que la mise
+      // à jour a réussi (l'événement pointe bien vers la nouvelle image) —
+      // bug identifié à l'audit : ce remplacement n'écrasait jamais le
+      // fichier d'origine (chemin horodaté, différent à chaque envoi), donc
+      // chaque changement de couverture laissait l'ancienne orpheline pour
+      // toujours dans le bucket "event-covers". Même geste que pour la photo
+      // de couverture de profil (App.jsx, coverPathToDeleteOnSuccess).
+      if (uploadedPath && event.cover_url) {
+        const marker = "/event-covers/";
+        const idx = event.cover_url.indexOf(marker);
+        if (idx !== -1) {
+          const oldPath = decodeURIComponent(event.cover_url.slice(idx + marker.length).split("?")[0]);
+          if (oldPath && oldPath !== uploadedPath) {
+            supabase.storage.from("event-covers").remove([oldPath]).catch(() => {});
+          }
+        }
+      }
       if (!mountedRef.current) return; // annulé entre-temps : on ne force pas la mise à jour de l'écran quitté
       onSaved(data);
     } catch (e) {
