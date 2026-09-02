@@ -256,7 +256,16 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
     let saved = null;
     try { saved = key ? localStorage.getItem(key) : null; } catch (_) {}
     if (saved) {
-      setDraft(saved);
+      // Tronqué à 4000 comme tous les autres chemins qui modifient `draft`
+      // (saisie clavier, emoji, suggestion IA dans PostComposerModal) :
+      // un brouillon enregistré par une version antérieure de l'app (avant
+      // l'ajout de ces limites) ou modifié manuellement dans le stockage du
+      // navigateur pouvait dépasser 4000 caractères sans que rien ne le
+      // bloque à la reprise — posts.body a "check (char_length(body)
+      // between 1 and 4000)" côté base (supabase-feed-posts.sql), donc la
+      // publication du brouillon repris échouait silencieusement à
+      // l'insertion avec "Impossible de publier. Réessaie.", sans indice.
+      setDraft(saved.slice(0, 4000));
       setResumedDraft(true);
     }
     setComposer(true);
