@@ -24,9 +24,22 @@ export default function BetaFeedbackModal({ open, onClose, currentUser, screen }
   useEscapeKey(open, onClose);
   if (!open) return null;
 
+  // Bug corrigé : le reset des champs était différé de 200ms après onClose()
+  // (délai sans aucune justification visuelle — ce composant n'a aucune
+  // transition de sortie, `if (!open) return null` ci-dessus masque le
+  // formulaire instantanément). Rouvrir la modale dans cette fenêtre de
+  // 200ms (double-tap accidentel, ou fermer/rouvrir vite pour un autre
+  // écran) réaffichait l'ancien brouillon un instant avant qu'il ne
+  // s'efface tout seul sous les yeux de l'utilisateur — pouvant effacer un
+  // nouveau message en train d'être tapé. Réinitialiser dans le même appel
+  // que onClose() (batché par React, donc jamais visible : le composant
+  // rend déjà `null` sur ce re-render) supprime cette fenêtre de course.
   const handleClose = () => {
     onClose();
-    setTimeout(() => { setMessage(""); setCategory(null); setSubmitted(false); setError(""); }, 200);
+    setMessage("");
+    setCategory(null);
+    setSubmitted(false);
+    setError("");
   };
 
   // Un tap sur une réaction rapide (👍/👎/🐛/💡) est déjà un signal utile
