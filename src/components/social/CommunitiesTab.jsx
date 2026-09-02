@@ -121,6 +121,8 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
   const [reportSubmitted, setReportSubmitted] = useState(false);
 
   const joinInFlightRef = useRef(new Set());
+  const leaveInFlightRef = useRef(new Set());
+  const removeMemberInFlightRef = useRef(new Set());
   const likeInFlightRef = useRef(new Set());
   // Devient true une fois myMemberships réellement chargé depuis le
   // serveur (voir l'effet ci-dessous) — utilisé par goDetail pour savoir si
@@ -451,7 +453,14 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
   };
 
   const handleLeave = async (comm) => {
-    if (!currentUser) return;
+    // Garde-fou manquant identifié à l'audit (même bug déjà corrigé sur
+    // handleLeave d'EventsTab) : le bouton "Quitter" reste affiché et
+    // cliquable pendant toute la requête (viewerRole ne change qu'après
+    // succès), et n'est protégé que par un window.confirm — deux clics
+    // "confirmés" successifs avant la fin du premier appel décrémentaient
+    // le compteur de membres deux fois pour un seul départ réel.
+    if (!currentUser || leaveInFlightRef.current.has(comm.id)) return;
+    leaveInFlightRef.current.add(comm.id);
     try {
       const { error } = await supabase.from("community_members").delete().eq("community_id", comm.id).eq("profile_id", currentUser.id);
       if (error) throw error;
@@ -465,6 +474,8 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
     } catch (e) {
       console.error(e);
       onError("Impossible de quitter cette communauté.");
+    } finally {
+      leaveInFlightRef.current.delete(comm.id);
     }
   };
 
@@ -722,6 +733,14 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
   };
 
   const handleRemoveMember = async (member) => {
+    // Même garde-fou que handleLeave ci-dessus : la ligne du membre ne
+    // disparaît de la liste qu'après succès et le bouton n'est protégé que
+    // par un window.confirm, donc deux clics "confirmés" successifs avant
+    // la fin du premier appel double-décrémentaient le compteur de membres
+    // (la suppression d'une ligne déjà supprimée ne renvoie pas d'erreur
+    // Postgrest, donc le second appel se déroulait comme un succès).
+    if (removeMemberInFlightRef.current.has(member.id)) return;
+    removeMemberInFlightRef.current.add(member.id);
     try {
       const { error } = await supabase.from("community_members").delete().eq("id", member.id);
       if (error) throw error;
@@ -734,6 +753,8 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
     } catch (e) {
       console.error(e);
       onError("Impossible de retirer ce membre.");
+    } finally {
+      removeMemberInFlightRef.current.delete(member.id);
     }
   };
 
