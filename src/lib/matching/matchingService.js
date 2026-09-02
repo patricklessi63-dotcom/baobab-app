@@ -116,8 +116,17 @@ function scorePreferences(userA, userB) {
   // dépasser un seuil combiné pendant qu'un écart d'âge de 10 ans (3 pts)
   // complétait le total — sinon le texte affirme un rapprochement d'âge
   // qui n'existe pas vraiment.
+  //
+  // Bug corrigé (audit confidentialité, passage 145) : userB.show_birth_year
+  // régit la visibilité de son âge pour n'importe quel autre viewer (voir
+  // visibleAge() dans utils/format.js, respecté par toutes les cartes) —
+  // même garde que scoreInterests/scoreLifeProject ci-dessus. Sans elle, un
+  // candidat ayant masqué son année de naissance voyait quand même son âge
+  // réel utilisé pour le score ET affichait "Son âge correspond à tes
+  // préférences", révélant indirectement une proximité d'âge qu'il avait
+  // explicitement choisi de ne pas montrer.
   let agePoints = 0;
-  if (typeof userA.age === "number" && typeof userB.age === "number") {
+  if (userB.show_birth_year !== false && typeof userA.age === "number" && typeof userB.age === "number") {
     const gap = Math.abs(userA.age - userB.age);
     if (gap <= 2) agePoints = 8;
     else if (gap <= 5) agePoints = 6;
