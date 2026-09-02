@@ -16,7 +16,15 @@ export default function StatusBadge({ isFounder, isPremium, emailVerified, phone
     );
   }
   if (emailVerified || phoneVerified) {
-    const title = phoneVerified ? "Email et téléphone vérifiés" : "Email vérifié";
+    // Le titre doit refléter les DEUX champs indépendamment : phoneVerified
+    // seul ne veut pas dire que l'email l'est aussi (bug précédent : le badge
+    // affichait "Email et téléphone vérifiés" dès que phoneVerified était
+    // vrai, même avec emailVerified à false).
+    const title = emailVerified && phoneVerified
+      ? "Email et téléphone vérifiés"
+      : phoneVerified
+        ? "Téléphone vérifié"
+        : "Email vérifié";
     const c = color || verified;
     return (
       <span title={title} aria-label={title} className="inline-flex items-center justify-center flex-shrink-0" style={{ color: c }}>

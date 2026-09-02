@@ -5,9 +5,15 @@ import { verified } from "./social/theme";
 export default function VerifiedBadge({ emailVerified, phoneVerified, size = 14, color = verified }) {
   if (!emailVerified && !phoneVerified) return null;
 
-  const title = phoneVerified
+  // Le titre doit refléter les DEUX champs indépendamment : phoneVerified
+  // seul ne veut pas dire que l'email l'est aussi (bug précédent : le badge
+  // affichait "Email et téléphone vérifiés" dès que phoneVerified était
+  // vrai, même avec emailVerified à false).
+  const title = emailVerified && phoneVerified
     ? "Email et téléphone vérifiés"
-    : "Email vérifié";
+    : phoneVerified
+      ? "Téléphone vérifié"
+      : "Email vérifié";
 
   return (
     <span
