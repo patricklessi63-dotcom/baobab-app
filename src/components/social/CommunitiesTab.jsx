@@ -88,6 +88,14 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
   const [listLoading, setListLoading] = useState(true);
   const [listCursor, setListCursor] = useState(null);
   const [hasMore, setHasMore] = useState(false);
+  // Garde anti-double-appel pour "Charger plus" (même bug déjà corrigé sur
+  // EventsTab.jsx/PostsFeed.jsx) : le bouton n'était jamais désactivé
+  // pendant la requête, donc un double clic/tap rapide lançait deux
+  // loadMore() en parallèle, tous deux lisant le même listCursor (pas encore
+  // avancé), récupérant et ajoutant deux fois la même page de communautés à
+  // la liste affichée (doublons visibles + clé React dupliquée).
+  const [loadingMore, setLoadingMore] = useState(false);
+  const loadingMoreRef = useRef(false);
 
   const [myMemberships, setMyMemberships] = useState({}); // communityId -> role
   const [myPending, setMyPending] = useState(new Set());
@@ -203,7 +211,9 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
   // scroll décalait tous les offsets suivants avec .range(), causant des
   // doublons ou des communautés jamais vues à la page suivante.
   const loadMore = async () => {
-    if (!listCursor) return;
+    if (!listCursor || loadingMoreRef.current) return;
+    loadingMoreRef.current = true;
+    setLoadingMore(true);
     try {
       const { data, error } = await buildListQuery({ search, filterCity, filterCategory, filterVisibility })
         .or(`created_at.lt.${listCursor.created_at},and(created_at.eq.${listCursor.created_at},id.lt.${listCursor.id})`)
@@ -217,6 +227,9 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
     } catch (e) {
       console.error(e);
       onError("Impossible de charger plus de communautés.");
+    } finally {
+      loadingMoreRef.current = false;
+      setLoadingMore(false);
     }
   };
 
@@ -231,7 +244,17 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
   // rien disparaître tant que la communauté n'est pas rechargée. Comme pour
   // EventsTab, on garde les données brutes en état et on filtre avec la prop
   // blockedIds (réactive) au moment du rendu, plus bas.
-  const loadPosts = async (id) => {
+  // Chaque fonction ci-dessous accepte désormais un requestId optionnel (le
+  // jeton detailRequestRef au moment de l'appel) : quand il est fourni, le
+  // résultat n'est appliqué que si aucune navigation vers une autre
+  // communauté n'a eu lieu entre-temps (voir commentaire sur
+  // detailRequestRef plus haut). Bug identifié à l'audit (même famille que
+  // celui déjà corrigé dans EventsTab.jsx, passe 106) : ce jeton n'était en
+  // fait vérifié qu'avant setCommunity, jamais avant les 5 appels du
+  // Promise.all lui-même (loadPosts/loadMembers/loadEvents/
+  // loadJoinRequests/loadReports) — chacun posait donc quand même son
+  // résultat en retard sans aucune vérification.
+  const loadPosts = async (id, requestId) => {
     setPostsLoading(true);
     try {
       const { data, error } = await supabase
@@ -240,6 +263,7 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
         .eq("community_id", id)
         .order("created_at", { ascending: false });
       if (error) throw error;
+      if (requestId !== undefined && detailRequestRef.current !== requestId) return;
       setPosts(data || []);
       const ids = (data || []).map((p) => p.id);
       if (ids.length > 0) {
@@ -247,6 +271,7 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
           supabase.from("community_post_likes").select("post_id, profile_id, emoji").in("post_id", ids),
           supabase.from("community_comments").select("post_id").in("post_id", ids),
         ]);
+        if (requestId !== undefined && detailRequestRef.current !== requestId) return;
         const counts = {}; const mine = {};
         (likesRes.data || []).forEach((l) => {
           counts[l.post_id] = counts[l.post_id] || {};
@@ -269,7 +294,7 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
     }
   };
 
-  const loadMembers = async (id) => {
+  const loadMembers = async (id, requestId) => {
     setMembersLoading(true);
     try {
       // "id" est indispensable dans la sélection imbriquée ci-dessous, pas
@@ -286,6 +311,7 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
         .eq("community_id", id)
         .order("joined_at", { ascending: true });
       if (error) throw error;
+      if (requestId !== undefined && detailRequestRef.current !== requestId) return;
       // Le total affiché doit compter tous les membres réels (cohérent avec
       // la carte de liste, qui utilise community_members(count) côté
       // serveur) — seule la liste affichée exclut les profils bloqués, pour
@@ -303,25 +329,25 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
     }
   };
 
-  const loadJoinRequests = async (id) => {
+  const loadJoinRequests = async (id, requestId) => {
     const { data, error } = await supabase
       .from("community_join_requests")
       .select("*, profiles(name, avatar_url)")
       .eq("community_id", id).eq("status", "pending")
       .order("created_at", { ascending: true });
-    if (!error) setJoinRequests(data || []);
+    if (!error && !(requestId !== undefined && detailRequestRef.current !== requestId)) setJoinRequests(data || []);
   };
 
-  const loadReports = async (id) => {
+  const loadReports = async (id, requestId) => {
     const { data, error } = await supabase
       .from("community_reports")
       .select("*")
       .eq("community_id", id).eq("status", "open")
       .order("created_at", { ascending: false });
-    if (!error) setReports(data || []);
+    if (!error && !(requestId !== undefined && detailRequestRef.current !== requestId)) setReports(data || []);
   };
 
-  const loadEvents = async (id) => {
+  const loadEvents = async (id, requestId) => {
     setEventsLoading(true);
     try {
       const { data, error } = await supabase
@@ -347,6 +373,7 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
         if (attendeeError) console.error(attendeeError);
         else statusByEventId = Object.fromEntries((attendeeRows || []).map((r) => [r.event_id, r.status]));
       }
+      if (requestId !== undefined && detailRequestRef.current !== requestId) return;
       setEvents(rows.map((e) => ({ ...e, participantCount: e.event_participant_count || 0, status: statusByEventId[e.id] || null })));
     } catch (e) {
       console.error(e);
@@ -400,11 +427,11 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
       }
       if (detailRequestRef.current !== requestId) return;
       await Promise.all([
-        loadPosts(comm.id),
-        loadMembers(comm.id),
-        loadEvents(comm.id),
-        (role === "owner" || role === "admin") ? loadJoinRequests(comm.id) : Promise.resolve(),
-        (role === "owner" || role === "admin" || role === "moderator") ? loadReports(comm.id) : Promise.resolve(),
+        loadPosts(comm.id, requestId),
+        loadMembers(comm.id, requestId),
+        loadEvents(comm.id, requestId),
+        (role === "owner" || role === "admin") ? loadJoinRequests(comm.id, requestId) : Promise.resolve(),
+        (role === "owner" || role === "admin" || role === "moderator") ? loadReports(comm.id, requestId) : Promise.resolve(),
       ]);
     } catch (e) {
       console.error(e);
@@ -1107,8 +1134,8 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
       )}
 
       {!listLoading && hasMore && !isNeutralHome && (
-        <button onClick={loadMore} className="w-full mt-5 py-3 rounded-full text-sm font-bold" style={{ background: bg, color: primary }}>
-          Charger plus
+        <button onClick={loadMore} disabled={loadingMore} className="w-full mt-5 py-3 rounded-full text-sm font-bold disabled:opacity-50" style={{ background: bg, color: primary }}>
+          {loadingMore ? "Chargement…" : "Charger plus"}
         </button>
       )}
     </section>
