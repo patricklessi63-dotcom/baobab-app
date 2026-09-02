@@ -95,6 +95,15 @@ export default function OnboardingWizard({
   async function saveStep() {
     setError("");
     setSaving(true);
+    // Bug corrigé : à l'étape 3 (photo), un upload Storage pouvait réussir puis
+    // l'insertion profile_photos ou l'update du profil échouer juste après —
+    // sans nettoyage, les fichiers restaient orphelins dans le bucket
+    // "avatars" pour toujours (même pattern que freshlyUploadedPaths/
+    // insertedPhotoRowIds dans handleSaveProfile, App.jsx). Déclarés ici (hors
+    // du bloc step===3) pour rester accessibles dans le catch, mais ne sont
+    // jamais peuplés pour les autres étapes donc le nettoyage y est un no-op.
+    const freshlyUploadedPaths = [];
+    let insertedPhotoRowIds = [];
     try {
       if (step === 1) {
         // Bienvenue + objectif d'usage — crée désormais la ligne profils
@@ -152,6 +161,11 @@ export default function OnboardingWizard({
         for (let i = 0; i < photoFiles.length; i++) {
           const url = await uploadPhoto(session.user.id, photoFiles[i], i);
           uploadedUrls.push(url);
+          const marker = "/avatars/";
+          const mIdx = url?.indexOf(marker);
+          if (mIdx !== -1 && mIdx !== undefined) {
+            freshlyUploadedPaths.push(decodeURIComponent(url.slice(mIdx + marker.length)));
+          }
         }
         // Bug corrigé : cette étape est atteignable plus d'une fois (retour en
         // arrière depuis l'étape 4 puis "Continuer" à nouveau après avoir
@@ -180,6 +194,7 @@ export default function OnboardingWizard({
           const { data: inserted, error: photoError } = await supabase.from("profile_photos").insert(rows).select();
           if (photoError) throw photoError;
           photoRows = inserted || [];
+          insertedPhotoRowIds = photoRows.map((p) => p.id).filter(Boolean);
         }
         const payload = { avatar_url: uploadedUrls[0] || currentUser.avatar_url || null, onboarding_step: 3 };
         const { data, error: updateError } = await supabase.from("profiles").update(payload).eq("id", currentUser.id).select().single();
@@ -245,6 +260,15 @@ export default function OnboardingWizard({
     } catch (e) {
       console.error("onboarding save error:", e?.message, "| code:", e?.code, "| details:", e?.details, "| hint:", e?.hint);
       setError("Une erreur est survenue lors de l'enregistrement. Réessaie.");
+      // Voir commentaire au début de saveStep : nettoyage des photos
+      // fraîchement uploadées (Storage) et/ou insérées (profile_photos) si
+      // une étape suivante de l'étape 3 a échoué avant la fin.
+      if (freshlyUploadedPaths.length > 0) {
+        supabase.storage.from("avatars").remove(freshlyUploadedPaths).catch(() => {});
+      }
+      if (insertedPhotoRowIds.length > 0) {
+        supabase.from("profile_photos").delete().in("id", insertedPhotoRowIds).then(() => {}).catch(() => {});
+      }
       return null;
     } finally {
       setSaving(false);
