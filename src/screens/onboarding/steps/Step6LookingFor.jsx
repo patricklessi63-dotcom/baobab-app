@@ -25,7 +25,15 @@ export default function Step6LookingFor({ draft, update }) {
       <ChipSelect
         options={LOOKING_FOR_OPTIONS}
         value={draft.lookingFor}
-        onChange={(v) => update({ lookingFor: v })}
+        onChange={(v) =>
+          // Bug corrigé : si l'utilisateur retire "Amour"/"Relation sérieuse"
+          // après avoir déjà choisi des préférences de relation, ces
+          // préférences restaient en mémoire (et étaient enregistrées) même
+          // si la section pour les modifier disparaissait de l'écran. Résultat
+          // : un profil affichant "Amitié" pouvait quand même montrer d'anciennes
+          // préférences de relation sérieuse sur PublicProfileModal/ProfileTab.
+          update(hasIntimateIntent(v) ? { lookingFor: v } : { lookingFor: v, relationshipValues: [] })
+        }
         multi
       />
 

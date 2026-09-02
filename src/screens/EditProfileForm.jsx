@@ -251,7 +251,20 @@ export default function EditProfileForm({
         )}
 
         <p className="text-xs font-semibold mt-2" style={{ color: "rgba(var(--bb-ink-rgb-static),0.55)" }}>Ce que tu recherches</p>
-        <ChipSelect options={LOOKING_FOR_OPTIONS} value={editForm.lookingFor} onChange={(v) => set({ lookingFor: v })} multi />
+        <ChipSelect
+          options={LOOKING_FOR_OPTIONS}
+          value={editForm.lookingFor}
+          onChange={(v) =>
+            // Bug corrigé (même famille que Step6LookingFor.jsx à l'onboarding) :
+            // retirer "Amour"/"Relation sérieuse" ici cachait la section
+            // "Quel type de relation souhaites-tu ?" sans jamais vider
+            // editForm.relationshipValues, qui restait donc enregistré et
+            // continuait de s'afficher sur le profil public malgré des
+            // intentions désormais contradictoires (ex. "Amitié" seule).
+            set(hasIntimateIntent(v) ? { lookingFor: v } : { lookingFor: v, relationshipValues: [] })
+          }
+          multi
+        />
         {hasIntimateIntent(editForm.lookingFor) && (
           <>
             <p className="text-xs mt-1" style={{ color: "rgba(var(--bb-ink-rgb-static),0.55)" }}>Quel type de relation souhaites-tu ?</p>
