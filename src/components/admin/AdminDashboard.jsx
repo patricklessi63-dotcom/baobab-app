@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { ArrowLeft, Shield, Users2, Flag, Search, Ban, PauseCircle, PlayCircle, ShieldCheck, MessageSquareWarning } from "lucide-react";
 import Avatar from "../Avatar";
 import EmptyState from "../home/EmptyState";
@@ -57,15 +57,25 @@ export default function AdminDashboard({ onBack, onError, myPlatformRole }) {
     }
   };
 
+  // Jeton anti-course : une nouvelle recherche (Entrée pressée à nouveau
+  // avant que la précédente n'ait répondu) pouvait voir sa réponse arriver
+  // avant celle de la recherche précédente — la liste affichée finissait
+  // par correspondre à un texte de recherche qui n'était plus celui affiché
+  // dans le champ, selon l'ordre d'arrivée réseau plutôt que l'ordre d'envoi.
+  const usersRequestRef = useRef(0);
   const loadUsers = async (q = query) => {
+    const requestId = ++usersRequestRef.current;
     setUsersLoading(true);
     try {
-      setUsers(await adminApi.searchUsers(q));
+      const data = await adminApi.searchUsers(q);
+      if (usersRequestRef.current !== requestId) return; // réponse obsolète, ignorée
+      setUsers(data);
     } catch (e) {
+      if (usersRequestRef.current !== requestId) return;
       console.error(e);
       onError("Impossible de charger les utilisateurs.");
     } finally {
-      setUsersLoading(false);
+      if (usersRequestRef.current === requestId) setUsersLoading(false);
     }
   };
 
@@ -81,15 +91,25 @@ export default function AdminDashboard({ onBack, onError, myPlatformRole }) {
     }
   };
 
+  // Même jeton anti-course que loadUsers ci-dessus : cliquer vite sur
+  // plusieurs filtres de statut à la suite (ex. "Critique" puis "Résolu")
+  // lance deux appels réseau concurrents dont l'ordre de réponse n'est pas
+  // garanti — sans ce garde, la liste affichée pouvait finir par montrer les
+  // retours d'un filtre différent de celui resté sélectionné (surbrillance).
+  const feedbackRequestRef = useRef(0);
   const loadFeedback = async (status = feedbackStatusFilter) => {
+    const requestId = ++feedbackRequestRef.current;
     setFeedbackLoading(true);
     try {
-      setFeedback(await adminApi.listFeedback(status));
+      const data = await adminApi.listFeedback(status);
+      if (feedbackRequestRef.current !== requestId) return; // réponse obsolète, ignorée
+      setFeedback(data);
     } catch (e) {
+      if (feedbackRequestRef.current !== requestId) return;
       console.error(e);
       onError("Impossible de charger les retours.");
     } finally {
-      setFeedbackLoading(false);
+      if (feedbackRequestRef.current === requestId) setFeedbackLoading(false);
     }
   };
 
