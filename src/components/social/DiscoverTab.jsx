@@ -156,7 +156,16 @@ export default function DiscoverTab({
       // le paywall pour un compte gratuit, donc ces états restent à leur
       // valeur par défaut (vide/faux) et ce filtrage reste un no-op pour eux.
       if (interestFilter.length > 0) {
-        const theirs = (p.interests || "").split(",").map((s) => s.trim());
+        // Bug corrigé : p.show_interests régit la visibilité des centres
+        // d'intérêt pour n'importe quel autre viewer (voir scoreInterests
+        // dans matchingService.js, et showInterests un peu plus haut dans ce
+        // même fichier pour la carte). Sans ce garde, un profil ayant
+        // explicitement masqué ses centres d'intérêt était quand même inclus
+        // ou exclu de la grille "Pour toi" selon ses VRAIS centres d'intérêt
+        // dès qu'un viewer Premium activait ce filtre — une fuite par
+        // présence/absence dans la liste, même famille que le filtre de
+        // distance corrigé dans matchingService.js.
+        const theirs = p.show_interests === false ? [] : (p.interests || "").split(",").map((s) => s.trim());
         if (!interestFilter.some((f) => theirs.includes(f))) return false;
       }
       if (languageFilter.length > 0) {
@@ -164,7 +173,14 @@ export default function DiscoverTab({
         if (!languageFilter.some((f) => theirs.includes(f))) return false;
       }
       if (activeRecentlyFilter && !isActiveRecently(p)) return false;
-      if (arrivalStageFilter && !matchesArrivalStage(p, arrivalStageFilter)) return false;
+      // Bug corrigé : p.show_canada_journey régit la visibilité du parcours
+      // Canada (dont arrived_since) pour n'importe quel autre viewer — voir
+      // showCanadaJourney un peu plus haut dans ce fichier pour la carte.
+      // Sans ce garde, un profil ayant masqué son parcours Canada était quand
+      // même inclus ou exclu de la grille selon sa VRAIE étape d'installation
+      // dès qu'un filtre "Étape d'installation" était choisi — même fuite par
+      // présence/absence dans la liste que celle du filtre d'intérêts ci-dessus.
+      if (arrivalStageFilter && (p.show_canada_journey === false || !matchesArrivalStage(p, arrivalStageFilter))) return false;
       if (verifiedOnlyFilter && !(p.email_verified || p.phone_verified)) return false;
       if (nearbyEnabled && !nearbyMap.has(p.id)) return false;
       return true;
