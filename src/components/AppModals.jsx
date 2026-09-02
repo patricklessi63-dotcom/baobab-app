@@ -327,16 +327,27 @@ export default function AppModals({
       )}
 
       {/* ---------- MODAL POLITIQUE DE CONFIDENTIALITÉ ---------- */}
+      {/* Bug corrigé : ce modal utilisait la classe "bb-card" (fond
+          var(--bb-surface), réactif au thème clair/sombre de l'app), alors
+          que PrivacyPolicyContent (legalContent.jsx) code en dur ses titres
+          de section en #F2E9DC (= C.sand) — couleur pensée pour le fond
+          sombre FIXE des "pages légales" (C.dusk3, voir Auth.jsx et
+          PublicPageShell.jsx, cf. leurs commentaires). En thème clair (le
+          défaut), le fond de bb-card est blanc : les titres de section
+          crème y devenaient quasi invisibles. On force ici le même fond
+          sombre fixe que les autres surfaces où ce contenu s'affiche déjà
+          (Auth.jsx, /confidentialite), pour que les titres restent lisibles
+          quel que soit le thème et que le rendu soit cohérent partout. */}
       {privacyOpen && (
         <div className="bb-fade-in fixed inset-0 flex items-end md:items-center justify-center z-[70] p-0 md:p-5" style={{ background: "rgba(8,20,14,0.55)", backdropFilter: "blur(3px)" }} onClick={() => setPrivacyOpen(false)} role="dialog" aria-modal="true" aria-label="Politique de confidentialité">
-          <div className="bb-card p-6 w-full max-w-md rounded-t-[20px] md:rounded-[20px]" style={{ maxHeight: "80vh", overflowY: "auto", paddingBottom: "max(1.5rem, env(safe-area-inset-bottom))" }} onClick={(e) => e.stopPropagation()}>
-            <div style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 20, color: "var(--bb-text)" }} className="mb-3">
+          <div className="p-6 w-full max-w-md rounded-t-[20px] md:rounded-[20px]" style={{ background: C.dusk3, border: "1px solid rgba(242,233,220,0.12)", boxShadow: "var(--bb-shadow-lg)", maxHeight: "80vh", overflowY: "auto", paddingBottom: "max(1.5rem, env(safe-area-inset-bottom))" }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 20, color: C.sand }} className="mb-3">
               Politique de confidentialité
             </div>
-            <div className="text-sm" style={{ color: "rgba(var(--bb-ink-rgb),0.72)" }}>
+            <div className="text-sm" style={{ color: C.sandDim }}>
               <PrivacyPolicyContent />
             </div>
-            <button onClick={() => setPrivacyOpen(false)} className="w-full py-3 mt-2 rounded-full text-sm font-semibold" style={{ border: "1px solid rgba(var(--bb-ink-rgb),0.15)", color: C.ink, minHeight: 44 }}>
+            <button onClick={() => setPrivacyOpen(false)} className="w-full py-3 mt-2 rounded-full text-sm font-semibold" style={{ border: "1px solid rgba(242,233,220,0.2)", color: C.sand, minHeight: 44 }}>
               Fermer
             </button>
           </div>
@@ -344,16 +355,18 @@ export default function AppModals({
       )}
 
       {/* ---------- MODAL CONDITIONS D'UTILISATION ---------- */}
+      {/* Même bug de contraste que le modal de confidentialité ci-dessus,
+          même correctif (fond sombre fixe C.dusk3 au lieu de bb-card). */}
       {termsOpen && (
         <div className="bb-fade-in fixed inset-0 flex items-end md:items-center justify-center z-[70] p-0 md:p-5" style={{ background: "rgba(8,20,14,0.55)", backdropFilter: "blur(3px)" }} onClick={() => setTermsOpen(false)} role="dialog" aria-modal="true" aria-label="Conditions d'utilisation">
-          <div className="bb-card p-6 w-full max-w-md rounded-t-[20px] md:rounded-[20px]" style={{ maxHeight: "80vh", overflowY: "auto", paddingBottom: "max(1.5rem, env(safe-area-inset-bottom))" }} onClick={(e) => e.stopPropagation()}>
-            <div style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 20, color: "var(--bb-text)" }} className="mb-3">
+          <div className="p-6 w-full max-w-md rounded-t-[20px] md:rounded-[20px]" style={{ background: C.dusk3, border: "1px solid rgba(242,233,220,0.12)", boxShadow: "var(--bb-shadow-lg)", maxHeight: "80vh", overflowY: "auto", paddingBottom: "max(1.5rem, env(safe-area-inset-bottom))" }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 20, color: C.sand }} className="mb-3">
               Conditions d'utilisation
             </div>
-            <div className="text-sm" style={{ color: "rgba(var(--bb-ink-rgb),0.72)" }}>
+            <div className="text-sm" style={{ color: C.sandDim }}>
               <TermsOfServiceContent />
             </div>
-            <button onClick={() => setTermsOpen(false)} className="w-full py-3 mt-2 rounded-full text-sm font-semibold" style={{ border: "1px solid rgba(var(--bb-ink-rgb),0.15)", color: C.ink, minHeight: 44 }}>
+            <button onClick={() => setTermsOpen(false)} className="w-full py-3 mt-2 rounded-full text-sm font-semibold" style={{ border: "1px solid rgba(242,233,220,0.2)", color: C.sand, minHeight: 44 }}>
               Fermer
             </button>
           </div>
