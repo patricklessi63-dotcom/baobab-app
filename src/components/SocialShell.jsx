@@ -1209,16 +1209,27 @@ export default function SocialShell({
   const sendStoryReaction = async (emoji) => {
     const s = visibleStories[storyViewerIndex];
     if (!s || s.own || !s.id || !currentUser) return;
-    const next = myStoryReaction === emoji ? null : emoji;
+    const previous = myStoryReaction;
+    const next = previous === emoji ? null : emoji;
     setMyStoryReaction(next);
     try {
+      // Bug identifié à l'audit : ni l'upsert ni le delete ne vérifiaient
+      // `error` (le client Supabase ne rejette PAS la promesse sur une
+      // erreur base/RLS, seulement sur une panne réseau) — une réaction
+      // refusée en base restait donc affichée localement comme envoyée,
+      // sans rollback ni message, jusqu'à la prochaine ouverture de ce
+      // statut (loadMyStoryReaction) qui la corrigeait silencieusement.
       if (next) {
-        await supabase.from("story_reactions").upsert({ story_id: s.id, profile_id: currentUser.id, emoji: next }, { onConflict: "story_id,profile_id" });
+        const { error } = await supabase.from("story_reactions").upsert({ story_id: s.id, profile_id: currentUser.id, emoji: next }, { onConflict: "story_id,profile_id" });
+        if (error) throw error;
       } else {
-        await supabase.from("story_reactions").delete().eq("story_id", s.id).eq("profile_id", currentUser.id);
+        const { error } = await supabase.from("story_reactions").delete().eq("story_id", s.id).eq("profile_id", currentUser.id);
+        if (error) throw error;
       }
     } catch (e) {
       console.error(e);
+      setMyStoryReaction(previous);
+      onError("Impossible d'envoyer ta réaction.");
     }
   };
 
@@ -1300,7 +1311,13 @@ export default function SocialShell({
         st.own ? { ...st, id: undefined, text: "", media_url: null, media_kind: null } : st
       ));
     } catch (e) {
+      // Bug identifié à l'audit : la modale se fermait dans tous les cas
+      // (closeStoryViewer ci-dessous, hors du try/catch) sans jamais
+      // avertir l'utilisateur en cas d'échec (coupure réseau, RLS...) — le
+      // statut restait bien présent en base, mais rien à l'écran ne le
+      // laissait deviner : l'utilisateur croyait sa suppression effectuée.
       console.error(e);
+      onError("Impossible de supprimer ce statut. Réessaie.");
     }
     closeStoryViewer();
   };
