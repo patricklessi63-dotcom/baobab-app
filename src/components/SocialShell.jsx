@@ -1196,6 +1196,12 @@ export default function SocialShell({
       supabase.from("story_views").select("viewer_id, viewed_at, profile:viewer_id(name, avatar_url)").eq("story_id", storyId).order("viewed_at", { ascending: false }),
       supabase.from("story_reactions").select("profile_id, emoji").eq("story_id", storyId),
     ]);
+    // Même jeton de course que loadStoryViewCount/loadMyStoryReaction
+    // juste au-dessus, jusqu'ici oublié ici : sans cette vérification, ouvrir
+    // la liste des vues d'une story A puis, avant la fin de ce Promise.all,
+    // en ouvrir une autre pour une story B laissait la réponse tardive de A
+    // écraser la liste affichée pour B avec les mauvais viewers/réactions.
+    if (activeStoryIdRef.current !== storyId) return;
     const reactionByProfile = {};
     for (const r of reactions || []) reactionByProfile[r.profile_id] = r.emoji;
     setStoryViewers((views || []).map((v) => ({
