@@ -183,6 +183,13 @@ export default function SocialShell({
   // rapide peut arriver après la résolution d'une requête réseau lancée pour
   // la story précédente) — sert à ignorer les réponses tardives ci-dessous.
   const activeStoryIdRef = useRef(null);
+  // Jeton anti-course pour openChatWithProfileId (voir plus bas) : cliquer
+  // vite sur deux notifications "nouveau message" différentes dont les deux
+  // cibles nécessitent le repli réseau (absentes de profiles/candidates/
+  // matches) pouvait laisser la réponse la plus lente écraser openChat()
+  // avec le mauvais profil après celle de la cible réellement cliquée en
+  // dernier — même famille de bug que goDetail() (CommunitiesTab/EventsTab).
+  const openChatRequestRef = useRef(0);
   const [viewedProfileId, setViewedProfileId] = useState(null);
   const [favoriteIds, setFavoriteIds] = useState(new Set());
   // Profils complets récupérés via jointure directe sur "favorites" (même
@@ -833,8 +840,15 @@ export default function SocialShell({
   // enchaîne sur openChat au lieu d'ouvrir la modale de profil.
   async function openChatWithProfileId(id) {
     const local = profiles.find((p) => p.id === id) || candidates.find((p) => p.id === id) || matches.find((p) => p.id === id);
-    if (local) { openChat(local); return; }
+    if (local) { openChatRequestRef.current++; openChat(local); return; }
+    // Repli réseau (cible absente du cache local) : jeton incrémenté avant le
+    // fetch et revérifié après. Sans lui, cliquer sur une notification A puis,
+    // avant sa résolution, sur une notification B (toutes deux hors cache)
+    // pouvait ouvrir la conversation B puis voir la réponse tardive de A
+    // rappeler openChat(A) et la remplacer par la mauvaise conversation.
+    const requestId = ++openChatRequestRef.current;
     const { data, error } = await supabase.from("profiles").select("*").eq("id", id).maybeSingle();
+    if (openChatRequestRef.current !== requestId) return;
     if (error) { console.error(error.message, error.code, error.details, error.hint); return; }
     if (data) openChat(data);
   }
