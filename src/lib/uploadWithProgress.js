@@ -45,10 +45,15 @@ function uploadXhr({ bucket, path, file, onProgress, signal, accessToken }) {
     };
     xhr.onerror = () => reject(new Error("Erreur réseau pendant l'upload."));
     xhr.onabort = () => reject(new Error("Upload annulé."));
-    if (signal) {
-      if (signal.aborted) { xhr.abort(); return; }
-      signal.addEventListener("abort", () => xhr.abort());
-    }
+    // xhr.abort() avant xhr.send() est un no-op silencieux côté navigateur
+    // (aucun événement "abort" n'est déclenché tant que la requête n'a pas
+    // été envoyée) : appeler xhr.abort() puis `return` ici laissait la
+    // promesse indéfiniment en attente (ni resolve ni reject) pour un signal
+    // déjà annulé avant même l'appel — et donc endCriticalOperation() dans
+    // uploadWithProgress() n'était jamais atteint, bloquant pour de bon la
+    // déconnexion automatique par inactivité pour le reste de la session.
+    if (signal?.aborted) { reject(new Error("Upload annulé.")); return; }
+    if (signal) signal.addEventListener("abort", () => xhr.abort());
     xhr.send(file);
   });
 }
