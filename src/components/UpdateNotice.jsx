@@ -17,7 +17,17 @@ export default function UpdateNotice({ mandatory, recommended, info, onReload, o
           <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full" style={{ background: "rgba(193,97,61,0.14)" }}>
             <AlertTriangle size={26} color={C.clay} />
           </div>
-          <h2 className="text-lg font-black" style={{ color: "var(--bb-text)" }}>Mise à jour nécessaire</h2>
+          {/* Cette carte a un fond FIXE (C.sand, jamais réactif — voir ligne
+          ci-dessus), contrairement à .bb-card. Un commit antérieur avait
+          remplacé C.indigo par var(--bb-text) ici en pensant qu'il s'agissait
+          d'un texte sur fond réactif (comme les autres titres de modales
+          corrigés dans le même commit) : en thème sombre, --bb-text devient
+          #F2EDE0 (crème clair), quasi identique à C.sand (#F2E9DC) →
+          titre invisible. Le paragraphe juste en dessous utilise déjà à
+          raison la variante FIXE --bb-ink-rgb-static ; on revient ici à
+          C.indigo (fixe), cohérent avec l'onboarding/EditProfileForm qui
+          suivent la même convention sur fond clair fixe. */}
+          <h2 className="text-lg font-black" style={{ color: C.indigo }}>Mise à jour nécessaire</h2>
           <p className="text-sm mt-3" style={{ color: "rgba(var(--bb-ink-rgb-static),0.7)" }}>
             Cette version de Baobab n'est plus compatible avec les services actuels. Installe la dernière version pour continuer.
           </p>
