@@ -40,6 +40,7 @@ export default function ProfileTab({
   onToggleFollow = () => {},
   onViewProfile = () => {},
   onError = () => {},
+  blockedIds,
 }) {
           const { isPremium, subscription } = usePremiumStatus(currentUser);
           const [managingSubscription, setManagingSubscription] = useState(false);
@@ -360,6 +361,14 @@ export default function ProfileTab({
                   authorId={currentUser?.id}
                   layout="grid"
                   onError={onError}
+                  // Sans cette prop, PostsFeed retombe sur son défaut `new
+                  // Set()` — une nouvelle référence à CHAQUE rendu — et son
+                  // effet Realtime ("posts-feed:...") la reprend dans ses
+                  // dépendances : même bug de désabonnement/réabonnement en
+                  // boucle déjà corrigé pour FeedTab (voir blockedIds dans
+                  // App.jsx), simplement jamais branché sur ce chemin-ci
+                  // ("Mes publications" du profil).
+                  blockedIds={blockedIds}
                   // Sans ce delta, la tuile "Publications" en haut de page
                   // (myPostsCount, chargée une seule fois au montage) restait
                   // figée après avoir créé ou supprimé une publication ici —

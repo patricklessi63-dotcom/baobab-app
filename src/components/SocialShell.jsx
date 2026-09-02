@@ -1715,6 +1715,7 @@ export default function SocialShell({
             onToggleFollow={toggleFollow}
             onViewProfile={(p) => setViewedProfileId(p.id)}
             onError={onError}
+            blockedIds={blockedIds}
           />
         )}
 
