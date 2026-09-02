@@ -281,12 +281,24 @@ export function filterCandidatesByPreferences(currentUser, candidates) {
   return candidates.filter((c) => {
     if (typeof c.age === "number" && (c.age < minAge || c.age > maxAge)) return false;
 
+    // Bug corrigé : c.show_city/c.show_country régissent la visibilité de sa
+    // ville/son pays pour n'importe quel autre viewer — même garde que
+    // scoreLocation/scorePreferences ci-dessus (visibleCity/visibleCountry),
+    // jusqu'ici oubliée sur ce filtre DUR. Sans elle, activer "Ma ville
+    // uniquement"/"Ma ville ou mon pays" dans ses préférences utilisait la
+    // ville/le pays RÉEL du candidat pour décider de l'inclure ou non dans
+    // la liste (Découverte/Fil, via rankCandidates), révélant par simple
+    // présence/absence une localisation que ce candidat avait explicitement
+    // choisi de masquer — un canal d'inférence binaire distinct du texte
+    // affiché, mais tout aussi fuyant.
+    const cityBForFilter = visibleCity(c);
+    const countryBForFilter = visibleCountry(c);
     if (distance === "Ma ville uniquement") {
-      const sameCity = currentUser.city && c.city && c.city.trim().toLowerCase() === currentUser.city.trim().toLowerCase();
+      const sameCity = currentUser.city && cityBForFilter && cityBForFilter.trim().toLowerCase() === currentUser.city.trim().toLowerCase();
       if (!sameCity) return false;
     } else if (distance === "Ma ville ou mon pays") {
-      const sameCity = currentUser.city && c.city && c.city.trim().toLowerCase() === currentUser.city.trim().toLowerCase();
-      const sameCountry = currentUser.country && c.country && c.country.trim().toLowerCase() === currentUser.country.trim().toLowerCase();
+      const sameCity = currentUser.city && cityBForFilter && cityBForFilter.trim().toLowerCase() === currentUser.city.trim().toLowerCase();
+      const sameCountry = currentUser.country && countryBForFilter && countryBForFilter.trim().toLowerCase() === currentUser.country.trim().toLowerCase();
       if (!sameCity && !sameCountry) return false;
     }
 

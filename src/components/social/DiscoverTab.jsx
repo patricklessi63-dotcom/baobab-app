@@ -132,15 +132,22 @@ export default function DiscoverTab({
     setNearbyEnabled((v) => !v);
   }
 
+  // p.show_city === false (bug corrigé) : ce filtre par ville listait et
+  // comparait la ville RÉELLE de chaque profil sans jamais consulter
+  // show_city, alors que la carte de Découverte juste plus bas (showCity,
+  // ligne ~284) et rankCandidates() (matchingService.js) le respectent déjà.
+  // Résultat : la liste déroulante "Ville" affichait nommément la ville d'un
+  // profil qui l'avait explicitement masquée, et choisir cette ville dans le
+  // filtre le faisait quand même apparaître dans la grille.
   const cityOptions = useMemo(
-    () => Array.from(new Set(filteredPeople.map((p) => (p.city || "").trim()).filter(Boolean))).sort(),
+    () => Array.from(new Set(filteredPeople.filter((p) => p.show_city !== false).map((p) => (p.city || "").trim()).filter(Boolean))).sort(),
     [filteredPeople]
   );
 
   const filteredForGrid = useMemo(() => {
     return filteredPeople.filter((p) => {
       if (hiddenIds.has(p.id)) return false;
-      if (cityFilter && (p.city || "").trim() !== cityFilter) return false;
+      if (cityFilter && (p.show_city === false || (p.city || "").trim() !== cityFilter)) return false;
       if (intentionFilter.length > 0) {
         const theirs = (p.looking_for || "").split(",").map((s) => s.trim());
         if (!intentionFilter.some((f) => theirs.includes(f))) return false;
