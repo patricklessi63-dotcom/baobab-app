@@ -81,7 +81,16 @@ function scoreInterests(userA, userB) {
 // affirme une similarité que les données ne montrent pas vraiment).
 const LIFE_PROJECT_NON_SIGNAL_VALUES = new Set(["je préfère ne pas répondre", "autre"]);
 
+// Bug corrigé : userB.show_life_project régit la visibilité de son projet de
+// vie pour n'importe quel autre viewer (voir PublicProfileModal.jsx, qui le
+// respecte déjà) — même garde que scoreInterests ci-dessus pour
+// userB.show_interests. Sans elle, un candidat ayant explicitement masqué
+// son projet de vie voyait quand même ses champs (wants_children,
+// family_importance, career_goal, geographic_openness) utilisés pour
+// calculer des points et afficher "Vous avez une vision similaire de votre
+// projet de vie" à l'autre personne.
 function scoreLifeProject(userA, userB) {
+  if (userB.show_life_project === false) return { points: 0 };
   let points = 0;
   const fields = [
     ["wants_children", 5],
@@ -131,17 +140,26 @@ function scoreLanguages(userA, userB) {
   return { points: Math.min(shared.length * 5, MATCH_WEIGHTS.languages), shared };
 }
 
+// Bug corrigé : userB.show_city/show_country régissent la visibilité de sa
+// ville/son pays pour n'importe quel autre viewer (voir
+// PublicProfileModal.jsx et la carte de Découverte, qui les respectent déjà
+// — voir commentaire "Confidentialité par champ" dans DiscoverTab.jsx). Sans
+// cette même garde ici, le libellé "Même ville (...)"/"Même pays d'origine
+// (...)" affichait nommément, juste en dessous de cette carte, une ville ou
+// un pays que le candidat avait pourtant explicitement masqués.
 function scoreLocation(userA, userB) {
+  const cityBRaw = userB.show_city === false ? "" : userB.city;
+  const countryBRaw = userB.show_country === false ? "" : userB.country;
   const cityA = (userA.city || "").trim().toLowerCase();
-  const cityB = (userB.city || "").trim().toLowerCase();
+  const cityB = (cityBRaw || "").trim().toLowerCase();
   const countryA = (userA.country || "").trim().toLowerCase();
-  const countryB = (userB.country || "").trim().toLowerCase();
+  const countryB = (countryBRaw || "").trim().toLowerCase();
 
   if (cityA && cityB && cityA === cityB) {
-    return { points: MATCH_WEIGHTS.location, level: "same_city", label: `Même ville (${userB.city})` };
+    return { points: MATCH_WEIGHTS.location, level: "same_city", label: `Même ville (${cityBRaw})` };
   }
   if (countryA && countryB && countryA === countryB) {
-    return { points: Math.round(MATCH_WEIGHTS.location / 2), level: "same_country", label: `Même pays d'origine (${userB.country})` };
+    return { points: Math.round(MATCH_WEIGHTS.location / 2), level: "same_country", label: `Même pays d'origine (${countryBRaw})` };
   }
   return { points: 0, level: "unknown", label: null };
 }
