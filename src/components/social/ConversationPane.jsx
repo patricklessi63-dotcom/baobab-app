@@ -186,7 +186,19 @@ export default function ConversationPane({
             <StatusBadge emailVerified={activeMatch.email_verified} phoneVerified={activeMatch.phone_verified} isFounder={activeMatch.is_founder} isPremium={activeMatch.is_premium} size={13} />
           </div>
           <div className="text-xs truncate" style={{ color: otherTyping && currentUser.show_read_receipts !== false ? coral : muted }}>
-            {otherTyping && currentUser.show_read_receipts !== false ? "en train d'écrire…" : activeMatch.is_online ? "En ligne" : formatLastSeen(activeMatch.last_seen)}
+            {/* show_online_status vérifié (bug corrigé à l'audit) : is_online est
+                déjà forcé à false côté écriture (App.jsx) quand ce réglage est
+                désactivé, mais last_seen, lui, reste figé à l'instant de la
+                désactivation et continuait d'être affiché ici via formatLastSeen
+                — donc "Vu il y a X" fuyait quand même une donnée réelle malgré
+                le réglage "Statut en ligne visible" éteint. */}
+            {otherTyping && currentUser.show_read_receipts !== false
+              ? "en train d'écrire…"
+              : activeMatch.is_online
+              ? "En ligne"
+              : activeMatch.show_online_status === false
+              ? "Statut non disponible"
+              : formatLastSeen(activeMatch.last_seen)}
           </div>
         </div>
         <button

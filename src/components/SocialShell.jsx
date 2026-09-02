@@ -67,7 +67,18 @@ function normalizeForSearch(text) {
 function matchesSearch(profile, query) {
   const words = normalizeForSearch(query).split(/\s+/).filter(Boolean);
   if (words.length === 0) return true;
-  const haystack = normalizeForSearch(`${profile.name} ${profile.city || ""} ${profile.country || ""} ${profile.occupation || ""}`);
+  // Bug corrigé à l'audit : un champ masqué (show_city/show_country/
+  // show_occupation à false) était quand même comparé au texte tapé, donc
+  // un profil qui avait choisi de cacher sa ville apparaissait quand même
+  // dans les résultats en tapant cette ville — confirmant la donnée privée
+  // par un simple test de correspondance, même si l'affichage lui-même
+  // (plus bas dans ce fichier) respecte déjà show_city/show_country.
+  const showCity = profile.show_city !== false;
+  const showCountry = profile.show_country !== false;
+  const showOccupation = profile.show_occupation !== false;
+  const haystack = normalizeForSearch(
+    `${profile.name} ${showCity ? profile.city || "" : ""} ${showCountry ? profile.country || "" : ""} ${showOccupation ? profile.occupation || "" : ""}`
+  );
   return words.every((w) => haystack.includes(w));
 }
 
@@ -919,7 +930,10 @@ export default function SocialShell({
     .sort((a, b) => b[1] - a[1])
     .slice(0, 4);
 
-  const newArrivals = candidates.filter((p) => p.arrived_since && p.arrived_since.trim());
+  // show_canada_journey vérifié (bug corrigé à l'audit) : la section "Nouveaux
+  // au Canada" (FeedTab) affiche arrived_since via ProfileCard — un profil
+  // ayant masqué son parcours Canada ne doit donc pas y apparaître du tout.
+  const newArrivals = candidates.filter((p) => p.show_canada_journey !== false && p.arrived_since && p.arrived_since.trim());
 
   // Bug corrigé : "Masquer" un profil (bouton Masquer/EyeOff de MatchCard,
   // mode Grille "Pour toi") écrivait bien en base via useHiddenRecommendations,
@@ -981,8 +995,15 @@ export default function SocialShell({
   const searchResults = search.trim()
     ? [
         ...localSearchResults,
+        // matchesSearch réappliqué ici (bug corrigé à l'audit) : la requête
+        // Supabase ci-dessus filtre côté serveur sur city/country/occupation
+        // bruts (colonnes, pas de notion de show_X en SQL), donc un profil
+        // ne matchant QUE sur un champ qu'il a masqué remontait quand même
+        // dans "searchResults" sans jamais repasser par le filtre respectant
+        // la confidentialité (contrairement à filteredPeople/localSearchResults
+        // plus haut, qui utilisent déjà matchesSearch).
         ...remoteSearchResults.filter(
-          (p) => p.id !== currentUser?.id && !blockedIds.has(p.id) && !localSearchResults.some((lp) => lp.id === p.id)
+          (p) => p.id !== currentUser?.id && !blockedIds.has(p.id) && matchesSearch(p, search) && !localSearchResults.some((lp) => lp.id === p.id)
         ),
       ]
     : [];

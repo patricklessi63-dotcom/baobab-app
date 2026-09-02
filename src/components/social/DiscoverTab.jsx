@@ -16,6 +16,12 @@ import { primary, navy, navyRgb, green, coral, gold, gold1, surface2, bg, muted,
 const ACTIVE_RECENTLY_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
 
 function isActiveRecently(p) {
+  // show_online_status vérifié (bug corrigé à l'audit) : à la désactivation
+  // du statut en ligne, last_seen reste figé à l'instant du changement
+  // (App.jsx) au lieu d'être vidé — sans ce garde, le filtre "actif
+  // récemment" pouvait donc encore désigner ce profil pendant les 15
+  // minutes suivant la désactivation.
+  if (p.show_online_status === false) return false;
   if (p.is_online) return true;
   if (!p.last_seen) return false;
   return Date.now() - new Date(p.last_seen).getTime() < ACTIVE_RECENTLY_WINDOW_MS;

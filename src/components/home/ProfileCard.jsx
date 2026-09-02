@@ -15,8 +15,12 @@ export default function ProfileCard({
   matchReasons,
 }) {
   const hasStatusBadge = Boolean(profile.is_founder || profile.email_verified || profile.phone_verified || profile.is_premium);
+  // show_canada_journey vérifié (bug corrigé à l'audit, même famille que
+  // show_city déjà corrigé juste en dessous) : cette carte affichait
+  // arrived_since sans jamais consulter le réglage de confidentialité
+  // "Afficher mon parcours Canada", contrairement à PublicProfileModal.
   const highlightText =
-    highlight === "arrived_since" && profile.arrived_since
+    highlight === "arrived_since" && profile.show_canada_journey !== false && profile.arrived_since
       ? `🇨🇦 Au Canada depuis ${profile.arrived_since}`
       : highlight === "looking_for" && profile.looking_for
       ? `❤️ ${profile.looking_for}`
