@@ -28,6 +28,7 @@ import { friendlyDbError } from "../lib/friendlyDbError";
 import BetaFeedbackModal from "./social/BetaFeedbackModal";
 import ChunkErrorBoundary from "./ChunkErrorBoundary";
 import { useHiddenRecommendations } from "../lib/useHiddenRecommendations";
+import { escapeOrFilterValue } from "../lib/searchQuery";
 
 // Chargées à la demande (item 27 de l'audit Phase 10) : ces 3 onglets sont
 // visités moins souvent que Fil/Découverte/Messages/Profil au démarrage de
@@ -911,8 +912,48 @@ export default function SocialShell({
   // (candidates), donc un profil déjà liké/matché/hors préférences était
   // introuvable même en tapant son nom exact. Ici : tous les profils
   // connus (cache déjà chargé), moins soi-même et les bloqués.
-  const searchResults = search.trim()
+  const localSearchResults = search.trim()
     ? profiles.filter((p) => p.id !== currentUser?.id && !blockedIds.has(p.id) && matchesSearch(p, search))
+    : [];
+
+  // Le commentaire ci-dessus promet "tous les profils connus", mais
+  // `profiles` (App.jsx) est plafonné à 500 lignes triées par ancienneté —
+  // même bug de "disparition silencieuse" que celui déjà corrigé pour
+  // favoriteProfiles/followedProfiles (voir leur commentaire dans ce même
+  // fichier), appliqué ici à la recherche globale : impossible de retrouver
+  // par son nom une personne inscrite après ce plafond. Complète donc les
+  // résultats locaux par une requête réseau dédiée (debouncée pour ne pas
+  // marteler Supabase à chaque frappe), qui ne remplace pas matchesSearch
+  // (accent-insensible, multi-mots) mais rattrape au moins les profils
+  // absents du cache local pour une recherche non accentuée.
+  const [remoteSearchResults, setRemoteSearchResults] = useState([]);
+  useEffect(() => {
+    const term = search.trim();
+    if (!term) { setRemoteSearchResults([]); return; }
+    let alive = true;
+    const timer = setTimeout(() => {
+      const escaped = escapeOrFilterValue(term);
+      supabase
+        .from("profiles")
+        .select("*")
+        .or(`name.ilike."%${escaped}%",city.ilike."%${escaped}%",country.ilike."%${escaped}%",occupation.ilike."%${escaped}%"`)
+        .limit(30)
+        .then(({ data, error }) => {
+          if (!alive) return;
+          if (error) { console.error(error.message, error.code, error.details, error.hint); return; }
+          setRemoteSearchResults(data || []);
+        });
+    }, 300);
+    return () => { alive = false; clearTimeout(timer); };
+  }, [search]);
+
+  const searchResults = search.trim()
+    ? [
+        ...localSearchResults,
+        ...remoteSearchResults.filter(
+          (p) => p.id !== currentUser?.id && !blockedIds.has(p.id) && !localSearchResults.some((lp) => lp.id === p.id)
+        ),
+      ]
     : [];
 
   // Recherche "une discussion" du placeholder — jusqu'ici seule promesse non

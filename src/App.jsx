@@ -51,10 +51,21 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState(null);
   const [likePairs, setLikePairs] = useState([]); // [{from_id, to_id}]
   const [passPairs, setPassPairs] = useState([]); // [{from_id, to_id}]
+  // Profils complets de tout le monde qui m'a liké (jointure directe sur
+  // "likes", to_id = moi), alimentant getMatches()/getAdmirers() ci-dessous.
+  // Corrige le même bug de "disparition silencieuse" déjà corrigé pour
+  // favorites/follows (voir favoriteProfilesRaw dans SocialShell.jsx) :
+  // getMatches()/getAdmirers() filtraient auparavant le cache local
+  // "profiles", plafonné à 500 lignes triées par ancienneté (loadAll
+  // ci-dessous) — un match ou un·e admirateur·ice dont le profil a été créé
+  // après ce plafond restait invisible dans "Qui m'a aimé" et dans l'onglet
+  // Messages, alors que le like existait bel et bien en base.
+  const [likerProfilesRaw, setLikerProfilesRaw] = useState([]);
   const likeInFlightRef = useRef(new Set()); // to_id en cours d'envoi — évite un double clic = double insert
   const passInFlightRef = useRef(new Set());
   const likePairsRef = useRef(likePairs); // lu par l'abonnement realtime "likes" sans le forcer à se réabonner à chaque like
   const profilesRef = useRef(profiles); // idem, pour retrouver le profil qui vient de matcher
+  const likerProfilesRawRef = useRef(likerProfilesRaw); // lu par l'abonnement realtime "likes" sans le forcer à se réabonner
   const blockPairsRef = useRef([]); // idem, pour ignorer un like venant d'une personne bloquée dans un sens ou l'autre
   const likesChannelRef = useRef(null);
   const [matchNotice, setMatchNotice] = useState(null);
@@ -164,15 +175,31 @@ export default function App() {
         passQuery = passQuery.or(relFilter);
         blockQuery = blockQuery.or(relFilter);
       }
+      // Jointure directe sur "likes" (to_id = moi) pour récupérer le profil
+      // complet de chaque personne qui m'a liké, sans dépendre du cache
+      // "profiles" plafonné à 500 lignes — voir le commentaire sur
+      // likerProfilesRaw plus haut. Alias explicite "from_id" nécessaire
+      // car "likes" a deux FK vers profiles (from_id et to_id) ; sans lui
+      // PostgREST ne peut pas savoir laquelle utiliser pour l'embed.
+      const likerQuery = myProfileId
+        ? supabase.from("likes").select("from_id, profile:from_id(*)").eq("to_id", myProfileId)
+        : null;
 
-      const [likeRes, passRes, blockRes] = await Promise.all([likeQuery, passQuery, blockQuery]);
+      const [likeRes, passRes, blockRes, likerRes] = await Promise.all([
+        likeQuery,
+        passQuery,
+        blockQuery,
+        likerQuery || Promise.resolve({ data: [], error: null }),
+      ]);
       if (likeRes.error) throw likeRes.error;
       if (passRes.error) throw passRes.error;
       if (blockRes.error) throw blockRes.error;
+      if (likerRes.error) throw likerRes.error;
       setProfiles(profRes.data || []);
       setLikePairs(likeRes.data || []);
       setPassPairs(passRes.data || []);
       setBlockPairs(blockRes.data || []);
+      setLikerProfilesRaw((likerRes.data || []).map((r) => r.profile).filter(Boolean));
       const grouped = {};
       (photoRes.data || []).forEach((ph) => {
         if (!grouped[ph.profile_id]) grouped[ph.profile_id] = [];
@@ -349,6 +376,10 @@ export default function App() {
   useEffect(() => {
     profilesRef.current = profiles;
   }, [profiles]);
+
+  useEffect(() => {
+    likerProfilesRawRef.current = likerProfilesRaw;
+  }, [likerProfilesRaw]);
 
   useEffect(() => {
     blockPairsRef.current = blockPairs;
@@ -617,15 +648,25 @@ export default function App() {
     setProfiles([]);
     setLikePairs([]);
     setPassPairs([]);
+    setLikerProfilesRaw([]);
   }
 
   const hasLiked = (from, to) => likePairs.some((l) => l.from_id === from && l.to_id === to);
   const hasPassed = (from, to) => passPairs.some((p) => p.from_id === from && p.to_id === to);
   const hasBlocked = (from, to) => blockPairs.some((b) => b.from_id === from && b.to_id === to);
 
+  // getMatches()/getAdmirers() ne filtraient auparavant que le cache local
+  // "profiles" (plafonné à 500 lignes, triées par ancienneté — voir loadAll)
+  // : un match ou un·e admirateur·ice créé·e après ce plafond disparaissait
+  // silencieusement, alors que le like existait bel et bien en base (même
+  // bug que favoriteProfiles/followedProfiles, déjà corrigé ailleurs). Les
+  // deux fonctions ne retiennent que des profils qui m'ont liké — un
+  // sous-ensemble exact de likerProfilesRaw (jointure directe, non plafonnée)
+  // — donc partir de cette liste au lieu de "profiles" résout le problème
+  // sans changer la logique de sélection.
   const getMatches = useCallback(() => {
     if (!currentUser) return [];
-    return profiles.filter(
+    return likerProfilesRaw.filter(
       (p) =>
         p.id !== currentUser.id &&
         hasLiked(currentUser.id, p.id) &&
@@ -633,7 +674,7 @@ export default function App() {
         !hasBlocked(currentUser.id, p.id) &&
         !hasBlocked(p.id, currentUser.id)
     );
-  }, [profiles, likePairs, blockPairs, currentUser]);
+  }, [likerProfilesRaw, likePairs, blockPairs, currentUser]);
 
   // "Qui m'a aimé" (avantage Premium) : m'a aimé, mais pas encore réciproque
   // — dès que handleLike() est appelé dessus, hasLiked() devient vrai des
@@ -641,7 +682,7 @@ export default function App() {
   // prochain rendu (aucune action "confirmer le match" séparée nécessaire).
   const getAdmirers = useCallback(() => {
     if (!currentUser) return [];
-    return profiles.filter(
+    return likerProfilesRaw.filter(
       (p) =>
         p.id !== currentUser.id &&
         hasLiked(p.id, currentUser.id) &&
@@ -649,7 +690,7 @@ export default function App() {
         !hasBlocked(currentUser.id, p.id) &&
         !hasBlocked(p.id, currentUser.id)
     );
-  }, [profiles, likePairs, blockPairs, currentUser]);
+  }, [likerProfilesRaw, likePairs, blockPairs, currentUser]);
 
   async function performBlock(target) {
     if (!currentUser) return;
@@ -1814,13 +1855,26 @@ export default function App() {
           setLikePairs((prev) =>
             prev.some((l) => l.from_id === fromId && l.to_id === currentUser.id) ? prev : [...prev, { from_id: fromId, to_id: currentUser.id }]
           );
-          if (alreadyMutual) {
-            const matchedProfile = profilesRef.current.find((p) => p.id === fromId);
-            if (matchedProfile) {
-              setMatchNotice(matchedProfile);
+          // Le profil complet de qui vient de me liker doit rejoindre
+          // likerProfilesRaw (liste "Qui m'a aimé"/matches, voir sa
+          // déclaration plus haut) — sans ça, un like reçu en direct d'une
+          // personne absente du cache "profiles" plafonné à 500 lignes ne
+          // serait jamais visible, ni dans la modale Admirateurs ni comme
+          // match, avant un rechargement complet de la page.
+          (async () => {
+            let fromProfile =
+              likerProfilesRawRef.current.find((p) => p.id === fromId) || profilesRef.current.find((p) => p.id === fromId);
+            if (!fromProfile) {
+              const { data } = await supabase.from("profiles").select("*").eq("id", fromId).maybeSingle();
+              fromProfile = data || null;
+            }
+            if (!fromProfile) return;
+            setLikerProfilesRaw((prev) => (prev.some((p) => p.id === fromId) ? prev : [fromProfile, ...prev]));
+            if (alreadyMutual) {
+              setMatchNotice(fromProfile);
               trackActivation(currentUser.id, "first_match");
             }
-          }
+          })();
         }
       )
       .subscribe();
