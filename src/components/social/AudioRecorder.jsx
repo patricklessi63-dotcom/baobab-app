@@ -61,6 +61,7 @@ export default function AudioRecorder({ hasDraft, onSendText, onSendAudio, onAct
   const chunksRef = useRef([]);
   const startRef = useRef(0);
   const timerRef = useRef(null);
+  const errorTimerRef = useRef(null);
   const blobRef = useRef(null);
   const audioElRef = useRef(null);
   const audioUrlRef = useRef(null);
@@ -90,6 +91,7 @@ export default function AudioRecorder({ hasDraft, onSendText, onSendAudio, onAct
 
   const cleanup = () => {
     clearInterval(timerRef.current);
+    if (errorTimerRef.current) { clearTimeout(errorTimerRef.current); errorTimerRef.current = null; }
     stopTracks();
     if (audioUrlRef.current) { URL.revokeObjectURL(audioUrlRef.current); audioUrlRef.current = null; }
     blobRef.current = null;
@@ -133,7 +135,18 @@ export default function AudioRecorder({ hasDraft, onSendText, onSendAudio, onAct
     setPermissionOpen(false);
     setErrorMsg(msg);
     setState("error");
-    setTimeout(() => setState("idle"), 6000);
+    // Annule tout minuteur d'un message d'erreur précédent : sans ça, chaque
+    // appel posait son propre setTimeout indépendant (même défaut que
+    // successNotice dans App.jsx). Deux erreurs rapprochées coupaient la
+    // seconde en avance ; pire, si l'utilisateur relançait avec succès un
+    // enregistrement entre-temps, le minuteur obsolète forçait l'état à
+    // repasser à "idle" alors qu'un enregistrement était en cours. La mise à
+    // jour fonctionnelle ci-dessous ignore le reset si l'état a déjà changé.
+    if (errorTimerRef.current) clearTimeout(errorTimerRef.current);
+    errorTimerRef.current = setTimeout(() => {
+      setState((s) => (s === "error" ? "idle" : s));
+      errorTimerRef.current = null;
+    }, 6000);
   };
 
   // C'est CET appel, dans un gestionnaire de clic (jamais au chargement de
