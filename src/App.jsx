@@ -61,6 +61,10 @@ export default function App() {
   // après ce plafond restait invisible dans "Qui m'a aimé" et dans l'onglet
   // Messages, alors que le like existait bel et bien en base.
   const [likerProfilesRaw, setLikerProfilesRaw] = useState([]);
+  // Profils complets des comptes que j'ai bloqués (jointure directe sur
+  // "blocks", from_id = moi) — voir le commentaire dans loadAll : alimente
+  // la modale "Comptes bloqués" sans dépendre du cache "profiles" plafonné.
+  const [blockedProfilesRaw, setBlockedProfilesRaw] = useState([]);
   const likeInFlightRef = useRef(new Set()); // to_id en cours d'envoi — évite un double clic = double insert
   const passInFlightRef = useRef(new Set());
   const likePairsRef = useRef(likePairs); // lu par l'abonnement realtime "likes" sans le forcer à se réabonner à chaque like
@@ -184,22 +188,35 @@ export default function App() {
       const likerQuery = myProfileId
         ? supabase.from("likes").select("from_id, profile:from_id(*)").eq("to_id", myProfileId)
         : null;
+      // Même correctif que likerQuery ci-dessus, appliqué à la modale "Comptes
+      // bloqués" (AppModals.jsx) : elle filtrait jusqu'ici le cache "profiles"
+      // plafonné à 500 lignes pour retrouver les profils bloqués, donc toute
+      // personne bloquée mais absente de ces 500 premières lignes disparaissait
+      // silencieusement de la liste — impossible de la débloquer depuis l'UI
+      // bien que le blocage existait toujours en base. Jointure directe sur
+      // "blocks" (from_id = moi) à la place.
+      const blockedQuery = myProfileId
+        ? supabase.from("blocks").select("to_id, profile:to_id(*)").eq("from_id", myProfileId)
+        : null;
 
-      const [likeRes, passRes, blockRes, likerRes] = await Promise.all([
+      const [likeRes, passRes, blockRes, likerRes, blockedProfRes] = await Promise.all([
         likeQuery,
         passQuery,
         blockQuery,
         likerQuery || Promise.resolve({ data: [], error: null }),
+        blockedQuery || Promise.resolve({ data: [], error: null }),
       ]);
       if (likeRes.error) throw likeRes.error;
       if (passRes.error) throw passRes.error;
       if (blockRes.error) throw blockRes.error;
       if (likerRes.error) throw likerRes.error;
+      if (blockedProfRes.error) throw blockedProfRes.error;
       setProfiles(profRes.data || []);
       setLikePairs(likeRes.data || []);
       setPassPairs(passRes.data || []);
       setBlockPairs(blockRes.data || []);
       setLikerProfilesRaw((likerRes.data || []).map((r) => r.profile).filter(Boolean));
+      setBlockedProfilesRaw((blockedProfRes.data || []).map((r) => r.profile).filter(Boolean));
       const grouped = {};
       (photoRes.data || []).forEach((ph) => {
         if (!grouped[ph.profile_id]) grouped[ph.profile_id] = [];
@@ -545,28 +562,55 @@ export default function App() {
       .catch(() => setMyPlatformRole(null));
   }, [currentUser?.id]);
 
+  // Applique le profil retrouvé (banni/suspendu/onboarding/feed) — factorisé
+  // pour être appelé aussi bien depuis le cache local que depuis le filet de
+  // secours réseau ci-dessous.
+  function applyOwnProfile(own) {
+    setCurrentUser(own);
+    // Suspension/bannissement réellement appliqués ici (pas seulement un
+    // bouton caché côté UI) — un compte banni ou suspendu n'atteint
+    // jamais l'application, quelle que soit la façon dont il y accède.
+    if (own.banned_at) {
+      setView("banned");
+    } else if (own.suspended_until && new Date(own.suspended_until) > new Date()) {
+      setView("suspended");
+    } else if (!own.onboarding_completed_at) {
+      setView("onboarding");
+    } else {
+      setView("feed");
+    }
+  }
+
   useEffect(() => {
     if (view !== "checking-profile") return;
     if (!session) return;
     const own = profiles.find((p) => p.user_id === session.user.id);
     if (own) {
-      setCurrentUser(own);
-      // Suspension/bannissement réellement appliqués ici (pas seulement un
-      // bouton caché côté UI) — un compte banni ou suspendu n'atteint
-      // jamais l'application, quelle que soit la façon dont il y accède.
-      if (own.banned_at) {
-        setView("banned");
-      } else if (own.suspended_until && new Date(own.suspended_until) > new Date()) {
-        setView("suspended");
-      } else if (!own.onboarding_completed_at) {
-        setView("onboarding");
-      } else {
-        setView("feed");
-      }
-    } else {
-      setCurrentUser(null);
-      setView("onboarding");
+      applyOwnProfile(own);
+      return;
     }
+    // Bug corrigé : "profiles" (chargé par loadAll) est plafonné à 500 lignes
+    // triées par ancienneté — tout compte créé après ce plafond n'y figure
+    // jamais. Sans filet de secours, ce `.find` échouait silencieusement pour
+    // ces comptes à CHAQUE connexion (et à chaque rechargement de page), et
+    // l'app les renvoyait vers l'onboarding en les traitant comme s'ils
+    // n'avaient jamais créé de profil — alors que le profil existe bien en
+    // base. On retente donc une requête directe par user_id avant de conclure
+    // à l'absence de profil (même filet que likerProfilesRaw/favoriteProfiles
+    // ailleurs dans l'app pour ce même cache plafonné).
+    let alive = true;
+    supabase.from("profiles").select("*").eq("user_id", session.user.id).maybeSingle().then(({ data, error }) => {
+      if (!alive) return;
+      if (error) console.error(error.message, error.code, error.details, error.hint);
+      if (data) {
+        applyOwnProfile(data);
+      } else {
+        setCurrentUser(null);
+        setView("onboarding");
+      }
+    });
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view, profiles, session]);
 
   function handleAccountDeletionRequested() {
@@ -649,6 +693,7 @@ export default function App() {
     setLikePairs([]);
     setPassPairs([]);
     setLikerProfilesRaw([]);
+    setBlockedProfilesRaw([]);
   }
 
   const hasLiked = (from, to) => likePairs.some((l) => l.from_id === from && l.to_id === to);
@@ -700,6 +745,10 @@ export default function App() {
         .insert({ from_id: currentUser.id, to_id: target.id });
       if (blockError) throw blockError;
       setBlockPairs((b) => [...b, { from_id: currentUser.id, to_id: target.id }]);
+      // Tient blockedProfilesRaw à jour immédiatement (sans attendre un
+      // prochain loadAll) — même logique que setBlockPairs ci-dessus, pour
+      // que la modale "Comptes bloqués" reflète ce blocage tout de suite.
+      setBlockedProfilesRaw((b) => (b.some((p) => p.id === target.id) ? b : [...b, target]));
       if (activeMatch?.id === target.id) {
         setActiveMatch(null);
       }
@@ -731,6 +780,7 @@ export default function App() {
         .eq("to_id", target.id);
       if (unblockError) throw unblockError;
       setBlockPairs((b) => b.filter((pair) => !(pair.from_id === currentUser.id && pair.to_id === target.id)));
+      setBlockedProfilesRaw((b) => b.filter((p) => p.id !== target.id));
     } catch (e) {
       console.error(e);
       setError("Impossible de débloquer ce profil.");
@@ -1287,9 +1337,12 @@ export default function App() {
       )
     : [];
 
-  const blockedProfiles = currentUser
-    ? profiles.filter((p) => blockPairs.some((b) => b.from_id === currentUser.id && b.to_id === p.id))
-    : [];
+  // Bug corrigé : filtrait auparavant le cache local "profiles" plafonné à
+  // 500 lignes (voir loadAll) — une personne bloquée mais absente de ces 500
+  // premières lignes restait invisible dans la modale "Comptes bloqués",
+  // donc impossible à débloquer. Part maintenant de blockedProfilesRaw
+  // (jointure directe sur "blocks", non plafonnée — voir loadAll).
+  const blockedProfiles = currentUser ? blockedProfilesRaw : [];
 
   // Les deux sens du blocage — utilisé pour filtrer toute liste montrant des
   // profils (suivis/abonnés inclus), pas seulement le blocage que j'ai fait.
