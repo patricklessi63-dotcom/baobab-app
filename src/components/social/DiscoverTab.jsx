@@ -302,7 +302,12 @@ export default function DiscoverTab({
                         {!photo && <div className="absolute inset-0 flex items-center justify-center text-8xl">🌍</div>}
 
                         {photos.length > 1 && (
-                          <div className="absolute top-3 left-3 right-3 flex gap-1.5 z-10">
+                          // pointer-events-none : ces pastilles de progression sont purement
+                          // visuelles et se trouvent dans la zone des boutons invisibles
+                          // "photo précédente/suivante" (tiers gauche/droit, z-[5] plus bas) —
+                          // sans ce garde elles interceptaient le tap avant qu'il n'atteigne
+                          // le bouton en dessous.
+                          <div className="absolute top-3 left-3 right-3 flex gap-1.5 z-10 pointer-events-none">
                             {photos.map((_, i) => (
                               <div key={i} className="h-[3px] flex-1 rounded-full bg-white/30 overflow-hidden">
                                 <div className="h-full bg-white" style={{ width: i === discoverPhotoIndex ? "100%" : i < discoverPhotoIndex ? "100%" : "0%" }} />
@@ -317,15 +322,25 @@ export default function DiscoverTab({
                           </>
                         )}
 
-                        <div className="absolute top-4 left-4 flex gap-2 z-10">
+                        {/*
+                          pointer-events-none sur ces 3 overlays : ils sont purement informatifs/
+                          décoratifs (pas de onClick) mais empilés en z-10, donc au-dessus des
+                          boutons invisibles "photo précédente/suivante" (z-[5], tiers gauche/droit
+                          sur toute la hauteur — voir ci-dessus). L'indicateur OUI/PASSER en
+                          particulier reste dans le DOM même à opacity:0 (pas de swipe en cours) et
+                          interceptait quand même le tap dans cette zone : toucher la photo en haut
+                          à gauche/droite pour changer de photo ne faisait alors rien, le clic
+                          n'atteignait jamais le bouton dessous.
+                        */}
+                        <div className="absolute top-4 left-4 flex gap-2 z-10 pointer-events-none">
                           <span className="px-3 py-1.5 rounded-full bg-white/15 backdrop-blur-md text-white text-[11px] font-bold">{(showCity && p.city) || "Canada"}</span>
                           {showCountry && p.country && <span className="px-3 py-1.5 rounded-full bg-white/15 backdrop-blur-md text-white text-[11px] font-bold">🌍 {p.country}</span>}
                         </div>
 
-                        <div className="absolute top-16 left-6 border-4 rounded-2xl px-3 py-1 z-10" style={{ borderColor: online, transform: `rotate(-14deg)`, opacity: likeOpacity }}>
+                        <div className="absolute top-16 left-6 border-4 rounded-2xl px-3 py-1 z-10 pointer-events-none" style={{ borderColor: online, transform: `rotate(-14deg)`, opacity: likeOpacity }}>
                           <span className="text-lg font-black tracking-widest" style={{ color: online }}>OUI</span>
                         </div>
-                        <div className="absolute top-16 right-6 border-4 rounded-2xl px-3 py-1 z-10" style={{ borderColor: coral, transform: `rotate(14deg)`, opacity: passOpacity }}>
+                        <div className="absolute top-16 right-6 border-4 rounded-2xl px-3 py-1 z-10 pointer-events-none" style={{ borderColor: coral, transform: `rotate(14deg)`, opacity: passOpacity }}>
                           <span className="text-lg font-black tracking-widest" style={{ color: coral }}>PASSER</span>
                         </div>
 
