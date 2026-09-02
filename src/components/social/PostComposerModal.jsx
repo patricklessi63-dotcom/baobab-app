@@ -53,16 +53,25 @@ export default function PostComposerModal({
 
   // Insère l'emoji à la position du curseur dans le textarea (plutôt qu'à
   // la fin) — comportement attendu de tout sélecteur emoji moderne.
+  // Tronqué à 4000 caractères comme les deux autres chemins qui modifient
+  // `draft` (saisie clavier ligne ~136, suggestion IA ligne ~148) : sans ce
+  // correctif, insérer un emoji alors que le texte est déjà proche de la
+  // limite pouvait dépasser 4000 caractères sans que rien ne le bloque côté
+  // UI (le compteur l'affichait, mais canPublish ne vérifie pas la longueur)
+  // — posts.body a une contrainte "check (char_length(body) between 1 and
+  // 4000)" côté base (supabase-feed-posts.sql), donc la publication
+  // échouait silencieusement à l'insertion avec un message générique
+  // "Impossible de publier. Réessaie.", sans aucun indice sur la vraie cause.
   const insertEmoji = (emoji) => {
     const el = textareaRef.current;
-    if (!el) { setDraft((d) => d + emoji); return; }
+    if (!el) { setDraft((d) => (d + emoji).slice(0, 4000)); return; }
     const start = el.selectionStart ?? draft.length;
     const end = el.selectionEnd ?? draft.length;
-    const next = draft.slice(0, start) + emoji + draft.slice(end);
+    const next = (draft.slice(0, start) + emoji + draft.slice(end)).slice(0, 4000);
     setDraft(next);
     requestAnimationFrame(() => {
       el.focus();
-      el.selectionStart = el.selectionEnd = start + emoji.length;
+      el.selectionStart = el.selectionEnd = Math.min(start + emoji.length, next.length);
     });
   };
 
