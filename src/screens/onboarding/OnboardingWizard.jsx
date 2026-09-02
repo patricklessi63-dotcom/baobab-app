@@ -153,9 +153,30 @@ export default function OnboardingWizard({
           const url = await uploadPhoto(session.user.id, photoFiles[i], i);
           uploadedUrls.push(url);
         }
+        // Bug corrigé : cette étape est atteignable plus d'une fois (retour en
+        // arrière depuis l'étape 4 puis "Continuer" à nouveau après avoir
+        // ajouté une photo supplémentaire) — insérer les nouvelles lignes à
+        // des positions 0,1,2... fixes, sans tenir compte des lignes
+        // profile_photos déjà enregistrées lors d'un premier passage, créait
+        // des positions en double en base (même défaut que celui déjà corrigé
+        // dans handleSaveProfile/App.jsx pour l'édition de profil). On relit
+        // donc les photos déjà existantes pour dériver la position de départ
+        // ET les fusionner dans l'état local, plutôt que d'écraser
+        // profilePhotos avec les seules lignes tout juste insérées (qui
+        // faisait localement "disparaître" les photos d'un premier passage
+        // jusqu'au prochain rechargement complet).
+        const { data: existingRows, error: existingError } = await supabase
+          .from("profile_photos")
+          .select("*")
+          .eq("profile_id", currentUser.id);
+        if (existingError) throw existingError;
+        const existingPhotoRows = existingRows || [];
         let photoRows = [];
         if (uploadedUrls.length > 0) {
-          const rows = uploadedUrls.map((url, idx) => ({ profile_id: currentUser.id, url, position: idx }));
+          const startPos = existingPhotoRows.length
+            ? Math.max(...existingPhotoRows.map((p) => p.position ?? 0)) + 1
+            : 0;
+          const rows = uploadedUrls.map((url, idx) => ({ profile_id: currentUser.id, url, position: startPos + idx }));
           const { data: inserted, error: photoError } = await supabase.from("profile_photos").insert(rows).select();
           if (photoError) throw photoError;
           photoRows = inserted || [];
@@ -165,7 +186,7 @@ export default function OnboardingWizard({
         if (updateError) throw updateError;
         setCurrentUser(data);
         setProfiles((prev) => prev.map((p) => (p.id === data.id ? data : p)));
-        setProfilePhotos((pp) => ({ ...pp, [data.id]: photoRows }));
+        setProfilePhotos((pp) => ({ ...pp, [data.id]: [...existingPhotoRows, ...photoRows] }));
         setPhotoFiles([]);
         setPhotoPreviews([]);
         return data;
