@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Heart, X, MessageCircle } from "lucide-react";
 import StatusBadge from "../StatusBadge";
 import { visibleAge } from "../../utils/format";
@@ -21,6 +21,13 @@ export default function ProfileCard({
       : highlight === "looking_for" && profile.looking_for
       ? `❤️ ${profile.looking_for}`
       : null;
+  // Repli sur l'emoji 🌍 si la photo échoue à charger (fichier supprimé du
+  // storage, URL cassée) — même défaut que celui déjà corrigé dans
+  // Avatar.jsx : avatar_url était utilisée en <img> brute sans onError, donc
+  // une photo cassée affichait l'icône "image cassée" du navigateur au lieu
+  // du repli déjà prévu pour l'absence de photo.
+  const [imgError, setImgError] = useState(false);
+  useEffect(() => { setImgError(false); }, [profile.avatar_url]);
 
   return (
     <div
@@ -30,11 +37,12 @@ export default function ProfileCard({
         : { borderColor: `rgba(${primaryRgb},.08)` }}
     >
       <div className="h-28 relative overflow-hidden" style={{ background: `linear-gradient(150deg,${gold},${coral})` }}>
-        {profile.avatar_url ? (
+        {profile.avatar_url && !imgError ? (
           <img
             src={profile.avatar_url}
             alt={profile.name ? `Photo de ${profile.name}` : "Photo de profil"}
             loading="lazy"
+            onError={() => setImgError(true)}
             className="absolute inset-0 w-full h-full object-cover"
           />
         ) : (

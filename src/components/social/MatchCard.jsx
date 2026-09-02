@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Heart, X, MessageCircle, Star, Flag, Ban, EyeOff, HeartCrack } from "lucide-react";
 import Avatar from "../Avatar";
 import StatusBadge from "../StatusBadge";
@@ -29,12 +29,19 @@ export default function MatchCard({
   // PublicProfileModal.jsx qui le respectent déjà : un profil masquant sa
   // ville restait quand même visible ici.
   const showCity = profile.show_city !== false;
+  // Repli sur l'avatar-initiale si la photo échoue à charger (fichier
+  // supprimé du storage, URL cassée) — même défaut que celui déjà corrigé
+  // dans Avatar.jsx : ici avatar_url était utilisée en <img> brute, sans
+  // onError, donc une photo cassée affichait indéfiniment l'icône "image
+  // cassée" du navigateur en tête de carte au lieu du dégradé + initiale.
+  const [imgError, setImgError] = useState(false);
+  useEffect(() => { setImgError(false); }, [profile.avatar_url]);
 
   return (
     <div className={`${card} overflow-hidden flex flex-col`}>
       <button onClick={() => onViewProfile?.(profile)} className="relative h-48 w-full text-left focus-visible:outline focus-visible:outline-2">
-        {profile.avatar_url ? (
-          <img src={profile.avatar_url} alt={profile.name ? `Photo de ${profile.name}` : "Photo de profil"} loading="lazy" className="absolute inset-0 w-full h-full object-cover" />
+        {profile.avatar_url && !imgError ? (
+          <img src={profile.avatar_url} alt={profile.name ? `Photo de ${profile.name}` : "Photo de profil"} loading="lazy" onError={() => setImgError(true)} className="absolute inset-0 w-full h-full object-cover" />
         ) : (
           <div className="absolute inset-0 flex items-center justify-center" style={{ background: `linear-gradient(150deg,${gold},${coral})` }}>
             <Avatar name={profile.name} url={null} size={72} />
