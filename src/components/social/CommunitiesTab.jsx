@@ -74,6 +74,14 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
   // props déjà branchées ailleurs dans SocialShell, aucune nouvelle logique.
   matches = [], favoriteIds = new Set(), followingIds = new Set(), hasLiked = () => false,
   onLikeProfile = () => {}, onUnlikeProfile = () => {}, onToggleFavoriteProfile = () => {}, onToggleFollowProfile = () => {}, onMessageProfile = () => {},
+  // Bug corrigé au même audit que ci-dessus (passe 158) : profilePhotos
+  // n'était pas transmis du tout, alors que SocialShell.jsx (Découverte/
+  // Favoris/Fil) le passe déjà à sa propre PublicProfileModal. Résultat :
+  // consulter le profil d'un membre depuis une communauté n'affichait
+  // jamais que son avatar (galerie tronquée à 1 photo, jamais les autres
+  // photos réellement ajoutées à son profil), sans aucune flèche de
+  // navigation entre elles.
+  profilePhotos = {},
 }) {
   const isPlatformAdmin = myPlatformRole === "admin" || myPlatformRole === "super_admin";
   const [view, setView] = useState("list"); // list | detail | create
@@ -1003,6 +1011,7 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
 
         <PublicProfileModal
           profile={viewedMemberProfile}
+          photos={profilePhotos[viewedMemberProfile?.id] || []}
           onClose={() => setViewedMemberProfile(null)}
           isMatch={viewedMemberIsMatch}
           isFavorite={favoriteIds.has(viewedMemberProfile?.id)}

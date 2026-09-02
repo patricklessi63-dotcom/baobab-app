@@ -72,6 +72,14 @@ export default function EventsTab({ currentUser, onError, initialEventId, onCons
   // ailleurs dans SocialShell, aucune nouvelle logique.
   matches = [], favoriteIds = new Set(), followingIds = new Set(), hasLiked = () => false,
   onLikeProfile = () => {}, onUnlikeProfile = () => {}, onToggleFavoriteProfile = () => {}, onToggleFollowProfile = () => {}, onMessageProfile = () => {},
+  // Bug corrigé au même audit que ci-dessus (passe 158) : profilePhotos
+  // n'était pas transmis du tout, alors que SocialShell.jsx (Découverte/
+  // Favoris/Fil) le passe déjà à sa propre PublicProfileModal. Résultat :
+  // consulter le profil d'un·e participant·e depuis un événement n'affichait
+  // jamais que son avatar (galerie tronquée à 1 photo, jamais les autres
+  // photos réellement ajoutées à son profil), sans aucune flèche de
+  // navigation entre elles.
+  profilePhotos = {},
 }) {
   const isPlatformAdmin = myPlatformRole === "admin" || myPlatformRole === "super_admin";
   const [view, setView] = useState("home"); // home | detail | create | edit
@@ -789,6 +797,7 @@ export default function EventsTab({ currentUser, onError, initialEventId, onCons
 
         <PublicProfileModal
           profile={viewedProfile}
+          photos={profilePhotos[viewedProfile?.id] || []}
           onClose={() => setViewedProfile(null)}
           isMatch={viewedProfileIsMatch}
           isFavorite={favoriteIds.has(viewedProfile?.id)}

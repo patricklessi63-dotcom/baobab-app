@@ -1818,6 +1818,7 @@ export default function SocialShell({
                 onToggleFavoriteProfile={toggleFavorite}
                 onToggleFollowProfile={toggleFollow}
                 onMessageProfile={openChat}
+                profilePhotos={profilePhotos}
               />
             </Suspense>
           </ChunkErrorBoundary>
@@ -1847,6 +1848,7 @@ export default function SocialShell({
                 onToggleFavoriteProfile={toggleFavorite}
                 onToggleFollowProfile={toggleFollow}
                 onMessageProfile={openChat}
+                profilePhotos={profilePhotos}
               />
             </Suspense>
           </ChunkErrorBoundary>
