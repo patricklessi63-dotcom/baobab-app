@@ -101,6 +101,8 @@ export default function App() {
   const [reportSubmitted, setReportSubmitted] = useState(false);
   const [blockTarget, setBlockTarget] = useState(null); // profil en attente de confirmation de blocage
   const [successNotice, setSuccessNotice] = useState("");
+  // Minuteur du bandeau de succès ci-dessus, voir showSuccessNotice().
+  const successNoticeTimerRef = useRef(null);
   const [initialSocialTab, setInitialSocialTab] = useState(null); // onglet à ouvrir au premier montage de SocialShell (ex. retour de paiement Stripe)
   const [justSubscribed, setJustSubscribed] = useState(false); // vient de compléter un paiement Stripe Checkout — PremiumPage doit revérifier son statut (le webhook Stripe est asynchrone)
   const [hasMoreHistory, setHasMoreHistory] = useState(false);
@@ -256,6 +258,23 @@ export default function App() {
     return () => clearTimeout(timer);
   }, [error]);
 
+  // Affiche le bandeau de succès pendant durationMs puis l'efface. Annule
+  // d'abord tout minuteur laissé par un appel précédent : avant ce correctif,
+  // chaque site d'appel posait son propre setTimeout indépendant (comme pour
+  // "error" ci-dessus, mais sans le nettoyage via useEffect) — si un second
+  // bandeau s'affichait pendant que le minuteur du premier était encore en
+  // vol (ex. retour de paiement Stripe suivi de près par un blocage), ce
+  // minuteur obsolète effaçait le second message bien avant la durée prévue
+  // pour lui, indépendamment de son propre contenu.
+  function showSuccessNotice(text, durationMs) {
+    if (successNoticeTimerRef.current) clearTimeout(successNoticeTimerRef.current);
+    setSuccessNotice(text);
+    successNoticeTimerRef.current = setTimeout(() => {
+      setSuccessNotice("");
+      successNoticeTimerRef.current = null;
+    }, durationMs);
+  }
+
   // Détecte le retour d'un lien de confirmation d'email ou d'un lien mort
   // (Phase 7.5). Pas de routeur dans ce projet : le seul canal disponible
   // est l'URL elle-même. "verified=1" (ajouté via emailRedirectTo dans
@@ -285,12 +304,10 @@ export default function App() {
     if (premiumFlag === "success") {
       setInitialSocialTab("premium");
       setJustSubscribed(true);
-      setSuccessNotice("Paiement reçu ! Activation de Premium en cours (quelques secondes).");
-      setTimeout(() => setSuccessNotice(""), 6000);
+      showSuccessNotice("Paiement reçu ! Activation de Premium en cours (quelques secondes).", 6000);
     } else if (premiumFlag === "cancelled") {
       setInitialSocialTab("premium");
-      setSuccessNotice("Paiement annulé, aucun montant n'a été prélevé.");
-      setTimeout(() => setSuccessNotice(""), 5000);
+      showSuccessNotice("Paiement annulé, aucun montant n'a été prélevé.", 5000);
     }
     if (verifiedFlag || linkErrorCode || premiumFlag) {
       window.history.replaceState({}, "", window.location.pathname);
@@ -842,8 +859,7 @@ export default function App() {
   async function confirmBlock(target) {
     await performBlock(target);
     setBlockTarget(null);
-    setSuccessNotice("Cette personne ne pourra plus interagir avec toi sur Baobab.");
-    setTimeout(() => setSuccessNotice(""), 4000);
+    showSuccessNotice("Cette personne ne pourra plus interagir avec toi sur Baobab.", 4000);
   }
 
   async function handleUnblock(target) {
