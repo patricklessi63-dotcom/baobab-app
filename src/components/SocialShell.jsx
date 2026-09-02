@@ -1653,6 +1653,7 @@ export default function SocialShell({
             candidates={candidates}
             handleLike={handleLike}
             handlePass={handlePass}
+            hasLiked={hasLiked}
             nearbyMembers={nearbyMembers}
             newArrivals={newArrivals}
             communities={communities}

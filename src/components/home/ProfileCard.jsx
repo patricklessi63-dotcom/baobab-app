@@ -13,6 +13,13 @@ export default function ProfileCard({
   onMessage,
   compatibilityScore,
   matchReasons,
+  // Bug corrigé à l'audit (même famille que MatchCard.jsx, "Pour toi" grille
+  // de Découverte) : sans cette prop, le bouton "J'aime" restait affiché et
+  // cliquable indéfiniment même sur un profil déjà aimé (ex. section
+  // "Suivis" du fil, qui n'exclut pas les profils déjà aimés contrairement
+  // à candidates) — handleLike() renvoie alors silencieusement sans rien
+  // faire (garde hasLiked() côté App.jsx), un clic sans aucun retour visible.
+  isLiked = false,
 }) {
   const hasStatusBadge = Boolean(profile.is_founder || profile.email_verified || profile.phone_verified || profile.is_premium);
   // show_canada_journey vérifié (bug corrigé à l'audit, même famille que
@@ -87,7 +94,7 @@ export default function ProfileCard({
           </div>
         )}
 
-        {(onPass || onLike || onMessage) && (
+        {(onPass || (onLike && !isLiked) || onMessage) && (
           <div className="flex gap-1.5 mt-2.5">
             {onPass && (
               <button
@@ -99,7 +106,7 @@ export default function ProfileCard({
                 <X size={14} aria-hidden="true" />
               </button>
             )}
-            {onLike && (
+            {onLike && !isLiked && (
               <button
                 onClick={() => onLike(profile)}
                 aria-label={`Aimer le profil de ${profile.name}`}

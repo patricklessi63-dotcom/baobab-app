@@ -240,6 +240,7 @@ export default function FeedTab({
   candidates,
   handleLike,
   handlePass,
+  hasLiked = () => false,
   nearbyMembers,
   newArrivals,
   communities,
@@ -526,9 +527,31 @@ export default function FeedTab({
               />
             ) : (
               <div className="flex gap-3 overflow-x-auto pb-1 -mx-1 px-1" style={{ scrollbarWidth: "none" }}>
-                {followedProfiles.map((p) => (
-                  <ProfileCard key={p.id} profile={p} highlight="looking_for" onLike={handleLike} />
-                ))}
+                {/* Bug corrigé à l'audit (même famille que MatchCard, voir son
+                    commentaire "isLiked") : contrairement à candidates
+                    (rankedForYou/rankedNearby/rankedNewArrivals, qui exclut déjà
+                    les profils aimés — voir useFeedRecommendations plus haut),
+                    followedProfiles vient directement de la table "follows" et
+                    n'a jamais été filtré par like/match. Un profil qu'on suit
+                    peut très bien être déjà aimé, voire déjà un match — le
+                    bouton "J'aime" restait alors affiché et cliquable sans rien
+                    faire (handleLike renvoie silencieusement via sa garde
+                    hasLiked() côté App.jsx). isLiked masque désormais ce
+                    bouton, et un match affiche "Message" à la place. */}
+                {followedProfiles.map((p) => {
+                  const isMatchedProfile = matches.some((m) => m.id === p.id);
+                  const isLikedProfile = currentUser ? hasLiked(currentUser.id, p.id) : false;
+                  return (
+                    <ProfileCard
+                      key={p.id}
+                      profile={p}
+                      highlight="looking_for"
+                      isLiked={isLikedProfile}
+                      onLike={handleLike}
+                      onMessage={isMatchedProfile ? openChat : undefined}
+                    />
+                  );
+                })}
               </div>
             )}
           </div>
