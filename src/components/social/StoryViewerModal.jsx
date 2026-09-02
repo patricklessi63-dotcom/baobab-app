@@ -47,6 +47,15 @@ export default function StoryViewerModal({
   const [videoError, setVideoError] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const touchStart = useRef(null);
+  // Toujours à jour à chaque rendu (mêmes garanties que onCloseRef dans
+  // useEscapeKey.js) — nextStory/prevStory sont redéfinies à chaque rendu de
+  // SocialShell et ferment sur visibleStories ; les lire via une ref évite
+  // qu'un raccourci clavier déclenché entre deux changements d'index
+  // n'appelle une version obsolète (liste de statuts périmée).
+  const nextStoryRef = useRef(nextStory);
+  nextStoryRef.current = nextStory;
+  const prevStoryRef = useRef(prevStory);
+  prevStoryRef.current = prevStory;
 
   useEscapeKey(storyViewerIndex !== null, closeStoryViewer);
 
@@ -59,6 +68,26 @@ export default function StoryViewerModal({
   // même un statut différent republié plus tard — au risque d'une
   // suppression accidentelle jamais demandée cette fois-ci.
   useEffect(() => { setVideoError(false); setMenuOpen(false); setConfirmDelete(false); }, [storyViewerIndex]);
+
+  // Navigation clavier (flèches) — jusqu'ici seuls le swipe tactile et les
+  // zones cliquables gauche/droite permettaient de changer de statut :
+  // MediaViewerModal.jsx (visualiseur photo) supporte les flèches depuis
+  // longtemps, mais ce visualiseur de statuts en était resté dépourvu, sans
+  // aucune alternative clavier pour l'utilisateur desktop. On ignore la
+  // frappe quand le focus est dans le champ de réponse (ou tout autre champ
+  // texte) pour ne pas voler le déplacement du curseur pendant la saisie.
+  useEffect(() => {
+    if (storyViewerIndex === null) return;
+    const onKey = (e) => {
+      const tag = document.activeElement?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA") return;
+      if (e.key === "ArrowRight") nextStoryRef.current();
+      else if (e.key === "ArrowLeft") prevStoryRef.current();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [storyViewerIndex]);
   if (!active) return null;
   const story = stories[storyViewerIndex];
 
