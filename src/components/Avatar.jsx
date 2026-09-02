@@ -1,9 +1,17 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 
 export default function Avatar({ name, size = 44, url }) {
   const initial = (name || "?").trim().charAt(0).toUpperCase();
   const [loaded, setLoaded] = useState(false);
-  if (url) {
+  // Repli sur l'avatar-initiale si l'image échoue à charger (fichier
+  // supprimé du storage, URL signée expirée, URL invalide) — jusqu'ici
+  // absent ici alors que les autres visionneuses média de l'app (galerie
+  // photo, stories) gèrent déjà ce cas : sans ça, une photo de profil cassée
+  // affichait indéfiniment l'icône "image cassée" du navigateur au lieu du
+  // cercle à initiale déjà prévu pour l'absence d'URL.
+  const [errored, setErrored] = useState(false);
+  useEffect(() => { setLoaded(false); setErrored(false); }, [url]);
+  if (url && !errored) {
     return (
       <span
         // Balayage lumineux (bb-img-loading) tant que l'image n'a pas fini
@@ -23,6 +31,7 @@ export default function Avatar({ name, size = 44, url }) {
           alt={name}
           loading="lazy"
           onLoad={() => setLoaded(true)}
+          onError={() => setErrored(true)}
           className={`bb-img-fade ${loaded ? "bb-loaded" : ""}`}
           style={{
             width: size,
