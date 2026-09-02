@@ -137,6 +137,22 @@ export default function ConversationPane({
     }
   }, [messages.length]);
 
+  // Filet de sécurité pour le "load older" ci-dessus : si le chargement se
+  // termine SANS que messages.length change (erreur réseau, ou le tout
+  // début de l'historique atteint — 0 message renvoyé), l'effet ci-dessus
+  // (déclenché sur messages.length) ne s'exécute jamais et
+  // prevScrollHeightRef reste "sale". Le prochain message envoyé/reçu
+  // déclenchait alors un saut de défilement erroné (ancienne hauteur
+  // capturée bien plus tôt) au lieu du défilement normal jusqu'en bas.
+  // useEffect (pas useLayoutEffect) pour s'exécuter après l'effet
+  // ci-dessus dans le même commit et ne jamais lui voler la valeur qu'il
+  // doit consommer quand messages.length a réellement changé.
+  useEffect(() => {
+    if (!loadingOlder) {
+      prevScrollHeightRef.current = 0;
+    }
+  }, [loadingOlder]);
+
   const handleSend = () => {
     if (!messageDraft.trim()) return;
     const { allowed, remainingTimestamps } = checkRateLimit(sendTimestampsRef.current);
