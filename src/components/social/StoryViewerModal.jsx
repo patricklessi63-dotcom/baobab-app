@@ -287,6 +287,15 @@ export default function StoryViewerModal({
                 onChange={(e) => setStoryReply(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && sendStoryReply()}
                 placeholder={`Répondre à ${story.name}...`}
+                // maxLength=4000 : contrairement au brouillon de conversation
+                // (ConversationPane) ou au composeur de publication, ce champ
+                // n'avait AUCUNE limite — une réponse à un statut passe pourtant
+                // par sendMessageTo() -> insertMessageRow() -> table "messages",
+                // qui impose char_length(text) <= 4000 (supabase-scale-security-2.sql).
+                // Résultat : un texte trop long échouait à l'envoi (bulle "failed")
+                // après la fermeture du visualiseur de statut, sans qu'aucune limite
+                // n'ait prévenu l'utilisateur pendant la saisie.
+                maxLength={4000}
                 className="flex-1 rounded-full px-4 py-2.5 text-sm text-white bg-white/15 backdrop-blur border border-white/25 outline-none placeholder-white/60"
               />
               <button onClick={sendStoryReply} aria-label="Envoyer la réponse" className="h-10 w-10 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: "#fff" }}>
