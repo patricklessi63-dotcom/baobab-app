@@ -11,10 +11,26 @@ export async function getSignedUrl(path) {
   const cached = cache.get(path);
   if (cached && cached.expiresAt > Date.now()) return cached.url;
 
-  const { data, error } = await supabase.storage.from(MEDIA_BUCKET).createSignedUrl(path, TTL_SECONDS);
-  if (error || !data?.signedUrl) return null;
-  cache.set(path, { url: data.signedUrl, expiresAt: Date.now() + TTL_SECONDS * 1000 - SAFETY_MARGIN_MS });
-  return data.signedUrl;
+  try {
+    // handleOperation() (storage-js) ne convertit en { data:null, error }
+    // que les erreurs "storage" reconnues — une vraie coupure réseau (fetch
+    // qui lève un TypeError, DNS, CORS...) est relancée telle quelle, donc
+    // cet appel PEUT rejeter, pas seulement renvoyer un champ error. Sans ce
+    // try/catch, le moindre aléa réseau faisait planter la promesse
+    // retournée par getSignedUrl : ses deux appelants (useSignedMediaUrl,
+    // qui ne pose pas de .catch, et openFile dans MessageBubbleMedia, qui
+    // l'attend sans try/catch) restaient alors bloqués indéfiniment —
+    // spinner de chargement figé sur l'image/vidéo/audio d'un message, ou
+    // bouton "Ouvrir le fichier" désactivé pour de bon après un simple aléa
+    // réseau, sans jamais réessayer même une fois la connexion revenue.
+    const { data, error } = await supabase.storage.from(MEDIA_BUCKET).createSignedUrl(path, TTL_SECONDS);
+    if (error || !data?.signedUrl) return null;
+    cache.set(path, { url: data.signedUrl, expiresAt: Date.now() + TTL_SECONDS * 1000 - SAFETY_MARGIN_MS });
+    return data.signedUrl;
+  } catch (e) {
+    console.error(e);
+    return null;
+  }
 }
 
 // Résolution groupée — un seul aller-retour pour toutes les images/vidéos/
@@ -25,13 +41,21 @@ export async function getSignedUrls(paths) {
     return !cached || cached.expiresAt <= Date.now();
   });
   if (uncached.length > 0) {
-    const { data, error } = await supabase.storage.from(MEDIA_BUCKET).createSignedUrls(uncached, TTL_SECONDS);
-    if (!error && data) {
-      for (const row of data) {
-        if (row.signedUrl && row.path) {
-          cache.set(row.path, { url: row.signedUrl, expiresAt: Date.now() + TTL_SECONDS * 1000 - SAFETY_MARGIN_MS });
+    try {
+      // Même risque de rejet qu'au-dessus (voir le commentaire dans
+      // getSignedUrl) : sans ce try/catch, un aléa réseau ferait rejeter
+      // toute la promesse renvoyée par getSignedUrls au lieu de simplement
+      // laisser les chemins non résolus à null dans le résultat.
+      const { data, error } = await supabase.storage.from(MEDIA_BUCKET).createSignedUrls(uncached, TTL_SECONDS);
+      if (!error && data) {
+        for (const row of data) {
+          if (row.signedUrl && row.path) {
+            cache.set(row.path, { url: row.signedUrl, expiresAt: Date.now() + TTL_SECONDS * 1000 - SAFETY_MARGIN_MS });
+          }
         }
       }
+    } catch (e) {
+      console.error(e);
     }
   }
   const result = {};

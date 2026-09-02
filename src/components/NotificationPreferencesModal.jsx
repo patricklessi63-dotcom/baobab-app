@@ -37,7 +37,13 @@ export default function NotificationPreferencesModal({ open, onClose, onBack, cu
     setPushStep("idle");
     setPushError("");
     if (!isPushSupported()) return;
-    getPushSubscriptionStatus().then(setPushStatus);
+    // getPushSubscriptionStatus() peut rejeter (navigator.serviceWorker.
+    // getRegistration()/pushManager.getSubscription() peuvent lever selon le
+    // navigateur/l'état du service worker) — sans ce .catch, pushStatus
+    // restait à null et la section "Notifications push" ci-dessous
+    // (conditionnée à pushStatus?.supported) disparaissait silencieusement
+    // de la modale, sans aucune erreur visible.
+    getPushSubscriptionStatus().then(setPushStatus).catch((e) => console.error(e));
   }, [open]);
 
   if (!open) return null;

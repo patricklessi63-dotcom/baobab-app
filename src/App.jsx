@@ -307,7 +307,13 @@ export default function App() {
       // "email vérifié, entre ton mot de passe" à la place.
       if (event === "SIGNED_IN" && pendingVerifiedRef.current) {
         pendingVerifiedRef.current = false;
-        supabase.auth.signOut().then(() => setJustVerified(true));
+        // supabase.auth.signOut() peut réellement rejeter (aléa réseau — voir
+        // le même correctif sur handleSignOut plus bas) : sans ce .catch,
+        // l'écran "email vérifié, entre ton mot de passe" ne s'affichait
+        // alors jamais (setJustVerified jamais appelé), laissant la personne
+        // sur l'écran de connexion sans aucune explication après avoir
+        // cliqué le lien reçu par email.
+        supabase.auth.signOut().then(() => setJustVerified(true)).catch((e) => { console.error(e); setJustVerified(true); });
         return;
       }
       // Bug corrigé : Supabase émet TOKEN_REFRESHED automatiquement en
@@ -729,7 +735,21 @@ export default function App() {
   }
 
   async function handleSignOut() {
-    await supabase.auth.signOut();
+    try {
+      await supabase.auth.signOut();
+    } catch (e) {
+      // supabase.auth.signOut() peut réellement rejeter (AuthRetryableFetchError
+      // d'auth-js sur un aléa réseau/CORS pendant l'appel serveur) — ce n'est
+      // pas juste un { error } comme la plupart des appels Supabase. Sans ce
+      // try/catch, le nettoyage de l'état local et la navigation ci-dessous
+      // ne s'exécutaient jamais, et les deux appelants (App.jsx, tous deux
+      // `handleSignOut().then(() => navigate("/connexion"))` sans .catch) ne
+      // faisaient plus rien : le clic sur "Déconnexion" restait sans aucun
+      // effet visible. On nettoie quand même l'état local et on laisse la
+      // navigation se faire malgré l'échec réseau — rester affiché comme si
+      // de rien n'était serait pire qu'une déconnexion traitée localement.
+      console.error(e);
+    }
     setCurrentUser(null);
     setProfiles([]);
     setLikePairs([]);
