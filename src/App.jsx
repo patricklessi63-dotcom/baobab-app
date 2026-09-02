@@ -131,6 +131,20 @@ export default function App() {
   const [existingPhotos, setExistingPhotos] = useState([]); // photos déjà enregistrées, en édition
   const [newPhotoFiles, setNewPhotoFiles] = useState([]);
   const [newPhotoPreviews, setNewPhotoPreviews] = useState([]);
+  // File d'attente des écritures d'ordre des photos (persistPhotoOrder) — bug
+  // identifié à l'audit : moveExistingPhoto()/setPrimaryPhoto() ne s'attendent
+  // jamais entre elles (mise à jour locale optimiste immédiate), donc deux
+  // clics rapprochés (flèche haut/bas, ou "définir comme principale" juste
+  // après un déplacement) déclenchaient deux requêtes upsert("profile_photos")
+  // en parallèle. Rien ne garantit que leurs réponses réseau arrivent dans
+  // l'ordre où elles ont été envoyées : si la première (ordre désormais
+  // obsolète) répond APRÈS la seconde, elle écrasait en base l'ordre le plus
+  // récent — la grille affichée localement restait correcte, mais la base
+  // divergeait silencieusement jusqu'au prochain rechargement complet, qui
+  // ramenait alors l'ancien ordre. Chaîner chaque appel sur le précédent
+  // garantit que les écritures atteignent la base dans le même ordre que les
+  // clics qui les ont déclenchées.
+  const photoOrderChainRef = useRef(Promise.resolve());
   const [savingProfile, setSavingProfile] = useState(false);
 
   const loadAll = useCallback(async () => {
@@ -1198,18 +1212,30 @@ export default function App() {
     }
   }
 
-  async function persistPhotoOrder(reordered) {
-    try {
-      const { error: reorderError } = await supabase
-        .from("profile_photos")
-        .upsert(reordered.map((p, i) => ({ id: p.id, profile_id: p.profile_id, url: p.url, position: i })));
-      if (reorderError) throw reorderError;
-      return true;
-    } catch (e) {
-      console.error(e);
-      setError("Impossible de réorganiser les photos.");
-      return false;
-    }
+  function persistPhotoOrder(reordered) {
+    // Chaîné sur photoOrderChainRef (voir sa déclaration) plutôt qu'exécuté
+    // immédiatement : garantit que cet upsert n'atteint le réseau qu'une fois
+    // le précédent réellement résolu, donc que les écritures arrivent en base
+    // dans le même ordre que les actions qui les ont déclenchées.
+    const run = async () => {
+      try {
+        const { error: reorderError } = await supabase
+          .from("profile_photos")
+          .upsert(reordered.map((p, i) => ({ id: p.id, profile_id: p.profile_id, url: p.url, position: i })));
+        if (reorderError) throw reorderError;
+        return true;
+      } catch (e) {
+        console.error(e);
+        setError("Impossible de réorganiser les photos.");
+        return false;
+      }
+    };
+    const next = photoOrderChainRef.current.then(run, run);
+    // La suite de la chaîne ne doit jamais s'interrompre à cause d'un échec
+    // individuel (déjà géré/affiché ci-dessus) — sinon toute réorganisation
+    // suivante resterait bloquée indéfiniment après un seul échec réseau.
+    photoOrderChainRef.current = next.catch(() => {});
+    return next;
   }
 
   function moveExistingPhoto(photoId, direction) {
