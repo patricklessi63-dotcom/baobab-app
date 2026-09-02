@@ -231,6 +231,16 @@ export default function EventDetailView({
           </div>
         )}
 
+        {/* Bug identifié à l'audit : les policies RLS "Auteur ou moderateur
+            supprime un commentaire" et "L'auteur ou le staff supprime une
+            photo" (supabase-events-v2.sql) autorisent is_event_mod (organizer/
+            co_organizer/moderator) à modérer commentaires et photos — un
+            "moderator" les supprime donc bel et bien côté serveur. En passant
+            `staff` (isEventStaff, qui exclut "moderator") à `canModerate` ici,
+            un modérateur d'événement se voyait masquer le bouton de
+            suppression alors que l'action aurait réussi : on utilise
+            désormais `mod` (isEventMod), cohérent avec le serveur et avec le
+            même choix déjà fait pour community_posts (CommunityDetailView). */}
         {subTab === "discussion" && (
           <div className={`${card} p-5`}>
             <EventCommentsSection
@@ -242,7 +252,7 @@ export default function EventDetailView({
               currentUserId={currentUser?.id}
               onSubmit={onSubmitComment}
               onDelete={onDeleteComment}
-              canModerate={staff}
+              canModerate={mod}
             />
           </div>
         )}
@@ -268,7 +278,7 @@ export default function EventDetailView({
               loading={photosLoading}
               canUpload={Boolean(viewerStatus) && viewerStatus !== "not_going"}
               currentUserId={currentUser?.id}
-              canModerate={staff}
+              canModerate={mod}
               onUpload={onUploadPhoto}
               onDelete={onDeletePhoto}
             />
