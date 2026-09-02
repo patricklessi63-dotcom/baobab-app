@@ -210,16 +210,31 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
     if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
+  // Charge la page suivante — point d'entrée commun à la sentinelle
+  // (scroll infini) ET au bouton "Charger plus" manuel. loadingMoreRef
+  // protège les deux : sans cette garde partagée, un clic sur le bouton
+  // pendant que la sentinelle a déjà déclenché un chargement (ou un
+  // double-clic/tap rapide sur le bouton lui-même) relançait loadPosts(cursor)
+  // en parallèle avec le MÊME curseur (pas encore avancé par le premier
+  // appel) — même page récupérée et ajoutée deux fois à la liste affichée
+  // (publications en double + clé React dupliquée). Même famille de bug déjà
+  // corrigée pour "Charger plus" dans EventsTab.jsx/CommunitiesTab.jsx ;
+  // le bouton ici s'appuyait auparavant sur loadPosts(cursor) directement,
+  // sans passer par loadingMoreRef contrairement à ce qu'affirmait le
+  // commentaire de EventsTab.jsx.
+  const loadMore = () => {
+    if (loadingMoreRef.current || !hasMore) return;
+    loadingMoreRef.current = true;
+    loadPosts(cursor).finally(() => { loadingMoreRef.current = false; });
+  };
+
   // Sentinelle en fin de liste : charge la page suivante automatiquement
   // dès qu'elle approche du viewport, le bouton "Charger plus" reste en
   // repli (utile si l'observer n'est pas supporté ou pour un clic explicite).
   useEffect(() => {
     if (!sentinelRef.current || !hasMore) return;
     const observer = new IntersectionObserver(([entry]) => {
-      if (entry.isIntersecting && !loadingMoreRef.current) {
-        loadingMoreRef.current = true;
-        loadPosts(cursor).finally(() => { loadingMoreRef.current = false; });
-      }
+      if (entry.isIntersecting) loadMore();
     }, { rootMargin: "400px" });
     observer.observe(sentinelRef.current);
     return () => observer.disconnect();
@@ -704,7 +719,7 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
             {hasMore && (
               <>
                 <div ref={sentinelRef} aria-hidden="true" />
-                <button onClick={() => loadPosts(cursor)} className="w-full mt-3 py-2.5 rounded-xl text-sm font-bold" style={{ background: bg, color: primary }}>Charger plus</button>
+                <button onClick={loadMore} className="w-full mt-3 py-2.5 rounded-xl text-sm font-bold" style={{ background: bg, color: primary }}>Charger plus</button>
               </>
             )}
           </>
@@ -755,7 +770,7 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
           {hasMore && (
             <>
               <div ref={sentinelRef} aria-hidden="true" />
-              <button onClick={() => loadPosts(cursor)} className="w-full mt-3 py-2.5 rounded-xl text-sm font-bold" style={{ background: bg, color: primary }}>Charger plus</button>
+              <button onClick={loadMore} className="w-full mt-3 py-2.5 rounded-xl text-sm font-bold" style={{ background: bg, color: primary }}>Charger plus</button>
             </>
           )}
         </>
