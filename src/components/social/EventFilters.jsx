@@ -69,13 +69,30 @@ export function dateRangeBounds(range) {
     end = new Date(start); end.setDate(end.getDate() + ((7 - end.getDay()) % 7)); end.setHours(23, 59, 59, 999);
   } else if (range === "weekend") {
     const day = start.getDay();
-    const toSaturday = (6 - day + 7) % 7;
-    start.setDate(start.getDate() + toSaturday);
-    end = new Date(start); end.setDate(end.getDate() + 1); end.setHours(23, 59, 59, 999);
+    if (day === 0) {
+      // Dimanche : le week-end (samedi+dimanche) est déjà en cours — il ne
+      // faut PAS avancer "start" au samedi suivant, sinon les événements du
+      // jour même (dimanche, pourtant encore "ce week-end") disparaissaient
+      // du filtre jusqu'au week-end d'après.
+      end = new Date(start); end.setHours(23, 59, 59, 999);
+    } else {
+      const toSaturday = (6 - day) % 7;
+      start.setDate(start.getDate() + toSaturday);
+      end = new Date(start); end.setDate(end.getDate() + 1); end.setHours(23, 59, 59, 999);
+    }
   } else if (range === "month") {
     end = new Date(start.getFullYear(), start.getMonth() + 1, 0, 23, 59, 59, 999);
   } else {
     return null;
   }
-  return { start: now.toISOString(), end: end.toISOString() };
+  // Bug identifié à l'audit : le "start" retourné était toujours "now" (non
+  // muté), y compris pour "weekend" où "start" est avancé au samedi pour
+  // calculer "end" — la borne basse réellement appliquée à la requête
+  // restait donc "maintenant" au lieu du samedi. Résultat : le filtre
+  // "Ce week-end" remontait en fait TOUS les événements depuis aujourd'hui
+  // jusqu'à la fin du week-end (ex. filtré un lundi : toute la semaine),
+  // pas seulement ceux du week-end. "start" est ici identique à "now" pour
+  // "today"/"week"/"month" (jamais muté dans ces branches), donc ce
+  // changement ne modifie que le cas "weekend".
+  return { start: start.toISOString(), end: end.toISOString() };
 }
