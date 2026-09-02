@@ -33,7 +33,16 @@ export default function ReportModal({
   categories = DEFAULT_CATEGORIES,
   targetLabel,
 }) {
-  useEscapeKey(Boolean(target) && !submitted, onCancel);
+  // Bug corrigé : la garde utilisait `!submitted` au lieu de `!sending`.
+  // Le bouton "Annuler" est `disabled={sending}` (voir commentaire plus bas)
+  // pour empêcher de fermer la modale pendant que submitReport() est encore
+  // en vol — sinon sa résolution tardive écrase `submitted` à true pour un
+  // signalement déjà annulé/rouvert sur une autre cible, affichant "Signalement
+  // envoyé" sans qu'aucun signalement n'ait réellement été envoyé pour la
+  // cible affichée. Mais Échap et le bouton "retour" (mobile/navigateur)
+  // passaient par ce hook, qui ne vérifiait pas `sending` — ils pouvaient
+  // donc déclencher exactement la même course que le bouton empêche.
+  useEscapeKey(Boolean(target) && !sending, onCancel);
   const dialogRef = useRef(null);
   useFocusTrap(Boolean(target), dialogRef);
   if (!target) return null;
