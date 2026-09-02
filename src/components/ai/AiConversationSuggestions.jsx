@@ -29,9 +29,19 @@ export default function AiConversationSuggestions({ currentUser, match, onPick }
   const generate = async () => {
     setLoading(true);
     setError("");
+    // Confidentialité par champ (voir PrivacyFieldsModal.jsx) — "them" envoyait
+    // la ville/les intérêts de match sans consulter show_city/show_interests,
+    // alors que scoreInterests()/scoreLocation() (matchingService.js) et
+    // PublicProfileModal les respectent déjà : un match ayant masqué un champ
+    // le voyait quand même transmis tel quel à l'IA (et donc potentiellement
+    // reformulé dans une suggestion visible par l'autre personne).
     const { data, error: err } = await invokeAI("suggest_conversation", {
       me: { firstName: firstName(currentUser?.name), city: currentUser?.city, interests: currentUser?.interests },
-      them: { firstName: firstName(match?.name), city: match?.city, interests: match?.interests },
+      them: {
+        firstName: firstName(match?.name),
+        city: match?.show_city === false ? "" : match?.city,
+        interests: match?.show_interests === false ? "" : match?.interests,
+      },
     });
     if (!mountedRef.current) return; // composant démonté pendant l'appel IA
     setLoading(false);

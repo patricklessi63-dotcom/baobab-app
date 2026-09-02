@@ -57,7 +57,11 @@ export default function AdmirersModal({ open, onClose, admirerProfiles = [], cur
                   <Avatar name={p.name} url={p.avatar_url} size={44} />
                   <div className="min-w-0">
                     <div className="text-sm font-bold truncate">{p.name}{visibleAge(p) ? `, ${visibleAge(p)}` : ""}</div>
-                    {p.city && <div className="text-xs truncate" style={{ color: muted }}>{p.city}</div>}
+                    {/* Confidentialité par champ (voir PrivacyFieldsModal.jsx) — cette
+                        modale affichait la ville sans consulter show_city, alors que
+                        MatchCard/PublicProfileModal le respectent déjà : un profil ayant
+                        masqué sa ville restait quand même visible dans "Qui m'a aimé". */}
+                    {p.show_city !== false && p.city && <div className="text-xs truncate" style={{ color: muted }}>{p.city}</div>}
                   </div>
                 </button>
                 <button

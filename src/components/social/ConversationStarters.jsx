@@ -22,12 +22,19 @@ function buildStarters(currentUser, match) {
     suggestions.push(`Vous cherchez tous les deux « ${result.sharedIntentions[0]} » ici. Qu'est-ce qui t'a donné envie de t'inscrire sur Baobab ?`);
   }
 
-  const sameCity = currentUser.city && match.city && currentUser.city.trim().toLowerCase() === match.city.trim().toLowerCase();
-  const sameCountry = currentUser.country && match.country && currentUser.country.trim().toLowerCase() === match.country.trim().toLowerCase();
+  // Confidentialité par champ (voir PrivacyFieldsModal.jsx) — cette suggestion
+  // nommait la ville/le pays de "match" sans consulter show_city/show_country,
+  // alors que scoreLocation() (matchingService.js) applique déjà ce garde pour
+  // le même calcul "même ville/pays" : un match ayant masqué sa ville se la
+  // voyait quand même révélée ici, dans une phrase toute faite.
+  const matchCity = match.show_city === false ? "" : match.city;
+  const matchCountry = match.show_country === false ? "" : match.country;
+  const sameCity = currentUser.city && matchCity && currentUser.city.trim().toLowerCase() === matchCity.trim().toLowerCase();
+  const sameCountry = currentUser.country && matchCountry && currentUser.country.trim().toLowerCase() === matchCountry.trim().toLowerCase();
   if (sameCity) {
-    suggestions.push(`Vous êtes tous les deux à ${match.city} ! Tu es arrivé(e) depuis combien de temps ?`);
+    suggestions.push(`Vous êtes tous les deux à ${matchCity} ! Tu es arrivé(e) depuis combien de temps ?`);
   } else if (sameCountry) {
-    suggestions.push(`Vous venez tous les deux de ${match.country} ! Qu'est-ce qui te manque le plus de là-bas ?`);
+    suggestions.push(`Vous venez tous les deux de ${matchCountry} ! Qu'est-ce qui te manque le plus de là-bas ?`);
   }
 
   if (suggestions.length === 0) {

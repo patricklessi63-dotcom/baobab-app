@@ -24,7 +24,10 @@ export default function ConversationCard({ match, onOpen }) {
           {match.name}
           <StatusBadge emailVerified={match.email_verified} phoneVerified={match.phone_verified} isFounder={match.is_founder} isPremium={match.is_premium} size={12} />
         </div>
-        <div className="text-xs truncate" style={{ color: muted }}>{match.is_online ? "En ligne" : (match.city || "Canada")}</div>
+        {/* Confidentialité par champ (voir PrivacyFieldsModal.jsx) — cette carte
+            affichait la ville du match sans consulter show_city, alors que
+            MatchCard/PublicProfileModal le respectent déjà. */}
+        <div className="text-xs truncate" style={{ color: muted }}>{match.is_online ? "En ligne" : ((match.show_city !== false && match.city) || "Canada")}</div>
       </div>
       <MessageCircle size={16} color={coral} aria-hidden="true" />
     </button>

@@ -49,7 +49,10 @@ export default function CommunityInviteModal({ community, currentUser, memberIds
     try {
       const { data, error } = await supabase
         .from("profiles")
-        .select("id, name, avatar_url, city")
+        // show_city ajouté (bug corrigé à l'audit) : la liste de résultats
+        // affichait la ville sans jamais pouvoir consulter ce réglage, absent
+        // de cette requête — voir le garde ajouté juste en dessous.
+        .select("id, name, avatar_url, city, show_city")
         .ilike("name", `%${escapeLikePattern(value.trim())}%`)
         .neq("id", currentUser.id)
         .limit(15);
@@ -125,7 +128,7 @@ export default function CommunityInviteModal({ community, currentUser, memberIds
                   <Avatar name={p.name} url={p.avatar_url} size={40} />
                   <div className="min-w-0 flex-1">
                     <div className="text-sm font-bold truncate">{p.name}</div>
-                    {p.city && <div className="text-xs truncate" style={{ color: muted }}>{p.city}</div>}
+                    {p.show_city !== false && p.city && <div className="text-xs truncate" style={{ color: muted }}>{p.city}</div>}
                   </div>
                   <button
                     onClick={() => sendInvite(p)}

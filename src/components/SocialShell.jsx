@@ -296,7 +296,10 @@ export default function SocialShell({
     let alive = true;
     supabase
       .from("favorites")
-      .select("to_id, profile:to_id(id,name,avatar_url,city,age,show_birth_year,looking_for,email_verified,phone_verified)")
+      // show_city ajouté (bug corrigé à l'audit) : FavoritesModal affichait la
+      // ville d'un favori sans jamais pouvoir consulter ce réglage, absent de
+      // cette jointure — voir le garde ajouté côté FavoritesModal.jsx.
+      .select("to_id, profile:to_id(id,name,avatar_url,city,show_city,age,show_birth_year,looking_for,email_verified,phone_verified)")
       .eq("from_id", currentUser.id)
       .then(({ data, error }) => {
         if (!alive) return;
@@ -371,9 +374,14 @@ export default function SocialShell({
   useEffect(() => {
     if (!currentUser) return;
     let alive = true;
+    // show_city ajouté (bug corrigé à l'audit) : ProfileTab affichait la ville
+    // des abonnements/abonnés sans jamais pouvoir consulter ce réglage, absent
+    // de cette jointure — voir le garde ajouté côté ProfileTab.jsx. (Le champ
+    // show_birth_year manque toujours ici — fuite mineure déjà identifiée et
+    // suivie séparément, hors périmètre de cette correction.)
     Promise.all([
-      supabase.from("follows").select("to_id, profile:to_id(id,name,avatar_url,city,age,looking_for,email_verified,phone_verified)").eq("from_id", currentUser.id).limit(2000),
-      supabase.from("follows").select("from_id, profile:from_id(id,name,avatar_url,city,age,looking_for,email_verified,phone_verified)").eq("to_id", currentUser.id).limit(2000),
+      supabase.from("follows").select("to_id, profile:to_id(id,name,avatar_url,city,show_city,age,looking_for,email_verified,phone_verified)").eq("from_id", currentUser.id).limit(2000),
+      supabase.from("follows").select("from_id, profile:from_id(id,name,avatar_url,city,show_city,age,looking_for,email_verified,phone_verified)").eq("to_id", currentUser.id).limit(2000),
     ]).then(([followingRes, followersRes]) => {
       if (!alive) return;
       if (followingRes.error) console.error(followingRes.error.message, followingRes.error.code, followingRes.error.details, followingRes.error.hint);
@@ -1455,7 +1463,12 @@ export default function SocialShell({
                 {searchResults.slice(0, 8).map((p) => (
                   <button key={p.id} onClick={() => { setSearch(""); setViewedProfileId(p.id); }} className="w-full flex items-center gap-3 p-2.5 rounded-xl hover:bg-[var(--bb-bg)] text-left">
                     <Avatar name={p.name} url={p.avatar_url} size={38} />
-                    <div className="min-w-0"><div className="text-sm font-bold truncate">{p.name}{visibleAge(p) ? `, ${visibleAge(p)}` : ""}</div><div className="text-xs" style={{ color: muted }}>{[p.city, p.country].filter(Boolean).join(" · ") || "Canada"}</div></div>
+                    {/* Confidentialité par champ (voir PrivacyFieldsModal.jsx) — la
+                        recherche globale affichait ville/pays sans consulter
+                        show_city/show_country, alors que MatchCard/PublicProfileModal
+                        les respectent déjà : un profil les ayant masqués restait quand
+                        même visible ici, résultat par résultat. */}
+                    <div className="min-w-0"><div className="text-sm font-bold truncate">{p.name}{visibleAge(p) ? `, ${visibleAge(p)}` : ""}</div><div className="text-xs" style={{ color: muted }}>{[p.show_city !== false && p.city, p.show_country !== false && p.country].filter(Boolean).join(" · ") || "Canada"}</div></div>
                   </button>
                 ))}
                 {searchResults.length === 0 && conversationResults.length === 0 && <div className="px-3 py-3 text-sm" style={{ color: muted }}>Aucun résultat.</div>}

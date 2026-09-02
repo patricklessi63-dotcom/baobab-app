@@ -66,7 +66,11 @@ export default function ProfileCard({
 
       <div className="p-3">
         <div className="text-sm font-bold truncate">{profile.name}{visibleAge(profile) ? `, ${visibleAge(profile)}` : ""}</div>
-        {profile.city && <div className="text-[11px] truncate mt-0.5" style={{ color: muted }}>{profile.city}</div>}
+        {/* Confidentialité par champ (voir PrivacyFieldsModal.jsx) — cette carte
+            (recommandations, "Autour de toi"...) affichait la ville sans
+            consulter show_city, alors que MatchCard/PublicProfileModal le
+            respectent déjà. */}
+        {profile.show_city !== false && profile.city && <div className="text-[11px] truncate mt-0.5" style={{ color: muted }}>{profile.city}</div>}
         {highlightText && <div className="text-[11px] mt-1 truncate" style={{ color: coral }}>{highlightText}</div>}
         {commonInterestsCount > 0 && (
           <div className="text-[10px] mt-1 truncate font-semibold" style={{ color: green }}>

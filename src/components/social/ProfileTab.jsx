@@ -241,7 +241,11 @@ export default function ProfileTab({
                             <Avatar name={p.name} url={p.avatar_url} size={44} />
                             <div className="min-w-0">
                               <div className="text-sm font-bold truncate">{p.name}{visibleAge(p) ? `, ${visibleAge(p)}` : ""}</div>
-                              {p.city && <div className="text-xs truncate" style={{ color: muted }}>{p.city}</div>}
+                              {/* Confidentialité par champ (voir PrivacyFieldsModal.jsx) — la
+                                  liste abonnements/abonnés affichait la ville sans consulter
+                                  show_city, alors que MatchCard/PublicProfileModal le
+                                  respectent déjà. */}
+                              {p.show_city !== false && p.city && <div className="text-xs truncate" style={{ color: muted }}>{p.city}</div>}
                             </div>
                           </button>
                           <button onClick={() => onToggleFollow(p)} aria-pressed={followingIds.has(p.id)} className="px-3 py-2 rounded-full text-xs font-bold shrink-0 focus-visible:outline focus-visible:outline-2" style={{ background: followingIds.has(p.id) ? "var(--bb-surface-2)" : navy, border: followingIds.has(p.id) ? "1px solid var(--bb-border)" : "none", color: followingIds.has(p.id) ? primary : "#fff" }}>
