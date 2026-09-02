@@ -628,11 +628,37 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
     }
   };
 
+  // Bug identifié à l'audit (passe 132) : contrairement à deletePost
+  // (PostsFeed.jsx) et handleDeletePhoto (EventsTab.jsx), qui nettoient
+  // toutes deux le fichier Storage après confirmation de la suppression en
+  // base, cette fonction ne supprimait jamais le fichier de
+  // community-media — une publication avec photo/vidéo laissait son
+  // fichier orphelin dans le bucket pour toujours (fuite de stockage). La
+  // colonne media_url stocke une URL SIGNÉE (bucket privé, voir
+  // supabase-communities-3.sql), pas le chemin brut : on l'extrait de
+  // l'URL, comme cleanupUrl dans PostsFeed.jsx, en retirant en plus le
+  // ?token=... de signature avant de retrouver le chemin réel. La policy
+  // storage "community-media: supprime ses propres fichiers" n'autorise
+  // que le propriétaire du fichier à le supprimer (owner = auth.uid()) :
+  // un modérateur qui supprime la publication de quelqu'un d'autre voit
+  // donc cet appel échouer silencieusement (.catch) — la ligne en base est
+  // tout de même bien supprimée, seul le nettoyage Storage est un best-effort.
+  const cleanupCommunityMediaUrl = (url) => {
+    if (!url) return;
+    const marker = `/${COMMUNITY_MEDIA_BUCKET}/`;
+    const idx = url.indexOf(marker);
+    if (idx === -1) return;
+    const storagePath = decodeURIComponent(url.slice(idx + marker.length).split("?")[0]);
+    if (!storagePath) return;
+    supabase.storage.from(COMMUNITY_MEDIA_BUCKET).remove([storagePath]).catch(() => {});
+  };
+
   const handleDeletePost = async (post) => {
     try {
       const { error } = await supabase.from("community_posts").delete().eq("id", post.id);
       if (error) throw error;
       setPosts((p) => p.filter((x) => x.id !== post.id));
+      cleanupCommunityMediaUrl(post.media_url);
     } catch (e) {
       console.error(e);
       onError("Impossible de supprimer cette publication.");
