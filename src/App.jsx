@@ -1048,11 +1048,19 @@ export default function App() {
     }
     if (validFiles.length === 0) return;
     setPhotoFiles((prev) => [...prev, ...validFiles].slice(0, MAX_PHOTOS));
-    validFiles.forEach((file) => {
+    // Lues en parallèle mais réassemblées dans l'ordre de sélection : un
+    // FileReader par fichier ne termine pas forcément dans l'ordre où les
+    // fichiers ont été choisis (dépend de leur taille), ce qui désynchronisait
+    // photoPreviews (affiché, avec le badge "Principale" sur l'index 0) de
+    // photoFiles (réellement uploadé comme avatar_url[0]) — l'utilisateur
+    // pouvait voir une photo comme principale alors qu'une autre était envoyée.
+    const results = await Promise.all(validFiles.map((file) => new Promise((resolve, reject) => {
       const reader = new FileReader();
-      reader.onload = () => setPhotoPreviews((prev) => [...prev, reader.result].slice(0, MAX_PHOTOS));
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = () => reject(reader.error);
       reader.readAsDataURL(file);
-    });
+    })));
+    setPhotoPreviews((prev) => [...prev, ...results].slice(0, MAX_PHOTOS));
   }
 
   function removePhotoFile(idx) {
@@ -1114,11 +1122,18 @@ export default function App() {
     }
     if (validFiles.length === 0) return;
     setNewPhotoFiles((prev) => [...prev, ...validFiles]);
-    validFiles.forEach((file) => {
+    // Même correctif que handlePhotosSelected : on attend toutes les lectures
+    // avant de les ajouter, dans l'ordre de sélection, pour que newPhotoPreviews
+    // (affiché, bouton "Supprimer la nouvelle photo" par index) reste aligné
+    // avec newPhotoFiles (réellement uploadé) — sinon le mauvais fichier
+    // pouvait être supprimé ou envoyé à la mauvaise position.
+    const results = await Promise.all(validFiles.map((file) => new Promise((resolve, reject) => {
       const reader = new FileReader();
-      reader.onload = () => setNewPhotoPreviews((prev) => [...prev, reader.result]);
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = () => reject(reader.error);
       reader.readAsDataURL(file);
-    });
+    })));
+    setNewPhotoPreviews((prev) => [...prev, ...results]);
   }
 
   function removeNewPhotoFile(idx) {
