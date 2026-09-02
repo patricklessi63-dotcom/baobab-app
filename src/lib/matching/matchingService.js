@@ -133,10 +133,22 @@ function scorePreferences(userA, userB) {
     else if (gap <= 10) agePoints = 3;
   }
 
+  // Bug corrigé : même garde que scoreLocation ci-dessous (visibleCity/
+  // visibleCountry) — cette fonction comparait userA.city/userB.city et
+  // userA.country/userB.country BRUTS pour accorder jusqu'à 7 points de
+  // "préférence de distance", sans jamais consulter userB.show_city ni
+  // userB.show_country. Un candidat ayant masqué sa ville ou son pays
+  // obtenait quand même les points pleins ici dès qu'il correspondait
+  // réellement à la préférence de distance de l'autre — gonflant le score
+  // affiché (et donc son classement) à partir d'une donnée qu'il avait
+  // explicitement choisi de ne pas montrer, alors que scoreLocation (juste
+  // en dessous) applique déjà cette garde pour les mêmes deux champs.
   let distancePoints = 0;
   const distancePref = userA.pref_distance || "";
-  const sameCity = Boolean(userA.city && userB.city && userA.city.trim().toLowerCase() === userB.city.trim().toLowerCase());
-  const sameCountry = Boolean(userA.country && userB.country && userA.country.trim().toLowerCase() === userB.country.trim().toLowerCase());
+  const cityBForDistance = visibleCity(userB);
+  const countryBForDistance = visibleCountry(userB);
+  const sameCity = Boolean(userA.city && cityBForDistance && userA.city.trim().toLowerCase() === cityBForDistance.trim().toLowerCase());
+  const sameCountry = Boolean(userA.country && countryBForDistance && userA.country.trim().toLowerCase() === countryBForDistance.trim().toLowerCase());
   if (distancePref === "Ma ville uniquement" && sameCity) distancePoints = 7;
   else if (distancePref === "Ma ville ou mon pays" && (sameCity || sameCountry)) distancePoints = 7;
   else if (distancePref === "Peu importe") distancePoints = 7;
@@ -149,6 +161,18 @@ function scoreLanguages(userA, userB) {
   return { points: Math.min(shared.length * 5, MATCH_WEIGHTS.languages), shared };
 }
 
+// userB.show_city/show_country régissent la visibilité de sa ville/son pays
+// pour n'importe quel autre viewer (voir PublicProfileModal.jsx et la carte
+// de Découverte, qui les respectent déjà). Centralisé ici car utilisé à la
+// fois par scoreLocation (label + points) et scorePreferences (points de
+// distance ci-dessous) — les deux doivent appliquer la même garde.
+function visibleCity(profile) {
+  return profile.show_city === false ? "" : profile.city;
+}
+function visibleCountry(profile) {
+  return profile.show_country === false ? "" : profile.country;
+}
+
 // Bug corrigé : userB.show_city/show_country régissent la visibilité de sa
 // ville/son pays pour n'importe quel autre viewer (voir
 // PublicProfileModal.jsx et la carte de Découverte, qui les respectent déjà
@@ -157,8 +181,8 @@ function scoreLanguages(userA, userB) {
 // (...)" affichait nommément, juste en dessous de cette carte, une ville ou
 // un pays que le candidat avait pourtant explicitement masqués.
 function scoreLocation(userA, userB) {
-  const cityBRaw = userB.show_city === false ? "" : userB.city;
-  const countryBRaw = userB.show_country === false ? "" : userB.country;
+  const cityBRaw = visibleCity(userB);
+  const countryBRaw = visibleCountry(userB);
   const cityA = (userA.city || "").trim().toLowerCase();
   const cityB = (cityBRaw || "").trim().toLowerCase();
   const countryA = (userA.country || "").trim().toLowerCase();
