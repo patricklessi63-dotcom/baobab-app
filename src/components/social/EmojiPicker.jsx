@@ -14,7 +14,16 @@ function recentsKey(userId) {
 function loadRecents(userId) {
   try {
     const raw = localStorage.getItem(recentsKey(userId));
-    return raw ? JSON.parse(raw) : [];
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    // JSON.parse réussit sur n'importe quelle valeur JSON valide (objet,
+    // nombre, chaîne...), pas seulement un tableau : sans ce filtrage, une
+    // entrée corrompue (édition manuelle du stockage, extension navigateur,
+    // ancien format) atterrissait telle quelle dans le state React, et
+    // `recents.map(...)` plus bas plantait tout le rendu du sélecteur
+    // d'emojis (même famille que le brouillon de publication non revalidé).
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((e) => typeof e === "string" && e.length > 0).slice(0, RECENTS_MAX);
   } catch (_) {
     return [];
   }
