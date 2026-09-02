@@ -1318,15 +1318,20 @@ export default function App() {
       const newAvatarUrl = allPhotos[0]?.url || null;
 
       let coverUrl = currentUser.cover_url || null;
+      // Bug corrigé : la suppression du fichier Storage de l'ancienne
+      // couverture se faisait ICI, avant l'UPDATE du profil plus bas — si cet
+      // UPDATE échouait ensuite (réseau, RLS, contrainte...), le fichier
+      // était déjà supprimé de façon définitive alors que la ligne
+      // "profiles" en base pointait toujours vers lui : cover_url cassé de
+      // façon permanente, contrairement à toutes les autres étapes de cette
+      // fonction qui ne nettoient le Storage qu'APRÈS un succès confirmé
+      // (freshlyUploadedPaths/insertedPhotoRowIds ci-dessus, et
+      // removeExistingPhoto qui supprime d'abord en base puis dans Storage).
+      // On se contente donc de retenir le chemin ici, et on ne le supprime
+      // qu'une fois l'UPDATE réellement réussi (voir plus bas).
+      let coverPathToDeleteOnSuccess = null;
       if (coverRemoved) {
-        // Même nettoyage Storage que removeExistingPhoto — sans ça, le
-        // fichier de couverture restait orphelin dans le bucket public.
-        const marker = "/avatars/";
-        const idx = currentUser.cover_url?.indexOf(marker);
-        if (idx !== -1 && idx !== undefined) {
-          const storagePath = decodeURIComponent(currentUser.cover_url.slice(idx + marker.length));
-          supabase.storage.from("avatars").remove([storagePath]).catch(() => {});
-        }
+        coverPathToDeleteOnSuccess = urlToStoragePath(currentUser.cover_url);
         coverUrl = null;
       } else if (coverFile) {
         coverUrl = await uploadPhoto(session.user.id, coverFile, "cover");
@@ -1371,6 +1376,14 @@ export default function App() {
         .select()
         .single();
       if (updateError) throw updateError;
+
+      // Nettoyage Storage de l'ancienne couverture désormais sûr : l'UPDATE
+      // ci-dessus a réussi, donc plus aucun risque de laisser la base
+      // pointer vers un fichier qu'on vient de supprimer (voir commentaire
+      // plus haut).
+      if (coverPathToDeleteOnSuccess) {
+        supabase.storage.from("avatars").remove([coverPathToDeleteOnSuccess]).catch(() => {});
+      }
 
       setCurrentUser(data);
       setProfiles((ps) => ps.map((p) => (p.id === data.id ? data : p)));
