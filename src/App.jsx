@@ -282,9 +282,24 @@ export default function App() {
       window.history.replaceState({}, "", window.location.pathname);
     }
 
-    supabase.auth.getSession()
-      .then(({ data }) => { sessionRef.current = data.session ?? null; setSession(data.session ?? null); })
-      .catch(() => { sessionRef.current = null; setSession(null); });
+    // Bug corrigé : cet appel manuel à getSession() faisait doublon avec
+    // l'évènement "INITIAL_SESSION" que supabase-js émet TOUJOURS de
+    // lui-même juste après l'abonnement à onAuthStateChange ci-dessous (une
+    // fois this.initializePromise résolu — comportement garanti par
+    // GoTrueClient, pas une coïncidence). Les deux relisent le stockage
+    // local séparément (__loadSession() ne met rien en cache mémoire) et
+    // produisent donc deux objets session distincts en mémoire pour les
+    // mêmes données — deux références différentes que React ne peut pas
+    // dédupliquer. Résultat : à CHAQUE ouverture de l'app (pas seulement
+    // après ~1h comme le bug TOKEN_REFRESHED ci-dessous), l'effet
+    // [session, loadAll] plus bas se déclenchait deux fois de suite et
+    // lançait deux loadAll() concurrents — jusqu'à 500 profils + 3200
+    // photos + likes/passes/blocks chargés EN DOUBLE à chaque connexion,
+    // sans aucun garde anti-course entre les deux appels. Laisser
+    // onAuthStateChange seul gérer la session initiale via son évènement
+    // "INITIAL_SESSION" (déjà traité par le bloc par défaut plus bas, qui
+    // met sessionRef à jour et appelle setSession) suffit et supprime le
+    // doublon.
     const { data: listener } = supabase.auth.onAuthStateChange((event, newSession) => {
       // Ne JAMAIS laisser une confirmation d'email connecter automatiquement
       // l'utilisateur : Supabase établit réellement une session (preuve que
