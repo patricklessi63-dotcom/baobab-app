@@ -61,10 +61,15 @@ function withParticipantCount(rows) {
   return (rows || []).map((e) => ({ ...e, participantCount: e.event_participant_count || 0 }));
 }
 
-export default function EventsTab({ currentUser, onError, initialEventId, onConsumedInitial = () => {}, myPlatformRole = null, onReportProfile = () => {}, onBlockProfile = () => {}, blockedIds = new Set(), onOpenCommunities = () => {} }) {
+export default function EventsTab({ currentUser, onError, initialEventId, onConsumedInitial = () => {}, initialCreateCommunityId = null, onConsumedInitialCreate = () => {}, myPlatformRole = null, onReportProfile = () => {}, onBlockProfile = () => {}, blockedIds = new Set(), onOpenCommunities = () => {} }) {
   const isPlatformAdmin = myPlatformRole === "admin" || myPlatformRole === "super_admin";
   const [view, setView] = useState("home"); // home | detail | create | edit
   const [selectedId, setSelectedId] = useState(null);
+  // Communauté présélectionnée quand la création vient du bouton "Créer un
+  // événement" d'une communauté (voir initialCreateCommunityId ci-dessous) —
+  // remise à null par le bouton "Créer" générique de l'accueil, pour ne pas
+  // resservir la présélection d'une communauté visitée plus tôt.
+  const [createCommunityId, setCreateCommunityId] = useState(null);
 
   const [search, setSearch] = useState("");
   const [filterCity, setFilterCity] = useState("");
@@ -334,6 +339,17 @@ export default function EventsTab({ currentUser, onError, initialEventId, onCons
     goDetail({ id: initialEventId });
     onConsumedInitial();
   }, [initialEventId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Ouverture directe du formulaire de création, communauté présélectionnée
+  // — depuis le bouton "Créer un événement" de l'onglet Événements d'une
+  // communauté (CommunityDetailView via SocialShell). Consommé une seule
+  // fois, comme initialEventId ci-dessus.
+  useEffect(() => {
+    if (!initialCreateCommunityId) return;
+    setCreateCommunityId(initialCreateCommunityId);
+    setView("create");
+    onConsumedInitialCreate();
+  }, [initialCreateCommunityId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const refreshEventInList = (updated) => {
     setEvents((es) => es.map((e) => (e.id === updated.id ? { ...e, ...updated, participantCount: e.participantCount } : e)));
@@ -646,7 +662,7 @@ export default function EventsTab({ currentUser, onError, initialEventId, onCons
       <section className="max-w-lg mx-auto">
         <button onClick={() => setView("home")} className="text-sm font-bold mb-4" style={{ color: primary }}>← Annuler</button>
         <h1 className="text-2xl font-black mb-4" style={{ color: primary }}>Créer un événement</h1>
-        <EventCreateForm currentUser={currentUser} onCreated={handleCreated} onCancel={() => setView("home")} onError={onError} />
+        <EventCreateForm currentUser={currentUser} initialCommunityId={createCommunityId} onCreated={handleCreated} onCancel={() => setView("home")} onError={onError} />
       </section>
     );
   }
@@ -816,7 +832,7 @@ export default function EventsTab({ currentUser, onError, initialEventId, onCons
             <h1 className="text-3xl font-black" style={{ color: primary }}>🎉 Événements Baobab</h1>
             <p className="text-sm mt-1" style={{ color: muted }}>Découvre, participe, rencontre.</p>
           </div>
-          <button onClick={() => setView("create")} className="bb-btn-gold flex items-center gap-1.5 px-4 py-2.5 rounded-full text-sm font-bold flex-shrink-0">
+          <button onClick={() => { setCreateCommunityId(null); setView("create"); }} className="bb-btn-gold flex items-center gap-1.5 px-4 py-2.5 rounded-full text-sm font-bold flex-shrink-0">
             <Plus size={16} /> Créer
           </button>
         </div>
@@ -860,7 +876,7 @@ export default function EventsTab({ currentUser, onError, initialEventId, onCons
           title={isNeutralHome ? "Il n'y a aucun événement pour le moment." : "Aucun événement ne correspond à ta recherche."}
           subtitle={isNeutralHome ? "Crée le premier événement Baobab." : "Essaie une autre recherche."}
           actionLabel={isNeutralHome ? "Créer un événement" : undefined}
-          onAction={isNeutralHome ? () => setView("create") : undefined}
+          onAction={isNeutralHome ? () => { setCreateCommunityId(null); setView("create"); } : undefined}
         />
       ) : isNeutralHome ? (
         <>

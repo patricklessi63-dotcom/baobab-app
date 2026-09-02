@@ -13,7 +13,7 @@ const TITLE_MAX = 80;
 const DESCRIPTION_MAX = 500;
 const COVER_URL_EXPIRY = 60 * 60 * 24 * 365 * 5; // 5 ans — bucket privé, pas de re-signature à gérer pour une couverture
 
-export default function EventCreateForm({ currentUser, onCreated, onCancel, onError }) {
+export default function EventCreateForm({ currentUser, initialCommunityId = null, onCreated, onCancel, onError }) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState("");
@@ -25,8 +25,13 @@ export default function EventCreateForm({ currentUser, onCreated, onCancel, onEr
   const [city, setCity] = useState(currentUser?.city || "");
   const [location, setLocation] = useState("");
   const [maxParticipants, setMaxParticipants] = useState("");
-  const [visibility, setVisibility] = useState("public");
-  const [communityId, setCommunityId] = useState("");
+  // Présélectionné quand le formulaire s'ouvre depuis le bouton "Créer un
+  // événement" de l'onglet Événements d'une communauté (EventsTab —
+  // initialCreateCommunityId) : évite d'atterrir sur "Public" par défaut et
+  // de forcer l'utilisateur à re-choisir la communauté qu'il venait de
+  // quitter dans le menu déroulant ci-dessous.
+  const [visibility, setVisibility] = useState(initialCommunityId ? "community" : "public");
+  const [communityId, setCommunityId] = useState(initialCommunityId || "");
   const [timezone, setTimezone] = useState(() => {
     try {
       return closestCanadaTimezone(Intl.DateTimeFormat().resolvedOptions().timeZone);

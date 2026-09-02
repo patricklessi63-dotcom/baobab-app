@@ -63,7 +63,7 @@ function withMemberCount(rows) {
   return (rows || []).map((c) => ({ ...c, memberCount: c.community_members?.[0]?.count || 0 }));
 }
 
-export default function CommunitiesTab({ currentUser, onError, onCommunitiesChanged, initialCommunityId, onConsumedInitial, blockedIds = new Set(), onOpenEvents = () => {}, myPlatformRole = null, onReportProfile = () => {}, onBlockProfile = () => {} }) {
+export default function CommunitiesTab({ currentUser, onError, onCommunitiesChanged, initialCommunityId, onConsumedInitial, blockedIds = new Set(), onOpenEvents = () => {}, onCreateEventInCommunity = () => {}, myPlatformRole = null, onReportProfile = () => {}, onBlockProfile = () => {} }) {
   const isPlatformAdmin = myPlatformRole === "admin" || myPlatformRole === "super_admin";
   const [view, setView] = useState("list"); // list | detail | create
   const [selectedId, setSelectedId] = useState(null);
@@ -862,7 +862,12 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
           events={events}
           eventsLoading={eventsLoading}
           onOpenEvent={(id) => onOpenEvents(id)}
-          onCreateEvent={() => onOpenEvents()}
+          // Bug identifié à l'audit : ce bouton renvoyait vers l'accueil
+          // générique de l'onglet Événements sans jamais transmettre l'id de
+          // "community" ci-dessus — la communauté d'origine était perdue,
+          // l'utilisateur devait recliquer "Créer" et re-sélectionner
+          // lui-même la bonne communauté dans le formulaire.
+          onCreateEvent={() => onCreateEventInCommunity(community.id)}
           onOpenInvite={(c) => setInviteTarget(c)}
           members={members.filter((m) => !blockedIds.has(m.profile_id))}
           membersLoading={membersLoading}

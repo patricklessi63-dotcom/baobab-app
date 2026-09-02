@@ -724,6 +724,15 @@ export default function SocialShell({
   const [myUpcomingEvents, setMyUpcomingEvents] = useState([]);
   const [myUpcomingEventsLoading, setMyUpcomingEventsLoading] = useState(false);
   const [openEventId, setOpenEventId] = useState(null);
+  // Bug identifié à l'audit : le bouton "Créer un événement" de l'onglet
+  // "Événements" d'une communauté (CommunityDetailView) appelait onOpenEvents()
+  // SANS l'id de la communauté — il atterrissait sur l'accueil générique de
+  // l'onglet Événements, la communauté d'origine perdue en route (il fallait
+  // recliquer "Créer" puis choisir soi-même la bonne communauté dans le menu
+  // déroulant du formulaire, en pensant en plus à changer la visibilité sur
+  // "Communauté"). createEventCommunityId porte cet id jusqu'à EventsTab pour
+  // ouvrir directement le formulaire, communauté déjà présélectionnée.
+  const [createEventCommunityId, setCreateEventCommunityId] = useState(null);
   useEffect(() => {
     if (!currentUser || tab !== "profile" || currentUser.show_upcoming_events === false) { setMyUpcomingEvents([]); return; }
     let alive = true;
@@ -1729,6 +1738,7 @@ export default function SocialShell({
                 onConsumedInitial={() => setOpenCommunityId(null)}
                 blockedIds={blockedIds}
                 onOpenEvents={(id) => { setOpenEventId(id || null); goTab("events"); }}
+                onCreateEventInCommunity={(id) => { setCreateEventCommunityId(id); goTab("events"); }}
                 myPlatformRole={myPlatformRole}
                 onReportProfile={setReportTarget}
                 onBlockProfile={handleBlock}
@@ -1745,6 +1755,8 @@ export default function SocialShell({
                 onError={onError}
                 initialEventId={openEventId}
                 onConsumedInitial={() => setOpenEventId(null)}
+                initialCreateCommunityId={createEventCommunityId}
+                onConsumedInitialCreate={() => setCreateEventCommunityId(null)}
                 blockedIds={blockedIds}
                 myPlatformRole={myPlatformRole}
                 onReportProfile={setReportTarget}
