@@ -127,6 +127,14 @@ export default function EventsTab({ currentUser, onError, initialEventId, onCons
 
   const joinInFlightRef = useRef(new Set());
   const leaveInFlightRef = useRef(new Set());
+  // Garde anti-double-appel pour "Charger plus" (bouton jamais désactivé
+  // pendant la requête, contrairement au scroll infini de PostsFeed.jsx qui
+  // a déjà loadingMoreRef) : un double clic/tap rapide lançait deux
+  // loadMore() en parallèle, tous deux lisant le même listCursor (pas encore
+  // avancé), donc récupérant et ajoutant deux fois la même page d'événements
+  // à la liste affichée (doublons visibles + clé React dupliquée).
+  const [loadingMore, setLoadingMore] = useState(false);
+  const loadingMoreRef = useRef(false);
   // Bug identifié à l'audit (même famille que la course réseau corrigée
   // dans CommunityInviteModal, et que le correctif jumeau apporté à
   // CommunitiesTab.jsx) : goDetail() enchaîne plusieurs allers-retours
@@ -137,6 +145,13 @@ export default function EventsTab({ currentUser, onError, initialEventId, onCons
   // écraser event/participants/comments affichés pour B. detailRequestRef
   // sert de jeton : seule la dernière requête lancée peut appliquer son
   // résultat.
+  // Bug complémentaire identifié à l'audit (passe 106) : ce jeton n'était en
+  // fait vérifié qu'avant setEvent/setStaffRole, jamais avant les 4 appels
+  // du Promise.all lui-même (loadParticipants/loadComments/loadPhotos/
+  // loadReports) — chacun de ces appels posait donc quand même son résultat
+  // en retard sans aucune vérification, malgré le commentaire ci-dessus qui
+  // affirmait une protection complète. Chaque fonction reçoit maintenant ce
+  // même requestId et vérifie le jeton juste avant d'appliquer son résultat.
   const detailRequestRef = useRef(0);
 
   const isNeutralHome = !search.trim() && !filterCity.trim() && !filterCategory && !filterDateRange;
@@ -204,7 +219,9 @@ export default function EventsTab({ currentUser, onError, initialEventId, onCons
   // les offsets suivants avec .range(), causant des doublons ou des
   // événements jamais vus à la page suivante.
   const loadMore = async () => {
-    if (!listCursor) return;
+    if (!listCursor || loadingMoreRef.current) return;
+    loadingMoreRef.current = true;
+    setLoadingMore(true);
     try {
       const { data, error } = await buildListQuery({ search, filterCity, filterCategory, dateRange: filterDateRange })
         .or(`event_date.gt.${listCursor.event_date},and(event_date.eq.${listCursor.event_date},id.gt.${listCursor.id})`)
@@ -218,11 +235,21 @@ export default function EventsTab({ currentUser, onError, initialEventId, onCons
     } catch (e) {
       console.error(e);
       onError("Impossible de charger plus d'événements.");
+    } finally {
+      loadingMoreRef.current = false;
+      setLoadingMore(false);
     }
   };
 
   // ---------- Détail ----------
-  const loadParticipants = async (id) => {
+  // Chaque fonction ci-dessous accepte un requestId optionnel (le jeton
+  // detailRequestRef au moment de l'appel) : quand il est fourni, le
+  // résultat n'est appliqué que si aucune navigation vers un autre événement
+  // n'a eu lieu entre-temps (voir commentaire sur detailRequestRef
+  // ci-dessus). handleJoin/handleLeave, qui rafraîchissent la liste des
+  // participants d'un événement déjà ouvert (pas une nouvelle navigation),
+  // passent aussi le jeton courant pour bénéficier de la même protection.
+  const loadParticipants = async (id, requestId) => {
     setParticipantsLoading(true);
     try {
       // "id" est indispensable dans la sélection imbriquée ci-dessous, pas
@@ -239,6 +266,7 @@ export default function EventsTab({ currentUser, onError, initialEventId, onCons
         .eq("event_id", id)
         .order("created_at", { ascending: true });
       if (error) throw error;
+      if (requestId !== undefined && detailRequestRef.current !== requestId) return;
       setParticipants(data || []);
     } catch (e) {
       console.error(e);
@@ -248,7 +276,7 @@ export default function EventsTab({ currentUser, onError, initialEventId, onCons
     }
   };
 
-  const loadComments = async (id) => {
+  const loadComments = async (id, requestId) => {
     setCommentsLoading(true);
     try {
       const { data, error } = await supabase
@@ -257,6 +285,7 @@ export default function EventsTab({ currentUser, onError, initialEventId, onCons
         .eq("event_id", id)
         .order("created_at", { ascending: true });
       if (error) throw error;
+      if (requestId !== undefined && detailRequestRef.current !== requestId) return;
       setComments(data || []);
     } catch (e) {
       console.error(e);
@@ -266,20 +295,23 @@ export default function EventsTab({ currentUser, onError, initialEventId, onCons
     }
   };
 
-  const loadPhotos = async (id) => {
+  const loadPhotos = async (id, requestId) => {
     setPhotosLoading(true);
     try {
       const { data, error } = await supabase.from("event_media").select("*").eq("event_id", id).order("created_at", { ascending: false });
       if (error) throw error;
       const rows = data || [];
+      let nextPhotos;
       if (rows.length > 0) {
         const { data: signedList } = await supabase.storage.from("event-media").createSignedUrls(rows.map((r) => r.storage_path), PHOTO_URL_EXPIRY);
         const urlByPath = {};
         (signedList || []).forEach((s) => { if (s.signedUrl) urlByPath[s.path] = s.signedUrl; });
-        setPhotos(rows.map((r) => ({ ...r, url: urlByPath[r.storage_path] || null })));
+        nextPhotos = rows.map((r) => ({ ...r, url: urlByPath[r.storage_path] || null }));
       } else {
-        setPhotos([]);
+        nextPhotos = [];
       }
+      if (requestId !== undefined && detailRequestRef.current !== requestId) return;
+      setPhotos(nextPhotos);
     } catch (e) {
       console.error(e);
       onError("Impossible de charger les photos.");
@@ -288,9 +320,9 @@ export default function EventsTab({ currentUser, onError, initialEventId, onCons
     }
   };
 
-  const loadReports = async (id) => {
+  const loadReports = async (id, requestId) => {
     const { data, error } = await supabase.from("event_reports").select("*").eq("event_id", id).eq("status", "open").order("created_at", { ascending: false });
-    if (!error) setReports(data || []);
+    if (!error && !(requestId !== undefined && detailRequestRef.current !== requestId)) setReports(data || []);
   };
 
   const goDetail = async (ev) => {
@@ -326,10 +358,10 @@ export default function EventsTab({ currentUser, onError, initialEventId, onCons
       setStaffRole(role);
 
       await Promise.all([
-        loadParticipants(ev.id),
-        loadComments(ev.id),
-        loadPhotos(ev.id),
-        (role === "organizer" || role === "co_organizer" || role === "moderator") ? loadReports(ev.id) : Promise.resolve(),
+        loadParticipants(ev.id, requestId),
+        loadComments(ev.id, requestId),
+        loadPhotos(ev.id, requestId),
+        (role === "organizer" || role === "co_organizer" || role === "moderator") ? loadReports(ev.id, requestId) : Promise.resolve(),
       ]);
     } catch (e) {
       console.error(e);
@@ -394,7 +426,7 @@ export default function EventsTab({ currentUser, onError, initialEventId, onCons
       // avoir rejoint/quitté un événement (le nouveau/l'ancien participant
       // n'y apparaissait/disparaissait qu'après avoir quitté puis rouvert
       // le détail de l'événement).
-      if (selectedId === ev.id) loadParticipants(ev.id);
+      if (selectedId === ev.id) loadParticipants(ev.id, detailRequestRef.current);
       if (data.status === "going") {
         refreshParticipantCount(ev.id);
         trackActivation(currentUser.id, "event_joined");
@@ -420,7 +452,7 @@ export default function EventsTab({ currentUser, onError, initialEventId, onCons
       const { error } = await supabase.from("event_attendees").delete().eq("event_id", ev.id).eq("profile_id", currentUser.id);
       if (error) throw error;
       setMyStatuses((s) => { const n = { ...s }; delete n[ev.id]; return n; });
-      if (selectedId === ev.id) loadParticipants(ev.id);
+      if (selectedId === ev.id) loadParticipants(ev.id, detailRequestRef.current);
       if (wasGoing) refreshParticipantCount(ev.id);
     } catch (e) {
       console.error(e);
@@ -921,8 +953,8 @@ export default function EventsTab({ currentUser, onError, initialEventId, onCons
       )}
 
       {!listLoading && hasMore && !isNeutralHome && (
-        <button onClick={loadMore} className="w-full mt-5 py-3 rounded-full text-sm font-bold" style={{ background: bg, color: primary }}>
-          Charger plus
+        <button onClick={loadMore} disabled={loadingMore} className="w-full mt-5 py-3 rounded-full text-sm font-bold disabled:opacity-50" style={{ background: bg, color: primary }}>
+          {loadingMore ? "Chargement…" : "Charger plus"}
         </button>
       )}
     </section>
