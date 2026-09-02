@@ -1084,7 +1084,7 @@ export default function SocialShell({
       onProgress: setStoryUploadProgress,
     });
     const { data } = supabase.storage.from("avatars").getPublicUrl(path);
-    return data.publicUrl;
+    return { url: data.publicUrl, path };
   };
 
   const addStory = async () => {
@@ -1096,10 +1096,20 @@ export default function SocialShell({
     setStoryUploading(true);
     setStoryUploadProgress(0);
     beginCriticalOperation();
+    // Chemin Storage de l'upload en cours, pour nettoyage si l'insertion en
+    // base échoue après un upload réussi (même motif que EventCreateForm/
+    // CommunityCreateForm/PostsFeed : sans ce suivi, un statut qui échoue à
+    // l'insertion — coupure réseau, session expirée — laissait un fichier
+    // orphelin dans le bucket "avatars" pour toujours).
+    let uploadedPath = null;
     try {
       let mediaUrl = null;
       const mediaKind = storyMedia ? storyMediaKind : null;
-      if (storyMedia) mediaUrl = await uploadStoryMedia(currentUser.user_id, storyMedia);
+      if (storyMedia) {
+        const uploaded = await uploadStoryMedia(currentUser.user_id, storyMedia);
+        mediaUrl = uploaded.url;
+        uploadedPath = uploaded.path;
+      }
       const bgColor = !storyMedia && text ? (storyBgColor || null) : null;
       const { data, error } = await supabase
         .from("stories")
@@ -1133,6 +1143,10 @@ export default function SocialShell({
       setStoryComposer(false);
     } catch (e) {
       console.error(e);
+      // Upload Storage déjà réussi mais l'insertion en base a échoué ensuite
+      // (ex : session expirée entre les deux) : nettoie le fichier orphelin
+      // plutôt que de le laisser dans "avatars" pour toujours.
+      if (uploadedPath) supabase.storage.from("avatars").remove([uploadedPath]).catch(() => {});
       setStoryMediaError("Impossible de publier le statut. Réessaie.");
     } finally {
       storyPublishingRef.current = false;
