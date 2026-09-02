@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { X, ChevronLeft, ChevronRight, Heart, MessageCircle, UserPlus, UserCheck, Star, Flag, Ban } from "lucide-react";
 import Avatar from "../Avatar";
 import ClickableImage from "../ClickableImage";
@@ -43,6 +43,17 @@ export default function PublicProfileModal({
   useEscapeKey(Boolean(profile), onClose);
   const dialogRef = useRef(null);
   useFocusTrap(Boolean(profile), dialogRef);
+  // Bug corrigé à l'audit : CommunitiesTab.jsx et EventsTab.jsx rendent cette
+  // modale SANS la conditionner à `viewedProfile &&` (contrairement à
+  // SocialShell.jsx) — le composant reste donc monté en permanence, et
+  // `profile` change directement d'un membre à l'autre sans jamais repasser
+  // par `null` entre deux ouvertures. Sans ce reset, consulter la 3e photo
+  // d'un premier profil (photoIdx=2) puis fermer et ouvrir un second profil
+  // n'ayant qu'une seule photo laissait `gallery[photoIdx]` pointer hors du
+  // tableau (`gallery[2]` sur un tableau d'1 élément) : image cassée affichée
+  // à l'ouverture, jusqu'à ce que l'utilisateur clique lui-même sur une
+  // flèche pour "corriger" l'index via le modulo de next()/prev().
+  useEffect(() => { setPhotoIdx(0); }, [profile?.id]);
   if (!profile) return null;
 
   const gallery = photos.length > 0 ? photos.map((p) => p.url) : profile.avatar_url ? [profile.avatar_url] : [];
