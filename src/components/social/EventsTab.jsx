@@ -272,7 +272,10 @@ export default function EventsTab({ currentUser, onError, initialEventId, onCons
       console.error(e);
       onError("Impossible de charger les participants.");
     } finally {
-      setParticipantsLoading(false);
+      // Même jeton que ci-dessus : sans cette vérification, la réponse
+      // tardive de l'événement A (déjà quitté) coupait le "Chargement…" de
+      // l'événement B au milieu de SON propre chargement des participants.
+      if (requestId === undefined || detailRequestRef.current === requestId) setParticipantsLoading(false);
     }
   };
 
@@ -291,7 +294,10 @@ export default function EventsTab({ currentUser, onError, initialEventId, onCons
       console.error(e);
       onError("Impossible de charger la discussion.");
     } finally {
-      setCommentsLoading(false);
+      // Même jeton que ci-dessus : sinon la réponse tardive de l'événement A
+      // coupait le "Chargement…" de la discussion de B pendant qu'elle
+      // chargeait encore.
+      if (requestId === undefined || detailRequestRef.current === requestId) setCommentsLoading(false);
     }
   };
 
@@ -316,7 +322,10 @@ export default function EventsTab({ currentUser, onError, initialEventId, onCons
       console.error(e);
       onError("Impossible de charger les photos.");
     } finally {
-      setPhotosLoading(false);
+      // Même jeton que ci-dessus : sinon la réponse tardive de l'événement A
+      // coupait le "Chargement…" des photos de B pendant qu'elles chargeaient
+      // encore.
+      if (requestId === undefined || detailRequestRef.current === requestId) setPhotosLoading(false);
     }
   };
 

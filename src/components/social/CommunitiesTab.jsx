@@ -299,7 +299,12 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
       console.error(e);
       onError("Impossible de charger les publications.");
     } finally {
-      setPostsLoading(false);
+      // Même jeton que ci-dessus : sans cette vérification, la réponse
+      // tardive de la communauté A (déjà quittée) coupait le "Chargement…"
+      // de la communauté B au milieu de SON propre chargement — la liste
+      // de B semblait chargée (ou vide) une fraction de seconde avant que
+      // ses vraies données n'arrivent.
+      if (requestId === undefined || detailRequestRef.current === requestId) setPostsLoading(false);
     }
   };
 
@@ -334,7 +339,10 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
       console.error(e);
       onError("Impossible de charger les membres.");
     } finally {
-      setMembersLoading(false);
+      // Même jeton que ci-dessus : sinon la réponse tardive de la
+      // communauté A coupait le "Chargement…" de la communauté B pendant
+      // que celle-ci chargeait encore ses propres membres.
+      if (requestId === undefined || detailRequestRef.current === requestId) setMembersLoading(false);
     }
   };
 
@@ -388,7 +396,10 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
       console.error(e);
       onError("Impossible de charger les événements.");
     } finally {
-      setEventsLoading(false);
+      // Même jeton que ci-dessus : sinon la réponse tardive de la
+      // communauté A coupait le "Chargement…" de la communauté B pendant
+      // que celle-ci chargeait encore ses propres événements.
+      if (requestId === undefined || detailRequestRef.current === requestId) setEventsLoading(false);
     }
   };
 
