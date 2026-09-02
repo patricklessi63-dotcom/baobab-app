@@ -44,6 +44,12 @@ export default function App() {
   }, []);
 
   const [session, setSession] = useState(undefined); // undefined = pas encore vérifié, null = pas connecté
+  // Lu (et jamais utilisé pour déclencher un rendu) par le listener
+  // onAuthStateChange ci-dessous pour comparer le TOKEN_REFRESHED entrant à
+  // l'utilisateur déjà connu sans fermer sur une valeur figée de "session"
+  // (l'effet qui installe ce listener a des deps [] pour ne s'abonner qu'une
+  // fois). Voir le bug corrigé documenté plus bas.
+  const sessionRef = useRef(undefined);
   const [view, setView] = useState("loading"); // loading | form | feed | discover | matches | stories
   const { isOnline } = useOnlineStatus();
   const { pathname, navigate } = usePathname();
@@ -277,8 +283,8 @@ export default function App() {
     }
 
     supabase.auth.getSession()
-      .then(({ data }) => setSession(data.session ?? null))
-      .catch(() => setSession(null));
+      .then(({ data }) => { sessionRef.current = data.session ?? null; setSession(data.session ?? null); })
+      .catch(() => { sessionRef.current = null; setSession(null); });
     const { data: listener } = supabase.auth.onAuthStateChange((event, newSession) => {
       // Ne JAMAIS laisser une confirmation d'email connecter automatiquement
       // l'utilisateur : Supabase établit réellement une session (preuve que
@@ -289,6 +295,27 @@ export default function App() {
         supabase.auth.signOut().then(() => setJustVerified(true));
         return;
       }
+      // Bug corrigé : Supabase émet TOKEN_REFRESHED automatiquement en
+      // arrière-plan pour renouveler le jeton avant son expiration (~1h de
+      // durée de vie par défaut), sans aucune action de l'utilisateur.
+      // setSession(newSession) alimente l'effet [session, loadAll] plus bas,
+      // qui rechargeait ENTIÈREMENT l'app (loadAll : jusqu'à 500 profils +
+      // 3200 photos + likes/passes/blocks...) et forçait
+      // setView("checking-profile") — un écran de chargement plein écran qui
+      // remplaçait toute l'app en cours d'utilisation (message en train
+      // d'être tapé, upload en cours, modale ouverte...) pour retomber
+      // ensuite sur l'onglet Feed par défaut. Concrètement, quiconque
+      // laissait l'app ouverte plus d'environ une heure se faisait éjecter
+      // de son écran en pleine action. Un simple renouvellement silencieux
+      // de jeton pour le même utilisateur ne doit jamais déclencher ça : le
+      // client Supabase gère déjà en interne le nouveau jeton pour toutes
+      // les requêtes, donc on ignore l'évènement ici (tout en gardant
+      // sessionRef à jour, au cas où un vrai changement d'utilisateur suit).
+      if (event === "TOKEN_REFRESHED" && newSession?.user?.id && newSession.user.id === sessionRef.current?.user?.id) {
+        sessionRef.current = newSession;
+        return;
+      }
+      sessionRef.current = newSession;
       setSession(newSession);
       // Lien "mot de passe oublié" cliqué depuis l'email : Supabase authentifie
       // la session de récupération et émet cet événement.
