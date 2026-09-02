@@ -93,6 +93,28 @@ export default function EventCreateForm({ currentUser, onCreated, onCancel, onEr
         setSubmitting(false);
         return;
       }
+      // Bug identifié à l'audit : ces champs numériques (type="number" avec
+      // min="1") n'empêchent PAS de taper "-30" ou "0" au clavier — l'attribut
+      // min ne joue que sur les flèches et la validation native de <form>,
+      // jamais déclenchée ici (soumission par onClick, pas par submit). Une
+      // durée négative/nulle était donc envoyée telle quelle : create_event()
+      // ne la valide pas (contrairement à p_max_participants) et aucune
+      // contrainte serveur n'existe sur duration_minutes, donc l'événement se
+      // créait silencieusement avec une durée absurde ("-1 h -30", calculée
+      // par durationLabel() dans EventDetailView, et un .ics dont l'heure de
+      // fin précède l'heure de début dans calendarExport.js).
+      const parsedDuration = durationMinutes.trim() ? Number(durationMinutes) : null;
+      if (parsedDuration !== null && (!Number.isInteger(parsedDuration) || parsedDuration <= 0)) {
+        setError("La durée doit être un nombre de minutes positif.");
+        setSubmitting(false);
+        return;
+      }
+      const parsedMaxParticipants = maxParticipants.trim() ? Number(maxParticipants) : null;
+      if (parsedMaxParticipants !== null && (!Number.isInteger(parsedMaxParticipants) || parsedMaxParticipants <= 0)) {
+        setError("Le nombre maximum de participants doit être un entier positif.");
+        setSubmitting(false);
+        return;
+      }
       if (coverFile) {
         const { ok, error: validationError } = await validateMediaFile(coverFile, "image");
         if (!mountedRef.current) return;
@@ -105,10 +127,10 @@ export default function EventCreateForm({ currentUser, onCreated, onCancel, onEr
         p_category: category,
         p_cover_url: null,
         p_event_date: eventDateTime.toISOString(),
-        p_duration_minutes: durationMinutes ? Number(durationMinutes) : null,
+        p_duration_minutes: parsedDuration,
         p_city: city.trim(),
         p_location: location.trim() || null,
-        p_max_participants: maxParticipants ? Number(maxParticipants) : null,
+        p_max_participants: parsedMaxParticipants,
         p_visibility: visibility,
         p_community_id: visibility === "community" ? communityId : null,
         p_timezone: timezone || null,

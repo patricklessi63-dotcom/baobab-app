@@ -114,6 +114,25 @@ export default function EventEditForm({ event, onSaved, onCancel, onError }) {
         setSubmitting(false);
         return;
       }
+      // Même bug qu'à la création (EventCreateForm) : min="1" sur un
+      // <input type="number"> n'empêche pas de taper "-30" ou "0" au
+      // clavier, et cette édition passe par un simple .update() (pas de RPC)
+      // — duration_minutes n'a aucune contrainte serveur (contrairement à
+      // max_participants) et se serait enregistrée telle quelle, faussant
+      // ensuite durationLabel() (EventDetailView) et l'export .ics
+      // (calendarExport.js, heure de fin avant l'heure de début).
+      const parsedDuration = durationMinutes.toString().trim() ? Number(durationMinutes) : null;
+      if (parsedDuration !== null && (!Number.isInteger(parsedDuration) || parsedDuration <= 0)) {
+        setError("La durée doit être un nombre de minutes positif.");
+        setSubmitting(false);
+        return;
+      }
+      const parsedMaxParticipants = maxParticipants.toString().trim() ? Number(maxParticipants) : null;
+      if (parsedMaxParticipants !== null && (!Number.isInteger(parsedMaxParticipants) || parsedMaxParticipants <= 0)) {
+        setError("Le nombre maximum de participants doit être un entier positif.");
+        setSubmitting(false);
+        return;
+      }
       let coverUrl = event.cover_url;
       let uploadedPath = null;
       if (coverFile) {
@@ -135,10 +154,10 @@ export default function EventEditForm({ event, onSaved, onCancel, onError }) {
           category,
           cover_url: coverUrl,
           event_date: eventDateTime.toISOString(),
-          duration_minutes: durationMinutes ? Number(durationMinutes) : null,
+          duration_minutes: parsedDuration,
           city: city.trim(),
           location: location.trim() || null,
-          max_participants: maxParticipants ? Number(maxParticipants) : null,
+          max_participants: parsedMaxParticipants,
           timezone: timezone || null,
           updated_at: new Date().toISOString(),
         })
