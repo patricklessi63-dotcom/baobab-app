@@ -111,6 +111,17 @@ export default function EventsTab({ currentUser, onError, initialEventId, onCons
 
   const joinInFlightRef = useRef(new Set());
   const leaveInFlightRef = useRef(new Set());
+  // Bug identifié à l'audit (même famille que la course réseau corrigée
+  // dans CommunityInviteModal, et que le correctif jumeau apporté à
+  // CommunitiesTab.jsx) : goDetail() enchaîne plusieurs allers-retours
+  // réseau séquentiels (event, organisateur, communauté, rôle staff) avant
+  // Promise.all(loadParticipants/loadComments/...). Sans garde de séquence,
+  // ouvrir l'événement A puis revenir en arrière et ouvrir B avant la fin de
+  // la requête de A pouvait laisser la réponse de A (arrivée en dernier)
+  // écraser event/participants/comments affichés pour B. detailRequestRef
+  // sert de jeton : seule la dernière requête lancée peut appliquer son
+  // résultat.
+  const detailRequestRef = useRef(0);
 
   const isNeutralHome = !search.trim() && !filterCity.trim() && !filterCategory && !filterDateRange;
 
@@ -267,6 +278,7 @@ export default function EventsTab({ currentUser, onError, initialEventId, onCons
   };
 
   const goDetail = async (ev) => {
+    const requestId = ++detailRequestRef.current;
     setSelectedId(ev.id);
     setView("detail");
     setEvent(null);
@@ -275,6 +287,9 @@ export default function EventsTab({ currentUser, onError, initialEventId, onCons
     try {
       const { data, error } = await supabase.from("events").select("*").eq("id", ev.id).single();
       if (error) throw error;
+      // Une navigation plus récente a démarré entre-temps (voir commentaire
+      // sur detailRequestRef) : on abandonne avant d'écraser l'état affiché.
+      if (detailRequestRef.current !== requestId) return;
       setEvent(data);
 
       if (data.created_by) {
@@ -291,6 +306,7 @@ export default function EventsTab({ currentUser, onError, initialEventId, onCons
         const { data: staffRow } = await supabase.from("event_staff").select("role").eq("event_id", ev.id).eq("profile_id", currentUser.id).maybeSingle();
         role = staffRow?.role || null;
       }
+      if (detailRequestRef.current !== requestId) return;
       setStaffRole(role);
 
       await Promise.all([

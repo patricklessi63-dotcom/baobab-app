@@ -116,6 +116,16 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
   // myMemberships[id] === undefined signifie "non-membre confirmé" ou
   // simplement "pas encore su" (voir commentaire dans goDetail).
   const membershipsLoadedRef = useRef(false);
+  // Bug identifié à l'audit (même famille que la course réseau corrigée
+  // dans CommunityInviteModal) : goDetail() enchaîne plusieurs allers-retours
+  // réseau séquentiels avant de lancer Promise.all(loadPosts/loadMembers/...).
+  // Sans garde de séquence, ouvrir la communauté A puis revenir en arrière et
+  // ouvrir B avant que la requête de A ne soit terminée pouvait laisser la
+  // réponse de A (arrivée en dernier) écraser community/posts/members/events
+  // affichés pour B — l'utilisateur voit alors le contenu d'une communauté
+  // qui n'est plus celle sélectionnée. detailRequestRef sert de jeton :
+  // seule la dernière requête lancée est autorisée à appliquer son résultat.
+  const detailRequestRef = useRef(0);
 
   const isNeutralHome = !search.trim() && !filterCity.trim() && !filterCategory && !filterVisibility;
 
@@ -318,6 +328,7 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
   };
 
   const goDetail = async (comm) => {
+    const requestId = ++detailRequestRef.current;
     setSelectedId(comm.id);
     setView("detail");
     setCommunity(null);
@@ -326,6 +337,9 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
     try {
       const { data, error } = await supabase.from("communities").select("*").eq("id", comm.id).single();
       if (error) throw error;
+      // Une navigation plus récente a démarré entre-temps (voir commentaire
+      // sur detailRequestRef) : on abandonne avant d'écraser l'état affiché.
+      if (detailRequestRef.current !== requestId) return;
       setCommunity(data);
       if (data.created_by) {
         const { data: creator } = await supabase.from("profiles").select("name").eq("id", data.created_by).single();
@@ -355,6 +369,7 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
         role = myRow?.role || null;
         if (role) setMyMemberships((m) => ({ ...m, [comm.id]: role }));
       }
+      if (detailRequestRef.current !== requestId) return;
       await Promise.all([
         loadPosts(comm.id),
         loadMembers(comm.id),
