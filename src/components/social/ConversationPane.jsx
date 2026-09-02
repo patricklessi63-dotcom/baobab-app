@@ -460,7 +460,12 @@ export default function ConversationPane({
         </div>
       )}
       <div className="p-4 flex gap-2 items-end shrink-0 sticky bottom-0 bg-[var(--bb-surface)]" style={{ borderTop: replyingTo ? "none" : `1px solid rgba(${primaryRgb},.08)`, paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}>
-        {!recorderActive && <EmojiPicker onPick={(emoji) => setMessageDraft((d) => d + emoji)} currentUserId={currentUser.id} />}
+        {/* .slice(0, 4000) : comme pour la reformulation IA et les suggestions IA ci-dessus,
+            l'ajout d'un emoji passe par setMessageDraft() en dehors de l'événement onChange du
+            textarea, donc l'attribut maxLength du textarea (saisie clavier) ne s'applique pas
+            ici — sans troncature explicite, un emoji ajouté à un brouillon déjà proche de 4000
+            caractères pouvait dépasser la limite envoyée au serveur. */}
+        {!recorderActive && <EmojiPicker onPick={(emoji) => setMessageDraft((d) => (d + emoji).slice(0, 4000))} currentUserId={currentUser.id} />}
         {!recorderActive && (
           <MessageMediaPicker
             onPickFile={(file, kind) => sendMediaMessage(file, kind)}
