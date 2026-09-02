@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { X, Search, UserPlus, Check } from "lucide-react";
 import Avatar from "../Avatar";
 import { supabase } from "../../supabaseClient";
