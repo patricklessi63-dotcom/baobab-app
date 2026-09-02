@@ -132,6 +132,15 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
   const leaveInFlightRef = useRef(new Set());
   const removeMemberInFlightRef = useRef(new Set());
   const likeInFlightRef = useRef(new Set());
+  // Garde anti-double-appel pour Accepter/Refuser une demande d'adhésion
+  // (CommunityAdminPanel) : les boutons ne se désactivent pas pendant
+  // l'appel, donc un double-clic/tap rapide envoyait deux fois le même RPC.
+  // accept_join_request/reject_join_request ne trouvent la ligne "pending"
+  // que pour le premier appel (voir supabase-communities.sql) ; le second
+  // lève "Demande introuvable ou deja traitee", que le catch ci-dessous
+  // affichait à tort comme un échec alors que la demande venait d'être
+  // traitée avec succès par le premier appel.
+  const joinRequestInFlightRef = useRef(new Set());
   // Devient true une fois myMemberships réellement chargé depuis le
   // serveur (voir l'effet ci-dessous) — utilisé par goDetail pour savoir si
   // myMemberships[id] === undefined signifie "non-membre confirmé" ou
@@ -524,6 +533,8 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
 
   // ---------- Admin : demandes d'adhésion ----------
   const handleAcceptRequest = async (req) => {
+    if (joinRequestInFlightRef.current.has(req.id)) return;
+    joinRequestInFlightRef.current.add(req.id);
     try {
       const { error } = await supabase.rpc("accept_join_request", { p_request_id: req.id });
       if (error) throw error;
@@ -533,10 +544,14 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
     } catch (e) {
       console.error(e);
       onError("Impossible d'accepter cette demande.");
+    } finally {
+      joinRequestInFlightRef.current.delete(req.id);
     }
   };
 
   const handleRejectRequest = async (req) => {
+    if (joinRequestInFlightRef.current.has(req.id)) return;
+    joinRequestInFlightRef.current.add(req.id);
     try {
       const { error } = await supabase.rpc("reject_join_request", { p_request_id: req.id });
       if (error) throw error;
@@ -544,6 +559,8 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
     } catch (e) {
       console.error(e);
       onError("Impossible de refuser cette demande.");
+    } finally {
+      joinRequestInFlightRef.current.delete(req.id);
     }
   };
 
