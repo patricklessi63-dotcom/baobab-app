@@ -250,7 +250,7 @@ export default function CommunityDetailView({
               ) : (
                 <div className="grid sm:grid-cols-2 gap-4">
                   {events.map((ev) => (
-                    <EventCard key={ev.id} event={ev} participantCount={ev.participantCount} onView={() => onOpenEvent(ev.id)} />
+                    <EventCard key={ev.id} event={ev} participantCount={ev.participantCount} status={ev.status} onView={() => onOpenEvent(ev.id)} />
                   ))}
                 </div>
               )}

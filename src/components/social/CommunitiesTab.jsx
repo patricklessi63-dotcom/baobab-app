@@ -318,7 +318,23 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
         .is("canceled_at", null)
         .order("event_date", { ascending: true });
       if (error) throw error;
-      setEvents((data || []).map((e) => ({ ...e, participantCount: e.event_participant_count || 0 })));
+      const rows = data || [];
+      // Statut de participation de l'utilisateur courant pour ces événements
+      // — sans ça, EventCard ne reçoit jamais de prop "status" ici (contrairement
+      // à EventsTab qui la fournit toujours) et n'affiche donc jamais le badge
+      // "Tu participes ✓" / "Sur liste d'attente" pour un événement de
+      // communauté auquel on est déjà inscrit·e.
+      let statusByEventId = {};
+      if (currentUser && rows.length > 0) {
+        const { data: attendeeRows, error: attendeeError } = await supabase
+          .from("event_attendees")
+          .select("event_id, status")
+          .eq("profile_id", currentUser.id)
+          .in("event_id", rows.map((e) => e.id));
+        if (attendeeError) console.error(attendeeError);
+        else statusByEventId = Object.fromEntries((attendeeRows || []).map((r) => [r.event_id, r.status]));
+      }
+      setEvents(rows.map((e) => ({ ...e, participantCount: e.event_participant_count || 0, status: statusByEventId[e.id] || null })));
     } catch (e) {
       console.error(e);
       onError("Impossible de charger les événements.");
