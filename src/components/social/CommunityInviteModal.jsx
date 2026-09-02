@@ -16,6 +16,14 @@ export default function CommunityInviteModal({ community, currentUser, memberIds
   const [searching, setSearching] = useState(false);
   const [invitedIds, setInvitedIds] = useState(new Set());
   const [sendingId, setSendingId] = useState(null);
+  // Garde anti-course : chaque frappe déclenche une requête réseau immédiate
+  // (pas de debounce), donc rien ne garantit que les réponses reviennent
+  // dans l'ordre où elles sont parties. Sans ce compteur, taper vite "al"
+  // puis "alex" pouvait afficher les résultats de "al" si sa réponse
+  // arrivait après celle — pourtant plus récente — de "alex" : on
+  // n'applique une réponse que si elle correspond encore à la dernière
+  // recherche lancée.
+  const searchSeqRef = useRef(0);
 
   useEscapeKey(Boolean(community), onClose);
   // Cette modale reste montée en permanence (CommunitiesTab ne la démonte
@@ -29,11 +37,13 @@ export default function CommunityInviteModal({ community, currentUser, memberIds
     setResults([]);
     setInvitedIds(new Set());
     setSendingId(null);
+    searchSeqRef.current++; // invalide aussi toute recherche encore en vol pour l'ancienne communauté
   }, [community?.id]);
   if (!community) return null;
 
   const runSearch = async (value) => {
     setSearch(value);
+    const seq = ++searchSeqRef.current;
     if (!value.trim()) { setResults([]); return; }
     setSearching(true);
     try {
@@ -44,12 +54,14 @@ export default function CommunityInviteModal({ community, currentUser, memberIds
         .neq("id", currentUser.id)
         .limit(15);
       if (error) throw error;
+      if (seq !== searchSeqRef.current) return; // une recherche plus récente a déjà pris le relais
       setResults((data || []).filter((p) => !memberIds.has(p.id)));
     } catch (e) {
+      if (seq !== searchSeqRef.current) return;
       console.error(e);
       onError?.("Impossible de rechercher des profils.");
     } finally {
-      setSearching(false);
+      if (seq === searchSeqRef.current) setSearching(false);
     }
   };
 
