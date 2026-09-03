@@ -1,7 +1,8 @@
-import React, { useEffect, useMemo } from "react";
+import React, { useEffect, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
 import { X, Image as ImageIcon, Camera, ArrowLeft } from "lucide-react";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
+import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { primary, navy, green, coral, gold, bg, primaryRgb } from "./theme";
 
 // Fonds proposés pour un statut texte — palette Baobab (pas de bleu
@@ -31,7 +32,9 @@ export default function StoryComposerModal({
   storyVideoInputRef,
   addStory,
 }) {
+  const panelRef = useRef(null);
   useEscapeKey(storyComposer, () => setStoryComposer(false));
+  useFocusTrap(storyComposer, panelRef);
   const canContinue = Boolean(storyText.trim() || storyMedia);
   const previewBg = storyBgColor || BG_PRESETS[0];
 
@@ -60,7 +63,7 @@ export default function StoryComposerModal({
       <input ref={storyVideoInputRef} type="file" accept="video/*" className="hidden" onChange={(e) => onStoryMediaSelected(e, "video")} />
       {storyComposer && createPortal(
         <div className="fixed inset-0 z-[60] flex items-end md:items-center justify-center p-0 md:p-5" style={{ background: `rgba(${primaryRgb},.55)`, backdropFilter: "blur(5px)" }} onClick={handleClose} role="dialog" aria-modal="true" aria-label="Nouveau statut">
-          <div className="bg-[var(--bb-surface)] w-full max-w-md rounded-t-[30px] md:rounded-[30px] shadow-2xl flex flex-col" style={{ maxHeight: "88dvh", paddingBottom: "env(safe-area-inset-bottom)" }} onClick={(e) => e.stopPropagation()}>
+          <div ref={panelRef} tabIndex={-1} className="bg-[var(--bb-surface)] w-full max-w-md rounded-t-[30px] md:rounded-[30px] shadow-2xl flex flex-col" style={{ maxHeight: "88dvh", paddingBottom: "env(safe-area-inset-bottom)" }} onClick={(e) => e.stopPropagation()}>
             {storyStep === "compose" ? (
               <>
                 <div className="flex items-center justify-between p-6 pb-0 shrink-0">

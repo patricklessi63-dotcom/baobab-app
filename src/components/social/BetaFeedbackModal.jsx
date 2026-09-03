@@ -1,6 +1,7 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import { supabase } from "../../supabaseClient";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
+import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { primary, navy, coral, muted, card, primaryRgb } from "./theme";
 import { APP_VERSION, detectDevice, detectBrowser, detectCategories, detectPriority } from "../../lib/feedbackTriage";
 
@@ -21,7 +22,9 @@ export default function BetaFeedbackModal({ open, onClose, currentUser, screen }
   const [sending, setSending] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState("");
+  const panelRef = useRef(null);
   useEscapeKey(open, onClose);
+  useFocusTrap(open, panelRef);
   if (!open) return null;
 
   // Bug corrigé : le reset des champs était différé de 200ms après onClose()
@@ -89,7 +92,7 @@ export default function BetaFeedbackModal({ open, onClose, currentUser, screen }
       aria-modal="true"
       aria-label="Envoyer un retour beta"
     >
-      <div className={`${card} p-6 max-w-sm w-full`} onClick={(e) => e.stopPropagation()}>
+      <div ref={panelRef} tabIndex={-1} className={`${card} p-6 max-w-sm w-full`} onClick={(e) => e.stopPropagation()}>
         {!submitted ? (
           <>
             <h2 className="text-lg font-black" style={{ color: primary }}>Un souci, une idée ?</h2>

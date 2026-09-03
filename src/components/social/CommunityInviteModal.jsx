@@ -3,6 +3,7 @@ import { X, Search, UserPlus, Check } from "lucide-react";
 import Avatar from "../Avatar";
 import { supabase } from "../../supabaseClient";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
+import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { escapeLikePattern } from "../../lib/searchQuery";
 import { primary, coral, muted, card, primaryRgb } from "./theme";
 
@@ -24,8 +25,10 @@ export default function CommunityInviteModal({ community, currentUser, memberIds
   // n'applique une réponse que si elle correspond encore à la dernière
   // recherche lancée.
   const searchSeqRef = useRef(0);
+  const panelRef = useRef(null);
 
   useEscapeKey(Boolean(community), onClose);
+  useFocusTrap(Boolean(community), panelRef);
   // Cette modale reste montée en permanence (CommunitiesTab ne la démonte
   // jamais, elle rend juste `null` en interne) — sans ce reset, rouvrir la
   // modale pour une AUTRE communauté gardait la recherche et les résultats
@@ -95,7 +98,7 @@ export default function CommunityInviteModal({ community, currentUser, memberIds
       aria-modal="true"
       aria-label={`Inviter des membres dans ${community.name}`}
     >
-      <div className={`${card} w-full max-w-md rounded-t-[30px] md:rounded-[30px] p-6 max-h-[85vh] overflow-y-auto`} onClick={(e) => e.stopPropagation()}>
+      <div ref={panelRef} tabIndex={-1} className={`${card} w-full max-w-md rounded-t-[30px] md:rounded-[30px] p-6 max-h-[85vh] overflow-y-auto`} onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-black" style={{ color: primary }}>Inviter dans {community.name}</h2>
           <button onClick={onClose} aria-label="Fermer"><X size={18} /></button>

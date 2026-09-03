@@ -1,11 +1,13 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { X } from "lucide-react";
 import ChipSelect from "../ChipSelect";
 import { MATCH_DISTANCE_OPTIONS, LOOKING_FOR_OPTIONS } from "../../constants";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
+import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { primary, coral, bg, muted, card, primaryRgb } from "./theme";
 
 export default function MatchPreferencesModal({ open, onClose, currentUser, onSave }) {
+  const panelRef = useRef(null);
   const [ageMin, setAgeMin] = useState(18);
   const [ageMax, setAgeMax] = useState(99);
   const [distance, setDistance] = useState("");
@@ -22,6 +24,7 @@ export default function MatchPreferencesModal({ open, onClose, currentUser, onSa
   }, [open, currentUser]);
 
   useEscapeKey(open, onClose);
+  useFocusTrap(open, panelRef);
   if (!open) return null;
 
   const save = () => {
@@ -44,7 +47,7 @@ export default function MatchPreferencesModal({ open, onClose, currentUser, onSa
       aria-modal="true"
       aria-label="Mes préférences"
     >
-      <div className={`${card} w-full max-w-md rounded-t-[30px] md:rounded-[30px] p-6 max-h-[85vh] overflow-y-auto`} onClick={(e) => e.stopPropagation()}>
+      <div ref={panelRef} tabIndex={-1} className={`${card} w-full max-w-md rounded-t-[30px] md:rounded-[30px] p-6 max-h-[85vh] overflow-y-auto`} onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-1">
           <h2 className="text-xl font-black" style={{ color: primary }}>🎯 Mes préférences</h2>
           <button onClick={onClose} aria-label="Fermer"><X /></button>

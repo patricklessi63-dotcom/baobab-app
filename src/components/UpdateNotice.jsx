@@ -1,19 +1,27 @@
-import React from "react";
+import React, { useRef } from "react";
 import { Sparkles, AlertTriangle } from "lucide-react";
 import { C } from "../constants";
 import { CURRENT_VERSION } from "../lib/version";
+import { useFocusTrap } from "../hooks/useFocusTrap";
 
 // Deux variantes distinctes (item 10 vs 11 du cahier des charges "mise à
 // jour") : obligatoire = plein écran, pas d'échappatoire ("Plus tard"
 // volontairement absent) ; recommandée = carte discrète en bas d'écran,
 // fermable, jamais bloquante.
 export default function UpdateNotice({ mandatory, recommended, info, onReload, onDismiss }) {
+  const panelRef = useRef(null);
+  // Piège à focus uniquement côté "mandatory" : c'est la seule des deux
+  // variantes qui est un vrai modal bloquant (overlay plein écran,
+  // aria-modal). La variante "recommended" est une carte non bloquante sans
+  // overlay (role="status") — le focus clavier doit pouvoir continuer d'aller
+  // ailleurs dans la page pendant qu'elle est affichée.
+  useFocusTrap(Boolean(mandatory), panelRef);
   if (!mandatory && !recommended) return null;
 
   if (mandatory) {
     return (
       <div className="fixed inset-0 z-[100] flex items-center justify-center p-5" style={{ background: "rgba(13,25,20,0.82)", backdropFilter: "blur(4px)" }} role="alertdialog" aria-modal="true" aria-label="Mise à jour nécessaire">
-        <div className="w-full max-w-sm rounded-[24px] p-6 text-center" style={{ background: C.sand }}>
+        <div ref={panelRef} tabIndex={-1} className="w-full max-w-sm rounded-[24px] p-6 text-center" style={{ background: C.sand }}>
           <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full" style={{ background: "rgba(193,97,61,0.14)" }}>
             <AlertTriangle size={26} color={C.clay} />
           </div>

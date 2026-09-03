@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { ArrowLeft, MapPin, Calendar, Heart, Compass } from "lucide-react";
 import { C } from "../constants";
 import { useEscapeKey } from "../hooks/useEscapeKey";
+import { useFocusTrap } from "../hooks/useFocusTrap";
 import { getCurrentPositionSafe } from "../lib/geolocation";
 
 const PREF_FIELDS = [
@@ -14,7 +15,9 @@ const PREF_FIELDS = [
 export default function LocationSettingsModal({ open, onClose, onBack, location, onEnable, onDisable, onUpdatePref }) {
   const [view, setView] = useState("idle"); // idle | consent | requesting | error
   const [errorMessage, setErrorMessage] = useState("");
+  const panelRef = useRef(null);
   useEscapeKey(open, onClose);
+  useFocusTrap(open, panelRef);
   // Cette modale reste montée en permanence (AppModals ne la démonte jamais,
   // elle rend juste `null` en interne) — sans ce reset, rouvrir la modale
   // après une fermeture en plein écran de consentement ou d'erreur de
@@ -41,7 +44,7 @@ export default function LocationSettingsModal({ open, onClose, onBack, location,
 
   return (
     <div className="bb-fade-in fixed inset-0 flex items-end md:items-center justify-center z-[70] p-0 md:p-5" style={{ background: "rgba(8,20,14,0.55)", backdropFilter: "blur(3px)" }} onClick={onClose} role="dialog" aria-modal="true" aria-label="Localisation">
-      <div className="bb-card p-6 w-full max-w-md rounded-t-[20px] md:rounded-[20px]" style={{ maxHeight: "85vh", overflowY: "auto", paddingBottom: "max(1.5rem, env(safe-area-inset-bottom))" }} onClick={(e) => e.stopPropagation()}>
+      <div ref={panelRef} tabIndex={-1} className="bb-card p-6 w-full max-w-md rounded-t-[20px] md:rounded-[20px]" style={{ maxHeight: "85vh", overflowY: "auto", paddingBottom: "max(1.5rem, env(safe-area-inset-bottom))" }} onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center gap-2 mb-1">
           {onBack && (
             <button onClick={onBack} aria-label="Retour" style={{ color: "var(--bb-text)" }}><ArrowLeft size={16} /></button>
