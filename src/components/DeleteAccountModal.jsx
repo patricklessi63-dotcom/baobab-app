@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { AlertTriangle, X } from "lucide-react";
 import { C } from "../constants";
 import { useEscapeKey } from "../hooks/useEscapeKey";
+import { useFocusTrap } from "../hooks/useFocusTrap";
 import { requestAccountDeletion } from "../lib/deleteAccount";
 
 // Confirmation explicite par saisie de texte — jamais déclenché par un
@@ -13,7 +14,9 @@ export default function DeleteAccountModal({ open, onClose, currentUser, onReque
   const [confirmText, setConfirmText] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const panelRef = useRef(null);
   useEscapeKey(open, onClose);
+  useFocusTrap(open, panelRef);
   // Cette modale reste montée en permanence (AppModals ne la démonte jamais,
   // elle rend juste `null` en interne) — sans ce reset, rouvrir la modale
   // après une fermeture sans confirmation laissait "SUPPRIMER" déjà saisi
@@ -45,7 +48,7 @@ export default function DeleteAccountModal({ open, onClose, currentUser, onReque
 
   return (
     <div className="fixed inset-0 z-[70] flex items-end md:items-center justify-center p-0 md:p-6" style={{ background: "rgba(8,20,14,0.6)" }} onClick={onClose} role="dialog" aria-modal="true" aria-label="Supprimer mon compte">
-      <div className="bb-card w-full sm:max-w-sm p-6" style={{ borderRadius: "20px 20px 0 0" }} onClick={(e) => e.stopPropagation()}>
+      <div ref={panelRef} tabIndex={-1} className="bb-card w-full sm:max-w-sm p-6" style={{ borderRadius: "20px 20px 0 0" }} onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <AlertTriangle size={18} color={C.clay} />

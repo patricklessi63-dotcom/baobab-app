@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Mic, MicOff, Copy, Check } from "lucide-react";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
+import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { primary, coral, muted, bg, card, body, primaryRgb, navy } from "./theme";
 
 // Détecte le navigateur pour adapter les 4 lignes d'aide "Comment
@@ -65,7 +66,9 @@ function copyToClipboard(text) {
 // - "blocked" : le navigateur a déjà refusé — aide repliée par défaut
 //               ("Comment autoriser"), jamais affichée d'emblée.
 export default function MicPermissionModal({ open, phase, requesting, onAllow, onDismiss }) {
+  const panelRef = useRef(null);
   useEscapeKey(open, onDismiss);
+  useFocusTrap(open, panelRef);
   const [showHelp, setShowHelp] = useState(false);
   const [copied, setCopied] = useState(false);
 
@@ -102,7 +105,7 @@ export default function MicPermissionModal({ open, phase, requesting, onAllow, o
       aria-modal="true"
       aria-label="Accès au microphone"
     >
-      <div className={`${card} p-5 max-w-[300px] w-full text-center`} onClick={(e) => e.stopPropagation()}>
+      <div ref={panelRef} tabIndex={-1} className={`${card} p-5 max-w-[300px] w-full text-center`} onClick={(e) => e.stopPropagation()}>
         <div className="h-12 w-12 rounded-full mx-auto flex items-center justify-center" style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)" }}>
           {blocked ? <MicOff size={20} color={coral} /> : <Mic size={20} color={coral} />}
         </div>

@@ -1,11 +1,14 @@
-import React from "react";
+import React, { useRef } from "react";
 import { Heart, MessageCircle } from "lucide-react";
 import Avatar from "../Avatar";
 import { C } from "../../constants";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
+import { useFocusTrap } from "../../hooks/useFocusTrap";
 
 export default function MatchCelebrationModal({ match, currentUser, onStartChat, onDismiss }) {
+  const panelRef = useRef(null);
   useEscapeKey(Boolean(match), onDismiss);
+  useFocusTrap(Boolean(match), panelRef);
   if (!match) return null;
   return (
     <div
@@ -16,7 +19,7 @@ export default function MatchCelebrationModal({ match, currentUser, onStartChat,
       aria-label="Nouvelle connexion"
       onClick={onDismiss}
     >
-      <div className="bb-card p-8 max-w-sm w-full text-center" style={{ boxShadow: "var(--bb-shadow-lg)" }} onClick={(e) => e.stopPropagation()}>
+      <div ref={panelRef} tabIndex={-1} className="bb-card p-8 max-w-sm w-full text-center" style={{ boxShadow: "var(--bb-shadow-lg)" }} onClick={(e) => e.stopPropagation()}>
         <div className="text-5xl mb-3" aria-hidden="true">🎉</div>
         <h2 style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 24, color: "var(--bb-text)" }}>
           C'est un match !

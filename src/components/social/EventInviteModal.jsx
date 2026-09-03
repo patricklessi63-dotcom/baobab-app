@@ -1,8 +1,9 @@
-import React from "react";
+import React, { useRef } from "react";
 import { X, Check } from "lucide-react";
 import Avatar from "../Avatar";
 import EmptyState from "../home/EmptyState";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
+import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { primary, muted, card, primaryRgb } from "./theme";
 
 // Source d'invitation = connexions mutuelles (likes croisés — il n'existe
@@ -10,12 +11,14 @@ import { primary, muted, card, primaryRgb } from "./theme";
 // associée à l'événement, si applicable. Aucun autre graphe de contacts
 // n'existe dans l'app pour inviter plus largement.
 export default function EventInviteModal({ open, candidates = [], invitedIds = new Set(), sending, onInvite, onClose }) {
+  const panelRef = useRef(null);
   useEscapeKey(open, onClose);
+  useFocusTrap(open, panelRef);
   if (!open) return null;
 
   return (
     <div className="fixed inset-0 z-[70] flex items-end md:items-center justify-center p-0 md:p-5" style={{ background: `rgba(${primaryRgb},.55)`, backdropFilter: "blur(5px)" }} onClick={onClose} role="dialog" aria-modal="true" aria-label="Inviter des personnes">
-      <div className={`${card} w-full max-w-md rounded-t-[30px] md:rounded-[30px] p-6 max-h-[80vh] overflow-y-auto`} onClick={(e) => e.stopPropagation()}>
+      <div ref={panelRef} tabIndex={-1} className={`${card} w-full max-w-md rounded-t-[30px] md:rounded-[30px] p-6 max-h-[80vh] overflow-y-auto`} onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-black" style={{ color: primary }}>Inviter des personnes</h2>
           <button onClick={onClose} aria-label="Fermer"><X /></button>
