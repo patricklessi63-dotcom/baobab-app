@@ -288,9 +288,13 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
   const loadPosts = async (id, requestId) => {
     setPostsLoading(true);
     try {
+      // is_founder/is_premium/email_verified/phone_verified ajoutés à toutes
+      // les jointures "profiles" de ce fichier (même correctif que
+      // PostsFeed.jsx) pour que CommunityPostCard puisse afficher le badge
+      // de statut de l'auteur d'une publication.
       const { data, error } = await supabase
         .from("community_posts")
-        .select("*, profiles(name, avatar_url)")
+        .select("*, profiles(name, avatar_url, is_founder, is_premium, email_verified, phone_verified)")
         .eq("community_id", id)
         .order("created_at", { ascending: false });
       if (error) throw error;
@@ -376,7 +380,7 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
   const loadJoinRequests = async (id, requestId) => {
     const { data, error } = await supabase
       .from("community_join_requests")
-      .select("*, profiles(name, avatar_url)")
+      .select("*, profiles(name, avatar_url, is_founder, is_premium, email_verified, phone_verified)")
       .eq("community_id", id).eq("status", "pending")
       .order("created_at", { ascending: true });
     if (!error && !(requestId !== undefined && detailRequestRef.current !== requestId)) setJoinRequests(data || []);
@@ -634,7 +638,7 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
           media_url: mediaUrl,
           media_kind: mediaUrl ? mediaKind : null,
         })
-        .select("*, profiles(name, avatar_url)").single();
+        .select("*, profiles(name, avatar_url, is_founder, is_premium, email_verified, phone_verified)").single();
       if (error) {
         // Upload Storage réussi mais insertion community_posts échouée :
         // sans ce nettoyage le fichier restait orphelin dans le bucket, plus
@@ -746,7 +750,7 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
   const handleLoadComments = async (postId) => {
     try {
       const { data, error } = await supabase
-        .from("community_comments").select("*, profiles(name, avatar_url)")
+        .from("community_comments").select("*, profiles(name, avatar_url, is_founder, is_premium, email_verified, phone_verified)")
         .eq("post_id", postId).order("created_at", { ascending: true });
       if (error) throw error;
       // Idem : pas de filtrage blockedIds ici, il est appliqué au rendu.
@@ -762,7 +766,7 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
     try {
       const { data, error } = await supabase
         .from("community_comments").insert({ post_id: postId, author_id: currentUser.id, body: text, reply_to_id: replyToId })
-        .select("*, profiles(name, avatar_url)").single();
+        .select("*, profiles(name, avatar_url, is_founder, is_premium, email_verified, phone_verified)").single();
       if (error) throw error;
       setCommentsByPost((c) => ({ ...c, [postId]: { items: [...(c[postId]?.items || []), data] } }));
       setPostCommentCounts((c) => ({ ...c, [postId]: (c[postId] || 0) + 1 }));
@@ -778,7 +782,7 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
         .from("community_comments")
         .update({ body: newBody, updated_at: new Date().toISOString() })
         .eq("id", commentId)
-        .select("*, profiles(name, avatar_url)").single();
+        .select("*, profiles(name, avatar_url, is_founder, is_premium, email_verified, phone_verified)").single();
       if (error) throw error;
       setCommentsByPost((c) => ({
         ...c,

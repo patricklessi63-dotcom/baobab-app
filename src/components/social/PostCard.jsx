@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Heart, MessageCircle, Flag, Trash2, Pencil, Check, X } from "lucide-react";
 import Avatar from "../Avatar";
+import StatusBadge from "../StatusBadge";
 import ClickableImage from "../ClickableImage";
 import PostMediaGrid from "./PostMediaGrid";
 import { useImageLightbox } from "../../lib/ImageLightboxContext";
@@ -70,6 +71,10 @@ export default function PostCard({
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5">
             <span className="text-sm font-bold" style={{ color: primary }}>{author.name || "Membre"}</span>
+            {/* Parité de badges (bug corrigé à l'audit, même famille que
+                PublicProfileModal/AdmirersModal) : champs désormais chargés
+                dans loadPosts() (PostsFeed.jsx). */}
+            <StatusBadge isFounder={author.is_founder} isPremium={author.is_premium} emailVerified={author.email_verified} phoneVerified={author.phone_verified} size={12} />
             <span className="text-[11px]" style={{ color: muted }}>· {formatDayLabel(post.created_at)} {formatMessageTime(post.created_at)}</span>
             {post.updated_at && <span className="text-[11px]" style={{ color: muted }}>(modifié)</span>}
           </div>

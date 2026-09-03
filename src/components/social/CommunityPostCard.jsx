@@ -1,6 +1,7 @@
 import React, { useRef, useState } from "react";
 import { MessageCircle, Flag, Trash2, X, Reply, Pencil, Check } from "lucide-react";
 import Avatar from "../Avatar";
+import StatusBadge from "../StatusBadge";
 import ClickableImage from "../ClickableImage";
 import { formatMessageTime, formatDayLabel } from "../../utils/format";
 import { primary, coral, muted, bg, primaryRgb, navy } from "./theme";
@@ -72,6 +73,10 @@ export default function CommunityPostCard({
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5">
             <span className="text-sm font-bold" style={{ color: primary }}>{author.name || "Membre"}</span>
+            {/* Parité de badges (bug corrigé à l'audit, même famille que
+                PostCard.jsx/PublicProfileModal) : champs désormais chargés
+                dans loadPosts() (CommunitiesTab.jsx). */}
+            <StatusBadge isFounder={author.is_founder} isPremium={author.is_premium} emailVerified={author.email_verified} phoneVerified={author.phone_verified} size={12} />
             <span className="text-[11px]" style={{ color: muted }}>· {formatDayLabel(post.created_at)} {formatMessageTime(post.created_at)}</span>
           </div>
           {post.body && <p className="text-sm mt-1 whitespace-pre-wrap break-words">{post.body}</p>}

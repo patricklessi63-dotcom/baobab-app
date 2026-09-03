@@ -130,7 +130,12 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
     const isFirstPage = !pageCursor;
     if (isFirstPage) setPostsLoading(true);
     try {
-      let query = supabase.from("posts").select("*, profiles(name, avatar_url)")
+      // is_founder/is_premium/email_verified/phone_verified ajoutés à toutes
+      // les jointures "profiles" de ce fichier (bug corrigé à l'audit, même
+      // famille que PublicProfileModal/AdmirersModal) : PostCard ne pouvait
+      // jamais afficher le badge de statut de l'auteur d'une publication,
+      // ces champs étant absents de la jointure.
+      let query = supabase.from("posts").select("*, profiles(name, avatar_url, is_founder, is_premium, email_verified, phone_verified)")
         .order("created_at", { ascending: false })
         .order("id", { ascending: false })
         .limit(PAGE_SIZE);
@@ -479,7 +484,7 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
       const { data: inserted, error } = await supabase
         .from("posts")
         .insert({ author_id: currentUser.id, body })
-        .select("*, profiles(name, avatar_url)")
+        .select("*, profiles(name, avatar_url, is_founder, is_premium, email_verified, phone_verified)")
         .single();
       if (error) throw error;
       setPublishedPostId(inserted.id);
@@ -557,7 +562,7 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
         .from("posts")
         .update({ body: newBody, updated_at: new Date().toISOString() })
         .eq("id", post.id)
-        .select("*, profiles(name, avatar_url)")
+        .select("*, profiles(name, avatar_url, is_founder, is_premium, email_verified, phone_verified)")
         .single();
       if (error) throw error;
       setPosts((p) => p.map((x) => (x.id === post.id ? { ...x, ...data } : x)));
@@ -594,7 +599,7 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
   const loadComments = async (postId) => {
     try {
       const { data, error } = await supabase
-        .from("post_comments").select("*, profiles(name, avatar_url)")
+        .from("post_comments").select("*, profiles(name, avatar_url, is_founder, is_premium, email_verified, phone_verified)")
         .eq("post_id", postId).order("created_at", { ascending: true });
       if (error) throw error;
       // Idem : pas de filtrage blockedIds ici, il est appliqué au rendu.
@@ -610,7 +615,7 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
     try {
       const { data, error } = await supabase
         .from("post_comments").insert({ post_id: postId, author_id: currentUser.id, body: text })
-        .select("*, profiles(name, avatar_url)").single();
+        .select("*, profiles(name, avatar_url, is_founder, is_premium, email_verified, phone_verified)").single();
       if (error) throw error;
       setCommentsByPost((c) => ({ ...c, [postId]: { items: [...(c[postId]?.items || []), data] } }));
       setPostCommentCounts((c) => ({ ...c, [postId]: (c[postId] || 0) + 1 }));
