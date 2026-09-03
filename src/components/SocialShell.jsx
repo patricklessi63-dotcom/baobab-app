@@ -835,6 +835,14 @@ export default function SocialShell({
       if (!alive) return;
       if (error) { console.error(error.message, error.code, error.details, error.hint); return; }
       setFetchedViewedProfile(data);
+      // Absent du cache local ET introuvable en base : le profil visé (ex.
+      // notification "new_like"/"new_match" dont l'auteur a depuis supprimé
+      // son compte — target_id n'a pas de contrainte FK, il n'est jamais
+      // nettoyé) n'existe plus. Sans ce retour, le clic sur la notification
+      // se contentait de la marquer lue puis ne faisait RIEN de visible —
+      // {viewedProfile && <PublicProfileModal/>} ne rend jamais rien tant
+      // que data reste null, aucun message d'erreur affiché.
+      if (!data) onError("Ce profil n'est plus disponible.");
     });
     return () => { alive = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -878,7 +886,12 @@ export default function SocialShell({
     const { data, error } = await supabase.from("profiles").select("*").eq("id", id).maybeSingle();
     if (openChatRequestRef.current !== requestId) return;
     if (error) { console.error(error.message, error.code, error.details, error.hint); return; }
-    if (data) openChat(data);
+    if (data) { openChat(data); return; }
+    // Même cas que viewedProfile ci-dessus : notification "new_message" dont
+    // l'expéditeur a depuis supprimé son compte — sans ce retour, le clic
+    // marquait juste la notification comme lue sans jamais ouvrir de
+    // conversation, sans aucune explication.
+    onError("Ce profil n'est plus disponible.");
   }
   // Un blocage (dans un sens ou l'autre) retire immédiatement le profil de
   // ces listes, même si la relation "follows"/"favorites" existe toujours en
