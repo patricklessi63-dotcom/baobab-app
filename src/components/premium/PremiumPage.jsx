@@ -16,6 +16,15 @@ export default function PremiumPage({ currentUser, onBack, onError, justSubscrib
   const [confirmingPayment, setConfirmingPayment] = useState(justSubscribed);
   const isPremiumRef = useRef(isPremium);
   isPremiumRef.current = isPremium;
+  // Garde anti-double-clic par ref (pas seulement `disabled={submitting}`
+  // sur le bouton) — même motif que commentSubmittingRef (EventsTab.jsx) :
+  // un state React n'est pas garanti d'avoir déjà été appliqué au DOM
+  // avant qu'un second clic/tap ne soit traité (double-tap tactile rapide,
+  // ou touche Entrée + clic quasi simultanés), ce qui pouvait déclencher un
+  // second appel à startCheckout() en parallèle — donc une DEUXIÈME session
+  // Stripe Checkout créée pour le même abonnement pendant que la première
+  // redirection était encore en vol.
+  const submittingRef = useRef(false);
 
   // Retour de Stripe Checkout : le webhook (stripe-webhook/index.ts) qui
   // écrit la ligne "subscriptions" est asynchrone et peut arriver quelques
@@ -40,23 +49,29 @@ export default function PremiumPage({ currentUser, onBack, onError, justSubscrib
   }, [justSubscribed]);
 
   const handleSubscribe = async () => {
+    if (submittingRef.current) return;
+    submittingRef.current = true;
     setSubmitting(true);
     try {
       await startCheckout(selectedPlan);
     } catch (e) {
       console.error(e);
       onError?.(e.message);
+      submittingRef.current = false;
       setSubmitting(false);
     }
   };
 
   const handleManagePastDue = async () => {
+    if (submittingRef.current) return;
+    submittingRef.current = true;
     setSubmitting(true);
     try {
       await openBillingPortal();
     } catch (e) {
       console.error(e);
       onError?.(e.message);
+      submittingRef.current = false;
       setSubmitting(false);
     }
   };

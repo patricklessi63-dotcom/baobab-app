@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Send, CheckCheck, Star, Target, ChevronRight, Users2, MapPin, PartyPopper, Heart } from "lucide-react";
 import Avatar from "../Avatar";
 import StatusBadge from "../StatusBadge";
@@ -44,6 +44,11 @@ export default function ProfileTab({
 }) {
           const { isPremium, subscription } = usePremiumStatus(currentUser);
           const [managingSubscription, setManagingSubscription] = useState(false);
+          // Garde anti-double-clic par ref, même motif que PremiumPage.jsx
+          // (handleSubscribe) — `disabled={managingSubscription}` seul ne
+          // protège pas d'un second clic/tap traité avant que le state React
+          // n'ait été appliqué au DOM.
+          const managingSubscriptionRef = useRef(false);
           // Passe par le visualiseur global (ImageLightboxContext) plutôt qu'une
           // instance locale de MediaViewerModal — une instance nichée dans
           // <main> (z-10, voir SocialShell.jsx) reste piégée sous la barre de
@@ -51,12 +56,15 @@ export default function ProfileTab({
           const { openLightbox } = useImageLightbox();
           const [networkView, setNetworkView] = useState("following");
           const handleManageSubscription = async () => {
+            if (managingSubscriptionRef.current) return;
+            managingSubscriptionRef.current = true;
             setManagingSubscription(true);
             try {
               await openBillingPortal();
             } catch (e) {
               console.error(e);
               onError(e.message);
+              managingSubscriptionRef.current = false;
               setManagingSubscription(false);
             }
           };
