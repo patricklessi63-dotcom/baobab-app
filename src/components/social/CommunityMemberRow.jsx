@@ -1,6 +1,7 @@
 import React from "react";
 import { ChevronUp, ChevronDown, ChevronsUp, ChevronsDown, UserMinus } from "lucide-react";
 import Avatar from "../Avatar";
+import StatusBadge from "../StatusBadge";
 import { roleLabel } from "../../lib/communities/communityConfig";
 import { canSetRole, canRemoveMember } from "../../lib/communities/permissions";
 import { primary, coral, gold, muted } from "./theme";
@@ -32,6 +33,10 @@ export default function CommunityMemberRow({ member, viewerRole, currentUserId, 
         <div className="min-w-0">
           <div className="text-sm font-bold truncate flex items-center gap-1.5" style={{ color: primary }}>
             {firstName}
+            {/* Parité de badges (bug corrigé à l'audit, même famille que
+                PublicProfileModal/AdmirersModal/FavoritesModal) : les champs
+                sont désormais chargés dans loadMembers() (CommunitiesTab.jsx). */}
+            <StatusBadge isFounder={profile.is_founder} isPremium={profile.is_premium} emailVerified={profile.email_verified} phoneVerified={profile.phone_verified} size={12} />
             {member.role !== "member" && (
               <span className="text-[10px] font-black px-1.5 py-0.5 rounded-full" style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)", color: member.role === "owner" ? gold : primary }}>
                 {roleLabel(member.role)}

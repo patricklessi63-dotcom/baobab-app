@@ -1,5 +1,6 @@
 import React from "react";
 import Avatar from "../Avatar";
+import StatusBadge from "../StatusBadge";
 import EmptyState from "../home/EmptyState";
 import { primary, gold, muted } from "./theme";
 
@@ -28,7 +29,13 @@ export default function EventParticipantsList({ participants = [], blockedIds = 
           <button key={p.id} onClick={() => onViewProfile(profile)} className="flex items-center gap-3 py-2.5 text-left focus-visible:outline focus-visible:outline-2">
             <Avatar name={profile.name} url={profile.avatar_url} size={40} />
             <div className="min-w-0 flex-1">
-              <div className="text-sm font-bold truncate" style={{ color: primary }}>{firstName}</div>
+              <div className="text-sm font-bold truncate flex items-center gap-1.5" style={{ color: primary }}>
+                {firstName}
+                {/* Parité de badges (bug corrigé à l'audit, même famille que
+                    CommunityMemberRow) : champs désormais chargés dans
+                    loadParticipants() (EventsTab.jsx). */}
+                <StatusBadge isFounder={profile.is_founder} isPremium={profile.is_premium} emailVerified={profile.email_verified} phoneVerified={profile.phone_verified} size={12} />
+              </div>
               {profile.show_city !== false && profile.city && <div className="text-xs truncate" style={{ color: muted }}>📍 {profile.city}</div>}
             </div>
             {badge && (

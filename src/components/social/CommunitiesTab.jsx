@@ -343,7 +343,12 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
       // ouvert depuis l'onglet "Membres" d'une communauté.
       const { data, error } = await supabase
         .from("community_members")
-        .select("*, profiles(id, name, avatar_url, city, show_city)")
+        // is_founder/is_premium/email_verified/phone_verified ajoutés (bug
+        // corrigé à l'audit, même famille que le "id" manquant ci-dessus) :
+        // CommunityMemberRow ne peut afficher les badges de statut (parité
+        // avec MatchCard/DiscoverTab pour ce même profil) que si ces champs
+        // sont chargés ici.
+        .select("*, profiles(id, name, avatar_url, city, show_city, is_founder, is_premium, email_verified, phone_verified)")
         .eq("community_id", id)
         .order("joined_at", { ascending: true });
       if (error) throw error;

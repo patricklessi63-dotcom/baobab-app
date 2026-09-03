@@ -291,7 +291,10 @@ export default function EventsTab({ currentUser, onError, initialEventId, onCons
       // "Participants" d'un événement.
       const { data, error } = await supabase
         .from("event_attendees")
-        .select("*, profiles(id, name, avatar_url, city, show_city)")
+        // is_founder/is_premium/email_verified/phone_verified ajoutés (même
+        // correctif que CommunityMemberRow/CommunitiesTab.jsx) pour que
+        // EventParticipantsList puisse afficher les badges de statut.
+        .select("*, profiles(id, name, avatar_url, city, show_city, is_founder, is_premium, email_verified, phone_verified)")
         .eq("event_id", id)
         .order("created_at", { ascending: true });
       if (error) throw error;
