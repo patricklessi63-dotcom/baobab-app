@@ -730,7 +730,15 @@ export default function SocialShell({
   // "Mes communautés" pour l'onglet Profil — communautés réellement
   // rejointes (jamais inventées), rechargé à chaque retour sur l'onglet.
   const [myCommunities, setMyCommunities] = useState([]);
-  const [myCommunitiesLoading, setMyCommunitiesLoading] = useState(false);
+  // Bug corrigé à l'audit (race entre l'état de chargement initial et les
+  // données, même famille que listLoading dans CommunitiesTab.jsx/
+  // EventsTab.jsx/PostsFeed.jsx, qui démarrent déjà à true) : initialisé à
+  // false, ce chargement affichait "Tu n'as pas encore rejoint de
+  // communauté" pendant l'instant où l'onglet Profil vient de s'ouvrir et où
+  // cet effet n'a pas encore eu la main, avant de basculer sur "Chargement..."
+  // puis sur les vraies données — un flash trompeur, contrairement aux listes
+  // ci-dessus qui ne dépendent d'aucun tel effet différé.
+  const [myCommunitiesLoading, setMyCommunitiesLoading] = useState(true);
   useEffect(() => {
     if (!currentUser || tab !== "profile") return;
     let alive = true;
@@ -751,7 +759,8 @@ export default function SocialShell({
   // "Mes événements" pour l'onglet Profil — événements à venir réellement
   // rejoints/organisés (jamais inventés), respecte profiles.show_upcoming_events.
   const [myUpcomingEvents, setMyUpcomingEvents] = useState([]);
-  const [myUpcomingEventsLoading, setMyUpcomingEventsLoading] = useState(false);
+  // Même correctif que myCommunitiesLoading ci-dessus.
+  const [myUpcomingEventsLoading, setMyUpcomingEventsLoading] = useState(true);
   const [openEventId, setOpenEventId] = useState(null);
   // Bug identifié à l'audit : le bouton "Créer un événement" de l'onglet
   // "Événements" d'une communauté (CommunityDetailView) appelait onOpenEvents()
@@ -763,7 +772,15 @@ export default function SocialShell({
   // ouvrir directement le formulaire, communauté déjà présélectionnée.
   const [createEventCommunityId, setCreateEventCommunityId] = useState(null);
   useEffect(() => {
-    if (!currentUser || tab !== "profile" || currentUser.show_upcoming_events === false) { setMyUpcomingEvents([]); return; }
+    if (!currentUser || tab !== "profile" || currentUser.show_upcoming_events === false) {
+      // myUpcomingEventsLoading démarrant désormais à true (voir plus haut),
+      // cette sortie anticipée doit explicitly le repasser à false : sans
+      // ça, un profil ayant désactivé "show_upcoming_events" restait bloqué
+      // sur "Chargement..." indéfiniment dans l'onglet "Mes événements".
+      setMyUpcomingEvents([]);
+      setMyUpcomingEventsLoading(false);
+      return;
+    }
     let alive = true;
     setMyUpcomingEventsLoading(true);
     supabase
