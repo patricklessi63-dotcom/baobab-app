@@ -116,10 +116,10 @@ export default function ProfileTab({
                   <div className="absolute inset-0 opacity-20 text-[150px] leading-none flex items-center justify-center">🌍</div>
                 )}
                 <div className="absolute right-4 top-4 flex gap-2">
-                  <button onClick={(e) => { e.stopPropagation(); navigator.share ? navigator.share({ title: "Baobab", text: `Découvre le profil de ${currentUser?.name} sur Baobab` }) : navigator.clipboard?.writeText(window.location.href); }} className="h-9 w-9 rounded-xl bg-white/15 backdrop-blur flex items-center justify-center border border-white/15">
+                  <button onClick={(e) => { e.stopPropagation(); navigator.share ? navigator.share({ title: "Baobab", text: `Découvre le profil de ${currentUser?.name} sur Baobab` }) : navigator.clipboard?.writeText(window.location.href); }} className="h-9 w-9 rounded-xl bg-white/15 backdrop-blur flex items-center justify-center border border-white/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-white">
                     <Send size={15} color="#fff" />
                   </button>
-                  <button onClick={(e) => { e.stopPropagation(); openEditProfile(); }} className="rounded-xl bg-white/15 backdrop-blur text-white px-4 py-2.5 text-xs font-bold border border-white/15">Modifier le profil</button>
+                  <button onClick={(e) => { e.stopPropagation(); openEditProfile(); }} className="rounded-xl bg-white/15 backdrop-blur text-white px-4 py-2.5 text-xs font-bold border border-white/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-white">Modifier le profil</button>
                 </div>
                 <div className="absolute -bottom-12 left-6">
                   <div
@@ -150,7 +150,7 @@ export default function ProfileTab({
                     </div>
                     <p className="text-sm mt-1" style={{ color: muted }}>🟢 En ligne · {[currentUser?.city, currentUser?.country].filter(Boolean).join(" · ") || "Canada"}</p>
                   </div>
-                  <button onClick={() => goTab("discover")} className="px-4 py-2.5 rounded-xl font-bold text-sm" style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)", color: coral }}>Trouver des personnes</button>
+                  <button onClick={() => goTab("discover")} className="px-4 py-2.5 rounded-xl font-bold text-sm focus-visible:outline focus-visible:outline-2" style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)", color: coral }}>Trouver des personnes</button>
                 </div>
                 {currentUser?.bio && <p className="text-sm leading-6 mt-5 max-w-2xl">{currentUser.bio}</p>}
 
@@ -171,7 +171,7 @@ export default function ProfileTab({
                         ))}
                       </ul>
                     )}
-                    <button onClick={openEditProfile} className="mt-1 text-xs font-bold" style={{ color: coral }}>
+                    <button onClick={openEditProfile} className="mt-1 text-xs font-bold focus-visible:outline focus-visible:outline-2" style={{ color: coral }}>
                       Compléter mon profil →
                     </button>
                   </div>
@@ -204,17 +204,17 @@ export default function ProfileTab({
                 </div>
 
                 <div className="flex gap-3 mt-4">
-                  <button onClick={onOpenFavorites} className="flex-1 flex items-center justify-between rounded-2xl p-4" style={{ background: bg }}>
+                  <button onClick={onOpenFavorites} className="flex-1 flex items-center justify-between rounded-2xl p-4 focus-visible:outline focus-visible:outline-2" style={{ background: bg }}>
                     <span className="flex items-center gap-2 text-sm font-bold" style={{ color: primary }}><Star size={16} color={gold} /> Mes favoris {favoritesCount > 0 && `(${favoritesCount})`}</span>
                     <ChevronRight size={16} color={muted} />
                   </button>
-                  <button onClick={onOpenPreferences} className="flex-1 flex items-center justify-between rounded-2xl p-4" style={{ background: bg }}>
+                  <button onClick={onOpenPreferences} className="flex-1 flex items-center justify-between rounded-2xl p-4 focus-visible:outline focus-visible:outline-2" style={{ background: bg }}>
                     <span className="flex items-center gap-2 text-sm font-bold" style={{ color: primary }}><Target size={16} color={coral} /> Préférences</span>
                     <ChevronRight size={16} color={muted} />
                   </button>
                 </div>
 
-                <button onClick={onOpenAdmirers} className="w-full flex items-center justify-between rounded-2xl p-4 mt-3" style={{ background: bg }}>
+                <button onClick={onOpenAdmirers} className="w-full flex items-center justify-between rounded-2xl p-4 mt-3 focus-visible:outline focus-visible:outline-2" style={{ background: bg }}>
                   <span className="flex items-center gap-2 text-sm font-bold" style={{ color: primary }}><Heart size={16} color={coral} /> Qui m'a aimé {admirersCount > 0 && `(${admirersCount})`}</span>
                   <ChevronRight size={16} color={muted} />
                 </button>
@@ -222,7 +222,7 @@ export default function ProfileTab({
 
               <div className="bb-scroll-x flex border-t" style={{ borderColor: `rgba(${primaryRgb},.08)` }}>
                 {[["posts", "Publications"], ["about", "À propos"], ["network", "Mon réseau"], ["communities", "Mes communautés"], ["events", "Événements"], ["premium", "Abonnement"]].map(([key, label]) => (
-                  <button key={key} onClick={() => setProfileTab(key)} className="shrink-0 px-5 py-3.5 text-sm font-bold whitespace-nowrap relative" style={{ color: profileTab === key ? primary : muted }}>
+                  <button key={key} onClick={() => setProfileTab(key)} className="shrink-0 px-5 py-3.5 text-sm font-bold whitespace-nowrap relative focus-visible:outline focus-visible:outline-2" style={{ color: profileTab === key ? primary : muted }}>
                     {label}
                     {profileTab === key && <span className="absolute bottom-0 left-1/2 -translate-x-1/2 h-[3px] w-10 rounded-full" style={{ background: coral }} />}
                   </button>
@@ -276,12 +276,12 @@ export default function ProfileTab({
                     <div className="text-center py-6">
                       <Users2 size={24} className="mx-auto mb-2" color={muted} />
                       <p className="text-sm" style={{ color: muted }}>Tu n'as pas encore rejoint de communauté.</p>
-                      <button onClick={() => onOpenCommunities()} className="bb-btn-gold mt-3 px-4 py-2.5 rounded-xl font-bold text-sm">Découvrir les communautés</button>
+                      <button onClick={() => onOpenCommunities()} className="bb-btn-gold mt-3 px-4 py-2.5 rounded-xl font-bold text-sm focus-visible:outline focus-visible:outline-2">Découvrir les communautés</button>
                     </div>
                   ) : (
                     <div className="grid sm:grid-cols-2 gap-3">
                       {myCommunities.map((c) => (
-                        <button key={c.id} onClick={() => onOpenCommunities(c.id)} className="text-left rounded-2xl p-4 flex items-center gap-3" style={{ background: bg }}>
+                        <button key={c.id} onClick={() => onOpenCommunities(c.id)} className="text-left rounded-2xl p-4 flex items-center gap-3 focus-visible:outline focus-visible:outline-2" style={{ background: bg }}>
                           <div className="h-11 w-11 rounded-xl flex-shrink-0 flex items-center justify-center text-lg" style={{ background: c.cover_url ? `url(${c.cover_url}) center/cover` : `linear-gradient(150deg,${gold},${coral})` }}>
                             {!c.cover_url && categoryIcon(c.category)}
                           </div>
@@ -304,12 +304,12 @@ export default function ProfileTab({
                     <div className="text-center py-6">
                       <PartyPopper size={24} className="mx-auto mb-2" color={muted} />
                       <p className="text-sm" style={{ color: muted }}>Aucun événement à venir pour l'instant.</p>
-                      <button onClick={() => onOpenEvents()} className="bb-btn-gold mt-3 px-4 py-2.5 rounded-xl font-bold text-sm">Découvrir les événements</button>
+                      <button onClick={() => onOpenEvents()} className="bb-btn-gold mt-3 px-4 py-2.5 rounded-xl font-bold text-sm focus-visible:outline focus-visible:outline-2">Découvrir les événements</button>
                     </div>
                   ) : (
                     <div className="grid sm:grid-cols-2 gap-3">
                       {myUpcomingEvents.map((ev) => (
-                        <button key={ev.id} onClick={() => onOpenEvents(ev.id)} className="text-left rounded-2xl p-4 flex items-center gap-3" style={{ background: bg }}>
+                        <button key={ev.id} onClick={() => onOpenEvents(ev.id)} className="text-left rounded-2xl p-4 flex items-center gap-3 focus-visible:outline focus-visible:outline-2" style={{ background: bg }}>
                           <div className="h-11 w-11 rounded-xl flex-shrink-0 flex items-center justify-center text-lg" style={{ background: ev.cover_url ? `url(${ev.cover_url}) center/cover` : `linear-gradient(150deg,${gold},${coral})` }}>
                             {!ev.cover_url && eventCategoryIcon(ev.category)}
                           </div>
@@ -337,7 +337,7 @@ export default function ProfileTab({
                         {subscription?.current_period_end && ` — renouvellement le ${new Date(subscription.current_period_end).toLocaleDateString("fr-CA")}`}
                         {subscription?.cancel_at_period_end && " (annulation programmée à cette date)"}
                       </p>
-                      <button onClick={handleManageSubscription} disabled={managingSubscription} className="bb-btn-gold mt-3 px-4 py-2.5 rounded-xl font-bold text-sm disabled:opacity-60">
+                      <button onClick={handleManageSubscription} disabled={managingSubscription} className="bb-btn-gold mt-3 px-4 py-2.5 rounded-xl font-bold text-sm disabled:opacity-60 focus-visible:outline focus-visible:outline-2">
                         {managingSubscription ? "Ouverture..." : "Gérer mon abonnement"}
                       </button>
                       <p className="text-[11px] mt-2" style={{ color: "rgba(var(--bb-ink-rgb),0.72)" }}>Annulation, moyen de paiement et factures — géré directement par Stripe, en dehors de Baobab.</p>
@@ -359,7 +359,7 @@ export default function ProfileTab({
                       <p className="text-sm mt-2" style={{ color: "rgba(var(--bb-ink-rgb),0.72)" }}>
                         Ton abonnement {subscription?.plan === "yearly" ? "annuel" : "mensuel"} est toujours actif chez Stripe, mais le dernier prélèvement a échoué. Mets à jour ton moyen de paiement pour éviter l'annulation.
                       </p>
-                      <button onClick={handleManageSubscription} disabled={managingSubscription} className="bb-btn-gold mt-3 px-4 py-2.5 rounded-xl font-bold text-sm disabled:opacity-60">
+                      <button onClick={handleManageSubscription} disabled={managingSubscription} className="bb-btn-gold mt-3 px-4 py-2.5 rounded-xl font-bold text-sm disabled:opacity-60 focus-visible:outline focus-visible:outline-2">
                         {managingSubscription ? "Ouverture..." : "Mettre à jour mon moyen de paiement"}
                       </button>
                     </div>
@@ -367,7 +367,7 @@ export default function ProfileTab({
                     <div className="text-center py-6">
                       <span style={{ fontSize: 28 }}>💎</span>
                       <p className="text-sm mt-2" style={{ color: muted }}>Tu es sur le plan gratuit.</p>
-                      <button onClick={() => goTab("premium")} className="bb-btn-gold mt-3 px-4 py-2.5 rounded-xl font-bold text-sm">Découvrir Premium</button>
+                      <button onClick={() => goTab("premium")} className="bb-btn-gold mt-3 px-4 py-2.5 rounded-xl font-bold text-sm focus-visible:outline focus-visible:outline-2">Découvrir Premium</button>
                     </div>
                   )}
                 </div>
@@ -398,7 +398,7 @@ export default function ProfileTab({
                   {aboutRows.length === 0 ? (
                     <div className="text-center py-6">
                       <p className="text-sm" style={{ color: muted }}>Complète ton profil pour donner plus de contexte aux autres membres.</p>
-                      <button onClick={openEditProfile} className="bb-btn-gold mt-3 px-4 py-2.5 rounded-xl font-bold text-sm">Compléter mon profil</button>
+                      <button onClick={openEditProfile} className="bb-btn-gold mt-3 px-4 py-2.5 rounded-xl font-bold text-sm focus-visible:outline focus-visible:outline-2">Compléter mon profil</button>
                     </div>
                   ) : (
                     <div className="grid md:grid-cols-2 gap-3">
