@@ -1,13 +1,20 @@
-import React from "react";
+import React, { useRef } from "react";
 import { X, Star } from "lucide-react";
 import Avatar from "../Avatar";
 import EmptyState from "../home/EmptyState";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
+import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { visibleAge } from "../../utils/format";
 import { primary, coral, gold, muted, card, primaryRgb } from "./theme";
 
 export default function FavoritesModal({ open, onClose, favoriteProfiles = [], onViewProfile, onToggleFavorite, onDiscover }) {
   useEscapeKey(open, onClose);
+  // Sans piège à focus, Tab depuis l'ouverture continuait dans la page
+  // derrière la modale (liste de découverte, barre de navigation...) restée
+  // focusable bien que masquée par l'overlay — même bug que celui vérifié
+  // et corrigé dans Auth.jsx (modale légale) au clavier.
+  const panelRef = useRef(null);
+  useFocusTrap(open, panelRef);
   if (!open) return null;
   return (
     <div
@@ -18,7 +25,7 @@ export default function FavoritesModal({ open, onClose, favoriteProfiles = [], o
       aria-modal="true"
       aria-label="Mes favoris"
     >
-      <div className={`${card} w-full max-w-md rounded-t-[30px] md:rounded-[30px] p-6 max-h-[85vh] overflow-y-auto`} onClick={(e) => e.stopPropagation()}>
+      <div ref={panelRef} tabIndex={-1} className={`${card} w-full max-w-md rounded-t-[30px] md:rounded-[30px] p-6 max-h-[85vh] overflow-y-auto`} onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-black" style={{ color: primary }}>⭐ Mes favoris</h2>
           <button onClick={onClose} aria-label="Fermer"><X /></button>

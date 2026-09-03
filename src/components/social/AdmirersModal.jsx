@@ -1,9 +1,10 @@
-import React from "react";
+import React, { useRef } from "react";
 import { X, Heart } from "lucide-react";
 import Avatar from "../Avatar";
 import EmptyState from "../home/EmptyState";
 import Paywall from "../premium/Paywall";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
+import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { usePremiumStatus } from "../../lib/premium/usePremiumStatus";
 import { visibleAge } from "../../utils/format";
 import { primary, coral, muted, card, primaryRgb } from "./theme";
@@ -16,6 +17,11 @@ import { primary, coral, muted, card, primaryRgb } from "./theme";
 export default function AdmirersModal({ open, onClose, admirerProfiles = [], currentUser, onLikeBack, onViewProfile, onUpgrade }) {
   const { isPremium, loading } = usePremiumStatus(currentUser);
   useEscapeKey(open, onClose);
+  // Même bug de piège à focus absent que dans Auth.jsx/FavoritesModal.jsx :
+  // sans lui, Tab depuis l'ouverture sortait de la modale vers la page
+  // restée en arrière-plan (invisible sous l'overlay mais toujours focusable).
+  const panelRef = useRef(null);
+  useFocusTrap(open, panelRef);
   if (!open) return null;
 
   return (
@@ -27,7 +33,7 @@ export default function AdmirersModal({ open, onClose, admirerProfiles = [], cur
       aria-modal="true"
       aria-label="Qui m'a aimé"
     >
-      <div className={`${card} w-full max-w-md rounded-t-[30px] md:rounded-[30px] p-6 max-h-[85vh] overflow-y-auto`} onClick={(e) => e.stopPropagation()}>
+      <div ref={panelRef} tabIndex={-1} className={`${card} w-full max-w-md rounded-t-[30px] md:rounded-[30px] p-6 max-h-[85vh] overflow-y-auto`} onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-black" style={{ color: primary }}>💗 Qui m'a aimé</h2>
           <button onClick={onClose} aria-label="Fermer"><X /></button>

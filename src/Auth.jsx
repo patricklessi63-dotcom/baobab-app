@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Loader2, Mail, ArrowLeft, MapPin, X, ShieldCheck, FileText, CheckCircle2, AlertTriangle, MailCheck } from "lucide-react";
 import { supabase } from "./supabaseClient";
 import { getCurrentPositionSafe } from "./lib/geolocation";
@@ -6,6 +6,7 @@ import loginBackground from "./assets/baobab-canada-bg.svg";
 import logoIcon from "./assets/logo-baobab-icon.png";
 import { PrivacyPolicyContent, TermsOfServiceContent } from "./legalContent";
 import { useEscapeKey } from "./hooks/useEscapeKey";
+import { useFocusTrap } from "./hooks/useFocusTrap";
 import { useCountdown } from "./hooks/useCountdown";
 import { C } from "./components/auth/authTheme";
 import PasswordField from "./components/auth/PasswordField";
@@ -49,11 +50,20 @@ export default function Auth({ justVerified = false, onAcknowledgeVerified = () 
   const [signupEmailExists, setSignupEmailExists] = useState(false);
   const [otpCode, setOtpCode] = useState("");
   const [verifyLoading, setVerifyLoading] = useState(false);
+  // Panneau de la modale légale (Confidentialité/Conditions) — sans ce ref +
+  // useFocusTrap, Tab depuis le bouton qui l'ouvre continuait tout droit
+  // dans la carte d'authentification restée en arrière-plan (email, mot de
+  // passe, bouton "Créer mon compte"...) : invisible sous l'overlay mais
+  // toujours focusable/activable au clavier pendant que la modale semblait
+  // occuper tout l'écran. Vérifié en tabulant manuellement : le focus
+  // sortait bien de la modale et rebouclait dans la page derrière elle.
+  const legalPanelRef = useRef(null);
   // Deux cooldowns distincts (reset password vs renvoi de confirmation sont
   // deux flux séparés) mais un seul mécanisme de compte à rebours partagé.
   const [resendCooldown, setResendCooldown] = useCountdown();
   const [resetCooldown, setResetCooldown] = useCountdown();
   useEscapeKey(Boolean(legalView), () => setLegalView(null));
+  useFocusTrap(Boolean(legalView), legalPanelRef);
 
   useEffect(() => {
     if (authLinkError) setMode("link-error");
@@ -598,7 +608,7 @@ export default function Auth({ justVerified = false, onAcknowledgeVerified = () 
 
       {legalView && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-6" style={{ background: "rgba(7,20,13,0.72)" }} onClick={() => setLegalView(null)} role="dialog" aria-modal="true" aria-label={legalView === "privacy" ? "Politique de confidentialité" : "Conditions d'utilisation"}>
-          <div className="w-full sm:max-w-lg max-h-[88vh] sm:max-h-[80vh] flex flex-col rounded-t-[28px] sm:rounded-[24px] overflow-hidden"
+          <div ref={legalPanelRef} tabIndex={-1} className="w-full sm:max-w-lg max-h-[88vh] sm:max-h-[80vh] flex flex-col rounded-t-[28px] sm:rounded-[24px] overflow-hidden"
             style={{ background: C.dusk3, color: C.sand, paddingBottom: "env(safe-area-inset-bottom)" }} onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between px-5 py-4 border-b flex-shrink-0" style={{ borderColor: "rgba(242,233,220,0.12)" }}>
               <div className="flex items-center gap-2 font-bold text-sm">
