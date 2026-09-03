@@ -206,13 +206,19 @@ export default function AppModals({
 
             <div className="text-[11px] font-black uppercase tracking-wider mt-4" style={{ color: "rgba(var(--bb-ink-rgb),0.4)" }}>Baobab Protect</div>
             <div className="flex items-center justify-between py-2.5" style={{ borderTop: "1px solid rgba(var(--bb-ink-rgb),0.08)" }}>
-              <div className="flex items-center gap-2 text-sm"><ShieldCheck size={14} color={currentUser?.email_verified ? C.verified : C.ink} /> Email vérifié</div>
+              {/* Bug corrigé : C.ink est un jeton FIXE (voir constants.js, "Chrome
+              applicatif" à fond crème fixe C.sand) — ici l'icône est dans une
+              modale .bb-card à fond RÉACTIF (var(--bb-surface)). En thème
+              sombre C.ink restait #2B2420 (quasi noir) sur un fond #1C1912
+              (quasi noir aussi) → icône invisible. "var(--bb-text)" est
+              l'équivalent réactif, cohérent avec le reste de cette modale. */}
+              <div className="flex items-center gap-2 text-sm"><ShieldCheck size={14} color={currentUser?.email_verified ? C.verified : "var(--bb-text)"} /> Email vérifié</div>
               <span className="text-xs font-bold" style={{ color: currentUser?.email_verified ? C.verified : "rgba(var(--bb-ink-rgb),0.4)" }}>
                 {currentUser?.email_verified ? "Vérifié" : "Non vérifié"}
               </span>
             </div>
             <div className="flex items-center justify-between py-2.5" style={{ borderTop: "1px solid rgba(var(--bb-ink-rgb),0.08)" }}>
-              <div className="flex items-center gap-2 text-sm"><Smartphone size={14} color={C.ink} /> Téléphone vérifié</div>
+              <div className="flex items-center gap-2 text-sm"><Smartphone size={14} color="var(--bb-text)" /> Téléphone vérifié</div>
               <span className="text-xs" style={{ color: "rgba(var(--bb-ink-rgb),0.4)" }}>Bientôt</span>
             </div>
 
@@ -245,7 +251,7 @@ export default function AppModals({
               <AlertTriangle size={14} /> <span className="text-sm font-semibold">Supprimer mon compte</span>
             </button>
 
-            <button onClick={() => setSettingsOpen(false)} className="w-full mt-4 py-3 rounded-full text-sm font-semibold" style={{ border: "1px solid rgba(var(--bb-ink-rgb),0.15)", color: C.ink, minHeight: 44 }}>
+            <button onClick={() => setSettingsOpen(false)} className="w-full mt-4 py-3 rounded-full text-sm font-semibold" style={{ border: "1px solid rgba(var(--bb-ink-rgb),0.15)", color: "var(--bb-text)", minHeight: 44 }}>
               Fermer
             </button>
           </div>
@@ -319,7 +325,7 @@ export default function AppModals({
                 ))}
               </div>
             )}
-            <button onClick={() => setBlockedOpen(false)} className="w-full py-3 mt-4 rounded-full text-sm font-semibold" style={{ border: "1px solid rgba(var(--bb-ink-rgb),0.15)", color: C.ink, minHeight: 44 }}>
+            <button onClick={() => setBlockedOpen(false)} className="w-full py-3 mt-4 rounded-full text-sm font-semibold" style={{ border: "1px solid rgba(var(--bb-ink-rgb),0.15)", color: "var(--bb-text)", minHeight: 44 }}>
               Fermer
             </button>
           </div>
@@ -388,7 +394,7 @@ export default function AppModals({
             </p>
 
             <div className="mt-4 rounded-2xl p-3.5 text-left" style={{ background: "rgba(var(--bb-ink-rgb),0.04)" }}>
-              <p className="text-xs font-bold" style={{ color: C.ink }}>Version {CURRENT_VERSION}</p>
+              <p className="text-xs font-bold" style={{ color: "var(--bb-text)" }}>Version {CURRENT_VERSION}</p>
               {updateCheck.status === "up-to-date" && (
                 <p className="text-xs mt-1.5 flex items-center gap-1.5" style={{ color: "var(--bb-text)" }}>
                   <CheckCircle2 size={13} /> Vous utilisez la dernière version.
@@ -416,7 +422,7 @@ export default function AppModals({
                   onClick={runManualUpdateCheck}
                   disabled={updateCheck.status === "checking"}
                   className="w-full mt-2 py-2 rounded-full text-xs font-semibold flex items-center justify-center gap-1.5 disabled:opacity-60"
-                  style={{ border: "1px solid rgba(var(--bb-ink-rgb),0.15)", color: C.ink }}
+                  style={{ border: "1px solid rgba(var(--bb-ink-rgb),0.15)", color: "var(--bb-text)" }}
                 >
                   <RefreshCw size={13} className={updateCheck.status === "checking" ? "animate-spin" : ""} />
                   {updateCheck.status === "checking" ? "Recherche..." : "Rechercher une mise à jour"}
@@ -424,7 +430,7 @@ export default function AppModals({
               )}
             </div>
 
-            <button onClick={() => setAboutOpen(false)} className="w-full mt-3 py-2.5 rounded-full text-sm font-semibold" style={{ border: "1px solid rgba(var(--bb-ink-rgb),0.15)", color: C.ink }}>
+            <button onClick={() => setAboutOpen(false)} className="w-full mt-3 py-2.5 rounded-full text-sm font-semibold" style={{ border: "1px solid rgba(var(--bb-ink-rgb),0.15)", color: "var(--bb-text)" }}>
               Fermer
             </button>
           </div>

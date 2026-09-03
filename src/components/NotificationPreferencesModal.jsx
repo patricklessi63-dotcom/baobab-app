@@ -159,7 +159,11 @@ export default function NotificationPreferencesModal({ open, onClose, onBack, cu
             style={{ width: 18, height: 18, flexShrink: 0 }}
           />
         </label>
-        <button onClick={onClose} className="w-full mt-4 py-3 rounded-full text-sm font-semibold" style={{ border: "1px solid rgba(var(--bb-ink-rgb),0.15)", color: C.ink, minHeight: 44 }}>
+        {/* Bug corrigé (même défaut que C.navy, passage 166) : C.ink est un
+        jeton FIXE (fond crème fixe de l'onboarding), mais cette modale est
+        en .bb-card à fond RÉACTIF — en thème sombre, texte quasi noir sur
+        fond quasi noir. "var(--bb-text)" est l'équivalent réactif. */}
+        <button onClick={onClose} className="w-full mt-4 py-3 rounded-full text-sm font-semibold" style={{ border: "1px solid rgba(var(--bb-ink-rgb),0.15)", color: "var(--bb-text)", minHeight: 44 }}>
           Fermer
         </button>
       </div>

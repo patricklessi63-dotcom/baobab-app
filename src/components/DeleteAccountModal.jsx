@@ -64,7 +64,11 @@ export default function DeleteAccountModal({ open, onClose, currentUser, onReque
         <button onClick={handleDelete} disabled={!ready || loading} className="w-full py-3 rounded-full text-sm font-bold text-white disabled:opacity-40" style={{ background: C.clay, minHeight: 44 }}>
           {loading ? "Enregistrement..." : "Programmer la suppression dans 24 heures"}
         </button>
-        <button onClick={onClose} className="w-full mt-2 py-3 rounded-full text-sm font-semibold" style={{ border: "1px solid rgba(var(--bb-ink-rgb),0.15)", color: C.ink, minHeight: 44 }}>
+        {/* Bug corrigé (même défaut que C.navy, passage 166) : C.ink est un
+        jeton FIXE (fond crème fixe de l'onboarding), mais cette modale est
+        en .bb-card à fond RÉACTIF — en thème sombre, texte quasi noir sur
+        fond quasi noir. "var(--bb-text)" est l'équivalent réactif. */}
+        <button onClick={onClose} className="w-full mt-2 py-3 rounded-full text-sm font-semibold" style={{ border: "1px solid rgba(var(--bb-ink-rgb),0.15)", color: "var(--bb-text)", minHeight: 44 }}>
           Annuler
         </button>
       </div>
