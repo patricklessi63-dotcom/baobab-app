@@ -206,7 +206,7 @@ export default function AdminDashboard({ onBack, onError, myPlatformRole }) {
       </button>
 
       <div className="mb-5">
-        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-[11px] font-black uppercase tracking-wider" style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)", color: navy }}>
+        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-[11px] font-black uppercase tracking-wider" style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)", color: primary }}>
           <Shield size={13} /> Baobab Admin
         </div>
         <h1 className="text-2xl font-black mt-2" style={{ color: primary }}>Administration</h1>
@@ -264,7 +264,7 @@ export default function AdminDashboard({ onBack, onError, myPlatformRole }) {
                       <div className="min-w-0 flex-1">
                         <div className="text-sm font-bold truncate flex items-center gap-1.5">
                           {u.name}
-                          {u.role && <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full" style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)", color: navy }}>{u.role}</span>}
+                          {u.role && <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full" style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)", color: primary }}>{u.role}</span>}
                         </div>
                         <div className="text-xs" style={{ color: muted }}>
                           {isBanned ? "Banni" : isSuspended ? `Suspendu jusqu'au ${new Date(u.suspended_until).toLocaleDateString("fr-CA")}` : "Actif"}
@@ -347,7 +347,7 @@ export default function AdminDashboard({ onBack, onError, myPlatformRole }) {
                     <span className="text-[11px]" style={{ color: muted }}>{new Date(f.created_at).toLocaleDateString("fr-CA")}</span>
                   </div>
                   <div className="text-sm font-bold" style={{ color: primary }}>{f.author_name}</div>
-                  {f.message && <p className="text-sm mt-1" style={{ color: navy }}>{f.message}</p>}
+                  {f.message && <p className="text-sm mt-1" style={{ color: primary }}>{f.message}</p>}
                   <div className="text-[11px] mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5" style={{ color: muted }}>
                     {f.screen && <span>Écran : {f.screen}</span>}
                     {f.device && <span>Appareil : {f.device}</span>}

@@ -1108,7 +1108,7 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
   return (
     <section className="max-w-6xl mx-auto">
       <div className="mb-5">
-        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-[11px] font-black uppercase tracking-wider" style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)", color: navy }}>
+        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-[11px] font-black uppercase tracking-wider" style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)", color: primary }}>
           <Users2 size={13} /> Communautés Baobab
         </div>
         <div className="flex items-center justify-between gap-3 mt-3 flex-wrap">

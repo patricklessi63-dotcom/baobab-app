@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Sparkles, Users } from "lucide-react";
 import { supabase } from "../../supabaseClient";
-import { primary, coral, muted, navy } from "../social/theme";
+import { primary, coral, muted } from "../social/theme";
 
 export default function HomeHeader({ currentUser }) {
   const firstName = currentUser?.name?.trim()?.split(" ")[0];
@@ -28,7 +28,7 @@ export default function HomeHeader({ currentUser }) {
           <Sparkles size={13} aria-hidden="true" /> Communauté Baobab au Canada
         </div>
         {Boolean(userCount) && (
-          <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-black" style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)", color: navy }}>
+          <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-black" style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)", color: primary }}>
             <Users size={13} aria-hidden="true" /> {userCount.toLocaleString("fr-CA")} membre{userCount > 1 ? "s" : ""} sur Baobab
           </div>
         )}

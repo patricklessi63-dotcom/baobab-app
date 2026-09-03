@@ -6,7 +6,7 @@ import {
   CheckCircle2, MapPin, Mail, Clock, Building2, Globe2,
 } from "lucide-react";
 import { supabase } from "../../supabaseClient";
-import { primary, navy, coral, gold, muted, card, bg, surface } from "./theme";
+import { primary, coral, gold, muted, card, bg, surface } from "./theme";
 import {
   ESSENTIAL_DOCUMENTS, BORDER_NOTE, PRIORITY_STEPS, EXTRA_TIPS,
   PROVINCE_DIRECTORY, GENERALIST_DIRECTORY, FEDERAL_RESOURCES, GUIDE_LIMITS,
@@ -26,7 +26,7 @@ const CATEGORY_LABELS = {
 const CATEGORY_ORDER = ["procedures", "frontiere", "emploi", "installation", "sante", "education", "general"];
 
 const SOURCE_META = {
-  ircc: { label: "IRCC", full: "Immigration, Réfugiés et Citoyenneté Canada", icon: ShieldCheck, color: navy },
+  ircc: { label: "IRCC", full: "Immigration, Réfugiés et Citoyenneté Canada", icon: ShieldCheck, color: primary },
   asfc: { label: "ASFC", full: "Agence des services frontaliers du Canada", icon: Landmark, color: coral },
 };
 

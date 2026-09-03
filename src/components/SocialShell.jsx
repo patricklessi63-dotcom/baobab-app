@@ -1688,7 +1688,7 @@ export default function SocialShell({
           // reste de l'app (dont le Guide du nouvel arrivant) reste accessible.
           <div className="max-w-md mx-auto text-center py-16 px-6">
             <div className="mx-auto mb-4 h-16 w-16 rounded-full flex items-center justify-center" style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)" }}>
-              <Globe2 size={28} color={navy} />
+              <Globe2 size={28} color={primary} />
             </div>
             <h2 className="text-lg font-black" style={{ color: primary }}>Rencontres t'attend au Canada</h2>
             <p className="text-sm mt-2" style={{ color: muted }}>
