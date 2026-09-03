@@ -1,5 +1,5 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { ArrowLeft, MoreVertical, MoreHorizontal, Reply, X, Flag, Ban, Check, CheckCheck, Circle, ShieldAlert, ShieldCheck, RotateCcw, HeartCrack, Search, MapPin, Languages, Loader2 } from "lucide-react";
+import { ArrowLeft, MoreVertical, MoreHorizontal, Reply, X, Flag, Ban, Check, CheckCheck, Circle, ShieldAlert, ShieldCheck, RotateCcw, HeartCrack, Search, MapPin, Languages, Loader2, UserRound } from "lucide-react";
 import Avatar from "../Avatar";
 import StatusBadge from "../StatusBadge";
 import ConversationStarters from "./ConversationStarters";
@@ -56,6 +56,7 @@ export default function ConversationPane({
   onBack,
   onOpenReport,
   onOpenBlockConfirm,
+  onViewProfile,
   onUnmatch = () => {},
   replyingTo,
   setReplyingTo,
@@ -176,31 +177,38 @@ export default function ConversationPane({
         <button onClick={onBack} aria-label="Retour à la liste des conversations" className="flex items-center justify-center flex-shrink-0 md:hidden" style={{ width: 40, height: 44 }}>
           <ArrowLeft size={18} color={primary} />
         </button>
-        <div style={{ position: "relative" }}>
-          <Avatar name={activeMatch.name} url={activeMatch.avatar_url} size={38} />
-          <Circle size={10} fill={activeMatch.is_online ? online : offline} color="transparent" style={{ position: "absolute", bottom: -1, right: -1, background: "#fff", borderRadius: "50%" }} />
-        </div>
-        <div className="min-w-0">
-          <div className="text-sm font-bold flex items-center gap-1.5 truncate">
-            {activeMatch.name}
-            <StatusBadge emailVerified={activeMatch.email_verified} phoneVerified={activeMatch.phone_verified} isFounder={activeMatch.is_founder} isPremium={activeMatch.is_premium} size={13} />
+        <button
+          type="button"
+          onClick={() => onViewProfile?.(activeMatch)}
+          aria-label={`Voir le profil de ${activeMatch.name}`}
+          className="flex items-center gap-3 min-w-0 flex-1 text-left rounded-xl -m-1 p-1 motion-safe:transition-colors hover:bg-[var(--bb-surface-2)] focus-visible:outline focus-visible:outline-2"
+        >
+          <div style={{ position: "relative" }}>
+            <Avatar name={activeMatch.name} url={activeMatch.avatar_url} size={38} />
+            <Circle size={10} fill={activeMatch.is_online ? online : offline} color="transparent" style={{ position: "absolute", bottom: -1, right: -1, background: "#fff", borderRadius: "50%" }} />
           </div>
-          <div className="text-xs truncate" style={{ color: otherTyping && currentUser.show_read_receipts !== false ? coral : muted }}>
-            {/* show_online_status vérifié (bug corrigé à l'audit) : is_online est
-                déjà forcé à false côté écriture (App.jsx) quand ce réglage est
-                désactivé, mais last_seen, lui, reste figé à l'instant de la
-                désactivation et continuait d'être affiché ici via formatLastSeen
-                — donc "Vu il y a X" fuyait quand même une donnée réelle malgré
-                le réglage "Statut en ligne visible" éteint. */}
-            {otherTyping && currentUser.show_read_receipts !== false
-              ? "en train d'écrire…"
-              : activeMatch.is_online
-              ? "En ligne"
-              : activeMatch.show_online_status === false
-              ? "Statut non disponible"
-              : formatLastSeen(activeMatch.last_seen)}
+          <div className="min-w-0">
+            <div className="text-sm font-bold flex items-center gap-1.5 truncate">
+              {activeMatch.name}
+              <StatusBadge emailVerified={activeMatch.email_verified} phoneVerified={activeMatch.phone_verified} isFounder={activeMatch.is_founder} isPremium={activeMatch.is_premium} size={13} />
+            </div>
+            <div className="text-xs truncate" style={{ color: otherTyping && currentUser.show_read_receipts !== false ? coral : muted }}>
+              {/* show_online_status vérifié (bug corrigé à l'audit) : is_online est
+                  déjà forcé à false côté écriture (App.jsx) quand ce réglage est
+                  désactivé, mais last_seen, lui, reste figé à l'instant de la
+                  désactivation et continuait d'être affiché ici via formatLastSeen
+                  — donc "Vu il y a X" fuyait quand même une donnée réelle malgré
+                  le réglage "Statut en ligne visible" éteint. */}
+              {otherTyping && currentUser.show_read_receipts !== false
+                ? "en train d'écrire…"
+                : activeMatch.is_online
+                ? "En ligne"
+                : activeMatch.show_online_status === false
+                ? "Statut non disponible"
+                : formatLastSeen(activeMatch.last_seen)}
+            </div>
           </div>
-        </div>
+        </button>
         <button
           onClick={() => setSearchOpen((v) => !v)}
           aria-label={searchOpen ? "Fermer la recherche" : "Rechercher dans la conversation"}
@@ -222,8 +230,11 @@ export default function ConversationPane({
           <MoreVertical size={18} color={primary} />
         </button>
         {menuOpen && (
-          <div role="menu" className="rounded-xl overflow-hidden bg-[var(--bb-surface)] shadow-xl" style={{ border: `1px solid rgba(${primaryRgb},.08)`, position: "absolute", top: 48, right: 12, minWidth: 170, zIndex: 5 }}>
-            <button role="menuitem" onClick={() => { onOpenReport(activeMatch); setMenuOpen(false); }} className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-left focus-visible:outline focus-visible:outline-2">
+          <div role="menu" className="rounded-xl overflow-hidden bg-[var(--bb-surface)] shadow-xl" style={{ border: `1px solid rgba(${primaryRgb},.08)`, position: "absolute", top: 48, right: 12, minWidth: 190, zIndex: 5 }}>
+            <button role="menuitem" onClick={() => { onViewProfile?.(activeMatch); setMenuOpen(false); }} className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-left focus-visible:outline focus-visible:outline-2">
+              <UserRound size={14} /> Voir le profil
+            </button>
+            <button role="menuitem" onClick={() => { onOpenReport(activeMatch); setMenuOpen(false); }} className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-left focus-visible:outline focus-visible:outline-2" style={{ borderTop: `1px solid rgba(${primaryRgb},.08)` }}>
               <Flag size={14} /> Signaler
             </button>
             <button role="menuitem" onClick={() => { onUnmatch(activeMatch); setMenuOpen(false); }} className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-left focus-visible:outline focus-visible:outline-2" style={{ color: coral, borderTop: `1px solid rgba(${primaryRgb},.08)` }}>
@@ -245,7 +256,7 @@ export default function ConversationPane({
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Rechercher dans cette conversation..."
-            className="flex-1 bg-transparent outline-none text-sm"
+            className="flex-1 bg-transparent outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--bb-clay)] text-sm"
             style={{ color: primary }}
           />
           {searchQuery && <span className="text-xs shrink-0" style={{ color: muted }}>{visibleMessages.length} résultat{visibleMessages.length > 1 ? "s" : ""}</span>}
@@ -516,7 +527,7 @@ export default function ConversationPane({
             aria-label="Écrire un message"
             rows={1}
             maxLength={4000}
-            className="flex-1 text-sm rounded-2xl px-4 py-3 outline-none resize-none"
+            className="flex-1 text-sm rounded-2xl px-4 py-3 outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--bb-clay)] resize-none"
             style={{ background: bg, fontSize: 16, maxHeight: 120 }}
           />
         )}
