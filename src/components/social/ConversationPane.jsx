@@ -468,7 +468,15 @@ export default function ConversationPane({
         </div>
       )}
 
-      {!recorderActive && messageDraft.trim() && (
+      {/* ai_suggestions_enabled vérifié (bug corrigé à l'audit, même famille que
+      EditProfileForm/CommunityCreateForm/EventCreateForm/PostComposerModal) :
+      PrivacyFieldsModal promet explicitement de couvrir "bio, publications,
+      conversations…" et l'Edge Function ai-assist refuse déjà la requête
+      côté serveur (profile.ai_suggestions_enabled === false), mais ce bouton
+      de reformulation restait affiché ici — un utilisateur ayant désactivé
+      le réglage cliquait dans le vide et recevait une erreur au lieu de ne
+      pas voir le bouton du tout. */}
+      {!recorderActive && messageDraft.trim() && currentUser?.ai_suggestions_enabled !== false && (
         <div className="px-4 pt-2 shrink-0 bg-[var(--bb-surface)]">
           <AiSuggestButton
             action="reformulate_message"
@@ -491,7 +499,10 @@ export default function ConversationPane({
             onPickSticker={(sticker) => sendStickerMessage(sticker)}
           />
         )}
-        {!recorderActive && (
+        {/* ai_suggestions_enabled vérifié (bug corrigé à l'audit, même famille que
+        EditProfileForm/CommunityCreateForm/EventCreateForm/PostComposerModal) :
+        même défaut que la reformulation ci-dessus, sur le bouton "Suggestions IA". */}
+        {!recorderActive && currentUser?.ai_suggestions_enabled !== false && (
           <AiConversationSuggestions currentUser={currentUser} match={activeMatch} onPick={(text) => setMessageDraft(text.slice(0, 4000))} />
         )}
         {!recorderActive && (
