@@ -4,6 +4,8 @@ import Avatar from "../Avatar";
 import EmptyState from "../home/EmptyState";
 import Skeleton, { SkeletonCard } from "../Skeleton";
 import * as adminApi from "../../lib/adminApi";
+import { useEscapeKey } from "../../hooks/useEscapeKey";
+import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { primary, coral, green, gold, muted, bg, card, primaryRgb, navy } from "../social/theme";
 
 const SUB_TABS = [["dashboard", "Tableau de bord"], ["users", "Utilisateurs"], ["reports", "Signalements"], ["feedback", "Retours"]];
@@ -44,6 +46,15 @@ export default function AdminDashboard({ onBack, onError, myPlatformRole }) {
   const [feedbackLoading, setFeedbackLoading] = useState(true);
   const [feedbackStatusFilter, setFeedbackStatusFilter] = useState(null);
   const [feedbackSaving, setFeedbackSaving] = useState(null);
+
+  // Modale de suspension/bannissement : jusqu'ici seule modale de l'app sans
+  // piège à focus clavier ni fermeture par Échap/retour (absente du passage
+  // dédié à ces deux correctifs sur les 21 autres modales) — Tab en sortait
+  // vers la page en arrière-plan, et Échap ne la fermait pas comme partout
+  // ailleurs dans l'app.
+  const actionDialogRef = useRef(null);
+  useEscapeKey(Boolean(actionTarget), () => setActionTarget(null));
+  useFocusTrap(Boolean(actionTarget), actionDialogRef);
 
   const loadStats = async () => {
     setStatsLoading(true);
@@ -377,7 +388,7 @@ export default function AdminDashboard({ onBack, onError, myPlatformRole }) {
 
       {actionTarget && (
         <div className="bb-fade-in fixed inset-0 flex items-end md:items-center justify-center z-[80] p-0 md:p-5" style={{ background: `rgba(${primaryRgb},.55)`, backdropFilter: "blur(5px)" }} onClick={() => setActionTarget(null)} role="dialog" aria-modal="true">
-          <div className={`${card} w-full max-w-sm p-6 rounded-t-[28px] md:rounded-[28px]`} onClick={(e) => e.stopPropagation()}>
+          <div ref={actionDialogRef} tabIndex={-1} className={`${card} w-full max-w-sm p-6 rounded-t-[28px] md:rounded-[28px]`} onClick={(e) => e.stopPropagation()}>
             <h2 className="text-lg font-black" style={{ color: primary }}>
               {actionTarget.mode === "suspend" ? "Suspendre" : "Bannir"} {actionTarget.user.name}
             </h2>
