@@ -2,12 +2,39 @@ import { supabase } from "../../supabaseClient";
 
 const TIMEOUT_MS = 15000;
 
+// Garde-fou client CÔTÉ UX, pas de sécurité — la vraie limite est déjà
+// appliquée côté serveur (ai-assist/index.ts, RATE_LIMIT_PER_HOUR, 20/h par
+// défaut). Corrige un trou trouvé à l'audit : aucun appelant d'invokeAI
+// (traduction à la demande dans ConversationPane, reformulation/suggestions
+// dans AiSuggestButton/AiConversationSuggestions/CommunityCreateForm) n'avait
+// le moindre anti-rebond, contrairement à checkRateLimit déjà utilisé pour
+// l'envoi de messages. Un seul bouton se désactive déjà pendant son propre
+// appel (état "loading" local), mais rien n'empêchait de cliquer "Traduire"
+// sur 10-15 messages différents en quelques secondes — chacun a son propre
+// bouton/état indépendant — déclenchant autant d'appels réseau parallèles
+// avant même que le quota horaire serveur ne les bloque. Centralisé ici
+// (plutôt que dans chaque composant) pour protéger tous les appelants
+// uniformément sans dépendre de chacun d'eux pour l'appliquer.
+const AI_CLIENT_RATE_LIMIT = { maxCalls: 5, windowMs: 10000 };
+let recentAiCallTimestamps = [];
+
+function checkAiClientRateLimit(now = Date.now()) {
+  const cutoff = now - AI_CLIENT_RATE_LIMIT.windowMs;
+  recentAiCallTimestamps = recentAiCallTimestamps.filter((t) => t > cutoff);
+  if (recentAiCallTimestamps.length >= AI_CLIENT_RATE_LIMIT.maxCalls) return false;
+  recentAiCallTimestamps.push(now);
+  return true;
+}
+
 // Enveloppe fine autour de la Edge Function ai-assist — jamais appelée
 // directement depuis les composants (item 26). Timeout côté client pour ne
 // jamais laisser l'UI bloquée en attente (items 28-29). Ne lève jamais
 // d'exception — retourne toujours { data, error }, l'appelant reste
 // fonctionnel même si le service IA est indisponible.
 export async function invokeAI(action, payload = {}) {
+  if (!checkAiClientRateLimit()) {
+    return { data: null, error: "Trop de demandes IA en peu de temps. Attends quelques secondes et réessaie." };
+  }
   try {
     const result = await Promise.race([
       supabase.functions.invoke("ai-assist", { body: { action, ...payload } }),
