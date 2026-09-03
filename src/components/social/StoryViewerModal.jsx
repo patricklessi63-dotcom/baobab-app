@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { X, Send, Volume2, VolumeX, Eye, Trash2, MoreVertical, Flag, Ban } from "lucide-react";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
+import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { navy } from "./theme";
 import Avatar from "../Avatar";
 
@@ -58,6 +59,13 @@ export default function StoryViewerModal({
   prevStoryRef.current = prevStory;
 
   useEscapeKey(storyViewerIndex !== null, closeStoryViewer);
+  // Piège à focus clavier oublié, comme MediaViewerModal.jsx (visualiseur
+  // photo) avant lui : ce visualiseur de statuts plein écran a role="dialog"
+  // mais Tab depuis son dernier bouton sortait vers la page cachée derrière
+  // l'overlay. dialogRef est posé plus bas sur le conteneur qui enveloppe
+  // tous les contrôles (barre du haut, réactions, réponse, panneau des vues).
+  const dialogRef = useRef(null);
+  useFocusTrap(storyViewerIndex !== null, dialogRef);
 
   const active = storyViewerIndex !== null && stories[storyViewerIndex];
   // confirmDelete doit aussi être remis à zéro ici : ce composant reste monté
@@ -152,7 +160,7 @@ export default function StoryViewerModal({
         @keyframes bbStoryBar { from { width: 0%; } to { width: 100%; } }
         .bb-story-bar-fill { animation: bbStoryBar ${durationMs}ms linear forwards; }
       `}</style>
-      <div className="relative w-full h-full max-w-md mx-auto" style={{ background: story.media_url ? "#000" : `linear-gradient(160deg,${story.bg_color || story.color},${navy})` }}>
+      <div ref={dialogRef} tabIndex={-1} className="relative w-full h-full max-w-md mx-auto" style={{ background: story.media_url ? "#000" : `linear-gradient(160deg,${story.bg_color || story.color},${navy})` }}>
         <div className="absolute inset-0 flex items-center justify-center text-8xl opacity-15">🌍</div>
 
         {/* Barres de progression, une par story non-personnelle */}

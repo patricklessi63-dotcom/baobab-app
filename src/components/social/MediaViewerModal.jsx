@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { X, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, RotateCcw } from "lucide-react";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
+import { useFocusTrap } from "../../hooks/useFocusTrap";
 
 const MIN_ZOOM = 1;
 const MAX_ZOOM = 4;
@@ -26,6 +27,13 @@ export default function MediaViewerModal({ images, index = 0, onNavigate, url, a
   const touchRef = useRef(null); // { x, y } single-touch swipe start
   const pinchRef = useRef(null); // { dist, zoom } pinch baseline
   const lastTapRef = useRef(0);
+  // Piège à focus clavier oublié : contrairement aux ~20 autres modales de
+  // l'app (BlockConfirmModal, PostComposerModal, etc.), ce visualiseur
+  // plein écran n'avait ni piège à focus ni tabIndex sur son conteneur —
+  // Tab depuis le dernier bouton (zoom avant) sortait du dialogue vers la
+  // page cachée derrière l'overlay, malgré role="dialog"/aria-modal.
+  const dialogRef = useRef(null);
+  useFocusTrap(Boolean(active), dialogRef);
 
   useEscapeKey(Boolean(active), onClose);
 
@@ -139,6 +147,8 @@ export default function MediaViewerModal({ images, index = 0, onNavigate, url, a
 
   return (
     <div
+      ref={dialogRef}
+      tabIndex={-1}
       className="bb-fade-in fixed inset-0 z-[80] flex items-center justify-center p-4"
       style={{ background: "rgba(10,13,26,.92)" }}
       onClick={handleBackgroundClick}
