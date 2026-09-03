@@ -46,7 +46,37 @@ function AudioPlayer({ src }) {
     audioRef.current.currentTime = Number(e.target.value);
   };
 
-  const fmt = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
+  // Garde-fou : un blob webm produit par MediaRecorder (voir AudioRecorder.jsx,
+  // format de repli quand "audio/mp4" n'est pas supporté par le navigateur qui
+  // a enregistré) ne contient aucune durée dans son conteneur — sans le
+  // contournement ci-dessous, duration valait Infinity et ce calcul affichait
+  // littéralement "Infinity:NaN" au lieu du minuteur.
+  const fmt = (s) => {
+    if (!Number.isFinite(s) || s < 0) return "0:00";
+    return `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
+  };
+
+  // Bug Chromium connu : la durée d'un blob webm/opus issu de MediaRecorder
+  // reste Infinity au chargement des métadonnées (aucune durée écrite dans le
+  // conteneur pendant l'enregistrement) — le minuteur et le curseur de
+  // progression ("Infinity:NaN", max="Infinity") restaient cassés jusqu'à ce
+  // que le fichier soit lu jusqu'au bout au moins une fois. Contournement
+  // standard : se positionner très loin force le navigateur à recalculer la
+  // vraie durée (déclenche "durationchange"), puis on revient au début.
+  const handleLoadedMetadata = (e) => {
+    const el = e.currentTarget;
+    if (!Number.isFinite(el.duration)) {
+      const onDurationChange = () => {
+        el.removeEventListener("durationchange", onDurationChange);
+        setDuration(Number.isFinite(el.duration) ? el.duration : 0);
+        el.currentTime = 0;
+      };
+      el.addEventListener("durationchange", onDurationChange);
+      el.currentTime = 1e101;
+    } else {
+      setDuration(el.duration || 0);
+    }
+  };
 
   return (
     <div className="flex items-center gap-2.5 min-w-[200px]">
@@ -57,7 +87,7 @@ function AudioPlayer({ src }) {
         onPause={() => setPlaying(false)}
         onEnded={() => setPlaying(false)}
         onError={() => setPlaybackError(true)}
-        onLoadedMetadata={(e) => setDuration(e.currentTarget.duration || 0)}
+        onLoadedMetadata={handleLoadedMetadata}
         onTimeUpdate={(e) => setCurrent(e.currentTarget.currentTime || 0)}
         className="hidden"
       />
