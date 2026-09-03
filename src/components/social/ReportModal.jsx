@@ -75,7 +75,12 @@ export default function ReportModal({
 
             <textarea
               value={reason}
-              onChange={(e) => setReason(e.target.value)}
+              // Bug corrigé (même pattern que les commentaires événement/
+              // communauté, plafonnés à 1000 caractères) : ce champ était le
+              // seul texte libre de l'app sans aucune limite de longueur —
+              // reports.reason est une colonne "text" illimitée côté base,
+              // rien n'empêchait de coller un pavé de plusieurs Mo.
+              onChange={(e) => setReason(e.target.value.slice(0, 1000))}
               rows={3}
               placeholder={commentRequired ? "Explique brièvement pourquoi (obligatoire pour \"Autre\")..." : "Commentaire (facultatif)..."}
               className="w-full p-3 rounded-lg text-sm mt-3"
