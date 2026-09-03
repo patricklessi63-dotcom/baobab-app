@@ -28,7 +28,7 @@ import { friendlyDbError } from "../lib/friendlyDbError";
 import BetaFeedbackModal from "./social/BetaFeedbackModal";
 import ChunkErrorBoundary from "./ChunkErrorBoundary";
 import { useHiddenRecommendations } from "../lib/useHiddenRecommendations";
-import { escapeOrFilterValue } from "../lib/searchQuery";
+import { escapeLikePattern, escapeOrFilterValue } from "../lib/searchQuery";
 
 // Chargées à la demande (item 27 de l'audit Phase 10) : ces 3 onglets sont
 // visités moins souvent que Fil/Découverte/Messages/Profil au démarrage de
@@ -977,7 +977,10 @@ export default function SocialShell({
     if (!term) { setRemoteSearchResults([]); return; }
     let alive = true;
     const timer = setTimeout(() => {
-      const escaped = escapeOrFilterValue(term);
+      // Bug corrigé : même défaut que CommunitiesTab.jsx/EventsTab.jsx —
+      // escapeLikePattern (%/_) manquait, seul escapeOrFilterValue
+      // (virgule/guillemet) était appliqué à la recherche globale.
+      const escaped = escapeOrFilterValue(escapeLikePattern(term));
       supabase
         .from("profiles")
         .select("*")

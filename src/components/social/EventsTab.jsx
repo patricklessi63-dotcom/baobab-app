@@ -43,7 +43,11 @@ const EVENT_TIPS = {
 function buildListQuery({ search, filterCity, filterCategory, dateRange }) {
   let query = supabase.from("events").select("*, event_participant_count", { count: "exact" }).is("canceled_at", null);
   if (search.trim()) {
-    const term = escapeOrFilterValue(search.trim());
+    // Bug corrigé : même défaut qu'en communautés (CommunitiesTab.jsx) —
+    // escapeLikePattern (%/_) manquait ici, seul escapeOrFilterValue
+    // (virgule/guillemet) était appliqué. Une recherche contenant "%" ou
+    // "_" était traitée comme un joker ILIKE au lieu du texte littéral.
+    const term = escapeOrFilterValue(escapeLikePattern(search.trim()));
     query = query.or(`title.ilike."%${term}%",description.ilike."%${term}%"`);
   }
   if (filterCity.trim()) query = query.ilike("city", `%${escapeLikePattern(filterCity.trim())}%`);

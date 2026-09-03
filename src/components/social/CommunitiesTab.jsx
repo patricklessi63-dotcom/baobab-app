@@ -47,7 +47,13 @@ const REPORT_TARGET_LABEL = { post: "cette publication", comment: "ce commentair
 function buildListQuery({ search, filterCity, filterCategory, filterVisibility }) {
   let query = supabase.from("communities").select("*, community_members(count)", { count: "exact" });
   if (search.trim()) {
-    const term = escapeOrFilterValue(search.trim());
+    // Bug corrigé : seul escapeOrFilterValue (virgule/guillemet) était
+    // appliqué ici — escapeLikePattern (%/_) manquait, alors que
+    // searchQuery.js a été créé précisément pour les deux à la fois (voir
+    // son en-tête). Une recherche contenant "%" ou "_" était donc traitée
+    // comme un joker ILIKE au lieu du texte littéral saisi (ex. "50%" ou
+    // un nom de communauté avec "_" matchait n'importe quoi autour).
+    const term = escapeOrFilterValue(escapeLikePattern(search.trim()));
     query = query.or(`name.ilike."%${term}%",description.ilike."%${term}%"`);
   }
   if (filterCity.trim()) query = query.ilike("city", `%${escapeLikePattern(filterCity.trim())}%`);
