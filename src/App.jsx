@@ -741,6 +741,20 @@ export default function App() {
         post_comments: supabase.from("post_comments").select("id, post_id, body, created_at").eq("author_id", currentUser.id),
         community_posts: supabase.from("community_posts").select("id, community_id, body, created_at").eq("author_id", currentUser.id),
         community_comments: supabase.from("community_comments").select("id, post_id, body, created_at").eq("author_id", currentUser.id),
+        // Bug corrigé (audit RGPD/LPRPDE) : cet export se présentait comme "mes
+        // données" mais omettait plusieurs catégories de données personnelles
+        // bel et bien générées par l'utilisateur — likes donnés/reçus, passes,
+        // favoris, abonnements/abonnés, blocages et signalements déposés.
+        // Toutes reposent sur le même schéma from_id/to_id que les tables déjà
+        // exportées ci-dessus.
+        likes_sent: supabase.from("likes").select("to_id, created_at").eq("from_id", currentUser.id),
+        likes_received: supabase.from("likes").select("from_id, created_at").eq("to_id", currentUser.id),
+        passes_sent: supabase.from("passes").select("to_id, created_at").eq("from_id", currentUser.id),
+        favorites: supabase.from("favorites").select("to_id, created_at").eq("from_id", currentUser.id),
+        following: supabase.from("follows").select("to_id, created_at").eq("from_id", currentUser.id),
+        followers: supabase.from("follows").select("from_id, created_at").eq("to_id", currentUser.id),
+        blocks: supabase.from("blocks").select("to_id, created_at").eq("from_id", currentUser.id),
+        reports_submitted: supabase.from("reports").select("to_id, category, reason, created_at").eq("from_id", currentUser.id),
       };
       const keys = Object.keys(queries);
       const results = await Promise.all(keys.map((k) => queries[k]));
