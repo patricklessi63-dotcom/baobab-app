@@ -87,6 +87,7 @@ export default function Step1Identity({ draft, update }) {
         value={draft.name}
         onChange={(e) => update({ name: e.target.value })}
         placeholder="Ton prénom"
+        maxLength={80}
         className="bb-input w-full text-sm"
       />
 
@@ -95,6 +96,7 @@ export default function Step1Identity({ draft, update }) {
         value={draft.lastName}
         onChange={(e) => update({ lastName: e.target.value })}
         placeholder="Ton nom de famille"
+        maxLength={80}
         className="bb-input w-full text-sm"
       />
 

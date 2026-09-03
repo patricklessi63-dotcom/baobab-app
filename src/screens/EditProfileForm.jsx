@@ -193,9 +193,9 @@ export default function EditProfileForm({
 
         <p className="text-xs font-semibold" style={{ color: "rgba(var(--bb-ink-rgb-static),0.55)" }}>Identité</p>
         <input placeholder="Prénom" value={editForm.name} onChange={(e) => set({ name: e.target.value })}
-          className="bb-input w-full text-sm" />
+          maxLength={80} className="bb-input w-full text-sm" />
         <input placeholder="Nom (facultatif)" value={editForm.lastName || ""} onChange={(e) => set({ lastName: e.target.value })}
-          className="bb-input w-full text-sm" />
+          maxLength={80} className="bb-input w-full text-sm" />
         <label htmlFor="edit-birth-date" className="text-xs" style={{ color: "rgba(var(--bb-ink-rgb-static),0.5)" }}>Date de naissance (jamais affichée publiquement)</label>
         <input id="edit-birth-date" type="date" value={editForm.birthDate} onChange={(e) => set({ birthDate: e.target.value })}
           min={`${new Date().getFullYear() - 100}-01-01`} max={`${new Date().getFullYear() - 18}-12-31`}
@@ -203,11 +203,11 @@ export default function EditProfileForm({
 
         <p className="text-xs font-semibold mt-2" style={{ color: "rgba(var(--bb-ink-rgb-static),0.55)" }}>Localisation</p>
         <input placeholder="Pays d'origine" value={editForm.country} onChange={(e) => set({ country: e.target.value })}
-          className="bb-input w-full text-sm" />
+          maxLength={80} className="bb-input w-full text-sm" />
         <input placeholder="Province" value={editForm.province} onChange={(e) => set({ province: e.target.value })}
-          className="bb-input w-full text-sm" />
+          maxLength={80} className="bb-input w-full text-sm" />
         <input placeholder="Ville (Canada)" value={editForm.city} onChange={(e) => set({ city: e.target.value })}
-          className="bb-input w-full text-sm" />
+          maxLength={80} className="bb-input w-full text-sm" />
 
         <p className="text-xs font-semibold mt-2" style={{ color: "rgba(var(--bb-ink-rgb-static),0.55)" }}>🇨🇦 Parcours Canada</p>
         {(() => {
@@ -240,13 +240,13 @@ export default function EditProfileForm({
         })()}
         <ChipSelect options={IMMIGRATION_STATUS_OPTIONS} value={editForm.immigrationStatus} onChange={(v) => set({ immigrationStatus: v })} />
         <input placeholder="Profession / métier" value={editForm.occupation} onChange={(e) => set({ occupation: e.target.value })}
-          className="bb-input w-full text-sm" />
+          maxLength={120} className="bb-input w-full text-sm" />
         <div>
           <p className="text-xs mb-1.5" style={{ color: "rgba(var(--bb-ink-rgb-static),0.55)" }}>Études</p>
           <ChipSelect options={EDUCATION_LEVELS} value={editForm.educationLevel} onChange={(v) => set({ educationLevel: v })} />
         </div>
         <input placeholder="Ville d'arrivée au Canada (facultatif)" value={editForm.arrivalCity} onChange={(e) => set({ arrivalCity: e.target.value })}
-          className="bb-input w-full text-sm" />
+          maxLength={80} className="bb-input w-full text-sm" />
 
         <p className="text-xs font-semibold mt-2" style={{ color: "rgba(var(--bb-ink-rgb-static),0.55)" }}>🗣️ Langues</p>
         <div className="flex gap-2 flex-wrap">

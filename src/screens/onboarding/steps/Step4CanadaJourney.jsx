@@ -79,13 +79,13 @@ export default function Step4CanadaJourney({ draft, update }) {
       <ChipSelect options={IMMIGRATION_STATUS_OPTIONS} value={draft.immigrationStatus} onChange={(v) => update({ immigrationStatus: v })} />
 
       <label className="text-xs font-semibold mt-1" style={{ color: "rgba(var(--bb-ink-rgb-static),0.55)" }}>Profession</label>
-      <input value={draft.occupation} onChange={(e) => update({ occupation: e.target.value })} placeholder="Ton métier" className="bb-input w-full text-sm" />
+      <input value={draft.occupation} onChange={(e) => update({ occupation: e.target.value })} placeholder="Ton métier" maxLength={120} className="bb-input w-full text-sm" />
 
       <label className="text-xs font-semibold mt-1" style={{ color: "rgba(var(--bb-ink-rgb-static),0.55)" }}>Études</label>
       <ChipSelect options={EDUCATION_LEVELS} value={draft.educationLevel} onChange={(v) => update({ educationLevel: v })} />
 
       <label className="text-xs font-semibold mt-1" style={{ color: "rgba(var(--bb-ink-rgb-static),0.55)" }}>Ville d'arrivée au Canada (facultatif)</label>
-      <input value={draft.arrivalCity} onChange={(e) => update({ arrivalCity: e.target.value })} placeholder="Si différente de ta ville actuelle" className="bb-input w-full text-sm" />
+      <input value={draft.arrivalCity} onChange={(e) => update({ arrivalCity: e.target.value })} placeholder="Si différente de ta ville actuelle" maxLength={80} className="bb-input w-full text-sm" />
     </div>
   );
 }
