@@ -17,7 +17,7 @@ export function traduireAuthErreur(err) {
   if (code === "weak_password" || msg.includes("Password should be at least"))
     return "Le mot de passe ne respecte pas les règles minimales.";
   if (code === "validation_failed" || msg.includes("Unable to validate email address"))
-    return "Veuillez entrer une adresse email valide.";
+    return "Entre une adresse email valide.";
   if (code === "over_email_send_rate_limit" || msg.includes("rate limit"))
     return "Trop de tentatives. Réessaie dans quelques minutes.";
   if (msg.toLowerCase().includes("already confirmed"))

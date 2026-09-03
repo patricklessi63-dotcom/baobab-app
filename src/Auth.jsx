@@ -89,7 +89,7 @@ export default function Auth({ justVerified = false, onAcknowledgeVerified = () 
     const cleanEmail = email.trim().toLowerCase();
 
     if (!isValidEmail(cleanEmail)) {
-      setError("Veuillez entrer une adresse email valide.");
+      setError("Entre une adresse email valide.");
       return;
     }
 
@@ -184,7 +184,7 @@ export default function Auth({ justVerified = false, onAcknowledgeVerified = () 
   async function handleResend() {
     if (resendCooldown > 0 || resendLoading) return;
     if (!isValidEmail(email)) {
-      setError("Veuillez entrer une adresse email valide.");
+      setError("Entre une adresse email valide.");
       return;
     }
     setResendLoading(true);

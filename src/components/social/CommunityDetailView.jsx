@@ -121,7 +121,7 @@ export default function CommunityDetailView({
             {viewerRole ? (
               viewerRole !== "owner" && (
                 <button
-                  onClick={() => window.confirm("Voulez-vous vraiment quitter cette communauté ?") && onLeave(community)}
+                  onClick={() => window.confirm("Veux-tu vraiment quitter cette communauté ?") && onLeave(community)}
                   className="px-4 py-2.5 rounded-full text-sm font-bold"
                   style={{ border: `1px solid rgba(${primaryRgb},.15)`, color: primary }}
                 >
