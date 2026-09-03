@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, Suspense, lazy } from "react";
 import { Home, Heart, X, MessageCircle, LogOut, Settings, Cog, UserRound, Search, Bell, Users2, PartyPopper, Megaphone, Shield, Globe2, Compass } from "lucide-react";
 import Avatar from "./Avatar";
+import StatusBadge from "./StatusBadge";
 import logoIcon from "../assets/logo-baobab-icon.png";
 import { supabase } from "../supabaseClient";
 import { matchKey, visibleAge } from "../utils/format";
@@ -310,7 +311,12 @@ export default function SocialShell({
       // show_city ajouté (bug corrigé à l'audit) : FavoritesModal affichait la
       // ville d'un favori sans jamais pouvoir consulter ce réglage, absent de
       // cette jointure — voir le garde ajouté côté FavoritesModal.jsx.
-      .select("to_id, profile:to_id(id,name,avatar_url,city,show_city,age,show_birth_year,looking_for,email_verified,phone_verified)")
+      // is_founder/is_premium ajoutés (bug corrigé à l'audit, même famille que
+      // show_city ci-dessus) : cette jointure alimentait déjà email_verified/
+      // phone_verified mais pas les deux autres champs de StatusBadge, donc
+      // FavoritesModal ne pouvait jamais afficher les badges Fondateur/Premium
+      // même après leur ajout côté rendu, contrairement à MatchCard/DiscoverTab.
+      .select("to_id, profile:to_id(id,name,avatar_url,city,show_city,age,show_birth_year,looking_for,email_verified,phone_verified,is_founder,is_premium)")
       .eq("from_id", currentUser.id)
       .then(({ data, error }) => {
         if (!alive) return;
@@ -391,8 +397,12 @@ export default function SocialShell({
     // show_birth_year manque toujours ici — fuite mineure déjà identifiée et
     // suivie séparément, hors périmètre de cette correction.)
     Promise.all([
-      supabase.from("follows").select("to_id, profile:to_id(id,name,avatar_url,city,show_city,age,looking_for,email_verified,phone_verified)").eq("from_id", currentUser.id).limit(2000),
-      supabase.from("follows").select("from_id, profile:from_id(id,name,avatar_url,city,show_city,age,looking_for,email_verified,phone_verified)").eq("to_id", currentUser.id).limit(2000),
+      // is_founder/is_premium ajoutés (même correctif que favorites ci-dessus) :
+      // ProfileCard consulte ces deux champs (hasStatusBadge) mais ils
+      // manquaient ici, donc "Suivis"/"Abonnés" n'affichait jamais les badges
+      // Fondateur/Premium même pour des profils qui les ont réellement.
+      supabase.from("follows").select("to_id, profile:to_id(id,name,avatar_url,city,show_city,age,looking_for,email_verified,phone_verified,is_founder,is_premium)").eq("from_id", currentUser.id).limit(2000),
+      supabase.from("follows").select("from_id, profile:from_id(id,name,avatar_url,city,show_city,age,looking_for,email_verified,phone_verified,is_founder,is_premium)").eq("to_id", currentUser.id).limit(2000),
     ]).then(([followingRes, followersRes]) => {
       if (!alive) return;
       if (followingRes.error) console.error(followingRes.error.message, followingRes.error.code, followingRes.error.details, followingRes.error.hint);
@@ -1505,7 +1515,18 @@ export default function SocialShell({
                         show_city/show_country, alors que MatchCard/PublicProfileModal
                         les respectent déjà : un profil les ayant masqués restait quand
                         même visible ici, résultat par résultat. */}
-                    <div className="min-w-0"><div className="text-sm font-bold truncate">{p.name}{visibleAge(p) ? `, ${visibleAge(p)}` : ""}</div><div className="text-xs" style={{ color: muted }}>{[p.show_city !== false && p.city, p.show_country !== false && p.country].filter(Boolean).join(" · ") || "Canada"}</div></div>
+                    <div className="min-w-0">
+                      <div className="text-sm font-bold truncate flex items-center gap-1.5">
+                        <span className="truncate">{p.name}{visibleAge(p) ? `, ${visibleAge(p)}` : ""}</span>
+                        {/* Parité de badges (bug corrigé à l'audit, même famille que
+                            PublicProfileModal/AdmirersModal/FavoritesModal) : searchResults
+                            vient d'un select("*") (cache local "profiles" et requête réseau
+                            ci-dessus), la donnée est déjà là — seul le rendu manquait,
+                            contrairement à DiscoverTab/MatchCard pour ce même profil. */}
+                        <StatusBadge isFounder={p.is_founder} isPremium={p.is_premium} emailVerified={p.email_verified} phoneVerified={p.phone_verified} size={12} />
+                      </div>
+                      <div className="text-xs" style={{ color: muted }}>{[p.show_city !== false && p.city, p.show_country !== false && p.country].filter(Boolean).join(" · ") || "Canada"}</div>
+                    </div>
                   </button>
                 ))}
                 {searchResults.length === 0 && conversationResults.length === 0 && <div className="px-3 py-3 text-sm" style={{ color: muted }}>Aucun résultat.</div>}

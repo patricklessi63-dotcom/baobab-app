@@ -1,6 +1,7 @@
 import React, { useRef } from "react";
 import { X, Star } from "lucide-react";
 import Avatar from "../Avatar";
+import StatusBadge from "../StatusBadge";
 import EmptyState from "../home/EmptyState";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
@@ -46,7 +47,14 @@ export default function FavoritesModal({ open, onClose, favoriteProfiles = [], o
                 <button onClick={() => onViewProfile?.(p)} className="flex items-center gap-3 flex-1 min-w-0 text-left focus-visible:outline focus-visible:outline-2">
                   <Avatar name={p.name} url={p.avatar_url} size={44} />
                   <div className="min-w-0">
-                    <div className="text-sm font-bold truncate">{p.name}{visibleAge(p) ? `, ${visibleAge(p)}` : ""}</div>
+                    <div className="text-sm font-bold truncate flex items-center gap-1.5">
+                      <span className="truncate">{p.name}{visibleAge(p) ? `, ${visibleAge(p)}` : ""}</span>
+                      {/* Parité de badges (bug corrigé à l'audit, même famille que
+                          PublicProfileModal/AdmirersModal) : is_founder/is_premium
+                          ajoutés à la jointure "favorites" dans SocialShell.jsx pour
+                          que ce badge puisse s'afficher ici comme sur MatchCard. */}
+                      <StatusBadge isFounder={p.is_founder} isPremium={p.is_premium} emailVerified={p.email_verified} phoneVerified={p.phone_verified} size={13} />
+                    </div>
                     {/* Confidentialité par champ (voir PrivacyFieldsModal.jsx) — cette
                         modale affichait la ville sans consulter show_city, alors que
                         MatchCard/PublicProfileModal le respectent déjà : un profil ayant

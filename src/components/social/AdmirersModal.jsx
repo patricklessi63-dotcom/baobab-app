@@ -1,6 +1,7 @@
 import React, { useRef } from "react";
 import { X, Heart } from "lucide-react";
 import Avatar from "../Avatar";
+import StatusBadge from "../StatusBadge";
 import EmptyState from "../home/EmptyState";
 import Paywall from "../premium/Paywall";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
@@ -62,7 +63,17 @@ export default function AdmirersModal({ open, onClose, admirerProfiles = [], cur
                 <button onClick={() => onViewProfile?.(p)} className="flex items-center gap-3 flex-1 min-w-0 text-left focus-visible:outline focus-visible:outline-2">
                   <Avatar name={p.name} url={p.avatar_url} size={44} />
                   <div className="min-w-0">
-                    <div className="text-sm font-bold truncate">{p.name}{visibleAge(p) ? `, ${visibleAge(p)}` : ""}</div>
+                    <div className="text-sm font-bold truncate flex items-center gap-1.5">
+                      <span className="truncate">{p.name}{visibleAge(p) ? `, ${visibleAge(p)}` : ""}</span>
+                      {/* Parité de badges (bug corrigé à l'audit, même famille que
+                          PublicProfileModal) : la donnée is_founder/is_premium/
+                          email_verified/phone_verified est déjà chargée ici
+                          (jointure select("*") sur "likes" dans App.jsx), mais
+                          le badge n'était jamais rendu, contrairement à
+                          MatchCard/DiscoverTab/ProfileCard qui montrent le même
+                          profil ailleurs dans l'app. */}
+                      <StatusBadge isFounder={p.is_founder} isPremium={p.is_premium} emailVerified={p.email_verified} phoneVerified={p.phone_verified} size={13} />
+                    </div>
                     {/* Confidentialité par champ (voir PrivacyFieldsModal.jsx) — cette
                         modale affichait la ville sans consulter show_city, alors que
                         MatchCard/PublicProfileModal le respectent déjà : un profil ayant
