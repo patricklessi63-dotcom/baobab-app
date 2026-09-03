@@ -1,6 +1,7 @@
 import React, { useRef } from "react";
 import { X, Check } from "lucide-react";
 import Avatar from "../Avatar";
+import StatusBadge from "../StatusBadge";
 import EmptyState from "../home/EmptyState";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
@@ -33,7 +34,13 @@ export default function EventInviteModal({ open, candidates = [], invitedIds = n
               return (
                 <div key={p.id} className="flex items-center gap-3 py-2">
                   <Avatar name={p.name} url={p.avatar_url} size={38} />
-                  <span className="text-sm font-semibold flex-1 truncate">{p.name}</span>
+                  <span className="text-sm font-semibold flex-1 truncate flex items-center gap-1.5">
+                    <span className="truncate">{p.name}</span>
+                    {/* Parité de badges (bug corrigé à l'audit, même famille
+                        que CommunityInviteModal) : champs désormais chargés
+                        dans openInvite() (EventsTab.jsx). */}
+                    <StatusBadge isFounder={p.is_founder} isPremium={p.is_premium} emailVerified={p.email_verified} phoneVerified={p.phone_verified} size={12} />
+                  </span>
                   {invited ? (
                     <span className="text-xs font-bold px-3 py-1.5 rounded-full flex items-center gap-1" style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)", color: "#2F8F6B" }}>
                       <Check size={12} /> Invité

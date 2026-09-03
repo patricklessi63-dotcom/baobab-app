@@ -211,7 +211,11 @@ export default function EventsTab({ currentUser, onError, initialEventId, onCons
       const sentIds = new Set((sent || []).map((r) => r.to_id));
       const mutualIds = (received || []).map((r) => r.from_id).filter((id) => sentIds.has(id));
       if (!alive || mutualIds.length === 0) return;
-      const { data: profilesData } = await supabase.from("profiles").select("id, name, avatar_url").in("id", mutualIds);
+      // is_founder/is_premium/email_verified/phone_verified ajoutés (bug
+      // corrigé à l'audit, même famille que PostsFeed.jsx) : sans eux,
+      // EventInviteModal ne peut jamais afficher StatusBadge pour ces
+      // candidats.
+      const { data: profilesData } = await supabase.from("profiles").select("id, name, avatar_url, is_founder, is_premium, email_verified, phone_verified").in("id", mutualIds);
       if (alive) setMyMutualProfiles(profilesData || []);
     })();
     return () => { alive = false; };
@@ -674,7 +678,7 @@ export default function EventsTab({ currentUser, onError, initialEventId, onCons
     let candidates = myMutualProfiles.filter((p) => !blockedIds.has(p.id) && !alreadyInEvent.has(p.id));
     if (ev.community_id) {
       const { data: members } = await supabase
-        .from("community_members").select("profile_id, profiles(id, name, avatar_url)")
+        .from("community_members").select("profile_id, profiles(id, name, avatar_url, is_founder, is_premium, email_verified, phone_verified)")
         .eq("community_id", ev.community_id);
       const extra = (members || []).map((m) => m.profiles).filter(Boolean).filter((p) => !blockedIds.has(p.id) && !alreadyInEvent.has(p.id));
       const seen = new Set(candidates.map((c) => c.id));

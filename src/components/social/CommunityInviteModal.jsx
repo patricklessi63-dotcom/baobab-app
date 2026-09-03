@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from "react";
 import { X, Search, UserPlus, Check } from "lucide-react";
 import Avatar from "../Avatar";
+import StatusBadge from "../StatusBadge";
 import { supabase } from "../../supabaseClient";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
@@ -55,7 +56,11 @@ export default function CommunityInviteModal({ community, currentUser, memberIds
         // show_city ajouté (bug corrigé à l'audit) : la liste de résultats
         // affichait la ville sans jamais pouvoir consulter ce réglage, absent
         // de cette requête — voir le garde ajouté juste en dessous.
-        .select("id, name, avatar_url, city, show_city")
+        // is_founder/is_premium/email_verified/phone_verified ajoutés (bug
+        // corrigé à l'audit, même famille que show_city ci-dessus) : sans
+        // eux, StatusBadge (ajouté au rendu juste en dessous) ne pouvait
+        // jamais s'afficher pour un résultat de cette recherche.
+        .select("id, name, avatar_url, city, show_city, is_founder, is_premium, email_verified, phone_verified")
         .ilike("name", `%${escapeLikePattern(value.trim())}%`)
         .neq("id", currentUser.id)
         .limit(15);
@@ -130,7 +135,10 @@ export default function CommunityInviteModal({ community, currentUser, memberIds
                 <div key={p.id} className="flex items-center gap-3 p-2.5 rounded-xl" style={{ background: `rgba(${primaryRgb},.03)` }}>
                   <Avatar name={p.name} url={p.avatar_url} size={40} />
                   <div className="min-w-0 flex-1">
-                    <div className="text-sm font-bold truncate">{p.name}</div>
+                    <div className="text-sm font-bold truncate flex items-center gap-1.5">
+                      <span className="truncate">{p.name}</span>
+                      <StatusBadge isFounder={p.is_founder} isPremium={p.is_premium} emailVerified={p.email_verified} phoneVerified={p.phone_verified} size={12} />
+                    </div>
                     {p.show_city !== false && p.city && <div className="text-xs truncate" style={{ color: muted }}>{p.city}</div>}
                   </div>
                   <button
