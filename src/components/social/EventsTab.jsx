@@ -18,6 +18,8 @@ import { rankEvents } from "../../lib/events/recommendations";
 import { EVENT_REPORT_CATEGORIES } from "../../lib/events/eventConfig";
 import { trackActivation } from "../../lib/trackActivation";
 import { escapeLikePattern, escapeOrFilterValue } from "../../lib/searchQuery";
+import { useEscapeKey } from "../../hooks/useEscapeKey";
+import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { primary, coral, muted, bg, card, primaryRgb, navy } from "./theme";
 
 const PAGE_SIZE = 20;
@@ -136,6 +138,12 @@ export default function EventsTab({ currentUser, onError, initialEventId, onCons
   const [shareOpen, setShareOpen] = useState(false);
   const [shareEvent, setShareEvent] = useState(null);
   const [shareSending, setShareSending] = useState(false);
+  // Modale "Partager dans une conversation" : seule modale de ce fichier
+  // sans piège à focus clavier ni fermeture par Échap/retour, absente du
+  // passage dédié à ces correctifs sur les autres modales de l'app.
+  const shareDialogRef = useRef(null);
+  useEscapeKey(shareOpen, () => setShareOpen(false));
+  useFocusTrap(shareOpen, shareDialogRef);
 
   const joinInFlightRef = useRef(new Set());
   const leaveInFlightRef = useRef(new Set());
@@ -842,7 +850,7 @@ export default function EventsTab({ currentUser, onError, initialEventId, onCons
 
         {shareOpen && (
           <div className="fixed inset-0 z-[70] flex items-end md:items-center justify-center p-0 md:p-5" style={{ background: `rgba(${primaryRgb},.55)`, backdropFilter: "blur(5px)" }} onClick={() => setShareOpen(false)} role="dialog" aria-modal="true" aria-label="Partager dans une conversation">
-            <div className={`${card} w-full max-w-md rounded-t-[30px] md:rounded-[30px] p-6 max-h-[80vh] overflow-y-auto`} onClick={(e) => e.stopPropagation()}>
+            <div ref={shareDialogRef} tabIndex={-1} className={`${card} w-full max-w-md rounded-t-[30px] md:rounded-[30px] p-6 max-h-[80vh] overflow-y-auto`} onClick={(e) => e.stopPropagation()}>
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-black" style={{ color: primary }}>Partager dans une conversation</h2>
                 <button onClick={() => setShareOpen(false)} aria-label="Fermer"><X /></button>
