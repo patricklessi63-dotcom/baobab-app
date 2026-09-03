@@ -115,7 +115,21 @@ export default function EditProfileForm({
           <div className="flex flex-wrap gap-2 mb-2">
             {existingPhotos.map((photo, i) => (
               <div key={photo.id} style={{ position: "relative" }}>
-                <img src={photo.url} alt="Photo" onClick={() => openLightbox(photoGallery, i)} style={{ width: 72, height: 72, borderRadius: "var(--bb-radius-sm)", objectFit: "cover", boxShadow: "var(--bb-shadow-sm)", cursor: "pointer" }} />
+                {/* Bug corrigé à l'audit accessibilité : <img onClick> nu, jamais
+                    focusable ni activable au clavier (même famille que
+                    ClickableImage.jsx) — un utilisateur clavier-seul ne pouvait
+                    pas agrandir une photo de profil depuis cet écran d'édition. */}
+                <img
+                  src={photo.url}
+                  alt="Photo"
+                  onClick={() => openLightbox(photoGallery, i)}
+                  onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openLightbox(photoGallery, i); } }}
+                  tabIndex={0}
+                  role="button"
+                  aria-label="Agrandir la photo"
+                  className="focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+                  style={{ width: 72, height: 72, borderRadius: "var(--bb-radius-sm)", objectFit: "cover", boxShadow: "var(--bb-shadow-sm)", cursor: "pointer" }}
+                />
                 <button type="button" onClick={() => removeExistingPhoto(photo)} aria-label="Supprimer la photo"
                   style={{ position: "absolute", top: -6, right: -6, width: 20, height: 20, borderRadius: "50%", background: C.indigo, color: "#fff", fontSize: 12, display: "flex", alignItems: "center", justifyContent: "center" }}>
                   ×
@@ -148,7 +162,17 @@ export default function EditProfileForm({
             ))}
             {newPhotoPreviews.map((src, i) => (
               <div key={`new-${i}`} style={{ position: "relative" }}>
-                <img src={src} alt={`Nouvelle photo ${i + 1}`} onClick={() => openLightbox(photoGallery, existingPhotos.length + i)} style={{ width: 72, height: 72, borderRadius: "var(--bb-radius-sm)", objectFit: "cover", boxShadow: "var(--bb-shadow-sm)", cursor: "pointer" }} />
+                <img
+                  src={src}
+                  alt={`Nouvelle photo ${i + 1}`}
+                  onClick={() => openLightbox(photoGallery, existingPhotos.length + i)}
+                  onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openLightbox(photoGallery, existingPhotos.length + i); } }}
+                  tabIndex={0}
+                  role="button"
+                  aria-label={`Agrandir la nouvelle photo ${i + 1}`}
+                  className="focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+                  style={{ width: 72, height: 72, borderRadius: "var(--bb-radius-sm)", objectFit: "cover", boxShadow: "var(--bb-shadow-sm)", cursor: "pointer" }}
+                />
                 <button type="button" onClick={() => removeNewPhotoFile(i)} aria-label="Supprimer la nouvelle photo"
                   style={{ position: "absolute", top: -6, right: -6, width: 20, height: 20, borderRadius: "50%", background: C.indigo, color: "#fff", fontSize: 12, display: "flex", alignItems: "center", justifyContent: "center" }}>
                   ×

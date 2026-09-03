@@ -100,13 +100,15 @@ export default function ProfileTab({
               style={currentUser?.is_founder ? { borderColor: gold, borderWidth: 2, boxShadow: "0 18px 60px rgba(20,67,42,.08), 0 0 0 1px " + gold } : undefined}
             >
               <div
-                className="h-40 md:h-52 relative"
+                className={`h-40 md:h-52 relative ${currentUser?.cover_url ? "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2" : ""}`}
                 style={
                   currentUser?.cover_url
                     ? { background: `url(${currentUser.cover_url}) center/cover`, cursor: "zoom-in" }
                     : { background: `linear-gradient(135deg,${navy},#1E4632 50%,${green})` }
                 }
                 onClick={() => currentUser?.cover_url && openLightbox([{ url: currentUser.cover_url, alt: "Photo de couverture" }])}
+                onKeyDown={(e) => { if (currentUser?.cover_url && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); openLightbox([{ url: currentUser.cover_url, alt: "Photo de couverture" }]); } }}
+                tabIndex={currentUser?.cover_url ? 0 : undefined}
                 role={currentUser?.cover_url ? "button" : undefined}
                 aria-label={currentUser?.cover_url ? "Agrandir la photo de couverture" : undefined}
               >
@@ -121,9 +123,11 @@ export default function ProfileTab({
                 </div>
                 <div className="absolute -bottom-12 left-6">
                   <div
-                    className="rounded-full p-1.5 bg-white"
+                    className={`rounded-full p-1.5 bg-white ${currentUser?.avatar_url ? "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2" : ""}`}
                     style={{ ...(currentUser?.is_founder ? { boxShadow: `0 0 0 3px ${gold}` } : null), cursor: currentUser?.avatar_url ? "zoom-in" : undefined }}
                     onClick={(e) => { if (currentUser?.avatar_url) { e.stopPropagation(); openLightbox([{ url: currentUser.avatar_url, alt: "Photo de profil" }]); } }}
+                    onKeyDown={(e) => { if (currentUser?.avatar_url && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); e.stopPropagation(); openLightbox([{ url: currentUser.avatar_url, alt: "Photo de profil" }]); } }}
+                    tabIndex={currentUser?.avatar_url ? 0 : undefined}
                     role={currentUser?.avatar_url ? "button" : undefined}
                     aria-label={currentUser?.avatar_url ? "Agrandir la photo de profil" : undefined}
                   >

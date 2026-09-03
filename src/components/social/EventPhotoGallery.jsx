@@ -48,7 +48,7 @@ export default function EventPhotoGallery({ photos = [], loading, canUpload, cur
           <button
             onClick={() => inputRef.current?.click()}
             disabled={uploading}
-            className="flex items-center gap-2 text-sm font-bold px-4 py-2.5 rounded-full disabled:opacity-60"
+            className="flex items-center gap-2 text-sm font-bold px-4 py-2.5 rounded-full disabled:opacity-60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
             style={{ background: bg }}
           >
             <ImagePlus size={15} /> {uploading ? "Envoi..." : "Ajouter une photo"}
@@ -67,18 +67,27 @@ export default function EventPhotoGallery({ photos = [], loading, canUpload, cur
           {photos.map((p) => (
             <div key={p.id} className="relative aspect-square rounded-xl overflow-hidden group" style={{ background: bg }}>
               {p.url ? (
+                // Bug corrigé à l'audit accessibilité : <img onClick> nu, jamais
+                // focusable ni activable au clavier (même famille que
+                // ClickableImage.jsx/PostMediaGrid.jsx) — un utilisateur
+                // clavier-seul ne pouvait pas ouvrir une photo d'événement en
+                // plein écran.
                 <img
                   src={p.url}
                   alt=""
                   onClick={() => openLightbox(gallery, gallery.findIndex((g) => g.url === p.url))}
-                  className="w-full h-full object-cover cursor-pointer"
+                  onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openLightbox(gallery, gallery.findIndex((g) => g.url === p.url)); } }}
+                  tabIndex={0}
+                  role="button"
+                  aria-label="Agrandir la photo"
+                  className="w-full h-full object-cover cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
                 />
               ) : null}
               {(p.uploaded_by === currentUserId || canModerate) && (
                 <button
                   onClick={() => { if (window.confirm("Supprimer cette photo ? Cette action est irréversible.")) onDelete(p); }}
                   aria-label="Supprimer cette photo"
-                  className="absolute top-1 right-1 h-7 w-7 rounded-full flex items-center justify-center"
+                  className="absolute top-1 right-1 h-7 w-7 rounded-full flex items-center justify-center focus-visible:outline focus-visible:outline-2"
                   style={{ background: `rgba(${primaryRgb},.6)` }}
                 >
                   <Trash2 size={13} color="#fff" />

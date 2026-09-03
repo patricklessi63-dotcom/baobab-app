@@ -93,9 +93,11 @@ export default function EventDetailView({
 
       <div className={`${card} overflow-hidden`}>
         <div
-          className="h-40 relative"
+          className={`h-40 relative ${event.cover_url ? "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2" : ""}`}
           style={{ background: event.cover_url ? `url(${event.cover_url}) center/cover` : `linear-gradient(150deg,${gold},${coral})`, cursor: event.cover_url ? "zoom-in" : undefined }}
           onClick={() => event.cover_url && openLightbox([{ url: event.cover_url, alt: event.title }])}
+          onKeyDown={(e) => { if (event.cover_url && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); openLightbox([{ url: event.cover_url, alt: event.title }]); } }}
+          tabIndex={event.cover_url ? 0 : undefined}
           role={event.cover_url ? "button" : undefined}
           aria-label={event.cover_url ? "Agrandir la couverture de l'événement" : undefined}
         >

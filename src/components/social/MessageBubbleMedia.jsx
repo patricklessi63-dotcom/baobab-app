@@ -175,7 +175,11 @@ export default function MessageBubbleMedia({ m, isMine }) {
             src={url}
             alt={m.media_meta?.original_name || "Photo"}
             onClick={() => !uploading && openLightbox([{ url, alt: m.media_meta?.original_name }])}
-            className="block w-full object-cover cursor-pointer"
+            onKeyDown={(e) => { if (!uploading && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); openLightbox([{ url, alt: m.media_meta?.original_name }]); } }}
+            tabIndex={uploading ? undefined : 0}
+            role={uploading ? undefined : "button"}
+            aria-label="Agrandir la photo"
+            className="block w-full object-cover cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
             style={{ maxHeight: 260 }}
             loading="lazy"
           />

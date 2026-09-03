@@ -25,10 +25,23 @@ export default function PostMediaGrid({ items, className = "", itemClassName = "
         const spanClass = count === 3 && i === 0 ? "row-span-2" : "";
         const isLastVisible = i === maxVisible - 1 && extra > 0;
         return (
+          // Bug corrigé à l'audit accessibilité : un simple <div onClick>
+          // n'est jamais focusable ni activable au clavier — quand
+          // onItemClick est fourni (PostCard, galerie du fil), un
+          // utilisateur clavier-seul ne pouvait pas ouvrir le visualiseur
+          // plein écran depuis une publication à plusieurs médias, alors
+          // qu'un utilisateur souris le pouvait. tabIndex/role="button"/
+          // onKeyDown en font un vrai contrôle clavier quand une action est
+          // réellement attachée (jamais dans le composeur, où cette grille
+          // ne sert qu'à prévisualiser/réordonner via de vrais boutons).
           <div
             key={item.url || i}
             onClick={() => onItemClick?.(item, i)}
-            className={`relative overflow-hidden bg-black/5 ${count === 1 ? "aspect-video" : "aspect-square"} ${spanClass} ${itemClassName}`}
+            onKeyDown={onItemClick ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onItemClick(item, i); } } : undefined}
+            tabIndex={onItemClick ? 0 : undefined}
+            role={onItemClick ? "button" : undefined}
+            aria-label={onItemClick ? "Agrandir l'image" : undefined}
+            className={`relative overflow-hidden bg-black/5 ${count === 1 ? "aspect-video" : "aspect-square"} ${spanClass} ${itemClassName} ${onItemClick ? "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2" : ""}`}
             style={{ cursor: onItemClick ? "pointer" : "default" }}
           >
             {item.kind === "video" ? (
