@@ -38,9 +38,23 @@ export default function AdminDashboard({ onBack, onError, myPlatformRole }) {
   const [actionTarget, setActionTarget] = useState(null); // { user, mode: 'suspend' | 'ban' }
   const [actionReason, setActionReason] = useState("");
   const [actionDuration, setActionDuration] = useState(SUSPEND_DURATIONS[1].ms);
+  // Garde anti-double-clic pour Confirmer/Débannir/Réactiver : suspend_user,
+  // ban_user, unsuspend_user et unban_user (supabase-admin.sql) insèrent
+  // chacune une ligne dans admin_actions à CHAQUE appel, sans déduplication —
+  // contrairement à handleFeedbackStatus juste en dessous (déjà protégé par
+  // feedbackSaving), ces boutons n'étaient désactivés ni pendant l'appel ni
+  // après (aucun état de chargement). Un double-clic ou un double-tap rapide
+  // déclenchait deux appels RPC concurrents, donc deux entrées dupliquées
+  // dans le journal d'audit pour une seule action réelle.
+  const [actionSaving, setActionSaving] = useState(false);
+  const userActionInFlightRef = useRef(new Set());
 
   const [reports, setReports] = useState([]);
   const [reportsLoading, setReportsLoading] = useState(true);
+  // Même garde que userActionInFlightRef ci-dessus : admin_resolve_report()
+  // insère elle aussi une ligne admin_actions à chaque appel — Résolu/Ignorer
+  // n'étaient jamais désactivés pendant la requête.
+  const reportActionInFlightRef = useRef(new Set());
 
   const [feedback, setFeedback] = useState([]);
   const [feedbackLoading, setFeedbackLoading] = useState(true);
@@ -53,7 +67,10 @@ export default function AdminDashboard({ onBack, onError, myPlatformRole }) {
   // vers la page en arrière-plan, et Échap ne la fermait pas comme partout
   // ailleurs dans l'app.
   const actionDialogRef = useRef(null);
-  useEscapeKey(Boolean(actionTarget), () => setActionTarget(null));
+  // !actionSaving : même raison que ReportModal/BlockConfirmModal (Échap ne
+  // doit pas fermer la modale — ni la laisser se rouvrir sur une autre cible
+  // — pendant que suspendUser()/banUser() est encore en vol.
+  useEscapeKey(Boolean(actionTarget) && !actionSaving, () => setActionTarget(null));
   useFocusTrap(Boolean(actionTarget), actionDialogRef);
 
   const loadStats = async () => {
@@ -165,7 +182,8 @@ export default function AdminDashboard({ onBack, onError, myPlatformRole }) {
   };
 
   const confirmAction = async () => {
-    if (!actionTarget) return;
+    if (!actionTarget || actionSaving) return;
+    setActionSaving(true);
     try {
       if (actionTarget.mode === "suspend") {
         await adminApi.suspendUser(actionTarget.user.id, new Date(Date.now() + actionDuration).toISOString(), actionReason.trim() || null);
@@ -177,36 +195,51 @@ export default function AdminDashboard({ onBack, onError, myPlatformRole }) {
     } catch (e) {
       console.error(e);
       onError(e.message?.includes("agir sur ce compte") ? "Impossible d'agir sur ce compte (rôle égal ou supérieur au tien)." : "Action impossible.");
+    } finally {
+      setActionSaving(false);
     }
   };
 
   const handleUnsuspend = async (user) => {
+    if (userActionInFlightRef.current.has(user.id)) return;
+    userActionInFlightRef.current.add(user.id);
     try {
       await adminApi.unsuspendUser(user.id);
       loadUsers();
     } catch (e) {
       console.error(e);
       onError("Impossible de lever la suspension.");
+    } finally {
+      userActionInFlightRef.current.delete(user.id);
     }
   };
 
   const handleUnban = async (user) => {
+    if (userActionInFlightRef.current.has(user.id)) return;
+    userActionInFlightRef.current.add(user.id);
     try {
       await adminApi.unbanUser(user.id);
       loadUsers();
     } catch (e) {
       console.error(e);
       onError("Impossible de lever le bannissement.");
+    } finally {
+      userActionInFlightRef.current.delete(user.id);
     }
   };
 
   const handleResolve = async (r, dismiss) => {
+    const key = `${r.source}-${r.id}`;
+    if (reportActionInFlightRef.current.has(key)) return;
+    reportActionInFlightRef.current.add(key);
     try {
       await adminApi.resolveReport(r.source, r.id, dismiss);
       setReports((rs) => rs.filter((x) => !(x.source === r.source && x.id === r.id)));
     } catch (e) {
       console.error(e);
       onError("Impossible de traiter ce signalement.");
+    } finally {
+      reportActionInFlightRef.current.delete(key);
     }
   };
 
@@ -387,7 +420,7 @@ export default function AdminDashboard({ onBack, onError, myPlatformRole }) {
       )}
 
       {actionTarget && (
-        <div className="bb-fade-in fixed inset-0 flex items-end md:items-center justify-center z-[80] p-0 md:p-5" style={{ background: `rgba(${primaryRgb},.55)`, backdropFilter: "blur(5px)" }} onClick={() => setActionTarget(null)} role="dialog" aria-modal="true">
+        <div className="bb-fade-in fixed inset-0 flex items-end md:items-center justify-center z-[80] p-0 md:p-5" style={{ background: `rgba(${primaryRgb},.55)`, backdropFilter: "blur(5px)" }} onClick={actionSaving ? undefined : () => setActionTarget(null)} role="dialog" aria-modal="true">
           <div ref={actionDialogRef} tabIndex={-1} className={`${card} w-full max-w-sm p-6 rounded-t-[28px] md:rounded-[28px]`} onClick={(e) => e.stopPropagation()}>
             <h2 className="text-lg font-black" style={{ color: primary }}>
               {actionTarget.mode === "suspend" ? "Suspendre" : "Bannir"} {actionTarget.user.name}
@@ -403,8 +436,8 @@ export default function AdminDashboard({ onBack, onError, myPlatformRole }) {
             )}
             <textarea value={actionReason} onChange={(e) => setActionReason(e.target.value)} placeholder="Motif (visible par la personne concernée)" rows={3} className="w-full mt-4 rounded-xl px-3.5 py-2.5 text-sm outline-none resize-none" style={{ background: bg }} />
             <div className="flex gap-2 mt-4">
-              <button onClick={() => setActionTarget(null)} className="flex-1 py-3 rounded-full text-sm font-semibold" style={{ border: `1px solid rgba(${primaryRgb},.12)`, color: primary }}>Annuler</button>
-              <button onClick={confirmAction} className="flex-1 py-3 rounded-full text-sm font-bold text-white" style={{ background: coral }}>Confirmer</button>
+              <button onClick={() => setActionTarget(null)} disabled={actionSaving} className="flex-1 py-3 rounded-full text-sm font-semibold disabled:opacity-50" style={{ border: `1px solid rgba(${primaryRgb},.12)`, color: primary }}>Annuler</button>
+              <button onClick={confirmAction} disabled={actionSaving} className="flex-1 py-3 rounded-full text-sm font-bold text-white disabled:opacity-50" style={{ background: coral }}>{actionSaving ? "..." : "Confirmer"}</button>
             </div>
           </div>
         </div>
