@@ -102,6 +102,23 @@ export default function AudioRecorder({ hasDraft, onSendText, onSendAudio, onAct
 
   useEffect(() => () => cleanup(), []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Coupe proprement un enregistrement en cours suite à un problème externe
+  // (micro révoqué/débranché pendant l'enregistrement, erreur du
+  // MediaRecorder) — PAS un arrêt volontaire (voir stopRecording/
+  // cancelRecording). onstop est désarmé avant stop() (même geste que
+  // cancelRecording) pour ne jamais fabriquer un aperçu tronqué/silencieux
+  // à partir des chunks déjà capturés : sans ça, l'utilisateur pouvait se
+  // retrouver à envoyer un message vocal coupé net, sans savoir pourquoi.
+  const interruptRecording = (msg) => {
+    clearInterval(timerRef.current);
+    if (recorderRef.current && recorderRef.current.state !== "inactive") {
+      recorderRef.current.onstop = null;
+      try { recorderRef.current.stop(); } catch { /* déjà arrêté */ }
+    }
+    cleanup();
+    showInlineError(msg);
+  };
+
   // Démarre réellement l'enregistrement une fois le flux micro obtenu.
   const beginRecording = (stream) => {
     streamRef.current = stream;
@@ -119,6 +136,15 @@ export default function AudioRecorder({ hasDraft, onSendText, onSendAudio, onAct
       stopTracks();
       setState("preview");
     };
+    // Bug corrigé à l'audit (permission micro révoquée/matériel débranché en
+    // cours d'enregistrement) : sans ce handler, une erreur du MediaRecorder
+    // ne faisait RIEN — ni onstop, ni onerror géré ici auparavant —
+    // laissant l'UI bloquée en "recording" avec le chronomètre qui continue
+    // de tourner indéfiniment sur un flux mort.
+    recorder.onerror = (event) => {
+      console.error("MediaRecorder error", event?.error || event);
+      interruptRecording("Un problème est survenu pendant l'enregistrement.");
+    };
     recorderRef.current = recorder;
     recorder.start();
     startRef.current = Date.now();
@@ -129,6 +155,24 @@ export default function AudioRecorder({ hasDraft, onSendText, onSendAudio, onAct
       setElapsed(ms);
       if (ms >= AUDIO_MAX_DURATION_MS) recorder.stop();
     }, 200);
+    // Bug corrigé à l'audit, même famille que recorder.onerror ci-dessus :
+    // une révocation de permission EN COURS d'enregistrement (via les
+    // réglages du navigateur, ou un autre onglet/app qui prend l'exclusivité
+    // du micro) termine la piste (track.readyState devient "ended") sans
+    // forcément déclencher onerror sur le MediaRecorder — le comportement
+    // exact dépend du navigateur. Le garde `recorder.state !== "recording"`
+    // évite de se déclencher pour rien quand C'EST NOUS qui venons d'arrêter
+    // proprement (stopRecording/cancelRecording arrêtent déjà les pistes via
+    // stopTracks(), ce qui déclenche aussi "ended" — sans lui, la fin
+    // normale d'un enregistrement aurait affiché un faux message d'erreur
+    // juste après l'aperçu).
+    const micTrack = stream.getAudioTracks()[0];
+    if (micTrack) {
+      micTrack.onended = () => {
+        if (recorder.state !== "recording") return;
+        interruptRecording("L'accès au micro a été interrompu.");
+      };
+    }
   };
 
   const showInlineError = (msg) => {
