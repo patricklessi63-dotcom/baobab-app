@@ -347,23 +347,32 @@ export default function App() {
         supabase.auth.signOut().then(() => setJustVerified(true)).catch((e) => { console.error(e); setJustVerified(true); });
         return;
       }
-      // Bug corrigé : Supabase émet TOKEN_REFRESHED automatiquement en
-      // arrière-plan pour renouveler le jeton avant son expiration (~1h de
-      // durée de vie par défaut), sans aucune action de l'utilisateur.
-      // setSession(newSession) alimente l'effet [session, loadAll] plus bas,
-      // qui rechargeait ENTIÈREMENT l'app (loadAll : jusqu'à 500 profils +
-      // 3200 photos + likes/passes/blocks...) et forçait
-      // setView("checking-profile") — un écran de chargement plein écran qui
-      // remplaçait toute l'app en cours d'utilisation (message en train
-      // d'être tapé, upload en cours, modale ouverte...) pour retomber
-      // ensuite sur l'onglet Feed par défaut. Concrètement, quiconque
-      // laissait l'app ouverte plus d'environ une heure se faisait éjecter
-      // de son écran en pleine action. Un simple renouvellement silencieux
-      // de jeton pour le même utilisateur ne doit jamais déclencher ça : le
-      // client Supabase gère déjà en interne le nouveau jeton pour toutes
-      // les requêtes, donc on ignore l'évènement ici (tout en gardant
-      // sessionRef à jour, au cas où un vrai changement d'utilisateur suit).
-      if (event === "TOKEN_REFRESHED" && newSession?.user?.id && newSession.user.id === sessionRef.current?.user?.id) {
+      // Bug corrigé : Supabase émet divers évènements sans aucune action de
+      // l'utilisateur, pour le même compte déjà connu. TOKEN_REFRESHED
+      // renouvelle le jeton en arrière-plan (~1h de durée de vie par
+      // défaut). Et surtout, la reprise de visibilité de l'onglet
+      // (changement d'onglet, verrouillage d'écran) déclenche en interne
+      // GoTrueClient#_onVisibilityChanged -> #_recoverAndRefresh, qui —
+      // quand le jeton n'est pas encore dans sa marge d'expiration —
+      // ré-émet SIGNED_IN avec la MÊME session inchangée (voir
+      // node_modules/@supabase/auth-js GoTrueClient.js, branche vers
+      // "await this._notifyAllSubscribers('SIGNED_IN', currentSession)" en
+      // fin de _recoverAndRefresh). setSession(newSession) alimente l'effet
+      // [session, loadAll] plus bas, qui rechargerait ENTIÈREMENT l'app
+      // (loadAll : jusqu'à 500 profils + 3200 photos + likes/passes/
+      // blocks...) et forcerait setView("checking-profile") — un écran de
+      // chargement plein écran qui remplacerait toute l'app en cours
+      // d'utilisation (message en train d'être tapé, upload en cours,
+      // modale ouverte...) pour retomber ensuite sur l'onglet Feed par
+      // défaut. Un évènement silencieux pour le même utilisateur ne doit
+      // jamais déclencher ça, quel que soit son nom : le client Supabase
+      // gère déjà en interne le jeton pour toutes les requêtes, donc on
+      // ignore l'évènement ici (tout en gardant sessionRef à jour, au cas
+      // où un vrai changement d'utilisateur suit). PASSWORD_RECOVERY est
+      // volontairement exclu de ce garde-fou : il doit toujours être traité
+      // plus bas pour basculer la vue, même s'il vise le compte déjà
+      // connecté.
+      if (event !== "PASSWORD_RECOVERY" && newSession?.user?.id && newSession.user.id === sessionRef.current?.user?.id) {
         sessionRef.current = newSession;
         return;
       }
