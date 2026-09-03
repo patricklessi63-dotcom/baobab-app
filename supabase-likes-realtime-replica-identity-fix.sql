@@ -1,0 +1,33 @@
+-- ============================================================================
+-- Complète le correctif "sessions multiples" apporté à App.jsx (abonnement
+-- Realtime "likes-received:<id>") : un retrait de like (handleUnlike) fait
+-- sur un appareil/onglet ne se répercutait pas sur les autres sessions
+-- ouvertes du même compte avant un rechargement complet — hasLiked()
+-- restait donc à tort "vrai" ailleurs pour un profil qu'on venait pourtant
+-- de "déliker".
+--
+-- Le nouvel écouteur DELETE (filter from_id=eq.<moi>) ajouté côté client a
+-- besoin de lire payload.old.to_id pour savoir QUEL like a été retiré. Par
+-- défaut (REPLICA IDENTITY DEFAULT), Postgres/Supabase Realtime n'inclut
+-- dans "old" QUE les colonnes de la clé primaire lors d'un DELETE — ici
+-- seulement "id" (bigint identity), jamais from_id/to_id (voir
+-- supabase-schema.sql : "id bigint ... primary key, from_id uuid, to_id
+-- uuid, unique(from_id, to_id)" — from_id/to_id ne sont qu'une contrainte
+-- UNIQUE, pas la clé primaire). Sans ce script, l'écouteur DELETE ajouté
+-- reste donc inerte (payload.old.to_id toujours undefined) : aucune
+-- régression, mais le correctif "unlike" ne prend pas effet tant que ce
+-- script n'est pas exécuté.
+--
+-- Même famille de correctif que le composite primary key de
+-- message_reactions (supabase-messaging-2.sql) qui permet déjà à son propre
+-- écouteur DELETE de lire payload.old.message_id/profile_id sans ce réglage
+-- — "likes" n'a pas cette chance (clé primaire à colonne unique), donc on
+-- élargit explicitement la réplique via REPLICA IDENTITY FULL. Impact :
+-- légèrement plus de données transitent dans le flux de réplication/
+-- Realtime pour cette table (toutes les colonnes au lieu de la seule clé),
+-- négligeable vu le volume et la taille des lignes de "likes".
+-- À exécuter dans Supabase : SQL Editor (une fois, indépendant des autres
+-- scripts de cette liste).
+-- ============================================================================
+
+alter table public.likes replica identity full;

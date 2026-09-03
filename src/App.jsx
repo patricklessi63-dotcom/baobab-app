@@ -2092,6 +2092,36 @@ export default function App() {
           })();
         }
       )
+      // Bug corrigé (audit sessions multiples) : un like ENVOYÉ (handleLike)
+      // ou retiré (handleUnlike) ne met à jour likePairs que localement, sur
+      // l'onglet/appareil qui a fait l'action — jamais rediffusé. Un même
+      // compte ouvert sur deux appareils (ou deux onglets) voyait donc encore
+      // un profil déjà liké depuis l'autre appareil comme "pas encore liké"
+      // (hasLiked() stale) : il restait proposé dans la pile Découvrir, et un
+      // second like dessus échouait silencieusement côté serveur (contrainte
+      // unique from_id/to_id) avec juste un message d'erreur générique,
+      // laissant l'appareil B durablement désynchronisé sans jamais se
+      // corriger avant un rechargement complet. idempotent via les mêmes
+      // gardes `.some()`/`.filter()` que handleLike/handleUnlike : sans effet
+      // si l'événement provient de CETTE session (déjà appliqué localement).
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "likes", filter: `from_id=eq.${currentUser.id}` },
+        (payload) => {
+          const toId = payload.new.to_id;
+          setLikePairs((prev) =>
+            prev.some((l) => l.from_id === currentUser.id && l.to_id === toId) ? prev : [...prev, { from_id: currentUser.id, to_id: toId }]
+          );
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "DELETE", schema: "public", table: "likes", filter: `from_id=eq.${currentUser.id}` },
+        (payload) => {
+          const toId = payload.old.to_id;
+          setLikePairs((prev) => prev.filter((l) => !(l.from_id === currentUser.id && l.to_id === toId)));
+        }
+      )
       .subscribe();
     likesChannelRef.current = channel;
 
