@@ -700,8 +700,20 @@ export default function SocialShell({
     (n.type === "new_like" && prefEnabled("likes")) || (n.type === "new_match" && prefEnabled("match"))
   );
   const unreadMessageNotifications = prefEnabled("messages") ? visibleCommunityNotifications.filter((n) => n.type === "new_message") : [];
+  // Bug corrigé à l'audit : "post_liked"/"post_commented" (introduits par
+  // supabase-feed-posts.sql, fil général — pas les publications de
+  // communauté, volontairement exclues) tombaient dans ce fourre-tout
+  // "communautés" : la pastille rouge s'allumait sur le bouton "Communautés"
+  // du menu profil pour un simple like sur une publication du fil, et le
+  // clic envoyait vers la liste des communautés (sans community_id, ces
+  // publications n'en ont pas) au lieu du Fil où vivent ces publications.
+  // Isolés dans leur propre catégorie, routés vers goTab("feed") ci-dessous.
+  const unreadPostNotifications = prefEnabled("communities") ? visibleCommunityNotifications.filter((n) =>
+    n.type === "post_liked" || n.type === "post_commented"
+  ) : [];
   const unreadCommunityNotifications = prefEnabled("communities") ? visibleCommunityNotifications.filter((n) =>
     n.target_type !== "event" && n.type !== "new_follower" && n.type !== "new_like" && n.type !== "new_match" && n.type !== "new_message"
+    && n.type !== "post_liked" && n.type !== "post_commented"
   ) : [];
   // Bug corrigé à l'audit : ces badges se basaient sur
   // `unreadCommunityCount > 0 ? X.length : 0`, c'est-à-dire la taille TOTALE
@@ -725,6 +737,11 @@ export default function SocialShell({
   // uniquement pour la pastille de la cloche ci-dessous (voir bug #2 : ce
   // type n'était compté nulle part dans la pastille du header).
   const datingBadgeCount = unreadDatingNotifications.filter((n) => !n.read_at).length;
+  // Même logique pour "post_liked"/"post_commented" — sans ce compteur dédié
+  // (voir isolation de unreadPostNotifications ci-dessus), un like/commentaire
+  // sur une publication du fil n'allumait plus aucune pastille du tout après
+  // correctif (elle n'appartient plus à communitiesBadgeCount).
+  const postsBadgeCount = unreadPostNotifications.filter((n) => !n.read_at).length;
   const [openCommunityId, setOpenCommunityId] = useState(null);
 
   // "Mes communautés" pour l'onglet Profil — communautés réellement
@@ -1563,7 +1580,7 @@ export default function SocialShell({
             <div ref={notifRef} className="relative">
             <button onClick={() => { setNotificationsOpen((v) => !v); setMenu(false); }} aria-label={`Notifications${totalUnreadMessages > 0 ? ` (${totalUnreadMessages} non lus)` : ""}`} className={`${buttonBase} h-11 w-11 rounded-2xl hidden sm:flex items-center justify-center relative focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1`} style={{ background: bg }}>
               <Bell size={19} color={primary} />
-              {(totalUnreadMessages > 0 || incomingFavoritesCount > 0 || communitiesBadgeCount > 0 || eventsBadgeCount > 0 || followsBadgeCount > 0 || datingBadgeCount > 0) && (
+              {(totalUnreadMessages > 0 || incomingFavoritesCount > 0 || communitiesBadgeCount > 0 || eventsBadgeCount > 0 || followsBadgeCount > 0 || datingBadgeCount > 0 || postsBadgeCount > 0) && (
                 <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full" style={{ background: coral }} />
               )}
             </button>
@@ -1645,6 +1662,16 @@ export default function SocialShell({
                           if (n.target_id) setOpenEventId(n.target_id);
                           goTab("events");
                         },
+                      })),
+                      // "post_liked"/"post_commented" — voir isolation de
+                      // unreadPostNotifications plus haut. Pas de community_id
+                      // sur ces publications du fil général, donc simple retour
+                      // au Fil (aucune vue "publication unique" à cibler ici,
+                      // contrairement aux communautés/événements ci-dessus).
+                      ...unreadPostNotifications.map((n) => ({
+                        n, category: "posts", icon: n.type === "post_commented" ? "💬" : "❤️",
+                        label: n.actor?.name ? `${n.actor.name} ${n.type === "post_commented" ? "a commenté ta publication" : "a aimé ta publication"}` : (NOTIFICATION_LABELS[n.type] || "Nouvelle activité"),
+                        onClick: () => { markOneNotificationRead(n.id); goTab("feed"); },
                       })),
                     ])
                       .filter((row) => notifCategory === "all" || row.category === notifCategory)
@@ -1735,6 +1762,7 @@ export default function SocialShell({
             unreadFollowNotifications={unreadFollowNotifications}
             unreadCommunityNotifications={unreadCommunityNotifications}
             unreadEventNotifications={unreadEventNotifications}
+            unreadPostNotifications={unreadPostNotifications}
             unreadCommunityCount={unreadCommunityCount}
             markOneNotificationRead={markOneNotificationRead}
             markCommunityNotificationsRead={markCommunityNotificationsRead}

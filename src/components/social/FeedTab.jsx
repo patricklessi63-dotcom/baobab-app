@@ -33,6 +33,7 @@ function NotificationsPanel({
   unreadFollowNotifications = [],
   unreadCommunityNotifications = [],
   unreadEventNotifications = [],
+  unreadPostNotifications = [],
   unreadCommunityCount = 0,
   markOneNotificationRead = () => {},
   markCommunityNotificationsRead = () => {},
@@ -106,13 +107,25 @@ function NotificationsPanel({
         label: NOTIFICATION_LABELS[n.type] || "Nouvelle activité",
         onClick: () => { markOneNotificationRead(n.id); goTab("events"); },
       })),
+      // Bug corrigé à l'audit (même correctif que le menu déroulant de
+      // SocialShell.jsx) : "post_liked"/"post_commented" tombaient avant
+      // dans unreadCommunityNotifications et renvoyaient vers "communities"
+      // — aucun rapport avec les publications du fil général, qui n'ont pas
+      // de community_id. Isolés ici, direction "feed".
+      ...unreadPostNotifications.map((n) => ({
+        n,
+        category: "posts",
+        icon: n.type === "post_commented" ? "💬" : "❤️",
+        label: n.actor?.name ? `${n.actor.name} ${n.type === "post_commented" ? "a commenté ta publication" : "a aimé ta publication"}` : (NOTIFICATION_LABELS[n.type] || "Nouvelle activité"),
+        onClick: () => { markOneNotificationRead(n.id); goTab("feed"); },
+      })),
     ];
     return groupNotificationRows(rows).map((row) => (
       row.groupIds
         ? { ...row, onClick: () => { row.groupIds.forEach(markOneNotificationRead); row.onClick(); } }
         : row
     ));
-  }, [unreadDatingNotifications, unreadMessageNotifications, unreadFollowNotifications, unreadCommunityNotifications, unreadEventNotifications, markOneNotificationRead, onOpenProfile, onOpenChatWithProfile, goTab]);
+  }, [unreadDatingNotifications, unreadMessageNotifications, unreadFollowNotifications, unreadCommunityNotifications, unreadEventNotifications, unreadPostNotifications, markOneNotificationRead, onOpenProfile, onOpenChatWithProfile, goTab]);
 
   const showFavorites = incomingFavoritesCount > 0 && (category === "all" || category === "dating");
   const filteredItems = (category === "all" ? items : items.filter((row) => row.category === category)).slice(0, 8);
@@ -260,6 +273,7 @@ export default function FeedTab({
   unreadFollowNotifications = [],
   unreadCommunityNotifications = [],
   unreadEventNotifications = [],
+  unreadPostNotifications = [],
   unreadCommunityCount = 0,
   markOneNotificationRead = () => {},
   markCommunityNotificationsRead = () => {},
@@ -433,6 +447,7 @@ export default function FeedTab({
         unreadFollowNotifications={unreadFollowNotifications}
         unreadCommunityNotifications={unreadCommunityNotifications}
         unreadEventNotifications={unreadEventNotifications}
+        unreadPostNotifications={unreadPostNotifications}
         unreadCommunityCount={unreadCommunityCount}
         markOneNotificationRead={markOneNotificationRead}
         markCommunityNotificationsRead={markCommunityNotificationsRead}
