@@ -155,6 +155,14 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
   // affichait à tort comme un échec alors que la demande venait d'être
   // traitée avec succès par le premier appel.
   const joinRequestInFlightRef = useRef(new Set());
+  // Même garde pour Accepter/Refuser une invitation à une communauté : ces
+  // deux boutons appelaient accept_invite/decline_invite sans aucune
+  // protection anti-double-clic (contrairement à Accepter/Refuser une
+  // demande d'adhésion ci-dessus, corrigé plus tôt) — un double-tap rapide
+  // déclenchait deux appels RPC concurrents, et si le second réussissait
+  // aussi (invite déjà traitée mais pas d'erreur renvoyée), adjustMemberCount
+  // incrémentait le compteur de membres deux fois pour une seule adhésion.
+  const inviteInFlightRef = useRef(new Set());
   // Devient true une fois myMemberships réellement chargé depuis le
   // serveur (voir l'effet ci-dessous) — utilisé par goDetail pour savoir si
   // myMemberships[id] === undefined signifie "non-membre confirmé" ou
@@ -791,6 +799,8 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
 
   // ---------- Invitations ----------
   const handleAcceptInvite = async (invite) => {
+    if (inviteInFlightRef.current.has(invite.id)) return;
+    inviteInFlightRef.current.add(invite.id);
     try {
       const { error } = await supabase.rpc("accept_invite", { p_invite_id: invite.id });
       if (error) throw error;
@@ -801,10 +811,14 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
     } catch (e) {
       console.error(e);
       onError("Impossible d'accepter cette invitation.");
+    } finally {
+      inviteInFlightRef.current.delete(invite.id);
     }
   };
 
   const handleDeclineInvite = async (invite) => {
+    if (inviteInFlightRef.current.has(invite.id)) return;
+    inviteInFlightRef.current.add(invite.id);
     try {
       const { error } = await supabase.rpc("decline_invite", { p_invite_id: invite.id });
       if (error) throw error;
@@ -812,6 +826,8 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
     } catch (e) {
       console.error(e);
       onError("Impossible de refuser cette invitation.");
+    } finally {
+      inviteInFlightRef.current.delete(invite.id);
     }
   };
 

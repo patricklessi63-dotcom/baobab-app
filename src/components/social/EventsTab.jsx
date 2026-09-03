@@ -147,6 +147,15 @@ export default function EventsTab({ currentUser, onError, initialEventId, onCons
 
   const joinInFlightRef = useRef(new Set());
   const leaveInFlightRef = useRef(new Set());
+  // Garde anti-double-clic pour l'envoi d'un message dans la discussion de
+  // l'événement : contrairement à PostsFeed/CommunitiesTab où le brouillon
+  // de commentaire est local à chaque carte et vidé de façon synchrone avant
+  // l'appel réseau, commentDraft est ici un état du composant parent qui
+  // n'était vidé qu'APRÈS la résolution de l'INSERT — le bouton "Envoyer"
+  // restait actif et le texte présent pendant tout l'aller-retour réseau,
+  // donc un double-clic ou un double Entrée rapide envoyait deux fois le
+  // même message.
+  const commentSubmittingRef = useRef(false);
   // Garde anti-double-appel pour "Charger plus" (bouton jamais désactivé
   // pendant la requête, contrairement au scroll infini de PostsFeed.jsx qui
   // a déjà loadingMoreRef) : un double clic/tap rapide lançait deux
@@ -534,6 +543,8 @@ export default function EventsTab({ currentUser, onError, initialEventId, onCons
   // ---------- Discussion ----------
   const handleSubmitComment = async () => {
     if (!commentDraft.trim() || !currentUser || !event) return;
+    if (commentSubmittingRef.current) return;
+    commentSubmittingRef.current = true;
     try {
       const { data, error } = await supabase
         .from("event_comments")
@@ -545,6 +556,8 @@ export default function EventsTab({ currentUser, onError, initialEventId, onCons
     } catch (e) {
       console.error(e);
       onError("Impossible d'envoyer ce message.");
+    } finally {
+      commentSubmittingRef.current = false;
     }
   };
 
