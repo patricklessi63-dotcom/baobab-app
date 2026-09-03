@@ -1071,17 +1071,6 @@ export default function SocialShell({
     ? candidates.filter((p) => p.city && p.city.trim().toLowerCase() === currentUser.city.trim().toLowerCase())
     : [];
 
-  const communities = Object.entries(
-    candidates.reduce((acc, p) => {
-      const city = (p.city || "").trim();
-      if (!city) return acc;
-      acc[city] = (acc[city] || 0) + 1;
-      return acc;
-    }, {})
-  )
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 4);
-
   // show_canada_journey vérifié (bug corrigé à l'audit) : la section "Nouveaux
   // au Canada" (FeedTab) affiche arrived_since via ProfileCard — un profil
   // ayant masqué son parcours Canada ne doit donc pas y apparaître du tout.
@@ -1840,11 +1829,9 @@ export default function SocialShell({
             hasLiked={hasLiked}
             nearbyMembers={nearbyMembers}
             newArrivals={newArrivals}
-            communities={communities}
             matches={matches}
             openChat={openChat}
             goTab={goTab}
-            setSearch={setSearch}
             feedTab={feedTab}
             setFeedTab={setFeedTab}
             followedProfiles={followedProfiles}

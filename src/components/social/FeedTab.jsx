@@ -5,7 +5,6 @@ import HomeHeader from "../home/HomeHeader";
 import BaobabHero from "../home/BaobabHero";
 import ProfileCard from "../home/ProfileCard";
 import ConversationCard from "../home/ConversationCard";
-import CommunityCard from "../home/CommunityCard";
 import CommunityGroupCard from "./CommunityGroupCard";
 import EventCard from "./EventCard";
 import PostsFeed from "./PostsFeed";
@@ -256,11 +255,9 @@ export default function FeedTab({
   hasLiked = () => false,
   nearbyMembers,
   newArrivals,
-  communities,
   matches,
   openChat,
   goTab,
-  setSearch,
   feedTab = "pourtoi",
   setFeedTab = () => {},
   followedProfiles = [],
@@ -722,20 +719,6 @@ export default function FeedTab({
               <div className="space-y-3">
                 {matches.slice(0, 5).map((m) => (
                   <ConversationCard key={m.id} match={m} onOpen={openChat} />
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* ---------- Communautés ---------- */}
-          <div id="bb-communities-section" className={`${card} p-5`}>
-            <div className="flex items-center justify-between mb-4"><b className="text-sm">🤝 Communautés</b></div>
-            {communities.length === 0 ? (
-              <EmptyState title="Les communautés apparaîtront ici à mesure que Baobab grandit." />
-            ) : (
-              <div className="space-y-3">
-                {communities.map(([city, count]) => (
-                  <CommunityCard key={city} city={city} memberCount={count} onView={(c) => { setSearch(c); goTab("discover"); }} />
                 ))}
               </div>
             )}
