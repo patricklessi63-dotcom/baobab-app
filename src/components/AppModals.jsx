@@ -300,7 +300,7 @@ export default function AppModals({
         <div className="bb-fade-in fixed inset-0 flex items-end md:items-center justify-center z-[70] p-0 md:p-5" style={{ background: "rgba(8,20,14,0.55)", backdropFilter: "blur(3px)" }} onClick={() => setBlockedOpen(false)} role="dialog" aria-modal="true" aria-label="Comptes bloqués">
           <div className="bb-card p-6 w-full max-w-md rounded-t-[20px] md:rounded-[20px]" style={{ maxHeight: "80vh", overflowY: "auto", paddingBottom: "max(1.5rem, env(safe-area-inset-bottom))" }} onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center gap-2 mb-1">
-              <button onClick={() => { setBlockedOpen(false); setSettingsOpen(true); }} style={{ color: "var(--bb-text)" }}><ArrowLeft size={16} /></button>
+              <button onClick={() => { setBlockedOpen(false); setSettingsOpen(true); }} aria-label="Retour aux réglages" className="focus-visible:outline focus-visible:outline-2" style={{ color: "var(--bb-text)" }}><ArrowLeft size={16} /></button>
               <div style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 20, color: "var(--bb-text)" }}>Comptes bloqués</div>
             </div>
             <p className="text-sm mb-3" style={{ color: "rgba(var(--bb-ink-rgb),0.6)" }}>
