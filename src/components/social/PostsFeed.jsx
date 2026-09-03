@@ -298,6 +298,15 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
     items.forEach((it) => { try { URL.revokeObjectURL(it.previewUrl); } catch (_) {} });
   };
 
+  // Filet de sécurité au démontage du composant (ex : changement d'onglet
+  // pendant que le composer photo est ouvert) : closeComposerFully() ne
+  // s'exécute que sur une fermeture explicite du composer, jamais appelée
+  // dans ce cas — sans ce filet, les aperçus blob restants fuyaient en
+  // mémoire pour toute la durée de vie de l'onglet.
+  const mediaItemsRef = useRef(mediaItems);
+  mediaItemsRef.current = mediaItems;
+  useEffect(() => () => revokePreviews(mediaItemsRef.current), []); // eslint-disable-line react-hooks/exhaustive-deps
+
   const closeComposerFully = () => {
     setExitConfirmOpen(false);
     setComposer(false);
