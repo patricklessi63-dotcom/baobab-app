@@ -78,6 +78,14 @@ export function dateRangeBounds(range) {
     } else {
       const toSaturday = (6 - day) % 7;
       start.setDate(start.getDate() + toSaturday);
+      // Bug identifié à l'audit : "start" gardait l'heure courante (ex.
+      // 22h un mercredi) en avançant simplement la date au samedi, au lieu
+      // de repartir de minuit ce jour-là — la borne basse réellement
+      // appliquée à la requête devenait "samedi 22h" au lieu de "samedi
+      // 0h". Résultat : un événement prévu samedi matin (ex. 10h) était
+      // exclu du filtre "Ce week-end" alors qu'il a bien lieu ce week-end
+      // et n'est pas encore passé.
+      start.setHours(0, 0, 0, 0);
       end = new Date(start); end.setDate(end.getDate() + 1); end.setHours(23, 59, 59, 999);
     }
   } else if (range === "month") {
