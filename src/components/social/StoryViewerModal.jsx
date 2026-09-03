@@ -4,6 +4,7 @@ import { useEscapeKey } from "../../hooks/useEscapeKey";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { navy } from "./theme";
 import Avatar from "../Avatar";
+import StatusBadge from "../StatusBadge";
 
 const REACTIONS = ["❤️", "😂", "😍", "😮", "👏", "🔥"];
 const SWIPE_THRESHOLD = 60;
@@ -356,7 +357,13 @@ export default function StoryViewerModal({
                   <button key={v.profile_id} onClick={() => { closeStoryViewers(); closeStoryViewer(); onOpenProfile?.(v.profile_id); }} className="w-full flex items-center gap-3 py-2.5 text-left">
                     <Avatar name={v.name} url={v.avatar_url} size={36} />
                     <div className="min-w-0 flex-1">
-                      <div className="text-sm font-semibold truncate" style={{ color: "var(--bb-text)" }}>{v.name}</div>
+                      <div className="text-sm font-semibold truncate flex items-center gap-1.5" style={{ color: "var(--bb-text)" }}>
+                        <span className="truncate">{v.name}</span>
+                        {/* Parité de badges (bug corrigé à l'audit, même famille
+                            que PublicProfileModal/AdmirersModal) : champs
+                            désormais chargés dans loadStoryViewers() (SocialShell.jsx). */}
+                        <StatusBadge isFounder={v.is_founder} isPremium={v.is_premium} emailVerified={v.email_verified} phoneVerified={v.phone_verified} size={12} />
+                      </div>
                       <div className="text-xs" style={{ color: "rgba(var(--bb-ink-rgb),0.5)" }}>{timeAgo(v.viewed_at)}</div>
                     </div>
                     {v.reaction && <span className="text-lg shrink-0">{v.reaction}</span>}

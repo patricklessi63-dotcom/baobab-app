@@ -1279,7 +1279,11 @@ export default function SocialShell({
     if (!storyId) { setStoryViewers([]); return; }
     setStoryViewersLoading(true);
     const [{ data: views }, { data: reactions }] = await Promise.all([
-      supabase.from("story_views").select("viewer_id, viewed_at, profile:viewer_id(name, avatar_url)").eq("story_id", storyId).order("viewed_at", { ascending: false }),
+      // is_founder/is_premium/email_verified/phone_verified ajoutés (bug
+      // corrigé à l'audit, même famille que favorites/follows ci-dessus) :
+      // StoryViewerModal ne pouvait pas afficher StatusBadge pour la liste
+      // des personnes ayant vu un statut.
+      supabase.from("story_views").select("viewer_id, viewed_at, profile:viewer_id(name, avatar_url, is_founder, is_premium, email_verified, phone_verified)").eq("story_id", storyId).order("viewed_at", { ascending: false }),
       supabase.from("story_reactions").select("profile_id, emoji").eq("story_id", storyId),
     ]);
     // Même jeton de course que loadStoryViewCount/loadMyStoryReaction
@@ -1294,6 +1298,10 @@ export default function SocialShell({
       profile_id: v.viewer_id,
       name: v.profile?.name || "?",
       avatar_url: v.profile?.avatar_url || null,
+      is_founder: v.profile?.is_founder || false,
+      is_premium: v.profile?.is_premium || false,
+      email_verified: v.profile?.email_verified || false,
+      phone_verified: v.profile?.phone_verified || false,
       viewed_at: v.viewed_at,
       reaction: reactionByProfile[v.viewer_id] || null,
     })));
