@@ -179,20 +179,20 @@ export default function StoryViewerModal({
         <div className="absolute top-8 left-4 right-4 flex items-center gap-2.5 z-10">
           <button
             onClick={() => { if (!story.own) { closeStoryViewer(); onOpenProfile?.(story.profile_id); } }}
-            className="h-9 w-9 rounded-full bg-white/20 backdrop-blur flex items-center justify-center text-white font-black border border-white/30 shrink-0"
+            className="h-9 w-9 rounded-full bg-white/20 backdrop-blur flex items-center justify-center text-white font-black border border-white/30 shrink-0 focus-visible:outline focus-visible:outline-2"
             aria-label={story.own ? undefined : `Voir le profil de ${story.name}`}
           >
             {story.initial}
           </button>
           <button
             onClick={() => { if (!story.own) { closeStoryViewer(); onOpenProfile?.(story.profile_id); } }}
-            className="text-left min-w-0 flex-1"
+            className="text-left min-w-0 flex-1 focus-visible:outline focus-visible:outline-2"
           >
             <div className="text-white text-sm font-bold truncate">{story.name}</div>
             {story.created_at && <div className="text-white/60 text-[11px]">{timeAgo(story.created_at)}</div>}
           </button>
           {story.media_kind === "video" && (
-            <button onClick={() => setMuted((m) => !m)} aria-label={muted ? "Activer le son" : "Couper le son"} className="h-9 w-9 rounded-full bg-white/15 backdrop-blur flex items-center justify-center shrink-0">
+            <button onClick={() => setMuted((m) => !m)} aria-label={muted ? "Activer le son" : "Couper le son"} className="h-9 w-9 rounded-full bg-white/15 backdrop-blur flex items-center justify-center shrink-0 focus-visible:outline focus-visible:outline-2">
               {muted ? <VolumeX size={16} color="#fff" /> : <Volume2 size={16} color="#fff" />}
             </button>
           )}
@@ -203,7 +203,7 @@ export default function StoryViewerModal({
                 aria-label="Signaler ou bloquer"
                 aria-haspopup="menu"
                 aria-expanded={menuOpen}
-                className="h-9 w-9 rounded-full bg-white/15 backdrop-blur flex items-center justify-center"
+                className="h-9 w-9 rounded-full bg-white/15 backdrop-blur flex items-center justify-center focus-visible:outline focus-visible:outline-2"
               >
                 <MoreVertical size={16} color="#fff" />
               </button>
@@ -212,7 +212,7 @@ export default function StoryViewerModal({
                   <button
                     role="menuitem"
                     onClick={() => { setMenuOpen(false); closeStoryViewer(); onReport?.({ id: story.profile_id, name: story.name }); }}
-                    className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-left"
+                    className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-left focus-visible:outline focus-visible:outline-2"
                     style={{ color: "#1a1a1a" }}
                   >
                     <Flag size={14} /> Signaler
@@ -220,7 +220,7 @@ export default function StoryViewerModal({
                   <button
                     role="menuitem"
                     onClick={() => { setMenuOpen(false); closeStoryViewer(); onBlock?.({ id: story.profile_id, name: story.name }); }}
-                    className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-left border-t border-black/10"
+                    className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-left border-t border-black/10 focus-visible:outline focus-visible:outline-2"
                     style={{ color: "#e56b5d" }}
                   >
                     <Ban size={14} /> Bloquer
@@ -229,15 +229,15 @@ export default function StoryViewerModal({
               )}
             </div>
           )}
-          <button onClick={closeStoryViewer} aria-label="Fermer" className="h-9 w-9 rounded-full bg-white/15 backdrop-blur flex items-center justify-center shrink-0">
+          <button onClick={closeStoryViewer} aria-label="Fermer" className="h-9 w-9 rounded-full bg-white/15 backdrop-blur flex items-center justify-center shrink-0 focus-visible:outline focus-visible:outline-2">
             <X size={18} color="#fff" />
           </button>
         </div>
 
         {/* Zones tactiles gauche/droite pour naviguer (desktop/souris — le
             swipe tactile ci-dessus couvre mobile) */}
-        <button onClick={prevStory} className="absolute left-0 top-0 bottom-0 w-1/3 z-[5]" aria-label="Précédent" />
-        <button onClick={nextStory} className="absolute right-0 top-0 bottom-0 w-1/3 z-[5]" aria-label="Suivant" />
+        <button onClick={prevStory} className="absolute left-0 top-0 bottom-0 w-1/3 z-[5] focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2" aria-label="Précédent" />
+        <button onClick={nextStory} className="absolute right-0 top-0 bottom-0 w-1/3 z-[5] focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2" aria-label="Suivant" />
 
         {story.media_url && (
           story.media_kind === "video" ? (
@@ -283,7 +283,7 @@ export default function StoryViewerModal({
                 key={emoji}
                 onClick={() => sendStoryReaction(emoji)}
                 aria-pressed={myStoryReaction === emoji}
-                className="h-10 w-10 rounded-full flex items-center justify-center text-lg transition-transform"
+                className="h-10 w-10 rounded-full flex items-center justify-center text-lg transition-transform focus-visible:outline focus-visible:outline-2"
                 style={{ background: myStoryReaction === emoji ? "rgba(255,255,255,.35)" : "rgba(255,255,255,.12)", transform: myStoryReaction === emoji ? "scale(1.15)" : "scale(1)" }}
               >
                 {emoji}
@@ -296,19 +296,19 @@ export default function StoryViewerModal({
           {story.own ? (
             confirmDelete ? (
               <div className="flex-1 flex gap-2">
-                <button onClick={() => setConfirmDelete(false)} className="flex-1 rounded-full px-4 py-2.5 text-sm font-bold text-white" style={{ background: "rgba(255,255,255,.15)" }}>
+                <button onClick={() => setConfirmDelete(false)} className="flex-1 rounded-full px-4 py-2.5 text-sm font-bold text-white focus-visible:outline focus-visible:outline-2" style={{ background: "rgba(255,255,255,.15)" }}>
                   Annuler
                 </button>
-                <button onClick={deleteOwnStory} className="flex-1 rounded-full px-4 py-2.5 text-sm font-bold text-white" style={{ background: "rgba(229,107,93,.95)" }}>
+                <button onClick={deleteOwnStory} className="flex-1 rounded-full px-4 py-2.5 text-sm font-bold text-white focus-visible:outline focus-visible:outline-2" style={{ background: "rgba(229,107,93,.95)" }}>
                   Confirmer la suppression
                 </button>
               </div>
             ) : (
               <>
-                <button onClick={openStoryViewers} className="flex-1 rounded-full px-4 py-2.5 text-sm font-bold text-white flex items-center justify-center gap-1.5" style={{ background: "rgba(255,255,255,.15)" }}>
+                <button onClick={openStoryViewers} className="flex-1 rounded-full px-4 py-2.5 text-sm font-bold text-white flex items-center justify-center gap-1.5 focus-visible:outline focus-visible:outline-2" style={{ background: "rgba(255,255,255,.15)" }}>
                   <Eye size={15} /> {storyViewCount || 0} vue{storyViewCount > 1 ? "s" : ""}
                 </button>
-                <button onClick={() => setConfirmDelete(true)} aria-label="Supprimer le statut" className="h-10 w-10 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: "rgba(229,107,93,.85)" }}>
+                <button onClick={() => setConfirmDelete(true)} aria-label="Supprimer le statut" className="h-10 w-10 rounded-full flex items-center justify-center flex-shrink-0 focus-visible:outline focus-visible:outline-2" style={{ background: "rgba(229,107,93,.85)" }}>
                   <Trash2 size={16} color="#fff" />
                 </button>
               </>
@@ -331,7 +331,7 @@ export default function StoryViewerModal({
                 maxLength={4000}
                 className="flex-1 rounded-full px-4 py-2.5 text-sm text-white bg-white/15 backdrop-blur border border-white/25 outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--bb-clay)] placeholder-white/60"
               />
-              <button onClick={sendStoryReply} aria-label="Envoyer la réponse" className="h-10 w-10 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: "#fff" }}>
+              <button onClick={sendStoryReply} aria-label="Envoyer la réponse" className="h-10 w-10 rounded-full flex items-center justify-center flex-shrink-0 focus-visible:outline focus-visible:outline-2" style={{ background: "#fff" }}>
                 <Send size={16} color={navy} />
               </button>
             </>
@@ -345,7 +345,7 @@ export default function StoryViewerModal({
               <div className="flex items-center gap-1.5 text-sm font-bold" style={{ color: "var(--bb-text)" }}>
                 <Eye size={15} /> {storyViewCount || 0} vue{storyViewCount > 1 ? "s" : ""}
               </div>
-              <button onClick={closeStoryViewers} aria-label="Fermer" style={{ color: "var(--bb-text)" }}><X size={18} /></button>
+              <button onClick={closeStoryViewers} aria-label="Fermer" className="focus-visible:outline focus-visible:outline-2" style={{ color: "var(--bb-text)" }}><X size={18} /></button>
             </div>
             <div className="overflow-y-auto px-4 pb-4">
               {storyViewersLoading ? (
@@ -354,7 +354,7 @@ export default function StoryViewerModal({
                 <p className="text-sm text-center py-6" style={{ color: "rgba(var(--bb-ink-rgb),0.5)" }}>Personne n'a encore vu ce statut.</p>
               ) : (
                 storyViewers.map((v) => (
-                  <button key={v.profile_id} onClick={() => { closeStoryViewers(); closeStoryViewer(); onOpenProfile?.(v.profile_id); }} className="w-full flex items-center gap-3 py-2.5 text-left">
+                  <button key={v.profile_id} onClick={() => { closeStoryViewers(); closeStoryViewer(); onOpenProfile?.(v.profile_id); }} className="w-full flex items-center gap-3 py-2.5 text-left focus-visible:outline focus-visible:outline-2">
                     <Avatar name={v.name} url={v.avatar_url} size={36} />
                     <div className="min-w-0 flex-1">
                       <div className="text-sm font-semibold truncate flex items-center gap-1.5" style={{ color: "var(--bb-text)" }}>
