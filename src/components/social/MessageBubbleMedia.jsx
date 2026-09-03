@@ -123,6 +123,14 @@ export default function MessageBubbleMedia({ m, isMine }) {
   const uploading = m._status === "uploading";
   const progress = uploading ? m._progress ?? 0 : null;
 
+  // Révocation différée au démontage seulement (pas juste après l'ouverture) :
+  // window.open() charge le blob de façon synchrone depuis la mémoire, donc
+  // l'onglet a toujours fini de le charger bien avant un démontage React.
+  // Sans ceci, le blob créé pour un fichier local (m._file) n'était jamais
+  // libéré, fuite mémoire pour la durée de vie de l'onglet. revokeObjectURL
+  // sur une URL signée https:// (cas getSignedUrl) ne fait rien, sans risque.
+  useEffect(() => () => { if (fileUrl) URL.revokeObjectURL(fileUrl); }, [fileUrl]);
+
   const openFile = async () => {
     if (fileUrl) { window.open(fileUrl, "_blank", "noopener"); return; }
     setResolvingFile(true);
