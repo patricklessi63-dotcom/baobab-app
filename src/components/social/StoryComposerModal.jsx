@@ -71,7 +71,7 @@ export default function StoryComposerModal({
                   <button onClick={handleClose} aria-label="Fermer"><X /></button>
                 </div>
                 <div className="overflow-y-auto p-6">
-                  <textarea value={storyText} onChange={(e) => setStoryText(e.target.value)} maxLength={280} className="mt-5 w-full min-h-28 rounded-2xl p-4 outline-none resize-none" style={{ background: bg }} placeholder="Une pensée, une bonne nouvelle, un moment de ta journée…" />
+                  <textarea value={storyText} onChange={(e) => setStoryText(e.target.value)} maxLength={280} className="mt-5 w-full min-h-28 rounded-2xl p-4 outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--bb-clay)] resize-none" style={{ background: bg }} placeholder="Une pensée, une bonne nouvelle, un moment de ta journée…" />
                   {storyMedia && (
                     <div className="mt-3 rounded-2xl overflow-hidden bg-black max-h-56 relative">
                       {storyMediaKind === "video" ? (

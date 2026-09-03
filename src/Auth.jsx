@@ -459,7 +459,7 @@ export default function Auth({ justVerified = false, onAcknowledgeVerified = () 
                   value={otpCode}
                   onChange={(e) => setOtpCode(e.target.value.replace(/\s+/g, ""))}
                   maxLength={8}
-                  className="bb-field rounded-2xl px-4 py-4 text-center text-lg tracking-[0.3em] outline-none"
+                  className="bb-field rounded-2xl px-4 py-4 text-center text-lg tracking-[0.3em] outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--bb-clay)]"
                   style={{ background: "rgba(26,54,38,0.78)", border: "1px solid rgba(242,233,220,0.11)", color: C.sand }}
                 />
                 <button type="submit" disabled={verifyLoading || !otpCode.trim()} className="bb-tap py-3.5 rounded-2xl text-sm font-bold text-white disabled:opacity-60" style={{ background: `linear-gradient(135deg, ${C.clay}, #A94F30)` }}>
@@ -495,7 +495,7 @@ export default function Auth({ justVerified = false, onAcknowledgeVerified = () 
                   value={otpCode}
                   onChange={(e) => setOtpCode(e.target.value.replace(/\s+/g, ""))}
                   maxLength={8}
-                  className="bb-field rounded-2xl px-4 py-4 text-center text-lg tracking-[0.3em] outline-none"
+                  className="bb-field rounded-2xl px-4 py-4 text-center text-lg tracking-[0.3em] outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--bb-clay)]"
                   style={{ background: "rgba(26,54,38,0.78)", border: "1px solid rgba(242,233,220,0.11)", color: C.sand }}
                 />
                 <button type="submit" disabled={verifyLoading || !otpCode.trim()} className="bb-tap py-3.5 rounded-2xl text-sm font-bold text-white disabled:opacity-60" style={{ background: `linear-gradient(135deg, ${C.clay}, #A94F30)` }}>
@@ -523,7 +523,7 @@ export default function Auth({ justVerified = false, onAcknowledgeVerified = () 
                   <Mail size={17} color={C.sandDim} />
                   <input id="email" type="email" placeholder="Ton adresse email" value={email}
                     onChange={(e) => setEmail(e.target.value)} required autoComplete="email" inputMode="email"
-                    className="min-w-0 flex-1 bg-transparent py-4 text-sm outline-none" style={{ color: C.sand }} />
+                    className="min-w-0 flex-1 bg-transparent py-4 text-sm outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--bb-clay)]" style={{ color: C.sand }} />
                 </div>
               </div>
 

@@ -328,7 +328,7 @@ export default function StoryViewerModal({
                 // après la fermeture du visualiseur de statut, sans qu'aucune limite
                 // n'ait prévenu l'utilisateur pendant la saisie.
                 maxLength={4000}
-                className="flex-1 rounded-full px-4 py-2.5 text-sm text-white bg-white/15 backdrop-blur border border-white/25 outline-none placeholder-white/60"
+                className="flex-1 rounded-full px-4 py-2.5 text-sm text-white bg-white/15 backdrop-blur border border-white/25 outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--bb-clay)] placeholder-white/60"
               />
               <button onClick={sendStoryReply} aria-label="Envoyer la réponse" className="h-10 w-10 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: "#fff" }}>
                 <Send size={16} color={navy} />

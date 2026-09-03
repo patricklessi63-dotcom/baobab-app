@@ -20,7 +20,7 @@ export default function EventFilters({ city, setCity, category, setCategory, dat
           onChange={(e) => setCity(e.target.value)}
           placeholder="📍 Filtrer par ville..."
           aria-label="Filtrer par ville"
-          className="flex-1 text-sm rounded-xl px-3.5 py-2.5 outline-none"
+          className="flex-1 text-sm rounded-xl px-3.5 py-2.5 outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--bb-clay)]"
           style={{ background: bg }}
         />
         {hasActiveFilters && (

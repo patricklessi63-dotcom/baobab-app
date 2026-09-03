@@ -444,7 +444,7 @@ export default function ImmigrationNewsView({ onBack, onError, currentUser }) {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Rechercher une actualité, un mot-clé..."
-                className="flex-1 bg-transparent outline-none text-sm"
+                className="flex-1 bg-transparent outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--bb-clay)] text-sm"
                 style={{ color: primary }}
               />
               {search && (

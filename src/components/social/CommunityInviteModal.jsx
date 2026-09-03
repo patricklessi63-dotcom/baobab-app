@@ -111,7 +111,7 @@ export default function CommunityInviteModal({ community, currentUser, memberIds
             onChange={(e) => runSearch(e.target.value)}
             placeholder="Rechercher un nom..."
             aria-label="Rechercher un profil à inviter"
-            className="flex-1 bg-transparent text-sm outline-none min-w-0"
+            className="flex-1 bg-transparent text-sm outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--bb-clay)] min-w-0"
             autoFocus
           />
         </div>

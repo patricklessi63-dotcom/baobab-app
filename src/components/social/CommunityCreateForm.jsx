@@ -160,7 +160,7 @@ export default function CommunityCreateForm({ currentUser, onCreated, onCancel, 
             <>
               <p className="text-xs mt-1.5" style={{ color: muted }}>Décris ton idée en quelques mots, l'IA propose un nom, une description et une catégorie.</p>
               <div className="flex gap-2 mt-2">
-                <input value={aiIdea} onChange={(e) => setAiIdea(e.target.value)} placeholder="Ex : club de course pour nouveaux arrivants à Montréal" className="flex-1 rounded-xl px-3 py-2 text-xs outline-none" style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)", color: primary }} />
+                <input value={aiIdea} onChange={(e) => setAiIdea(e.target.value)} placeholder="Ex : club de course pour nouveaux arrivants à Montréal" className="flex-1 rounded-xl px-3 py-2 text-xs outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--bb-clay)]" style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)", color: primary }} />
                 <button type="button" onClick={handleAiSuggest} disabled={aiLoading || !aiIdea.trim()} className="bb-btn-gold px-3 py-2 rounded-xl text-xs font-bold disabled:opacity-50 flex items-center gap-1">
                   {aiLoading ? <Loader2 size={12} className="animate-spin" /> : "Suggérer"}
                 </button>
@@ -177,7 +177,7 @@ export default function CommunityCreateForm({ currentUser, onCreated, onCancel, 
           value={name}
           onChange={(e) => setName(e.target.value.slice(0, NAME_MAX))}
           placeholder="Montréal Running Club"
-          className="mt-1.5 w-full rounded-xl px-3.5 py-2.5 text-sm outline-none"
+          className="mt-1.5 w-full rounded-xl px-3.5 py-2.5 text-sm outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--bb-clay)]"
           style={{ background: bg }}
         />
       </label>
@@ -189,7 +189,7 @@ export default function CommunityCreateForm({ currentUser, onCreated, onCancel, 
           onChange={(e) => setDescription(e.target.value.slice(0, DESCRIPTION_MAX))}
           placeholder="Une communauté pour les passionnés de course."
           rows={2}
-          className="mt-1.5 w-full rounded-xl px-3.5 py-2.5 text-sm outline-none resize-none"
+          className="mt-1.5 w-full rounded-xl px-3.5 py-2.5 text-sm outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--bb-clay)] resize-none"
           style={{ background: bg }}
         />
         <span className="text-[11px]" style={{ color: muted }}>{description.length}/{DESCRIPTION_MAX}</span>
@@ -212,7 +212,7 @@ export default function CommunityCreateForm({ currentUser, onCreated, onCancel, 
           value={city}
           onChange={(e) => setCity(e.target.value)}
           placeholder="Montréal"
-          className="mt-1.5 w-full rounded-xl px-3.5 py-2.5 text-sm outline-none"
+          className="mt-1.5 w-full rounded-xl px-3.5 py-2.5 text-sm outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--bb-clay)]"
           style={{ background: bg }}
         />
       </label>
@@ -241,7 +241,7 @@ export default function CommunityCreateForm({ currentUser, onCreated, onCancel, 
           onChange={(e) => setRules(e.target.value.slice(0, RULES_MAX))}
           placeholder={"1. Respect des membres\n2. Pas de spam\n3. Pas d'arnaques"}
           rows={3}
-          className="mt-1.5 w-full rounded-xl px-3.5 py-2.5 text-sm outline-none resize-none"
+          className="mt-1.5 w-full rounded-xl px-3.5 py-2.5 text-sm outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--bb-clay)] resize-none"
           style={{ background: bg }}
         />
         <span className="text-[11px]" style={{ color: muted }}>Affichées aux membres avant de rejoindre une communauté privée. {rules.length}/{RULES_MAX}</span>

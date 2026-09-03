@@ -61,7 +61,7 @@ export default function MatchPreferencesModal({ open, onClose, currentUser, onSa
           <input
             type="number" min={18} max={99} value={ageMin}
             onChange={(e) => setAgeMin(e.target.value)}
-            className="w-full rounded-xl p-3 text-sm outline-none"
+            className="w-full rounded-xl p-3 text-sm outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--bb-clay)]"
             style={{ background: bg }}
             aria-label="Âge minimum"
           />
@@ -69,7 +69,7 @@ export default function MatchPreferencesModal({ open, onClose, currentUser, onSa
           <input
             type="number" min={18} max={99} value={ageMax}
             onChange={(e) => setAgeMax(e.target.value)}
-            className="w-full rounded-xl p-3 text-sm outline-none"
+            className="w-full rounded-xl p-3 text-sm outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--bb-clay)]"
             style={{ background: bg }}
             aria-label="Âge maximum"
           />

@@ -144,7 +144,7 @@ export default function PostComposerModal({
                           value={draft}
                           onChange={(e) => setDraft(e.target.value.slice(0, 4000))}
                           disabled={Boolean(publishedPostId)}
-                          className="w-full min-h-32 rounded-2xl p-4 outline-none resize-none disabled:opacity-70"
+                          className="w-full min-h-32 rounded-2xl p-4 outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--bb-clay)] resize-none disabled:opacity-70"
                           style={{ background: bg }}
                           placeholder="Écris ton message..."
                         />

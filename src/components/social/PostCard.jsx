@@ -80,7 +80,7 @@ export default function PostCard({
                 value={editDraft}
                 onChange={(e) => setEditDraft(e.target.value.slice(0, MAX_LENGTH))}
                 rows={2}
-                className="w-full text-sm rounded-xl px-3 py-2 outline-none resize-none"
+                className="w-full text-sm rounded-xl px-3 py-2 outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--bb-clay)] resize-none"
                 style={{ background: bg }}
               />
               <div className="flex items-center gap-2 mt-1.5">
@@ -171,7 +171,7 @@ export default function PostCard({
                   onKeyDown={(e) => { if (e.key === "Enter") submitComment(); }}
                   placeholder="Écrire un commentaire..."
                   aria-label="Écrire un commentaire"
-                  className="flex-1 text-xs rounded-full px-3.5 py-2 outline-none"
+                  className="flex-1 text-xs rounded-full px-3.5 py-2 outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--bb-clay)]"
                   style={{ background: bg }}
                 />
                 <button onClick={submitComment} disabled={!commentDraft.trim()} className="text-xs font-bold px-3 py-2 rounded-full disabled:opacity-40" style={{ color: coral }}>

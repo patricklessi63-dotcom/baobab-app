@@ -291,7 +291,7 @@ export default function AdminDashboard({ onBack, onError, myPlatformRole }) {
         <div>
           <form onSubmit={submitSearch} className="flex items-center gap-2 rounded-2xl px-4 py-3 mb-4" style={{ background: bg }}>
             <Search size={16} color={muted} />
-            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Rechercher un nom..." aria-label="Rechercher un utilisateur" className="flex-1 bg-transparent text-sm outline-none" />
+            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Rechercher un nom..." aria-label="Rechercher un utilisateur" className="flex-1 bg-transparent text-sm outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--bb-clay)]" />
           </form>
 
           {usersLoading ? <Skeleton rows={5} height={56} /> : users.length === 0 ? (
@@ -403,7 +403,7 @@ export default function AdminDashboard({ onBack, onError, myPlatformRole }) {
                       value={f.status}
                       disabled={feedbackSaving === f.id}
                       onChange={(e) => handleFeedbackStatus(f, e.target.value)}
-                      className="text-xs font-bold px-3 py-2 rounded-full outline-none"
+                      className="text-xs font-bold px-3 py-2 rounded-full outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--bb-clay)]"
                       style={{ background: bg, color: primary, border: `1px solid rgba(${primaryRgb},.12)` }}
                       aria-label={`Statut du retour de ${f.author_name}`}
                     >
@@ -438,7 +438,7 @@ export default function AdminDashboard({ onBack, onError, myPlatformRole }) {
                 ce champ n'avait aucune limite de longueur — suspend_reason/ban_reason
                 sont des colonnes "text" illimitées côté base (supabase-admin.sql),
                 rien n'empêchait de coller un pavé de texte de plusieurs Mo. */}
-            <textarea value={actionReason} onChange={(e) => setActionReason(e.target.value.slice(0, 500))} placeholder="Motif (visible par la personne concernée)" rows={3} className="w-full mt-4 rounded-xl px-3.5 py-2.5 text-sm outline-none resize-none" style={{ background: bg }} />
+            <textarea value={actionReason} onChange={(e) => setActionReason(e.target.value.slice(0, 500))} placeholder="Motif (visible par la personne concernée)" rows={3} className="w-full mt-4 rounded-xl px-3.5 py-2.5 text-sm outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--bb-clay)] resize-none" style={{ background: bg }} />
             <div className="flex gap-2 mt-4">
               <button onClick={() => setActionTarget(null)} disabled={actionSaving} className="flex-1 py-3 rounded-full text-sm font-semibold disabled:opacity-50" style={{ border: `1px solid rgba(${primaryRgb},.12)`, color: primary }}>Annuler</button>
               <button onClick={confirmAction} disabled={actionSaving} className="flex-1 py-3 rounded-full text-sm font-bold text-white disabled:opacity-50" style={{ background: coral }}>{actionSaving ? "..." : "Confirmer"}</button>

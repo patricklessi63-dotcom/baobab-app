@@ -198,12 +198,12 @@ export default function EventCreateForm({ currentUser, initialCommunityId = null
 
       <label className="block">
         <span className="text-xs font-bold" style={{ color: muted }}>Titre *</span>
-        <input value={title} onChange={(e) => setTitle(e.target.value.slice(0, TITLE_MAX))} placeholder="Brunch Baobab Montréal" className="mt-1.5 w-full rounded-xl px-3.5 py-2.5 text-sm outline-none" style={{ background: bg }} />
+        <input value={title} onChange={(e) => setTitle(e.target.value.slice(0, TITLE_MAX))} placeholder="Brunch Baobab Montréal" className="mt-1.5 w-full rounded-xl px-3.5 py-2.5 text-sm outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--bb-clay)]" style={{ background: bg }} />
       </label>
 
       <label className="block">
         <span className="text-xs font-bold" style={{ color: muted }}>Description</span>
-        <textarea value={description} onChange={(e) => setDescription(e.target.value.slice(0, DESCRIPTION_MAX))} placeholder="Quelques mots sur l'événement…" rows={3} className="mt-1.5 w-full rounded-xl px-3.5 py-2.5 text-sm outline-none resize-none" style={{ background: bg }} />
+        <textarea value={description} onChange={(e) => setDescription(e.target.value.slice(0, DESCRIPTION_MAX))} placeholder="Quelques mots sur l'événement…" rows={3} className="mt-1.5 w-full rounded-xl px-3.5 py-2.5 text-sm outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--bb-clay)] resize-none" style={{ background: bg }} />
         <span className="text-[11px]" style={{ color: muted }}>{description.length}/{DESCRIPTION_MAX}</span>
         {currentUser?.ai_suggestions_enabled !== false && (
           <AiSuggestButton
@@ -230,40 +230,40 @@ export default function EventCreateForm({ currentUser, initialCommunityId = null
       <div className="grid grid-cols-2 gap-3">
         <label className="block">
           <span className="text-xs font-bold" style={{ color: muted }}>Date *</span>
-          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="mt-1.5 w-full rounded-xl px-3.5 py-2.5 text-sm outline-none" style={{ background: bg }} />
+          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="mt-1.5 w-full rounded-xl px-3.5 py-2.5 text-sm outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--bb-clay)]" style={{ background: bg }} />
         </label>
         <label className="block">
           <span className="text-xs font-bold" style={{ color: muted }}>Heure *</span>
-          <input type="time" value={time} onChange={(e) => setTime(e.target.value)} className="mt-1.5 w-full rounded-xl px-3.5 py-2.5 text-sm outline-none" style={{ background: bg }} />
+          <input type="time" value={time} onChange={(e) => setTime(e.target.value)} className="mt-1.5 w-full rounded-xl px-3.5 py-2.5 text-sm outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--bb-clay)]" style={{ background: bg }} />
         </label>
       </div>
 
       <label className="block">
         <span className="text-xs font-bold" style={{ color: muted }}>Fuseau horaire</span>
-        <select value={timezone} onChange={(e) => setTimezone(e.target.value)} className="mt-1.5 w-full rounded-xl px-3.5 py-2.5 text-sm outline-none" style={{ background: bg }}>
+        <select value={timezone} onChange={(e) => setTimezone(e.target.value)} className="mt-1.5 w-full rounded-xl px-3.5 py-2.5 text-sm outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--bb-clay)]" style={{ background: bg }}>
           {CANADA_TIMEZONE_OPTIONS.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
         </select>
       </label>
 
       <label className="block">
         <span className="text-xs font-bold" style={{ color: muted }}>Durée (minutes, optionnel)</span>
-        <input type="number" min="1" value={durationMinutes} onChange={(e) => setDurationMinutes(e.target.value)} placeholder="90" className="mt-1.5 w-full rounded-xl px-3.5 py-2.5 text-sm outline-none" style={{ background: bg }} />
+        <input type="number" min="1" value={durationMinutes} onChange={(e) => setDurationMinutes(e.target.value)} placeholder="90" className="mt-1.5 w-full rounded-xl px-3.5 py-2.5 text-sm outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--bb-clay)]" style={{ background: bg }} />
       </label>
 
       <label className="block">
         <span className="text-xs font-bold" style={{ color: muted }}>Ville *</span>
-        <input value={city} onChange={(e) => setCity(e.target.value)} placeholder="Montréal" className="mt-1.5 w-full rounded-xl px-3.5 py-2.5 text-sm outline-none" style={{ background: bg }} />
+        <input value={city} onChange={(e) => setCity(e.target.value)} placeholder="Montréal" className="mt-1.5 w-full rounded-xl px-3.5 py-2.5 text-sm outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--bb-clay)]" style={{ background: bg }} />
       </label>
 
       <label className="block">
         <span className="text-xs font-bold" style={{ color: muted }}>Lieu public (optionnel)</span>
-        <input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Café Aunja, Plateau-Mont-Royal" className="mt-1.5 w-full rounded-xl px-3.5 py-2.5 text-sm outline-none" style={{ background: bg }} />
+        <input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Café Aunja, Plateau-Mont-Royal" className="mt-1.5 w-full rounded-xl px-3.5 py-2.5 text-sm outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--bb-clay)]" style={{ background: bg }} />
         <p className="text-[11px] mt-1" style={{ color: muted }}>Un lieu public ou un quartier — jamais une adresse exacte.</p>
       </label>
 
       <label className="block">
         <span className="text-xs font-bold" style={{ color: muted }}>Nombre maximum de participants (optionnel)</span>
-        <input type="number" min="1" value={maxParticipants} onChange={(e) => setMaxParticipants(e.target.value)} placeholder="Illimité" className="mt-1.5 w-full rounded-xl px-3.5 py-2.5 text-sm outline-none" style={{ background: bg }} />
+        <input type="number" min="1" value={maxParticipants} onChange={(e) => setMaxParticipants(e.target.value)} placeholder="Illimité" className="mt-1.5 w-full rounded-xl px-3.5 py-2.5 text-sm outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--bb-clay)]" style={{ background: bg }} />
       </label>
 
       <div>
@@ -287,7 +287,7 @@ export default function EventCreateForm({ currentUser, initialCommunityId = null
       {visibility === "community" && (
         <label className="block">
           <span className="text-xs font-bold" style={{ color: muted }}>Communauté organisatrice *</span>
-          <select value={communityId} onChange={(e) => setCommunityId(e.target.value)} className="mt-1.5 w-full rounded-xl px-3.5 py-2.5 text-sm outline-none" style={{ background: bg }}>
+          <select value={communityId} onChange={(e) => setCommunityId(e.target.value)} className="mt-1.5 w-full rounded-xl px-3.5 py-2.5 text-sm outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--bb-clay)]" style={{ background: bg }}>
             <option value="">Choisir une communauté</option>
             {myCommunities.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>

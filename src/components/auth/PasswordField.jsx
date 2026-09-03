@@ -39,7 +39,7 @@ export default function PasswordField({
           required
           minLength={minLength}
           autoComplete={autoComplete}
-          className="min-w-0 flex-1 bg-transparent py-4 text-sm outline-none"
+          className="min-w-0 flex-1 bg-transparent py-4 text-sm outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--bb-clay)]"
           style={{ color: C.sand, fontSize: 16 }}
         />
         <button
