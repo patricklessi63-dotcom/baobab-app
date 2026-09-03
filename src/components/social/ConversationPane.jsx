@@ -154,8 +154,18 @@ export default function ConversationPane({
     }
   }, [loadingOlder]);
 
-  const handleSend = () => {
-    if (!messageDraft.trim()) return;
+  // Partagé par TOUS les chemins d'envoi (texte, média, sticker, audio) —
+  // bug corrigé à l'audit : ce garde-fou anti-spam (checkRateLimit) ne
+  // protégeait jusqu'ici que l'envoi de texte via handleSend. Les stickers
+  // (onPickSticker), les pièces jointes (onPickFile, glisser-déposer via
+  // ChatDropZone) et les messages vocaux (AudioRecorder) appelaient
+  // directement sendMediaMessage/sendStickerMessage en contournant
+  // entièrement ce délai — un clic répété sur un sticker ou un
+  // glisser-déposer en boucle pouvait donc spammer la conversation bien
+  // au-delà des 8 messages/15s prévus. Même fenêtre glissante partagée
+  // (sendTimestampsRef) que le texte : un sticker envoyé compte aussi dans
+  // le quota du prochain message texte, et inversement.
+  const guardedSend = (fn) => (...args) => {
     const { allowed, remainingTimestamps } = checkRateLimit(sendTimestampsRef.current);
     if (!allowed) {
       setRateLimited(true);
@@ -163,7 +173,12 @@ export default function ConversationPane({
       return;
     }
     sendTimestampsRef.current = [...remainingTimestamps, Date.now()];
-    sendMessage();
+    fn(...args);
+  };
+
+  const handleSend = () => {
+    if (!messageDraft.trim()) return;
+    guardedSend(sendMessage)();
   };
 
   const q = searchQuery.trim().toLowerCase();
@@ -264,7 +279,7 @@ export default function ConversationPane({
         </div>
       )}
 
-      <ChatDropZone onDropFile={(file) => sendMediaMessage(file, detectKindFromMime(file.type))}>
+      <ChatDropZone onDropFile={(file) => guardedSend(sendMediaMessage)(file, detectKindFromMime(file.type))}>
       <div ref={listRef} role="log" aria-live="polite" aria-atomic="false" className="flex-1 p-4 flex flex-col gap-1 overflow-y-auto">
         {hasMoreHistory && (
           <button onClick={onLoadOlder} disabled={loadingOlder} className="self-center text-xs font-bold px-3 py-2 rounded-full mb-2 disabled:opacity-50" style={{ background: bg, color: primary }}>
@@ -506,8 +521,8 @@ export default function ConversationPane({
         {!recorderActive && <EmojiPicker onPick={(emoji) => setMessageDraft((d) => (d + emoji).slice(0, 4000))} currentUserId={currentUser.id} />}
         {!recorderActive && (
           <MessageMediaPicker
-            onPickFile={(file, kind) => sendMediaMessage(file, kind)}
-            onPickSticker={(sticker) => sendStickerMessage(sticker)}
+            onPickFile={(file, kind) => guardedSend(sendMediaMessage)(file, kind)}
+            onPickSticker={(sticker) => guardedSend(sendStickerMessage)(sticker)}
           />
         )}
         {/* ai_suggestions_enabled vérifié (bug corrigé à l'audit, même famille que
@@ -534,7 +549,7 @@ export default function ConversationPane({
         <AudioRecorder
           hasDraft={Boolean(messageDraft.trim())}
           onSendText={handleSend}
-          onSendAudio={(file) => sendMediaMessage(file, "audio")}
+          onSendAudio={(file) => guardedSend(sendMediaMessage)(file, "audio")}
           onActiveChange={setRecorderActive}
         />
       </div>
