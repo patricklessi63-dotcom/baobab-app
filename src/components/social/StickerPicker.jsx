@@ -20,7 +20,7 @@ export default function StickerPicker({ onPick }) {
             onClick={() => setActiveCategory(cat.id)}
             aria-label={cat.label}
             aria-pressed={activeCategory === cat.id}
-            className="h-9 w-9 flex-shrink-0 flex items-center justify-center rounded-lg text-base"
+            className="h-9 w-9 flex-shrink-0 flex items-center justify-center rounded-lg text-base focus-visible:outline focus-visible:outline-2"
             style={{ background: activeCategory === cat.id ? `rgba(${primaryRgb},.06)` : "transparent" }}
           >
             {cat.icon}

@@ -73,7 +73,7 @@ export default function MessageMediaPicker({ onPickFile, onPickSticker }) {
                   key={opt.id}
                   type="button"
                   onClick={() => inputRefs.current[opt.id]?.click()}
-                  className="flex flex-col items-center gap-1.5 py-2.5 rounded-xl hover:bg-black/5"
+                  className="flex flex-col items-center gap-1.5 py-2.5 rounded-xl hover:bg-black/5 focus-visible:outline focus-visible:outline-2"
                   aria-label={opt.label}
                 >
                   <div className="h-11 w-11 rounded-full flex items-center justify-center" style={{ background: bg }}>
@@ -82,7 +82,7 @@ export default function MessageMediaPicker({ onPickFile, onPickSticker }) {
                   <span className="text-[11px] font-semibold" style={{ color: primary }}>{opt.label}</span>
                 </button>
               ))}
-              <button type="button" onClick={() => setView("stickers")} className="flex flex-col items-center gap-1.5 py-2.5 rounded-xl hover:bg-black/5" aria-label="Stickers">
+              <button type="button" onClick={() => setView("stickers")} className="flex flex-col items-center gap-1.5 py-2.5 rounded-xl hover:bg-black/5 focus-visible:outline focus-visible:outline-2" aria-label="Stickers">
                 <div className="h-11 w-11 rounded-full flex items-center justify-center" style={{ background: bg }}>
                   <StickerIcon size={18} color={primary} />
                 </div>
@@ -91,7 +91,7 @@ export default function MessageMediaPicker({ onPickFile, onPickSticker }) {
             </div>
           ) : (
             <div>
-              <button type="button" onClick={() => setView("menu")} aria-label="Retour" className="flex items-center gap-1 text-xs font-bold mb-2" style={{ color: primary }}>
+              <button type="button" onClick={() => setView("menu")} aria-label="Retour" className="flex items-center gap-1 text-xs font-bold mb-2 focus-visible:outline focus-visible:outline-2" style={{ color: primary }}>
                 <ArrowLeft size={14} /> Retour
               </button>
               <StickerPicker onPick={handleStickerPick} />
