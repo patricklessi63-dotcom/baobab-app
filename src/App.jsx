@@ -78,6 +78,7 @@ export default function App() {
   const profilesRef = useRef(profiles); // idem, pour retrouver le profil qui vient de matcher
   const likerProfilesRawRef = useRef(likerProfilesRaw); // lu par l'abonnement realtime "likes" sans le forcer à se réabonner
   const blockPairsRef = useRef([]); // idem, pour ignorer un like venant d'une personne bloquée dans un sens ou l'autre
+  const activeMatchRef = useRef(null); // lu par l'abonnement realtime "blocks-passes" sans le forcer à se réabonner à chaque changement de conversation ouverte
   const likesChannelRef = useRef(null);
   const [matchNotice, setMatchNotice] = useState(null);
   const [activeMatch, setActiveMatch] = useState(null);
@@ -490,6 +491,10 @@ export default function App() {
   useEffect(() => {
     blockPairsRef.current = blockPairs;
   }, [blockPairs]);
+
+  useEffect(() => {
+    activeMatchRef.current = activeMatch;
+  }, [activeMatch]);
 
   // Déconnexion automatique par inactivité : retirée définitivement sur
   // demande explicite (les sessions ne doivent plus jamais expirer par
@@ -2145,6 +2150,57 @@ export default function App() {
         likesChannelRef.current = null;
       }
     };
+  }, [currentUser?.id]);
+
+  // Même famille de bug que le canal "likes" ci-dessus (audit sessions
+  // multiples), appliquée à "blocks" et "passes" : un blocage/passe fait sur
+  // un autre appareil/onglet du même compte ne se répercutait jamais ici —
+  // blockPairs/passPairs (et hasBlocked/hasPassed qui en dépendent) ne
+  // provenaient que du chargement initial (loadAll) et des mises à jour
+  // locales de performBlock/handleUnblock/handlePass. Le blocage est le cas
+  // le plus sensible : tant que l'autre session n'était pas rechargée, une
+  // personne bloquée depuis l'appareil A restait affichée comme non bloquée
+  // sur l'appareil B (toujours proposée dans Découvrir, bouton "Bloquer" au
+  // lieu de "Débloquer" dans son profil). Écouteurs idempotents (mêmes
+  // gardes `.some()`/suppression que les fonctions locales) : sans effet si
+  // l'événement provient de CETTE session.
+  useEffect(() => {
+    if (!currentUser) return;
+    const channel = supabase
+      .channel(`blocks-passes-own:${currentUser.id}`)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "blocks", filter: `from_id=eq.${currentUser.id}` },
+        (payload) => {
+          const toId = payload.new.to_id;
+          setBlockPairs((prev) => (prev.some((b) => b.from_id === currentUser.id && b.to_id === toId) ? prev : [...prev, { from_id: currentUser.id, to_id: toId }]));
+          if (activeMatchRef.current?.id === toId) setActiveMatch(null);
+          (async () => {
+            const { data } = await supabase.from("profiles").select("*").eq("id", toId).maybeSingle();
+            if (!data) return;
+            setBlockedProfilesRaw((prev) => (prev.some((p) => p.id === toId) ? prev : [...prev, data]));
+          })();
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "DELETE", schema: "public", table: "blocks", filter: `from_id=eq.${currentUser.id}` },
+        (payload) => {
+          const toId = payload.old.to_id;
+          setBlockPairs((prev) => prev.filter((pair) => !(pair.from_id === currentUser.id && pair.to_id === toId)));
+          setBlockedProfilesRaw((prev) => prev.filter((p) => p.id !== toId));
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "passes", filter: `from_id=eq.${currentUser.id}` },
+        (payload) => {
+          const toId = payload.new.to_id;
+          setPassPairs((prev) => (prev.some((p) => p.from_id === currentUser.id && p.to_id === toId) ? prev : [...prev, { from_id: currentUser.id, to_id: toId }]));
+        }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
   }, [currentUser?.id]);
 
   function broadcastTyping() {

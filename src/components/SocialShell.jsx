@@ -327,6 +327,58 @@ export default function SocialShell({
     return () => { alive = false; };
   }, [currentUser]);
 
+  // Désynchronisation multi-session (même famille de bug que "likes" dans
+  // App.jsx, voir son commentaire détaillé) : un favori ajouté/retiré depuis
+  // un autre appareil/onglet du même compte ne se répercutait jamais ici —
+  // favoriteIds/favoriteProfilesRaw ne provenaient que du chargement initial
+  // ci-dessus et de toggleFavorite (mise à jour locale seulement). Le profil
+  // restait donc affiché comme "pas en favori" (ou l'inverse) sur l'autre
+  // session jusqu'à un rechargement complet. Écouteurs idempotents (mêmes
+  // gardes `.some()`/suppression que toggleFavorite) : sans effet si
+  // l'événement provient de CETTE session, déjà appliqué localement.
+  useEffect(() => {
+    if (!currentUser) return;
+    const channel = supabase
+      .channel(`favorites-own:${currentUser.id}`)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "favorites", filter: `from_id=eq.${currentUser.id}` },
+        (payload) => {
+          const toId = payload.new.to_id;
+          setFavoriteIds((prev) => (prev.has(toId) ? prev : new Set(prev).add(toId)));
+          // Complète favoriteProfilesRaw (liste "Mes favoris") avec le profil
+          // complet — sans quoi cette liste resterait incomplète sur l'autre
+          // session jusqu'à un rechargement complet, même si favoriteIds
+          // (qui pilote juste l'icône cœur) est déjà à jour ci-dessus.
+          (async () => {
+            const { data } = await supabase
+              .from("profiles")
+              .select("id,name,avatar_url,city,show_city,age,show_birth_year,looking_for,email_verified,phone_verified,is_founder,is_premium")
+              .eq("id", toId)
+              .maybeSingle();
+            if (!data) return;
+            setFavoriteProfilesRaw((prev) => (prev.some((p) => p.id === toId) ? prev : [data, ...prev]));
+          })();
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "DELETE", schema: "public", table: "favorites", filter: `from_id=eq.${currentUser.id}` },
+        (payload) => {
+          const toId = payload.old.to_id;
+          setFavoriteIds((prev) => {
+            if (!prev.has(toId)) return prev;
+            const next = new Set(prev);
+            next.delete(toId);
+            return next;
+          });
+          setFavoriteProfilesRaw((prev) => prev.filter((p) => p.id !== toId));
+        }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [currentUser?.id]);
+
   const favoriteInFlightRef = useRef(new Set()); // profile.id en cours de bascule — évite un double clic = double insert/delete
 
   const toggleFavorite = async (profile) => {
@@ -418,6 +470,49 @@ export default function SocialShell({
     });
     return () => { alive = false; };
   }, [currentUser]);
+
+  // Même correctif que le canal "favorites-own" ci-dessus, appliqué à
+  // "follows" (from_id = moi) : un suivre/ne plus suivre fait sur un autre
+  // appareil/onglet du même compte ne mettait à jour followingIds/
+  // followedProfilesRaw que localement, jamais rediffusé.
+  useEffect(() => {
+    if (!currentUser) return;
+    const channel = supabase
+      .channel(`follows-own:${currentUser.id}`)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "follows", filter: `from_id=eq.${currentUser.id}` },
+        (payload) => {
+          const toId = payload.new.to_id;
+          setFollowingIds((prev) => (prev.has(toId) ? prev : new Set(prev).add(toId)));
+          (async () => {
+            const { data } = await supabase
+              .from("profiles")
+              .select("id,name,avatar_url,city,show_city,age,looking_for,email_verified,phone_verified,is_founder,is_premium")
+              .eq("id", toId)
+              .maybeSingle();
+            if (!data) return;
+            setFollowedProfilesRaw((prev) => (prev.some((p) => p.id === toId) ? prev : [data, ...prev]));
+          })();
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "DELETE", schema: "public", table: "follows", filter: `from_id=eq.${currentUser.id}` },
+        (payload) => {
+          const toId = payload.old.to_id;
+          setFollowingIds((prev) => {
+            if (!prev.has(toId)) return prev;
+            const next = new Set(prev);
+            next.delete(toId);
+            return next;
+          });
+          setFollowedProfilesRaw((prev) => prev.filter((p) => p.id !== toId));
+        }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [currentUser?.id]);
 
   const followInFlightRef = useRef(new Set());
 
