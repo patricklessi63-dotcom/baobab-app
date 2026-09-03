@@ -22,6 +22,7 @@ import { MEDIA_BUCKET, extFromMime } from "./lib/mediaConstants";
 import { trackActivation } from "./lib/trackActivation";
 import { fetchMyLocation, upsertMyLocation, disableMyLocation } from "./lib/locationApi";
 import { getCurrentPositionSafe, LOCATION_ERROR_MESSAGES } from "./lib/geolocation";
+import { disablePushNotifications } from "./lib/pushNotifications";
 import { isLikelyInCanada, TRAVEL_GRACE_PERIOD_MS } from "./lib/canadaGate";
 import { friendlyDbError } from "./lib/friendlyDbError";
 import { usePathname } from "./hooks/usePathname";
@@ -775,6 +776,26 @@ export default function App() {
   }
 
   async function handleSignOut() {
+    // Bug corrigé : sur un appareil partagé (ordinateur familial/public), le
+    // navigateur reste abonné aux notifications push de CE compte après la
+    // déconnexion — rien ne désabonnait jamais push_subscriptions au moment
+    // de "Déconnexion". Un compte B se connectant ensuite sur le même
+    // appareil récupérait un getPushSubscriptionStatus().subscribed === true
+    // hérité du compte A (la souscription PushManager du navigateur reste
+    // active) sans jamais rappeler enablePushNotifications() — la ligne
+    // push_subscriptions restait donc rattachée à A. Résultat : send-push
+    // continuait de notifier A (nouveaux messages, matchs...) sur un
+    // appareil qu'il n'utilise plus, pendant que B croit à tort avoir les
+    // push activées alors qu'aucune notification ne lui parvient jamais.
+    // Doit s'exécuter AVANT signOut() : la policy RLS "push_subscriptions_
+    // delete_own" exige auth.uid() = user_id, donc la ligne ne peut plus
+    // être supprimée une fois la session de A terminée. Best-effort : ne
+    // doit jamais empêcher la déconnexion si le nettoyage échoue.
+    try {
+      await disablePushNotifications();
+    } catch (e) {
+      console.error(e);
+    }
     try {
       await supabase.auth.signOut();
     } catch (e) {
