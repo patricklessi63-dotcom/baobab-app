@@ -91,11 +91,35 @@ export default function StoryViewerModal({
   if (!active) return null;
   const story = stories[storyViewerIndex];
 
-  const handleVideoMeta = (e) => {
-    const d = e.currentTarget.duration;
+  const applyVideoDuration = (d) => {
     if (Number.isFinite(d) && d > 0) {
       onVideoDuration?.(Math.min(Math.max(Math.round(d * 1000), 3000), 60000));
     }
+  };
+
+  // Même bug Chromium que le lecteur de messages vocaux (MessageBubbleMedia.jsx,
+  // AudioPlayer) : une vidéo de statut envoyée en webm sans durée écrite dans
+  // le conteneur (ex. capture caméra Android en PWA) a `duration === Infinity`
+  // au chargement des métadonnées. Sans ce contournement, la condition
+  // `Number.isFinite(d)` échouait silencieusement et onVideoDuration n'était
+  // jamais appelé : la story restait bloquée sur les 5 s par défaut (barre de
+  // progression + auto-avance) au lieu de suivre la durée réelle de la vidéo,
+  // la coupant en plein milieu si elle dure plus longtemps. On force le
+  // recalcul via un seek loin (déclenche "durationchange"), puis on revient à
+  // la position de lecture initiale pour ne pas perturber l'autoplay/loop.
+  const handleVideoMeta = (e) => {
+    const el = e.currentTarget;
+    if (Number.isFinite(el.duration)) {
+      applyVideoDuration(el.duration);
+      return;
+    }
+    const onDurationChange = () => {
+      el.removeEventListener("durationchange", onDurationChange);
+      applyVideoDuration(el.duration);
+      el.currentTime = 0;
+    };
+    el.addEventListener("durationchange", onDurationChange);
+    el.currentTime = 1e101;
   };
 
   const onTouchStart = (e) => {
