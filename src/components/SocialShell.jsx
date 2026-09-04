@@ -446,16 +446,20 @@ export default function SocialShell({
     let alive = true;
     // show_city ajouté (bug corrigé à l'audit) : ProfileTab affichait la ville
     // des abonnements/abonnés sans jamais pouvoir consulter ce réglage, absent
-    // de cette jointure — voir le garde ajouté côté ProfileTab.jsx. (Le champ
-    // show_birth_year manque toujours ici — fuite mineure déjà identifiée et
-    // suivie séparément, hors périmètre de cette correction.)
+    // de cette jointure — voir le garde ajouté côté ProfileTab.jsx.
+    // show_birth_year ajouté pour la même raison : ProfileTab.jsx affiche l'âge
+    // des abonnements/abonnés via visibleAge(p) (utils/format.js), qui ne
+    // masque l'âge que si show_birth_year === false. Absent de la jointure, le
+    // champ valait undefined, donc undefined === false était toujours faux et
+    // l'âge d'un profil ayant explicitement masqué son année de naissance
+    // fuyait dans les listes "Abonnements"/"Abonnés".
     Promise.all([
       // is_founder/is_premium ajoutés (même correctif que favorites ci-dessus) :
       // ProfileCard consulte ces deux champs (hasStatusBadge) mais ils
       // manquaient ici, donc "Suivis"/"Abonnés" n'affichait jamais les badges
       // Fondateur/Premium même pour des profils qui les ont réellement.
-      supabase.from("follows").select("to_id, profile:to_id(id,name,avatar_url,city,show_city,age,looking_for,email_verified,phone_verified,is_founder,is_premium)").eq("from_id", currentUser.id).limit(2000),
-      supabase.from("follows").select("from_id, profile:from_id(id,name,avatar_url,city,show_city,age,looking_for,email_verified,phone_verified,is_founder,is_premium)").eq("to_id", currentUser.id).limit(2000),
+      supabase.from("follows").select("to_id, profile:to_id(id,name,avatar_url,city,show_city,age,show_birth_year,looking_for,email_verified,phone_verified,is_founder,is_premium)").eq("from_id", currentUser.id).limit(2000),
+      supabase.from("follows").select("from_id, profile:from_id(id,name,avatar_url,city,show_city,age,show_birth_year,looking_for,email_verified,phone_verified,is_founder,is_premium)").eq("to_id", currentUser.id).limit(2000),
     ]).then(([followingRes, followersRes]) => {
       if (!alive) return;
       if (followingRes.error) console.error(followingRes.error.message, followingRes.error.code, followingRes.error.details, followingRes.error.hint);
@@ -489,7 +493,7 @@ export default function SocialShell({
           (async () => {
             const { data } = await supabase
               .from("profiles")
-              .select("id,name,avatar_url,city,show_city,age,looking_for,email_verified,phone_verified,is_founder,is_premium")
+              .select("id,name,avatar_url,city,show_city,age,show_birth_year,looking_for,email_verified,phone_verified,is_founder,is_premium")
               .eq("id", toId)
               .maybeSingle();
             if (!data) return;
