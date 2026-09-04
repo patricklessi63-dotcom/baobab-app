@@ -1616,6 +1616,17 @@ export default function App() {
   // Découverte, affichée en carte quasi vide (MatchCard : nom vide, pas de
   // photo, pas d'âge) et pouvait recevoir un like/message/favori avant même
   // d'avoir terminé — ou choisi — son inscription.
+  //
+  // Bug corrigé à l'audit (même principe généralisé à deletion_requested_at) :
+  // demander la suppression de son compte (délai de grâce 24h, voir
+  // AccountDeletionBanner.jsx/deleteAccount.js) ne posait aucune restriction
+  // pour son PROPRE accès (voir supabase-account-deletion.sql) mais ce champ
+  // — déjà chargé ici via select("*") — n'était consulté nulle part pour
+  // filtrer les AUTRES profils proposés en Découverte. Un compte en attente
+  // de suppression restait donc un candidat "likable"/"passable" comme un
+  // profil normal jusqu'à sa suppression réelle par process-scheduled-
+  // deletions, créant de nouveaux matchs/likes voués à disparaître sans
+  // préavis dans les 24h pour la personne en face.
   const candidates = currentUser
     ? filterCandidatesByPreferences(
         currentUser,
@@ -1626,6 +1637,7 @@ export default function App() {
             !p.banned_at &&
             !(p.suspended_until && new Date(p.suspended_until) > new Date()) &&
             !!p.onboarding_completed_at &&
+            !p.deletion_requested_at &&
             !hasLiked(currentUser.id, p.id) &&
             !hasPassed(currentUser.id, p.id) &&
             !hasBlocked(currentUser.id, p.id) &&
