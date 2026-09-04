@@ -139,10 +139,23 @@ Deno.serve(async (req) => {
       try {
         await cancelStripeSubscriptions(profile.id);
         await cleanupStorage(profile.id, profile.user_id);
-        const { error: deleteProfileError } = await admin.from("profiles").delete().eq("id", profile.id);
-        if (deleteProfileError) throw deleteProfileError;
+        // Ordre important : auth.users AVANT profiles. "profiles.user_id" a une
+        // FK "on delete cascade" vers auth.users (voir supabase-scale-security-2.sql,
+        // section 4) — supprimer le compte auth élimine donc déjà la ligne
+        // profiles automatiquement. Avec l'ancien ordre (profiles puis auth),
+        // un échec réseau/API sur deleteUser laissait un compte auth.users
+        // orphelin PERMANENT : la requête de sélection ci-dessus filtre sur
+        // "profiles", donc une ligne profiles déjà supprimée ne serait plus
+        // jamais reprise par une exécution suivante pour réessayer deleteUser.
+        // Avec ce nouvel ordre, un échec de deleteUser laisse le profil intact
+        // (rien n'a encore été supprimé) : la prochaine exécution du cron
+        // retentera normalement le même profil.
         const { error: deleteUserError } = await admin.auth.admin.deleteUser(profile.user_id);
         if (deleteUserError) throw deleteUserError;
+        // No-op attendu si la cascade a déjà fait le travail ci-dessus ; conservé
+        // en filet de sécurité si jamais la contrainte FK venait à manquer.
+        const { error: deleteProfileError } = await admin.from("profiles").delete().eq("id", profile.id);
+        if (deleteProfileError) throw deleteProfileError;
         results.push({ profile_id: profile.id, ok: true });
       } catch (e) {
         console.error("Suppression différée échouée pour le profil", profile.id, e);
