@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, Suspense, lazy } from "react";
+import React, { useState, useEffect, useMemo, useRef, Suspense, lazy } from "react";
 import { Home, Heart, X, MessageCircle, LogOut, Settings, Cog, UserRound, Search, Bell, Users2, PartyPopper, Megaphone, Shield, Globe2, Compass } from "lucide-react";
 import Avatar from "./Avatar";
 import StatusBadge from "./StatusBadge";
@@ -1092,16 +1092,27 @@ export default function SocialShell({
   // Filtre la pile de découverte par la recherche (comportement existant,
   // inchangé de portée — reste borné à candidates) — voir searchResults
   // plus bas pour la recherche globale du menu déroulant de l'en-tête.
-  const filteredPeople = candidates.filter((p) => matchesSearch(p, search) && !hiddenProfileIds.has(p.id));
+  // Bug de performance corrigé à l'audit : ce filtre (jusqu'à des centaines
+  // de profils) était recalculé à CHAQUE rendu de SocialShell — y compris
+  // ceux sans rapport avec la recherche (message reçu en temps réel,
+  // indicateur de frappe, changement d'onglet...) — faute d'être mémoïsé.
+  // Idem pour localSearchResults/searchResults/conversationResults plus bas.
+  const filteredPeople = useMemo(
+    () => candidates.filter((p) => matchesSearch(p, search) && !hiddenProfileIds.has(p.id)),
+    [candidates, search, hiddenProfileIds]
+  );
 
   // Recherche globale (en-tête) — corrige le bug identifié à l'audit :
   // l'ancienne recherche ne portait que sur le pool de matching restant
   // (candidates), donc un profil déjà liké/matché/hors préférences était
   // introuvable même en tapant son nom exact. Ici : tous les profils
   // connus (cache déjà chargé), moins soi-même et les bloqués.
-  const localSearchResults = search.trim()
-    ? profiles.filter((p) => p.id !== currentUser?.id && !blockedIds.has(p.id) && matchesSearch(p, search))
-    : [];
+  const localSearchResults = useMemo(
+    () => (search.trim()
+      ? profiles.filter((p) => p.id !== currentUser?.id && !blockedIds.has(p.id) && matchesSearch(p, search))
+      : []),
+    [search, profiles, currentUser?.id, blockedIds]
+  );
 
   // Le commentaire ci-dessus promet "tous les profils connus", mais
   // `profiles` (App.jsx) est plafonné à 500 lignes triées par ancienneté —
@@ -1137,35 +1148,41 @@ export default function SocialShell({
     return () => { alive = false; clearTimeout(timer); };
   }, [search]);
 
-  const searchResults = search.trim()
-    ? [
-        ...localSearchResults,
-        // matchesSearch réappliqué ici (bug corrigé à l'audit) : la requête
-        // Supabase ci-dessus filtre côté serveur sur city/country/occupation
-        // bruts (colonnes, pas de notion de show_X en SQL), donc un profil
-        // ne matchant QUE sur un champ qu'il a masqué remontait quand même
-        // dans "searchResults" sans jamais repasser par le filtre respectant
-        // la confidentialité (contrairement à filteredPeople/localSearchResults
-        // plus haut, qui utilisent déjà matchesSearch).
-        ...remoteSearchResults.filter(
-          (p) => p.id !== currentUser?.id && !blockedIds.has(p.id) && matchesSearch(p, search) && !localSearchResults.some((lp) => lp.id === p.id)
-        ),
-      ]
-    : [];
+  const searchResults = useMemo(
+    () => (search.trim()
+      ? [
+          ...localSearchResults,
+          // matchesSearch réappliqué ici (bug corrigé à l'audit) : la requête
+          // Supabase ci-dessus filtre côté serveur sur city/country/occupation
+          // bruts (colonnes, pas de notion de show_X en SQL), donc un profil
+          // ne matchant QUE sur un champ qu'il a masqué remontait quand même
+          // dans "searchResults" sans jamais repasser par le filtre respectant
+          // la confidentialité (contrairement à filteredPeople/localSearchResults
+          // plus haut, qui utilisent déjà matchesSearch).
+          ...remoteSearchResults.filter(
+            (p) => p.id !== currentUser?.id && !blockedIds.has(p.id) && matchesSearch(p, search) && !localSearchResults.some((lp) => lp.id === p.id)
+          ),
+        ]
+      : []),
+    [search, localSearchResults, remoteSearchResults, currentUser?.id, blockedIds]
+  );
 
   // Recherche "une discussion" du placeholder — jusqu'ici seule promesse non
   // tenue de la recherche globale (personne/ville étaient déjà correctement
   // couvertes par matchesSearch ci-dessus, vérifié en direct à l'audit).
   // Aucune nouvelle requête : matches/lastByKey sont déjà chargés pour la
   // prévisualisation "Tes conversations" du fil.
-  const conversationResults = search.trim()
-    ? matches.filter((m) => {
-        const last = lastByKey[matchKey(currentUser?.id, m.id)];
-        const words = normalizeForSearch(search).split(/\s+/).filter(Boolean);
-        const haystack = normalizeForSearch(`${m.name} ${last?.text || ""}`);
-        return words.every((w) => haystack.includes(w));
-      })
-    : [];
+  const conversationResults = useMemo(
+    () => (search.trim()
+      ? matches.filter((m) => {
+          const last = lastByKey[matchKey(currentUser?.id, m.id)];
+          const words = normalizeForSearch(search).split(/\s+/).filter(Boolean);
+          const haystack = normalizeForSearch(`${m.name} ${last?.text || ""}`);
+          return words.every((w) => haystack.includes(w));
+        })
+      : []),
+    [search, matches, lastByKey, currentUser?.id]
+  );
 
   const topPerson = filteredPeople[0] || null;
   const topPhotos = topPerson
