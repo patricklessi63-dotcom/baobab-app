@@ -281,10 +281,25 @@ export default function FeedTab({
   // les listes restent affichées mais sans classement par score : effet
   // réel, pas cosmétique (rankCandidates n'est simplement pas appelée).
   const personalized = currentUser?.personalization_enabled !== false;
+  // Bug de performance corrigé à l'audit : rankCandidates() (filtrage par
+  // préférences + calcul de score de compatibilité + tri, pour chacune des
+  // 3 listes ci-dessous) était réexécuté à CHAQUE rendu de FeedTab — y
+  // compris ceux déclenchés par un simple changement de compteur de
+  // notifications non lues, sans rapport avec candidates/nearbyMembers/
+  // newArrivals — faute d'être mémoïsé.
   const neutralRank = (list) => list.map((profile) => ({ profile, match: { score: 0, level: "neutral", reasons: [], commonInterests: [] } }));
-  const rankedForYou = personalized ? rankCandidates(currentUser, candidates) : neutralRank(candidates);
-  const rankedNearby = personalized ? rankCandidates(currentUser, nearbyMembers) : neutralRank(nearbyMembers);
-  const rankedNewArrivals = personalized ? rankCandidates(currentUser, newArrivals) : neutralRank(newArrivals);
+  const rankedForYou = useMemo(
+    () => (personalized ? rankCandidates(currentUser, candidates) : neutralRank(candidates)),
+    [personalized, currentUser, candidates]
+  );
+  const rankedNearby = useMemo(
+    () => (personalized ? rankCandidates(currentUser, nearbyMembers) : neutralRank(nearbyMembers)),
+    [personalized, currentUser, nearbyMembers]
+  );
+  const rankedNewArrivals = useMemo(
+    () => (personalized ? rankCandidates(currentUser, newArrivals) : neutralRank(newArrivals)),
+    [personalized, currentUser, newArrivals]
+  );
   const { recommendedCommunities, recommendedEvents } = useFeedRecommendations(personalized ? currentUser : null);
 
   // Nudge de complétion de profil (Phase 12a) — réutilise le système A
