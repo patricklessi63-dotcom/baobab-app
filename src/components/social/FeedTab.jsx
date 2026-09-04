@@ -300,6 +300,21 @@ export default function FeedTab({
     () => (personalized ? rankCandidates(currentUser, newArrivals) : neutralRank(newArrivals)),
     [personalized, currentUser, newArrivals]
   );
+  // Bug corrigé à l'audit : rankCandidates() applique un filtre DUR par
+  // préférences (âge, distance, type de relation recherché — voir
+  // filterCandidatesByPreferences dans matchingService.js), donc
+  // rankedForYou/rankedNearby/rankedNewArrivals peuvent être strictement plus
+  // courts que candidates/nearbyMembers/newArrivals (ex. préférence "Ma ville
+  // uniquement" avec peu de monde sur place). Les 4 usages plus bas
+  // (compteur BaobabHero + les 3 conditions "liste vide ?") comparaient à
+  // tort .length sur la liste brute non filtrée : le bandeau d'accueil
+  // pouvait annoncer "12 personnes pourraient t'intéresser" alors que la
+  // section "Recommandations" en dessous, elle, n'affichait rien (aucune
+  // carte ET aucun message "Pas encore de recommandations", puisque ce
+  // message ne se déclenchait que si la liste brute était vide, jamais si
+  // seul le résultat filtré l'était). neutralRank() ne retire aucun profil,
+  // donc se rabattre sur rankedForYou/rankedNearby/rankedNewArrivals reste
+  // correct même quand la personnalisation est désactivée.
   const { recommendedCommunities, recommendedEvents } = useFeedRecommendations(personalized ? currentUser : null);
 
   // Nudge de complétion de profil (Phase 12a) — réutilise le système A
@@ -435,7 +450,7 @@ export default function FeedTab({
       </div>
 
       <BaobabHero
-        recommendationsCount={candidates.length}
+        recommendationsCount={rankedForYou.length}
         profileCompletePct={growthPct}
         onDiscover={() => goTab("discover")}
         onCompleteProfile={openEditProfile}
@@ -491,7 +506,7 @@ export default function FeedTab({
               <div><b className="text-sm">Recommandations</b><div className="text-xs mt-0.5" style={{ color: muted }}>De nouveaux membres de la communauté</div></div>
               <button onClick={() => goTab("discover")} className="text-xs font-bold focus-visible:outline focus-visible:outline-2" style={{ color: coral }}>Tout voir</button>
             </div>
-            {candidates.length === 0 ? (
+            {rankedForYou.length === 0 ? (
               <EmptyState
                 title="Pas encore de recommandations."
                 subtitle="Complète ton profil pour recevoir de meilleures suggestions."
@@ -514,7 +529,7 @@ export default function FeedTab({
                 ))}
               </div>
             )}
-            {candidates.length > 0 && (
+            {rankedForYou.length > 0 && (
               <div className="flex items-center justify-end gap-2 mt-4 pt-3" style={{ borderTop: `1px solid rgba(${primaryRgb},.06)` }}>
                 <span className="text-xs" style={{ color: muted }}>{feedbackSent ? "Merci pour ton retour !" : "Ces suggestions te conviennent-elles ?"}</span>
                 {!feedbackSent && (
@@ -606,7 +621,7 @@ export default function FeedTab({
                 actionLabel="Ajouter ma ville"
                 onAction={openEditProfile}
               />
-            ) : nearbyMembers.length === 0 ? (
+            ) : rankedNearby.length === 0 ? (
               <EmptyState
                 title={`Personne d'autre à ${currentUser.city} pour l'instant.`}
                 subtitle="Invite ta communauté à rejoindre Baobab, ou découvre les membres des autres villes."
@@ -640,7 +655,7 @@ export default function FeedTab({
             <p className="text-sm mt-1" style={{ color: muted }}>Rencontre des personnes qui vivent un parcours similaire au tien.</p>
           </div>
           <div className={`${card} p-5`}>
-            {newArrivals.length === 0 ? (
+            {rankedNewArrivals.length === 0 ? (
               <EmptyState
                 icon={Luggage}
                 title="Pas encore de nouveaux arrivants identifiés."
