@@ -490,6 +490,45 @@ export default function App() {
     };
   }, [session?.user?.id, currentUser?.show_online_status]);
 
+  // Statut en ligne des AUTRES profils (bug corrigé à l'audit — staleness) :
+  // is_online/last_seen ne sont chargés qu'une fois par loadAll() et
+  // n'existent dans aucun canal postgres_changes sur "profiles" ici — le
+  // heartbeat ci-dessus n'écrit QUE notre propre présence, il ne rafraîchit
+  // jamais celle des autres. Le point "En ligne"/dernière connexion affiché
+  // sur une carte Discover (candidates, via `profiles`) ou dans l'en-tête
+  // d'une conversation (matches, via `likerProfilesRaw`) restait donc figé à
+  // l'instant du chargement initial après une longue absence de l'onglet —
+  // la personne pouvait s'être connectée ou déconnectée entre-temps sans que
+  // rien ne le reflète avant un rechargement complet de la page. Au retour
+  // de focus, on rafraîchit donc ces seules colonnes pour les profils déjà
+  // en cache (léger : pas de re-fetch complet des lignes).
+  useEffect(() => {
+    if (!session?.user?.id) return;
+    const refreshPeersPresence = async () => {
+      const ids = new Set([
+        ...profilesRef.current.map((p) => p.id),
+        ...likerProfilesRawRef.current.map((p) => p.id),
+      ]);
+      ids.delete(currentUser?.id);
+      if (ids.size === 0) return;
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, is_online, last_seen, show_online_status")
+        .in("id", Array.from(ids));
+      if (error || !data) return;
+      const byId = new Map(data.map((r) => [r.id, r]));
+      const merge = (p) => {
+        const fresh = byId.get(p.id);
+        return fresh ? { ...p, ...fresh } : p;
+      };
+      setProfiles((ps) => ps.map(merge));
+      setLikerProfilesRaw((ps) => ps.map(merge));
+    };
+    const onVisible = () => { if (document.visibilityState === "visible") refreshPeersPresence(); };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [session?.user?.id, currentUser?.id]);
+
   useEffect(() => {
     messagesRef.current = messages;
   }, [messages]);
