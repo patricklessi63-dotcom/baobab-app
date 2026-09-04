@@ -109,6 +109,11 @@ export default function SocialShell({
   candidates = [],
   getMatches = () => [],
   getAdmirers = () => [],
+  // Compteur "qui m'a aimé" sans identité (voir admirersCount dans App.jsx
+  // et supabase-premium-admirers-reveal-fix.sql) — distinct de
+  // getAdmirers().length, qui ne contient les profils complets des
+  // admirateur·ices à sens unique que pour un compte Premium.
+  admirersCount = 0,
   openChat = () => {},
   closeChat = () => {},
   handleLike = () => {},
@@ -2049,7 +2054,7 @@ export default function SocialShell({
             profilePhotos={profilePhotos}
             favoritesCount={favoriteProfiles.length}
             onOpenFavorites={() => setFavoritesOpen(true)}
-            admirersCount={admirers.length}
+            admirersCount={admirersCount}
             onOpenAdmirers={() => setAdmirersOpen(true)}
             onOpenPreferences={() => setPreferencesOpen(true)}
             myCommunities={myCommunities}
@@ -2256,6 +2261,7 @@ export default function SocialShell({
         open={admirersOpen}
         onClose={() => setAdmirersOpen(false)}
         admirerProfiles={admirers}
+        admirersCount={admirersCount}
         currentUser={currentUser}
         /* Bug : la modale "Qui m'a aimé" se fermait entièrement après avoir
            aimé une seule personne en retour, alors qu'elle peut contenir

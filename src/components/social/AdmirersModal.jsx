@@ -11,11 +11,16 @@ import { visibleAge } from "../../utils/format";
 import { primary, coral, muted, card, primaryRgb } from "./theme";
 
 // Avantage Premium : qui m'a aimé·e sans réciprocité pour l'instant (voir
-// getAdmirers() dans App.jsx). Non-Premium : le nombre reste visible (crée
-// l'envie, motif Paywall standard des apps de rencontre), mais jamais les
-// identités — cohérent avec Paywall.jsx ("barrière d'UX, pas de sécurité",
-// la donnée elle-même n'est pas chargée différemment ici, juste masquée).
-export default function AdmirersModal({ open, onClose, admirerProfiles = [], currentUser, onLikeBack, onViewProfile, onUpgrade }) {
+// getAdmirers() dans App.jsx). Non-Premium : le nombre reste visible via
+// admirersCount (crée l'envie, motif Paywall standard des apps de
+// rencontre), mais jamais les identités. Contrairement à l'ancien
+// commentaire ici ("barrière d'UX, pas de sécurité, la donnée reste déjà
+// chargée") : corrigé (voir supabase-premium-admirers-reveal-fix.sql) — le
+// serveur (get_my_likers()/get_liker_profile_reveal()) ne renvoie plus le
+// profil complet d'un·e admirateur·ice à sens unique tant que l'appelant
+// n'est pas Premium, donc admirerProfiles est réellement vide côté client
+// pour un compte gratuit, pas juste masqué à l'affichage.
+export default function AdmirersModal({ open, onClose, admirerProfiles = [], admirersCount = 0, currentUser, onLikeBack, onViewProfile, onUpgrade }) {
   const { isPremium, loading } = usePremiumStatus(currentUser);
   useEscapeKey(open, onClose);
   // Même bug de piège à focus absent que dans Auth.jsx/FavoritesModal.jsx :
@@ -42,9 +47,9 @@ export default function AdmirersModal({ open, onClose, admirerProfiles = [], cur
 
         {loading ? null : !isPremium ? (
           <Paywall
-            title={admirerProfiles.length > 0
-              ? (admirerProfiles.length > 1
-                ? `${admirerProfiles.length} personnes t'ont déjà aimé·e`
+            title={admirersCount > 0
+              ? (admirersCount > 1
+                ? `${admirersCount} personnes t'ont déjà aimé·e`
                 : "1 personne t'a déjà aimé·e")
               : "Découvre qui t'a aimé·e en premier"}
             description="Passe à Premium pour voir qui t'a déjà aimé·e et matcher directement, sans attendre."
@@ -68,10 +73,10 @@ export default function AdmirersModal({ open, onClose, admirerProfiles = [], cur
                       {/* Parité de badges (bug corrigé à l'audit, même famille que
                           PublicProfileModal) : la donnée is_founder/is_premium/
                           email_verified/phone_verified est déjà chargée ici
-                          (jointure select("*") sur "likes" dans App.jsx), mais
-                          le badge n'était jamais rendu, contrairement à
-                          MatchCard/DiscoverTab/ProfileCard qui montrent le même
-                          profil ailleurs dans l'app. */}
+                          (get_my_likers() dans supabase-premium-admirers-reveal-fix.sql,
+                          appelée depuis App.jsx), mais le badge n'était jamais
+                          rendu, contrairement à MatchCard/DiscoverTab/ProfileCard
+                          qui montrent le même profil ailleurs dans l'app. */}
                       <StatusBadge isFounder={p.is_founder} isPremium={p.is_premium} emailVerified={p.email_verified} phoneVerified={p.phone_verified} size={13} />
                     </div>
                     {/* Confidentialité par champ (voir PrivacyFieldsModal.jsx) — cette

@@ -69,6 +69,14 @@ export default function App() {
   // après ce plafond restait invisible dans "Qui m'a aimé" et dans l'onglet
   // Messages, alors que le like existait bel et bien en base.
   const [likerProfilesRaw, setLikerProfilesRaw] = useState([]);
+  // Nombre d'admirateur·ices à sens unique (m'ont liké, pas encore liké en
+  // retour) — voir supabase-premium-admirers-reveal-fix.sql. Séparé de
+  // likerProfilesRaw car ce compteur ne révèle aucune identité et doit donc
+  // rester exact même pour un compte gratuit (badge "(N)" de l'onglet
+  // Profil, texte du Paywall dans AdmirersModal), alors que
+  // likerProfilesRaw ne contient les profils complets des admirateur·ices
+  // à sens unique que pour un compte Premium (get_my_likers() côté serveur).
+  const [admirersCount, setAdmirersCount] = useState(0);
   // Profils complets des comptes que j'ai bloqués (jointure directe sur
   // "blocks", from_id = moi) — voir le commentaire dans loadAll : alimente
   // la modale "Comptes bloqués" sans dépendre du cache "profiles" plafonné.
@@ -221,14 +229,17 @@ export default function App() {
         passQuery = passQuery.or(relFilter);
         blockQuery = blockQuery.or(relFilter);
       }
-      // Jointure directe sur "likes" (to_id = moi) pour récupérer le profil
-      // complet de chaque personne qui m'a liké, sans dépendre du cache
-      // "profiles" plafonné à 500 lignes — voir le commentaire sur
-      // likerProfilesRaw plus haut. Alias explicite "from_id" nécessaire
-      // car "likes" a deux FK vers profiles (from_id et to_id) ; sans lui
-      // PostgREST ne peut pas savoir laquelle utiliser pour l'embed.
+      // RPC get_my_likers() plutôt qu'une jointure PostgREST directe sur
+      // "likes" (voir supabase-premium-admirers-reveal-fix.sql) : l'ancienne
+      // requête (.select("from_id, profile:from_id(*)")) renvoyait le
+      // profil complet de TOUT LE MONDE qui m'a liké, peu importe mon
+      // statut Premium — AdmirersModal ne faisait que masquer l'affichage,
+      // la donnée elle-même avait déjà transité en clair dans la réponse
+      // réseau. La RPC applique is_premium() côté serveur : profil complet
+      // pour un match mutuel (jamais un avantage Premium) ou si je suis
+      // Premium, sinon seulement un compteur sans identité.
       const likerQuery = myProfileId
-        ? supabase.from("likes").select("from_id, profile:from_id(*)").eq("to_id", myProfileId)
+        ? supabase.rpc("get_my_likers")
         : null;
       // Même correctif que likerQuery ci-dessus, appliqué à la modale "Comptes
       // bloqués" (AppModals.jsx) : elle filtrait jusqu'ici le cache "profiles"
@@ -257,7 +268,8 @@ export default function App() {
       setLikePairs(likeRes.data || []);
       setPassPairs(passRes.data || []);
       setBlockPairs(blockRes.data || []);
-      setLikerProfilesRaw((likerRes.data || []).map((r) => r.profile).filter(Boolean));
+      setLikerProfilesRaw((likerRes.data?.likers) || []);
+      setAdmirersCount(likerRes.data?.admirers_count || 0);
       setBlockedProfilesRaw((blockedProfRes.data || []).map((r) => r.profile).filter(Boolean));
       const grouped = {};
       (photoRes.data || []).forEach((ph) => {
@@ -899,6 +911,7 @@ export default function App() {
     setLikePairs([]);
     setPassPairs([]);
     setLikerProfilesRaw([]);
+    setAdmirersCount(0);
     setBlockedProfilesRaw([]);
   }
 
@@ -1702,6 +1715,18 @@ export default function App() {
       if (reciprocal) {
         setMatchNotice(target);
         trackActivation(currentUser.id, "first_match");
+        // target basculait d'admirateur·ice à sens unique (compté dans
+        // admirersCount) à match mutuel (jamais compté dedans) — voir
+        // admirersCount plus haut et get_my_likers() côté serveur.
+        setAdmirersCount((c) => Math.max(0, c - 1));
+        // Si target était un·e admirateur·ice à sens unique caché·e (compte
+        // gratuit, voir get_my_likers()), son profil n'était encore jamais
+        // entré dans likerProfilesRaw — sans cette ligne, le match tout
+        // neuf resterait invisible dans getMatches()/l'onglet Messages
+        // jusqu'au prochain rechargement complet. "target" est déjà un
+        // profil complet légitimement visible par l'appelant (candidat de
+        // Découverte), donc aucune fuite : ce n'est qu'un match mutuel réel.
+        setLikerProfilesRaw((prev) => (prev.some((p) => p.id === target.id) ? prev : [target, ...prev]));
       }
       return true;
     } catch (e) {
@@ -2219,22 +2244,27 @@ export default function App() {
           );
           if (isBlocked) return; // même logique que getMatches() : un match avec une personne bloquée ne doit pas apparaître
           const alreadyMutual = likePairsRef.current.some((l) => l.from_id === currentUser.id && l.to_id === fromId);
+          const isNewIncomingLike = !likePairsRef.current.some((l) => l.from_id === fromId && l.to_id === currentUser.id);
           setLikePairs((prev) =>
             prev.some((l) => l.from_id === fromId && l.to_id === currentUser.id) ? prev : [...prev, { from_id: fromId, to_id: currentUser.id }]
           );
-          // Le profil complet de qui vient de me liker doit rejoindre
-          // likerProfilesRaw (liste "Qui m'a aimé"/matches, voir sa
-          // déclaration plus haut) — sans ça, un like reçu en direct d'une
-          // personne absente du cache "profiles" plafonné à 500 lignes ne
-          // serait jamais visible, ni dans la modale Admirateurs ni comme
-          // match, avant un rechargement complet de la page.
+          // Compteur "qui m'a aimé" sans identité (voir admirersCount plus
+          // haut) : mis à jour tout de suite même pour un compte gratuit,
+          // contrairement au profil complet ci-dessous.
+          if (isNewIncomingLike && !alreadyMutual) {
+            setAdmirersCount((c) => c + 1);
+          }
+          // Le profil complet de qui vient de me liker ne doit rejoindre
+          // likerProfilesRaw (liste "Qui m'a aimé"/matches) que si le
+          // serveur l'autorise — get_liker_profile_reveal() (voir
+          // supabase-premium-admirers-reveal-fix.sql) renvoie le profil pour
+          // un match mutuel ou un compte Premium, sinon null. Avant ce
+          // correctif, un select("*") direct sur "profiles" ici renvoyait
+          // toujours le profil complet dès qu'un nouveau like arrivait en
+          // direct, peu importe le statut Premium du destinataire — la même
+          // fuite que dans loadAll(), juste sur le chemin realtime.
           (async () => {
-            let fromProfile =
-              likerProfilesRawRef.current.find((p) => p.id === fromId) || profilesRef.current.find((p) => p.id === fromId);
-            if (!fromProfile) {
-              const { data } = await supabase.from("profiles").select("*").eq("id", fromId).maybeSingle();
-              fromProfile = data || null;
-            }
+            const { data: fromProfile } = await supabase.rpc("get_liker_profile_reveal", { p_from_id: fromId });
             if (!fromProfile) return;
             setLikerProfilesRaw((prev) => (prev.some((p) => p.id === fromId) ? prev : [fromProfile, ...prev]));
             if (alreadyMutual) {
@@ -2295,7 +2325,16 @@ export default function App() {
         { event: "DELETE", schema: "public", table: "likes", filter: `to_id=eq.${currentUser.id}` },
         (payload) => {
           const fromId = payload.old.from_id;
+          const wasMutual = likePairsRef.current.some((l) => l.from_id === currentUser.id && l.to_id === fromId);
           setLikePairs((prev) => prev.filter((l) => !(l.from_id === fromId && l.to_id === currentUser.id)));
+          // Symétrique de l'incrément dans le handler INSERT ci-dessus :
+          // admirersCount ne compte que les likes à sens unique, donc un
+          // match mutuel qui se délite (l'autre personne me retire son
+          // like alors que je l'avais aimée aussi) ne doit pas décrémenter
+          // ce compteur, qui ne l'incluait déjà pas.
+          if (!wasMutual) {
+            setAdmirersCount((c) => Math.max(0, c - 1));
+          }
         }
       )
       .subscribe();
@@ -2551,6 +2590,7 @@ export default function App() {
           candidates={candidates}
           getMatches={getMatches}
           getAdmirers={getAdmirers}
+          admirersCount={admirersCount}
           openChat={openChat}
           closeChat={closeChat}
           handleLike={handleLike}
