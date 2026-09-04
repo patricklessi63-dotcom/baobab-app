@@ -26,6 +26,7 @@ export default function PostCard({
   onLoadComments,
   onSubmitComment,
   onReport,
+  onReportComment,
   onDelete,
   onEdit,
   canModerate = false,
@@ -172,6 +173,24 @@ export default function PostCard({
                     <span className="text-xs font-bold" style={{ color: primary }}>{c.profiles?.name || "Membre"}</span>
                     <p className="text-xs mt-0.5 whitespace-pre-wrap break-words">{c.body}</p>
                   </div>
+                  {/* Bug corrigé : post_reports.target_type autorise déjà
+                      ('post','comment') côté base (supabase-feed-posts.sql) et
+                      submitReport() de PostsFeed.jsx est générique (target_type:
+                      reportTarget.type) — mais aucun bouton n'exposait jamais
+                      "comment", rendant les commentaires de publication
+                      totalement impossibles à signaler individuellement (il
+                      fallait signaler toute la publication pour un commentaire
+                      isolé, ou ne rien pouvoir faire du tout). */}
+                  {onReportComment && c.author_id !== currentUserId && (
+                    <button
+                      onClick={() => onReportComment(c)}
+                      aria-label="Signaler ce commentaire"
+                      className="shrink-0 mt-1 focus-visible:outline focus-visible:outline-2"
+                      style={{ color: muted }}
+                    >
+                      <Flag size={12} />
+                    </button>
+                  )}
                 </div>
               ))}
               <div className="flex items-center gap-2 mt-1">

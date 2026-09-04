@@ -638,6 +638,17 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
     setReportSubmitted(false);
   };
 
+  // Bug corrigé : post_reports.target_type autorise ('post','comment') côté
+  // base et submitReport() ci-dessous est déjà générique, mais aucun appelant
+  // ne passait jamais "comment" — un commentaire abusif isolé ne pouvait pas
+  // être signalé (voir bouton ajouté dans PostCard.jsx).
+  const openReportComment = (comment) => {
+    setReportTarget({ type: "comment", id: comment.id, name: "ce commentaire" });
+    setReportCategory("");
+    setReportReason("");
+    setReportSubmitted(false);
+  };
+
   const submitReport = async () => {
     if (!currentUser || !reportTarget || !reportCategory) return;
     if (reportCategory === "autre" && !reportReason.trim()) return;
@@ -800,6 +811,7 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
                 onLoadComments={loadComments}
                 onSubmitComment={submitComment}
                 onReport={openReport}
+                onReportComment={openReportComment}
                 onDelete={deletePost}
                 onEdit={editPost}
               />

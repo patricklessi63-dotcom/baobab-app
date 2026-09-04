@@ -1022,6 +1022,7 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
           onSubmitComment={handleSubmitComment}
           onEditComment={handleEditComment}
           onReportPost={(p) => openReport("post", p.id, REPORT_TARGET_LABEL.post)}
+          onReportComment={(c) => openReport("comment", c.id, REPORT_TARGET_LABEL.comment)}
           onDeletePost={handleDeletePost}
           onDeleteComment={handleDeleteComment}
           events={events}

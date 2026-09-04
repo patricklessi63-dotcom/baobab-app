@@ -23,6 +23,7 @@ export default function CommunityPostCard({
   onSubmitComment,
   onEditComment = () => {},
   onReport,
+  onReportComment = () => {},
   onDelete,
   canDelete,
   onDeleteComment = () => {},
@@ -181,6 +182,14 @@ export default function CommunityPostCard({
                             <button onClick={() => setReplyingTo(c)} aria-label="Répondre" className="focus-visible:outline focus-visible:outline-2"><Reply size={12} color={muted} /></button>
                             {c.author_id === currentUserId && (
                               <button onClick={() => startEdit(c)} aria-label="Modifier ce commentaire" className="focus-visible:outline focus-visible:outline-2"><Pencil size={12} color={muted} /></button>
+                            )}
+                            {/* Bug corrigé : community_reports.target_type autorise déjà
+                                'comment' côté base (supabase-communities.sql) mais rien
+                                n'exposait ce type dans l'UI — un commentaire abusif isolé
+                                ne pouvait pas être signalé sans signaler toute la
+                                publication (même gap que PostCard.jsx). */}
+                            {c.author_id !== currentUserId && (
+                              <button onClick={() => onReportComment(c)} aria-label="Signaler ce commentaire" className="focus-visible:outline focus-visible:outline-2"><Flag size={12} color={muted} /></button>
                             )}
                             {(c.author_id === currentUserId || canModerate) && (
                               // Même garde-fou que la suppression de publication ci-dessus
