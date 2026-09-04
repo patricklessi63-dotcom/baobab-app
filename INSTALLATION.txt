@@ -1,10 +1,28 @@
-BAOBAB — AUTH INTÉGRATION
+BAOBAB — INSTALLATION
 
-Copie :
-1. src/Auth.jsx -> ton projet/src/Auth.jsx
-2. src/assets/baobab-canada-bg.png -> ton projet/src/assets/baobab-canada-bg.png
+1. Installer les dépendances :
+   npm install
 
-Garde ton supabaseClient.js actuel.
-Puis lance : npm run dev
+2. Configurer les variables d'environnement :
+   Copier .env.example vers .env, puis renseigner :
+   - VITE_SUPABASE_URL       (URL du projet Supabase)
+   - VITE_SUPABASE_ANON_KEY  (clé anonyme publique Supabase)
+   - VITE_VAPID_PUBLIC_KEY   (clé publique VAPID, pour les notifications push)
 
-Le formulaire conserve l'inscription, la connexion et la réinitialisation Supabase.
+3. Base de données Supabase :
+   Exécuter supabase-schema.sql sur le projet Supabase, puis les autres
+   scripts supabase-*.sql selon les fonctionnalités activées (communautés,
+   événements, messagerie, premium/Stripe, modération, etc.).
+   supabase-COMBINED-pending-fixes.sql regroupe les correctifs les plus
+   récents pas encore appliqués manuellement.
+   Les Edge Functions (supabase/functions/) sont déployées séparément via
+   la CLI Supabase (supabase functions deploy <nom>).
+
+4. Lancer en développement :
+   npm run dev
+
+5. Build de production :
+   npm run build
+   (npm run preview pour tester le build localement)
+
+Déploiement : Vercel (voir vercel.json — rewrite SPA + en-têtes de sécurité).
