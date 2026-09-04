@@ -8,6 +8,7 @@ import { beginCriticalOperation, endCriticalOperation } from "../../lib/critical
 import { validateMediaFile } from "../../lib/mediaValidation";
 import { compressImageIfNeeded } from "../../lib/imageCompression";
 import { extFromMime } from "../../lib/mediaConstants";
+import { friendlyDbError } from "../../lib/friendlyDbError";
 import { primary, coral, muted, bg, goldText, primaryRgb } from "./theme";
 
 const NAME_MAX = 80;
@@ -131,7 +132,13 @@ export default function CommunityCreateForm({ currentUser, onCreated, onCancel, 
       onCreated(data);
     } catch (e) {
       console.error(e);
-      if (mountedRef.current) onError?.("Impossible de créer la communauté. Réessaie.");
+      // create_community() (supabase-create-community-event-authz-fix.sql) lève
+      // des messages déjà propres en français ("Non authentifie", "Le nom est
+      // requis"...) — un rejet RLS/auth (session expirée pendant la saisie,
+      // par ex.) s'affichait avant en "Impossible de créer la communauté.
+      // Réessaie.", sans indice, alors qu'EventCreateForm (même pattern de
+      // création via RPC) affiche déjà le message serveur le cas échéant.
+      if (mountedRef.current) onError?.(friendlyDbError(e) || "Impossible de créer la communauté. Réessaie.");
     } finally {
       endCriticalOperation();
       if (mountedRef.current) setSubmitting(false);
