@@ -125,7 +125,7 @@ export default function UpdatePasswordScreen({ onDone }) {
               )}
             </div>
             <button type="submit" disabled={loading || !ready}
-              className="mt-1 py-4 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 disabled:opacity-60"
+              className="mt-1 py-4 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 disabled:opacity-60 outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2"
               style={{ background: `linear-gradient(135deg, ${C.clay}, #A94F30)`, color: "#FFF8EF" }}>
               {loading && <Loader2 size={16} className="animate-spin" />}
               Mettre à jour le mot de passe

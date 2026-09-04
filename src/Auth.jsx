@@ -462,7 +462,7 @@ export default function Auth({ justVerified = false, onAcknowledgeVerified = () 
                   className="bb-field rounded-2xl px-4 py-4 text-center text-lg tracking-[0.3em] outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--bb-clay)]"
                   style={{ background: "rgba(26,54,38,0.78)", border: "1px solid rgba(242,233,220,0.11)", color: C.sand }}
                 />
-                <button type="submit" disabled={verifyLoading || !otpCode.trim()} className="bb-tap py-3.5 rounded-2xl text-sm font-bold text-white disabled:opacity-60" style={{ background: `linear-gradient(135deg, ${C.clay}, #A94F30)` }}>
+                <button type="submit" disabled={verifyLoading || !otpCode.trim()} className="bb-tap py-3.5 rounded-2xl text-sm font-bold text-white disabled:opacity-60 outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2" style={{ background: `linear-gradient(135deg, ${C.clay}, #A94F30)` }}>
                   {verifyLoading ? "Vérification..." : "Vérifier le code"}
                 </button>
               </form>
@@ -498,7 +498,7 @@ export default function Auth({ justVerified = false, onAcknowledgeVerified = () 
                   className="bb-field rounded-2xl px-4 py-4 text-center text-lg tracking-[0.3em] outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--bb-clay)]"
                   style={{ background: "rgba(26,54,38,0.78)", border: "1px solid rgba(242,233,220,0.11)", color: C.sand }}
                 />
-                <button type="submit" disabled={verifyLoading || !otpCode.trim()} className="bb-tap py-3.5 rounded-2xl text-sm font-bold text-white disabled:opacity-60" style={{ background: `linear-gradient(135deg, ${C.clay}, #A94F30)` }}>
+                <button type="submit" disabled={verifyLoading || !otpCode.trim()} className="bb-tap py-3.5 rounded-2xl text-sm font-bold text-white disabled:opacity-60 outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2" style={{ background: `linear-gradient(135deg, ${C.clay}, #A94F30)` }}>
                   {verifyLoading ? "Vérification..." : "Vérifier le code"}
                 </button>
               </form>
@@ -567,7 +567,7 @@ export default function Auth({ justVerified = false, onAcknowledgeVerified = () 
               )}
 
               <button type="submit" disabled={loading || (mode === "signup" && !signupReady) || (mode === "reset" && resetCooldown > 0)}
-                className="bb-submit bb-tap mt-1 flex items-center justify-center gap-2 rounded-2xl py-4 text-sm font-bold transition-transform duration-200 active:scale-[0.98] hover:scale-[1.01] disabled:opacity-60"
+                className="bb-submit bb-tap mt-1 flex items-center justify-center gap-2 rounded-2xl py-4 text-sm font-bold transition-transform duration-200 active:scale-[0.98] hover:scale-[1.01] disabled:opacity-60 outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2"
                 style={{ background: `linear-gradient(135deg, ${C.clay}, #A94F30)`, color: "#FFF8EF", boxShadow: "0 14px 32px -10px rgba(193,97,61,.65)" }}>
                 {loading && <Loader2 size={17} className="animate-spin" />}
                 {loading ? (mode === "signup" ? "Création..." : mode === "reset" ? "Envoi..." : "Connexion...")
