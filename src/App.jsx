@@ -117,6 +117,22 @@ export default function App() {
   const [aboutOpen, setAboutOpen] = useState(false);
   const [myLocation, setMyLocation] = useState(null);
   const [locationChecked, setLocationChecked] = useState(false);
+  // Jeton anti-course pour toute écriture sur "myLocation" : l'effet de suivi
+  // "last_in_canada_at" ci-dessous (silencieux, jusqu'à une fois par heure) et
+  // les actions manuelles handleEnableLocation/handleDisableLocation/
+  // handleUpdateLocationPref écrivent TOUTES via upsertMyLocation(), chacune
+  // appelant ensuite setMyLocation(row) avec la réponse réseau reçue — sans
+  // coordination entre elles (même famille de bug que chatLoadTokenRef/
+  // usersRequestRef/feedbackRequestRef ailleurs dans l'app). Scénario concret :
+  // l'effet déclenche son upsert périodique pendant que l'utilisateur clique
+  // "Désactiver la localisation" dans Réglages ; si la réponse réseau de
+  // l'upsert périodique (qui ne touche pourtant que last_in_canada_at côté
+  // base) arrive APRÈS celle de la désactivation, elle réécrase localement
+  // myLocation.location_enabled à `true` — alors que la base a bien
+  // enregistré `false`. locationGateBlocked (plus bas) redeviendrait alors
+  // faussement non bloquant côté client jusqu'au prochain rechargement,
+  // malgré une localisation réellement désactivée en base.
+  const myLocationWriteTokenRef = useRef(0);
   const [coverFile, setCoverFile] = useState(null);
   const [coverPreview, setCoverPreview] = useState("");
   const [coverRemoved, setCoverRemoved] = useState(false);
@@ -602,8 +618,9 @@ export default function App() {
     if (!currentUser?.id || inCanada !== true || !myLocation) return;
     const last = myLocation.last_in_canada_at ? new Date(myLocation.last_in_canada_at).getTime() : 0;
     if (Date.now() - last < 60 * 60 * 1000) return; // déjà à jour depuis moins d'une heure, évite un upsert à chaque rendu
+    const token = ++myLocationWriteTokenRef.current;
     upsertMyLocation({ last_in_canada_at: new Date().toISOString() })
-      .then((row) => setMyLocation(row))
+      .then((row) => { if (myLocationWriteTokenRef.current === token) setMyLocation(row); })
       .catch((e) => console.error(e));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser?.id, inCanada, myLocation?.last_in_canada_at]);
@@ -1010,9 +1027,16 @@ export default function App() {
   }
 
   async function handleEnableLocation(latitude, longitude) {
+    // Voir le commentaire sur myLocationWriteTokenRef (déclaration de
+    // myLocation) : seule la réponse de la DERNIÈRE écriture lancée doit
+    // pouvoir mettre à jour myLocation, sinon une réponse en retard (ex.
+    // l'upsert périodique last_in_canada_at) peut écraser un changement plus
+    // récent (activer/désactiver/modifier une préférence) avec des données
+    // obsolètes.
+    const token = ++myLocationWriteTokenRef.current;
     try {
       const row = await upsertMyLocation({ location_enabled: true, latitude_approx: latitude, longitude_approx: longitude });
-      setMyLocation(row);
+      if (myLocationWriteTokenRef.current === token) setMyLocation(row);
     } catch (e) {
       console.error(e);
       setError("Impossible d'activer la localisation.");
@@ -1021,26 +1045,28 @@ export default function App() {
 
   async function handleDisableLocation() {
     const previous = myLocation;
+    const token = ++myLocationWriteTokenRef.current;
     setMyLocation((l) => (l ? { ...l, location_enabled: false } : l));
     try {
       const row = await disableMyLocation();
-      setMyLocation(row);
+      if (myLocationWriteTokenRef.current === token) setMyLocation(row);
     } catch (e) {
       console.error(e);
-      setMyLocation(previous);
+      if (myLocationWriteTokenRef.current === token) setMyLocation(previous);
       setError("Impossible de désactiver la localisation.");
     }
   }
 
   async function handleUpdateLocationPref(field, value) {
     const previous = myLocation;
+    const token = ++myLocationWriteTokenRef.current;
     setMyLocation((l) => (l ? { ...l, [field]: value } : l));
     try {
       const row = await upsertMyLocation({ [field]: value });
-      setMyLocation(row);
+      if (myLocationWriteTokenRef.current === token) setMyLocation(row);
     } catch (e) {
       console.error(e);
-      setMyLocation(previous);
+      if (myLocationWriteTokenRef.current === token) setMyLocation(previous);
       setError("Impossible de mettre à jour ce paramètre.");
     }
   }
