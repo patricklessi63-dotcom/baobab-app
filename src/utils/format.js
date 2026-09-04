@@ -27,6 +27,19 @@ export function formatMessageTime(iso) {
   return new Date(iso).toLocaleTimeString("fr-CA", { hour: "2-digit", minute: "2-digit" });
 }
 
+// Date longue en français ("3 septembre 2026") — le format utilisé partout
+// ailleurs dans l'app pour une date importante montrée à l'utilisateur
+// (suppression de compte, renouvellement Premium, article d'actualité).
+// Avant ce correctif, la date de fin de suspension/bannissement (écran vu
+// par l'utilisateur suspendu ET liste admin) utilisait toLocaleDateString
+// sans options, ce qui pour la locale "fr-CA" produit un format numérique
+// type "2026-09-03" — seul endroit de l'app à afficher une date importante
+// ainsi, sans raison fonctionnelle.
+export function formatLongDate(iso) {
+  if (!iso) return "";
+  return new Date(iso).toLocaleDateString("fr-CA", { year: "numeric", month: "long", day: "numeric" });
+}
+
 export function formatDayLabel(iso) {
   if (!iso) return "";
   const d = new Date(iso);

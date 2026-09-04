@@ -4,6 +4,7 @@ import Avatar from "../Avatar";
 import EmptyState from "../home/EmptyState";
 import Skeleton, { SkeletonCard } from "../Skeleton";
 import * as adminApi from "../../lib/adminApi";
+import { formatLongDate } from "../../utils/format";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { primary, coral, green, gold, muted, bg, card, primaryRgb, navy } from "../social/theme";
@@ -311,7 +312,7 @@ export default function AdminDashboard({ onBack, onError, myPlatformRole }) {
                           {u.role && <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full" style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)", color: primary }}>{u.role}</span>}
                         </div>
                         <div className="text-xs" style={{ color: muted }}>
-                          {isBanned ? "Banni" : isSuspended ? `Suspendu jusqu'au ${new Date(u.suspended_until).toLocaleDateString("fr-CA")}` : "Actif"}
+                          {isBanned ? "Banni" : isSuspended ? `Suspendu jusqu'au ${formatLongDate(u.suspended_until)}` : "Actif"}
                         </div>
                       </div>
                     </div>

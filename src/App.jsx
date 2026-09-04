@@ -3,7 +3,7 @@ import { Loader2 } from "lucide-react";
 import { supabase } from "./supabaseClient";
 import Auth from "./Auth.jsx";
 import { C, EDUCATION_LEVELS, HAS_CHILDREN_OPTIONS, MAX_PHOTOS } from "./constants";
-import { matchKey } from "./utils/format";
+import { matchKey, formatLongDate } from "./utils/format";
 import SocialShell from "./components/SocialShell";
 import AppModals from "./components/AppModals";
 import ConnectivityBanner from "./components/ConnectivityBanner";
@@ -2370,7 +2370,7 @@ export default function App() {
           <p className="text-sm mt-3" style={{ color: "rgba(var(--bb-text-rgb),0.7)" }}>
             {isBanned
               ? "Ton compte a été banni de Baobab suite à une violation des règles de la communauté."
-              : `Ton compte est temporairement suspendu${until ? ` jusqu'au ${until.toLocaleDateString("fr-CA")} à ${until.toLocaleTimeString("fr-CA", { hour: "2-digit", minute: "2-digit" })}` : ""}.`}
+              : `Ton compte est temporairement suspendu${until ? ` jusqu'au ${formatLongDate(currentUser.suspended_until)} à ${until.toLocaleTimeString("fr-CA", { hour: "2-digit", minute: "2-digit" })}` : ""}.`}
           </p>
           {reason && (
             <p className="text-sm mt-2 rounded-xl p-3" style={{ background: "rgba(var(--bb-text-rgb),0.05)", color: "rgba(var(--bb-text-rgb),0.6)" }}>
