@@ -17,7 +17,7 @@ function Row({ icon, label, children }) {
       <span className="text-base leading-none mt-0.5" aria-hidden="true">{icon}</span>
       <div className="min-w-0">
         <div className="text-[11px] font-bold uppercase tracking-wide" style={{ color: muted }}>{label}</div>
-        <div className="text-sm mt-0.5" style={{ color: body }}>{children}</div>
+        <div dir="auto" className="text-sm mt-0.5" style={{ color: body }}>{children}</div>
       </div>
     </div>
   );
@@ -128,7 +128,7 @@ export default function PublicProfileModal({
 
         <div className="p-5">
           <div className="flex items-center gap-2">
-            <h2 className="text-xl font-black" style={{ color: primary }}>{profile.name}{visibleAge(profile) ? `, ${visibleAge(profile)}` : ""}</h2>
+            <h2 dir="auto" className="text-xl font-black" style={{ color: primary }}>{profile.name}{visibleAge(profile) ? `, ${visibleAge(profile)}` : ""}</h2>
             <StatusBadge emailVerified={profile.email_verified} phoneVerified={profile.phone_verified} isFounder={profile.is_founder} isPremium={profile.is_premium} />
           </div>
 

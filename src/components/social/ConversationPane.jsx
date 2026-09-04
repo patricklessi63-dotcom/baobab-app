@@ -367,7 +367,7 @@ export default function ConversationPane({
                   ) : isMediaKind ? (
                     <MessageBubbleMedia m={m} isMine={isMine} />
                   ) : (
-                    <span className="whitespace-pre-wrap break-words"><MessageText text={m.text} /></span>
+                    <span dir="auto" className="whitespace-pre-wrap break-words"><MessageText text={m.text} /></span>
                   )}
                   {!isSticker && !isDeleted && (
                     <span className="text-[10px] flex-shrink-0 flex items-center gap-0.5" style={{ opacity: 0.7, whiteSpace: "nowrap" }}>
@@ -537,6 +537,7 @@ export default function ConversationPane({
         )}
         {!recorderActive && (
           <textarea
+            dir="auto"
             value={messageDraft}
             onChange={(e) => { setMessageDraft(e.target.value); broadcastTyping(); }}
             onKeyDown={(e) => {

@@ -142,6 +142,7 @@ export default function PostComposerModal({
                       <div className="flex-1">
                         <textarea
                           ref={textareaRef}
+                          dir="auto"
                           value={draft}
                           onChange={(e) => setDraft(truncateUnicodeSafe(e.target.value, 4000))}
                           disabled={Boolean(publishedPostId)}

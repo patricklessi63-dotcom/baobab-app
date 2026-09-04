@@ -61,6 +61,7 @@ export default function CommunityPostComposer({ currentUser, draft, setDraft, on
       <Avatar name={currentUser?.name} url={currentUser?.avatar_url} size={38} />
       <div className="flex-1">
         <textarea
+          dir="auto"
           value={draft}
           onChange={(e) => setDraft(e.target.value.slice(0, MAX_LENGTH))}
           placeholder="Qui va au match samedi ?"

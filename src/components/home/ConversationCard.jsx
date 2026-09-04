@@ -21,7 +21,7 @@ export default function ConversationCard({ match, onOpen }) {
       </div>
       <div className="min-w-0 flex-1">
         <div className="text-sm font-bold truncate flex items-center gap-1.5">
-          {match.name}
+          <span dir="auto" className="truncate">{match.name}</span>
           <StatusBadge emailVerified={match.email_verified} phoneVerified={match.phone_verified} isFounder={match.is_founder} isPremium={match.is_premium} size={12} />
         </div>
         {/* Confidentialité par champ (voir PrivacyFieldsModal.jsx) — cette carte

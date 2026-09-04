@@ -30,7 +30,7 @@ export default function EventParticipantsList({ participants = [], blockedIds = 
             <Avatar name={profile.name} url={profile.avatar_url} size={40} />
             <div className="min-w-0 flex-1">
               <div className="text-sm font-bold truncate flex items-center gap-1.5" style={{ color: primary }}>
-                {firstName}
+                <span dir="auto">{firstName}</span>
                 {/* Parité de badges (bug corrigé à l'audit, même famille que
                     CommunityMemberRow) : champs désormais chargés dans
                     loadParticipants() (EventsTab.jsx). */}

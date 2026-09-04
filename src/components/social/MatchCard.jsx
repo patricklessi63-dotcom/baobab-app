@@ -67,7 +67,7 @@ export default function MatchCard({
 
       <div className="p-4 flex-1 flex flex-col">
         <div className="flex items-center gap-1.5">
-          <h3 className="text-base font-black truncate" style={{ color: primary }}>{profile.name}{visibleAge(profile) ? `, ${visibleAge(profile)}` : ""}</h3>
+          <h3 dir="auto" className="text-base font-black truncate" style={{ color: primary }}>{profile.name}{visibleAge(profile) ? `, ${visibleAge(profile)}` : ""}</h3>
           <StatusBadge emailVerified={profile.email_verified} phoneVerified={profile.phone_verified} isFounder={profile.is_founder} isPremium={profile.is_premium} size={14} />
         </div>
         {(showCity && profile.city) || typeof distanceKm === "number" ? (

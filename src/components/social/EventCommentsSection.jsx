@@ -21,6 +21,7 @@ export default function EventCommentsSection({ comments = [], loading, canPost, 
       {canPost && (
         <div className="flex items-center gap-2 pb-4 mb-3" style={{ borderBottom: `1px solid rgba(${primaryRgb},.06)` }}>
           <input
+            dir="auto"
             value={draft}
             onChange={(e) => setDraft(truncateUnicodeSafe(e.target.value, 1000))}
             placeholder="Écris un message pour les participants…"

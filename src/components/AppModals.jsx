@@ -327,7 +327,7 @@ export default function AppModals({
                 {blockedProfiles.map((p) => (
                   <div key={p.id} className="flex items-center gap-3 p-2 rounded-xl" style={{ background: "rgba(var(--bb-ink-rgb),0.03)" }}>
                     <Avatar name={p.name} url={p.avatar_url} size={38} />
-                    <div className="flex-1 min-w-0"><div className="text-sm font-semibold truncate">{p.name}</div></div>
+                    <div className="flex-1 min-w-0"><div dir="auto" className="text-sm font-semibold truncate">{p.name}</div></div>
                     <button
                       onClick={() => onUnblock?.(p)}
                       className="text-xs font-bold px-3 py-2 rounded-full"

@@ -86,6 +86,7 @@ export default function PostCard({
           {editing ? (
             <div className="mt-1.5">
               <textarea
+                dir="auto"
                 value={editDraft}
                 onChange={(e) => setEditDraft(e.target.value.slice(0, MAX_LENGTH))}
                 rows={2}
@@ -102,7 +103,7 @@ export default function PostCard({
               </div>
             </div>
           ) : (
-            <p className="text-sm mt-1 whitespace-pre-wrap break-words">{post.body}</p>
+            <p dir="auto" className="text-sm mt-1 whitespace-pre-wrap break-words">{post.body}</p>
           )}
 
           {!editing && mediaList.length === 1 && (
@@ -175,6 +176,7 @@ export default function PostCard({
               ))}
               <div className="flex items-center gap-2 mt-1">
                 <input
+                  dir="auto"
                   value={commentDraft}
                   onChange={(e) => setCommentDraft(truncateUnicodeSafe(e.target.value, 1000))}
                   onKeyDown={(e) => { if (e.key === "Enter") submitComment(); }}

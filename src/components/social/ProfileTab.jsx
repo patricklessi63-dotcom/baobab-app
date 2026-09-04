@@ -152,7 +152,7 @@ export default function ProfileTab({
                   </div>
                   <button onClick={() => goTab("discover")} className="px-4 py-2.5 rounded-xl font-bold text-sm focus-visible:outline focus-visible:outline-2" style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)", color: coral }}>Trouver des personnes</button>
                 </div>
-                {currentUser?.bio && <p className="text-sm leading-6 mt-5 max-w-2xl">{currentUser.bio}</p>}
+                {currentUser?.bio && <p dir="auto" className="text-sm leading-6 mt-5 max-w-2xl">{currentUser.bio}</p>}
 
                 {!isComplete && (
                   <div className="mt-5 rounded-2xl p-4" style={{ background: bg }}>
@@ -252,7 +252,7 @@ export default function ProfileTab({
                           <button onClick={() => onViewProfile(p)} className="flex items-center gap-3 flex-1 min-w-0 text-left focus-visible:outline focus-visible:outline-2">
                             <Avatar name={p.name} url={p.avatar_url} size={44} />
                             <div className="min-w-0">
-                              <div className="text-sm font-bold truncate">{p.name}{visibleAge(p) ? `, ${visibleAge(p)}` : ""}</div>
+                              <div dir="auto" className="text-sm font-bold truncate">{p.name}{visibleAge(p) ? `, ${visibleAge(p)}` : ""}</div>
                               {/* Confidentialité par champ (voir PrivacyFieldsModal.jsx) — la
                                   liste abonnements/abonnés affichait la ville sans consulter
                                   show_city, alors que MatchCard/PublicProfileModal le

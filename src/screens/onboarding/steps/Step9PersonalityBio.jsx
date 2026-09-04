@@ -32,6 +32,7 @@ export default function Step9PersonalityBio({ draft, update }) {
 
       <p className="text-xs font-semibold mt-3" style={{ color: "rgba(var(--bb-ink-rgb-static),0.55)" }}>Parle-nous de toi</p>
       <textarea
+        dir="auto"
         value={draft.bio}
         onChange={(e) => update({ bio: truncateUnicodeSafe(e.target.value, BIO_MAX) })}
         rows={4}

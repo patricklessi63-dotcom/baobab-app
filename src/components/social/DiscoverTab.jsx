@@ -390,12 +390,12 @@ export default function DiscoverTab({
                             onClick={() => onViewProfile(p)}
                             className="text-3xl font-black flex items-center gap-2 text-left"
                           >
-                            {p.name}{visibleAge(p) ? `, ${visibleAge(p)}` : ""}
+                            <span dir="auto">{p.name}{visibleAge(p) ? `, ${visibleAge(p)}` : ""}</span>
                             <StatusBadge emailVerified={p.email_verified} phoneVerified={p.phone_verified} isFounder={p.is_founder} isPremium={p.is_premium} size={20} color="#fff" />
                           </button>
                           <p className="text-xs text-white/60 mt-0.5">Toucher le nom pour voir le profil complet</p>
                           <div className="text-sm text-white/75 mt-1">📍 {(showCity && p.city) || "Canada"} · {(showOccupation && p.occupation) || "Nouveau membre"}</div>
-                          {p.bio && <p className="text-sm text-white/80 mt-3 leading-6 max-w-lg">{p.bio}</p>}
+                          {p.bio && <p dir="auto" className="text-sm text-white/80 mt-3 leading-6 max-w-lg">{p.bio}</p>}
                           <div className="flex flex-wrap gap-2 mt-4">
                             {p.languages && <span className="px-2.5 py-1 rounded-full bg-white/12 text-xs">🗣 {p.languages}</span>}
                             {showCanadaJourney && p.arrived_since && <span className="px-2.5 py-1 rounded-full bg-white/12 text-xs">✈️ Au Canada depuis {p.arrived_since}</span>}

@@ -1670,7 +1670,7 @@ export default function SocialShell({
                         même visible ici, résultat par résultat. */}
                     <div className="min-w-0">
                       <div className="text-sm font-bold truncate flex items-center gap-1.5">
-                        <span className="truncate">{p.name}{visibleAge(p) ? `, ${visibleAge(p)}` : ""}</span>
+                        <span dir="auto" className="truncate">{p.name}{visibleAge(p) ? `, ${visibleAge(p)}` : ""}</span>
                         {/* Parité de badges (bug corrigé à l'audit, même famille que
                             PublicProfileModal/AdmirersModal/FavoritesModal) : searchResults
                             vient d'un select("*") (cache local "profiles" et requête réseau

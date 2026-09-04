@@ -76,7 +76,7 @@ export default function ProfileCard({
       </div>
 
       <div className="p-3">
-        <div className="text-sm font-bold truncate">{profile.name}{visibleAge(profile) ? `, ${visibleAge(profile)}` : ""}</div>
+        <div dir="auto" className="text-sm font-bold truncate">{profile.name}{visibleAge(profile) ? `, ${visibleAge(profile)}` : ""}</div>
         {/* Confidentialité par champ (voir PrivacyFieldsModal.jsx) — cette carte
             (recommandations, "Autour de toi"...) affichait la ville sans
             consulter show_city, alors que MatchCard/PublicProfileModal le

@@ -136,7 +136,7 @@ export default function CommunityInviteModal({ community, currentUser, memberIds
                   <Avatar name={p.name} url={p.avatar_url} size={40} />
                   <div className="min-w-0 flex-1">
                     <div className="text-sm font-bold truncate flex items-center gap-1.5">
-                      <span className="truncate">{p.name}</span>
+                      <span dir="auto" className="truncate">{p.name}</span>
                       <StatusBadge isFounder={p.is_founder} isPremium={p.is_premium} emailVerified={p.email_verified} phoneVerified={p.phone_verified} size={12} />
                     </div>
                     {p.show_city !== false && p.city && <div className="text-xs truncate" style={{ color: muted }}>{p.city}</div>}

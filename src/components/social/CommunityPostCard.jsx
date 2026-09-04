@@ -83,7 +83,7 @@ export default function CommunityPostCard({
             <StatusBadge isFounder={author.is_founder} isPremium={author.is_premium} emailVerified={author.email_verified} phoneVerified={author.phone_verified} size={12} />
             <span className="text-[11px]" style={{ color: muted }}>· {formatDayLabel(post.created_at)} {formatMessageTime(post.created_at)}</span>
           </div>
-          {post.body && <p className="text-sm mt-1 whitespace-pre-wrap break-words">{post.body}</p>}
+          {post.body && <p dir="auto" className="text-sm mt-1 whitespace-pre-wrap break-words">{post.body}</p>}
 
           {post.media_url && (
             <div className="mt-2 rounded-xl overflow-hidden" style={{ maxHeight: 360 }}>
@@ -157,6 +157,7 @@ export default function CommunityPostCard({
                           {isEditing ? (
                             <div className="flex items-center gap-1.5 mt-1">
                               <input
+                                dir="auto"
                                 value={editDraft}
                                 onChange={(e) => setEditDraft(truncateUnicodeSafe(e.target.value, 1000))}
                                 onKeyDown={(e) => { if (e.key === "Enter") submitEdit(); }}
@@ -202,6 +203,7 @@ export default function CommunityPostCard({
               )}
               <div className="flex items-center gap-2 mt-1">
                 <input
+                  dir="auto"
                   value={commentDraft}
                   onChange={(e) => setCommentDraft(truncateUnicodeSafe(e.target.value, 1000))}
                   onKeyDown={(e) => { if (e.key === "Enter") submitComment(); }}

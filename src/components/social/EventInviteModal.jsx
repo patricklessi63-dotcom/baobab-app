@@ -35,7 +35,7 @@ export default function EventInviteModal({ open, candidates = [], invitedIds = n
                 <div key={p.id} className="flex items-center gap-3 py-2">
                   <Avatar name={p.name} url={p.avatar_url} size={38} />
                   <span className="text-sm font-semibold flex-1 truncate flex items-center gap-1.5">
-                    <span className="truncate">{p.name}</span>
+                    <span dir="auto" className="truncate">{p.name}</span>
                     {/* Parité de badges (bug corrigé à l'audit, même famille
                         que CommunityInviteModal) : champs désormais chargés
                         dans openInvite() (EventsTab.jsx). */}

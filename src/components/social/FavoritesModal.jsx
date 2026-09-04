@@ -48,7 +48,7 @@ export default function FavoritesModal({ open, onClose, favoriteProfiles = [], o
                   <Avatar name={p.name} url={p.avatar_url} size={44} />
                   <div className="min-w-0">
                     <div className="text-sm font-bold truncate flex items-center gap-1.5">
-                      <span className="truncate">{p.name}{visibleAge(p) ? `, ${visibleAge(p)}` : ""}</span>
+                      <span dir="auto" className="truncate">{p.name}{visibleAge(p) ? `, ${visibleAge(p)}` : ""}</span>
                       {/* Parité de badges (bug corrigé à l'audit, même famille que
                           PublicProfileModal/AdmirersModal) : is_founder/is_premium
                           ajoutés à la jointure "favorites" dans SocialShell.jsx pour
