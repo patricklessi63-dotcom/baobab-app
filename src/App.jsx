@@ -2192,6 +2192,30 @@ export default function App() {
           setLikePairs((prev) => prev.filter((l) => !(l.from_id === currentUser.id && l.to_id === toId)));
         }
       )
+      // Bug corrigé (audit "explication du score"/unlike côté récepteur) :
+      // aucun des écouteurs ci-dessus ne couvrait le retrait d'un like REÇU
+      // (quelqu'un qui m'avait aimé·e retire son like, ex. via handleUnlike
+      // sur son propre appareil) — seul le retrait d'un like ENVOYÉ par moi
+      // était répercuté. likePairs gardait donc une entrée fantôme {from:
+      // eux, to: moi} jusqu'à un rechargement complet de la page. Deux
+      // conséquences concrètes : 1) "Qui m'a aimé" (AdmirersModal) continuait
+      // d'afficher cette personne après qu'elle a retiré son like ; 2) si je
+      // cliquais "Aimer en retour" dessus (onLikeBack → handleLike), mon like
+      // s'ajoutait bien en base mais handleLike() ne trouve alors aucune
+      // réciproque côté serveur (déjà supprimée) et ne déclenche donc pas la
+      // modale de match — pourtant getMatches()/getMatches()-dépendants
+      // (rendus ailleurs) continuaient de lire le likePairs local, où
+      // l'entrée fantôme {from: eux, to: moi} rendait la paire "mutuelle" :
+      // un faux match apparaissait dans ma liste de conversations alors
+      // qu'aucune ligne "likes" réciproque n'existe plus en base.
+      .on(
+        "postgres_changes",
+        { event: "DELETE", schema: "public", table: "likes", filter: `to_id=eq.${currentUser.id}` },
+        (payload) => {
+          const fromId = payload.old.from_id;
+          setLikePairs((prev) => prev.filter((l) => !(l.from_id === fromId && l.to_id === currentUser.id)));
+        }
+      )
       .subscribe();
     likesChannelRef.current = channel;
 
