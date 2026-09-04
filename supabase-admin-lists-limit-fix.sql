@@ -10,6 +10,25 @@
 -- retours bêta) le jour où l'app grossit — page qui se fige, mémoire
 -- navigateur qui explose. À exécuter dans Supabase : SQL Editor. Additif
 -- uniquement (create or replace), ne change aucune donnée.
+--
+-- CORRIGÉ avant exécution (audit du 3 septembre 2026, croisement des
+-- migrations SQL les plus récentes) : la première version de ce fichier
+-- repartait de la définition de base d'admin_list_reports() (celle de
+-- supabase-admin.sql, "order by created_at desc" simple) pour y ajouter
+-- "limit 200" — exactement le même type d'oubli que celui déjà corrigé
+-- pour admin_dashboard_stats() dans supabase-admin-dashboard-stats-fix.sql
+-- (migration non fusionnée avec une évolution plus récente de la même
+-- fonction). Ce faisant, elle effaçait silencieusement le tri par priorité
+-- ajouté par supabase-report-minor-category.sql (mineur_suspecte, puis
+-- arnaque, puis harcelement, TOUJOURS avant les autres catégories, quel
+-- que soit l'horodatage — voir ReportModal.jsx et le commentaire de ce
+-- fichier). adminApi.js (listReports) et AdminDashboard.jsx affichent les
+-- signalements exactement dans l'ordre renvoyé par la RPC, sans aucun tri
+-- côté client : sans ce correctif, un signalement "mineur suspecté" se
+-- serait retrouvé noyé dans la liste par simple ordre chronologique, alors
+-- que c'est justement la catégorie qui doit remonter en tête de file de
+-- modération. La version ci-dessous restaure ce tri par priorité et
+-- ajoute la limite par-dessus.
 -- ============================================================================
 
 create or replace function admin_list_reports(p_status text default 'open')
@@ -35,7 +54,9 @@ begin
     union all
     select 'profile'::text, r.id, 'profile'::text, r.to_id::text, r.from_id, r.category, r.reason, r.status, r.created_at
     from reports r where r.status = p_status
-    order by created_at desc
+    order by
+      case category when 'mineur_suspecte' then 0 when 'arnaque' then 1 when 'harcelement' then 2 else 3 end,
+      created_at desc
     limit 200;
 end;
 $$;
