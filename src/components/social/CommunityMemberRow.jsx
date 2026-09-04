@@ -11,7 +11,11 @@ export default function CommunityMemberRow({ member, viewerRole, currentUserId, 
   // Remplace l'ancien window.confirm() de retrait — voir ConfirmModal.jsx.
   const [confirmingRemove, setConfirmingRemove] = useState(false);
   const profile = member.profiles || {};
-  const firstName = (profile.name || "").trim().split(" ")[0] || "?";
+  // "name" est déjà le prénom seul (Step1Identity.jsx sépare "Nom" de
+  // famille dans last_name) — split(" ")[0] coupait à tort un prénom
+  // composé sans trait d'union ("Marie Claude", "Ana Maria") au premier
+  // mot ; truncate (ligne ci-dessous) gère déjà le débordement visuel.
+  const firstName = (profile.name || "").trim() || "?";
   const isSelf = member.profile_id === currentUserId;
   const canPromoteToMod = canSetRole(viewerRole, member.role, "moderator") && member.role === "member";
   const canDemoteToMember = canSetRole(viewerRole, member.role, "member") && member.role === "moderator";

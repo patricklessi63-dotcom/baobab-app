@@ -8,7 +8,10 @@ import { primary, bg, body, primaryRgb } from "./theme";
 // une phrase générique si rien de commun n'est trouvé.
 function buildStarters(currentUser, match) {
   const result = computeMatch(currentUser, match);
-  const firstName = match.name?.split(" ")[0] || "toi";
+  // "name" est déjà le prénom seul (Step1Identity.jsx sépare "Nom" de
+  // famille dans last_name) — split(" ")[0] coupait à tort un prénom
+  // composé sans trait d'union ("Marie Claude", "Ana Maria").
+  const firstName = match.name?.trim() || "toi";
   const suggestions = [];
 
   if (result.commonInterests.length >= 2) {

@@ -5,8 +5,12 @@ import { useClickOutside } from "../../hooks/useClickOutside";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
 import { invokeAI } from "../../lib/ai/aiClient";
 
+// "name" est déjà le prénom seul (Step1Identity.jsx sépare "Nom" de famille
+// dans last_name) — un split(/\s+/)[0] coupait à tort un prénom composé
+// sans trait d'union ("Marie Claude", "Ana Maria") au premier mot avant de
+// l'envoyer à l'IA.
 function firstName(fullName) {
-  return (fullName || "").trim().split(/\s+/)[0] || "";
+  return (fullName || "").trim();
 }
 
 // "✨ Suggestions" — assistant de conversation à la demande (item 16).

@@ -23,7 +23,11 @@ export default function EventParticipantsList({ participants = [], blockedIds = 
     <div className="flex flex-col gap-1">
       {visible.map((p) => {
         const profile = p.profiles || {};
-        const firstName = (profile.name || "").trim().split(" ")[0] || "?";
+        // "name" est déjà le prénom seul (Step1Identity.jsx sépare "Nom" de
+        // famille dans last_name) — split(" ")[0] coupait à tort un prénom
+        // composé sans trait d'union ("Marie Claude", "Ana Maria") au
+        // premier mot ; truncate (ligne ci-dessous) gère déjà le débordement.
+        const firstName = (profile.name || "").trim() || "?";
         const badge = STATUS_BADGE[p.status];
         return (
           <button key={p.id} onClick={() => onViewProfile(profile)} className="flex items-center gap-3 py-2.5 text-left focus-visible:outline focus-visible:outline-2">

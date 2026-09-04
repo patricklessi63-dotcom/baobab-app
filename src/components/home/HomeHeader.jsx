@@ -4,7 +4,11 @@ import { supabase } from "../../supabaseClient";
 import { primary, coral, muted } from "../social/theme";
 
 export default function HomeHeader({ currentUser }) {
-  const firstName = currentUser?.name?.trim()?.split(" ")[0];
+  // Le champ "name" ne contient déjà que le prénom (voir Step1Identity.jsx —
+  // "Nom" de famille est un champ séparé, lastName/last_name). Un split(" ")[0]
+  // ici coupait à tort un prénom composé sans trait d'union ("Marie Claude",
+  // "Ana Maria", très courants dans plusieurs cultures) au premier mot.
+  const firstName = currentUser?.name?.trim();
   const greeting = firstName ? `Bonjour ${firstName} 👋` : "Bienvenue sur Baobab 👋";
 
   // Même RPC publique que la page d'accueil visiteurs (LandingPage.jsx) —
