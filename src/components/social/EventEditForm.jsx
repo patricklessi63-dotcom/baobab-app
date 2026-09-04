@@ -4,6 +4,7 @@ import ChipSelect from "../ChipSelect";
 import { supabase } from "../../supabaseClient";
 import { EVENT_CATEGORIES, CANADA_TIMEZONE_OPTIONS, closestCanadaTimezone, zonedInputsToUtc, utcToZonedInputs } from "../../lib/events/eventConfig";
 import { validateMediaFile } from "../../lib/mediaValidation";
+import { compressImageIfNeeded } from "../../lib/imageCompression";
 import { extFromMime } from "../../lib/mediaConstants";
 import { uploadWithProgress } from "../../lib/uploadWithProgress";
 import { primary, coral, muted, bg, primaryRgb } from "./theme";
@@ -139,8 +140,13 @@ export default function EventEditForm({ event, onSaved, onCancel, onError }) {
         const { ok, error: validationError } = await validateMediaFile(coverFile, "image");
         if (!mountedRef.current) return;
         if (!ok) { setError(validationError); setSubmitting(false); return; }
-        const path = `${event.id}/${Date.now()}-cover.${extFromMime(coverFile.type)}`;
-        await uploadWithProgress({ bucket: "event-covers", path, file: coverFile });
+        // Bug corrigé à l'audit (croisement exhaustif avec
+        // compressImageIfNeeded, déjà utilisé par PostsFeed.jsx) : la
+        // couverture d'événement partait toujours en taille originale,
+        // jamais compressée comme les autres images de l'app.
+        const finalCoverFile = await compressImageIfNeeded(coverFile);
+        const path = `${event.id}/${Date.now()}-cover.${extFromMime(finalCoverFile.type)}`;
+        await uploadWithProgress({ bucket: "event-covers", path, file: finalCoverFile });
         uploadedPath = path;
         const { data: signed } = await supabase.storage.from("event-covers").createSignedUrl(path, COVER_URL_EXPIRY);
         if (signed?.signedUrl) coverUrl = signed.signedUrl;

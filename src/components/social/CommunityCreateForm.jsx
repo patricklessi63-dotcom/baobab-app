@@ -6,6 +6,7 @@ import { COMMUNITY_CATEGORIES, COMMUNITY_VISIBILITY } from "../../lib/communitie
 import { invokeAI } from "../../lib/ai/aiClient";
 import { beginCriticalOperation, endCriticalOperation } from "../../lib/criticalOperationGuard";
 import { validateMediaFile } from "../../lib/mediaValidation";
+import { compressImageIfNeeded } from "../../lib/imageCompression";
 import { extFromMime } from "../../lib/mediaConstants";
 import { primary, coral, muted, bg, goldText, primaryRgb } from "./theme";
 
@@ -97,9 +98,14 @@ export default function CommunityCreateForm({ currentUser, onCreated, onCancel, 
         // Même convention de chemin/bucket que les autres médias publics
         // de profil (avatars/photos/stories) — voir uploadPhoto (App.jsx)
         // et uploadStoryMedia (SocialShell.jsx).
-        const ext = extFromMime(coverFile.type);
+        // Bug corrigé à l'audit (croisement exhaustif avec
+        // compressImageIfNeeded, déjà utilisé par PostsFeed.jsx) : la
+        // couverture de communauté partait toujours en taille originale,
+        // jamais compressée comme les autres images de l'app.
+        const finalCoverFile = await compressImageIfNeeded(coverFile);
+        const ext = extFromMime(finalCoverFile.type);
         const path = `${currentUser.user_id}/community-${Date.now()}.${ext}`;
-        const { error: uploadError } = await supabase.storage.from("avatars").upload(path, coverFile, { upsert: true });
+        const { error: uploadError } = await supabase.storage.from("avatars").upload(path, finalCoverFile, { upsert: true });
         if (uploadError) throw uploadError;
         uploadedPath = path;
         coverUrl = supabase.storage.from("avatars").getPublicUrl(path).data.publicUrl;

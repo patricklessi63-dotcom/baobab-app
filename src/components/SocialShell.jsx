@@ -21,6 +21,7 @@ import FavoritesModal from "./social/FavoritesModal";
 import AdmirersModal from "./social/AdmirersModal";
 import MatchPreferencesModal from "./social/MatchPreferencesModal";
 import { validateMediaFile } from "../lib/mediaValidation";
+import { compressImageIfNeeded } from "../lib/imageCompression";
 import { extFromMime } from "../lib/mediaConstants";
 import { uploadWithProgress } from "../lib/uploadWithProgress";
 import { beginCriticalOperation, endCriticalOperation } from "../lib/criticalOperationGuard";
@@ -1279,7 +1280,12 @@ export default function SocialShell({
       let mediaUrl = null;
       const mediaKind = storyMedia ? storyMediaKind : null;
       if (storyMedia) {
-        const uploaded = await uploadStoryMedia(currentUser.user_id, storyMedia);
+        // Bug corrigé à l'audit (croisement exhaustif avec
+        // compressImageIfNeeded, déjà utilisé par PostsFeed.jsx) : une photo
+        // de statut partait toujours en taille originale, jamais compressée
+        // — les vidéos de statut ne sont volontairement jamais touchées.
+        const finalMedia = mediaKind === "photo" ? await compressImageIfNeeded(storyMedia) : storyMedia;
+        const uploaded = await uploadStoryMedia(currentUser.user_id, finalMedia);
         mediaUrl = uploaded.url;
         uploadedPath = uploaded.path;
       }

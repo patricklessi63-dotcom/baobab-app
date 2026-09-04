@@ -5,6 +5,7 @@ import EmptyState from "../home/EmptyState";
 import Skeleton from "../Skeleton";
 import { useImageLightbox } from "../../lib/ImageLightboxContext";
 import { validateMediaFile } from "../../lib/mediaValidation";
+import { compressImageIfNeeded } from "../../lib/imageCompression";
 import { extFromMime } from "../../lib/mediaConstants";
 import { uploadWithProgress } from "../../lib/uploadWithProgress";
 import { muted, bg, primaryRgb } from "./theme";
@@ -30,8 +31,13 @@ export default function EventPhotoGallery({ photos = [], loading, canUpload, cur
     if (!ok) { setError(validationError); return; }
     setUploading(true);
     try {
-      const path = `${onUpload.eventId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${extFromMime(file.type)}`;
-      await uploadWithProgress({ bucket: BUCKET, path, file });
+      // Bug corrigé à l'audit (croisement exhaustif avec
+      // compressImageIfNeeded, déjà utilisé par PostsFeed.jsx) : une photo
+      // ajoutée à la galerie d'un événement partait toujours en taille
+      // originale, jamais compressée comme les autres images de l'app.
+      const finalFile = await compressImageIfNeeded(file);
+      const path = `${onUpload.eventId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${extFromMime(finalFile.type)}`;
+      await uploadWithProgress({ bucket: BUCKET, path, file: finalFile });
       await onUpload.save(path);
     } catch (e2) {
       console.error(e2);

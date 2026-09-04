@@ -16,6 +16,7 @@ import { rankCommunities } from "../../lib/communities/recommendations";
 import { COMMUNITY_REPORT_CATEGORIES } from "../../lib/communities/communityConfig";
 import { trackActivation } from "../../lib/trackActivation";
 import { validateMediaFile } from "../../lib/mediaValidation";
+import { compressImageIfNeeded } from "../../lib/imageCompression";
 import { extFromMime } from "../../lib/mediaConstants";
 import { uploadWithProgress } from "../../lib/uploadWithProgress";
 import { escapeLikePattern, escapeOrFilterValue } from "../../lib/searchQuery";
@@ -623,6 +624,12 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
       if (mediaFile) {
         const { ok, error: validationError } = await validateMediaFile(mediaFile, mediaKind);
         if (!ok) { onError(validationError); setPostSubmitting(false); return false; }
+        // Bug corrigé à l'audit (croisement exhaustif avec
+        // compressImageIfNeeded, déjà utilisé par PostsFeed.jsx) : une photo
+        // de publication de communauté partait toujours en taille originale,
+        // jamais compressée — les vidéos ne sont volontairement jamais
+        // touchées (voir imageCompression.js).
+        if (mediaKind === "image") mediaFile = await compressImageIfNeeded(mediaFile);
         const path = `${community.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.${extFromMime(mediaFile.type)}`;
         await uploadWithProgress({ bucket: COMMUNITY_MEDIA_BUCKET, path, file: mediaFile });
         uploadedPath = path;

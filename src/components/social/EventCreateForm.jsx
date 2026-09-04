@@ -4,6 +4,7 @@ import ChipSelect from "../ChipSelect";
 import { supabase } from "../../supabaseClient";
 import { EVENT_CATEGORIES, EVENT_VISIBILITY, CANADA_TIMEZONE_OPTIONS, closestCanadaTimezone, zonedInputsToUtc } from "../../lib/events/eventConfig";
 import { validateMediaFile } from "../../lib/mediaValidation";
+import { compressImageIfNeeded } from "../../lib/imageCompression";
 import { extFromMime } from "../../lib/mediaConstants";
 import { uploadWithProgress } from "../../lib/uploadWithProgress";
 import AiSuggestButton from "../ai/AiSuggestButton";
@@ -154,10 +155,15 @@ export default function EventCreateForm({ currentUser, initialCommunityId = null
         // d'échouer toute la création.
         let uploadedPath = null;
         try {
+          // Bug corrigé à l'audit (croisement exhaustif avec
+          // compressImageIfNeeded, déjà utilisé par PostsFeed.jsx) : la
+          // couverture d'événement partait toujours en taille originale,
+          // jamais compressée comme les autres images de l'app.
+          const finalCoverFile = await compressImageIfNeeded(coverFile);
           // La couverture ne peut être téléversée qu'APRÈS la création : le
           // chemin Storage est {event_id}/... (supabase-events-v2.sql).
-          const path = `${data.id}/${Date.now()}-cover.${extFromMime(coverFile.type)}`;
-          await uploadWithProgress({ bucket: "event-covers", path, file: coverFile });
+          const path = `${data.id}/${Date.now()}-cover.${extFromMime(finalCoverFile.type)}`;
+          await uploadWithProgress({ bucket: "event-covers", path, file: finalCoverFile });
           uploadedPath = path;
           const { data: signed } = await supabase.storage.from("event-covers").createSignedUrl(path, COVER_URL_EXPIRY);
           if (signed?.signedUrl) {

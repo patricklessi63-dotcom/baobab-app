@@ -17,6 +17,7 @@ import { computeAge } from "./screens/onboarding/steps/Step1Identity";
 import MatchCelebrationModal from "./components/social/MatchCelebrationModal";
 import { filterCandidatesByPreferences } from "./lib/matching/matchingService";
 import { validateMediaFile } from "./lib/mediaValidation";
+import { compressImageIfNeeded } from "./lib/imageCompression";
 import { uploadWithProgress } from "./lib/uploadWithProgress";
 import { MEDIA_BUCKET, extFromMime } from "./lib/mediaConstants";
 import { trackActivation } from "./lib/trackActivation";
@@ -1120,11 +1121,19 @@ export default function App() {
   }
 
   async function uploadPhoto(userId, file, idx = 0) {
-    const ext = file.name.split(".").pop();
+    // Bug corrigé à l'audit (croisement exhaustif avec compressImageIfNeeded,
+    // déjà utilisé par PostsFeed.jsx) : seule la publication dans le fil
+    // compressait ses images avant envoi — toutes les photos de profil
+    // (onboarding + modification de profil + photo de couverture, ce même
+    // uploadPhoto servant les trois) partaient intégralement, souvent
+    // plusieurs Mo pour une photo de téléphone directement issue de
+    // l'appareil photo, jamais redimensionnées ni recompressées.
+    const finalFile = await compressImageIfNeeded(file);
+    const ext = finalFile.name.split(".").pop();
     const path = `${userId}/photo-${Date.now()}-${idx}.${ext}`;
     const { error: uploadError } = await supabase.storage
       .from("avatars")
-      .upload(path, file, { upsert: true });
+      .upload(path, finalFile, { upsert: true });
     if (uploadError) throw uploadError;
     const { data } = supabase.storage.from("avatars").getPublicUrl(path);
     return data.publicUrl;
@@ -1873,6 +1882,11 @@ export default function App() {
       setError(validation.error);
       return;
     }
+    // Bug corrigé à l'audit (même famille que uploadPhoto ci-dessus) : une
+    // photo envoyée en message partait toujours en taille originale, jamais
+    // compressée comme les images du fil (PostsFeed.jsx) — les vidéos ne
+    // sont volontairement jamais touchées (voir imageCompression.js).
+    if (kind === "image") file = await compressImageIfNeeded(file);
     const key = matchKey(currentUser.id, activeMatch.id);
     const tempId = tempIdOverride || `temp-${Date.now()}-${Math.random().toString(36).slice(2)}`;
     const media_meta = { original_name: file.name, mime: file.type, size: file.size };
