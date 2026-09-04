@@ -377,6 +377,26 @@ export default function SocialShell({
           setFavoriteProfilesRaw((prev) => prev.filter((p) => p.id !== toId));
         }
       )
+      // Bug corrigé (même famille que le canal "follows-own" ci-dessous et
+      // le DELETE manquant sur les likes reçus, voir App.jsx) : la direction
+      // to_id=eq.moi (qui M'a mis en favori) n'avait aucun écouteur — RLS
+      // ("favorites" : select autorisé pour from_id OU to_id, voir
+      // supabase-profile-onboarding.sql) le permettait pourtant. Résultat :
+      // incomingFavoritesCount (badge "⭐ N personne(s) t'a ajouté en
+      // favori" dans le menu de notifications, voir plus bas) restait figé
+      // à sa valeur du chargement initial, sans jamais refléter un nouveau
+      // favori reçu — ni son retrait — tant que la page n'était pas
+      // rechargée.
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "favorites", filter: `to_id=eq.${currentUser.id}` },
+        () => setIncomingFavoritesCount((n) => n + 1)
+      )
+      .on(
+        "postgres_changes",
+        { event: "DELETE", schema: "public", table: "favorites", filter: `to_id=eq.${currentUser.id}` },
+        () => setIncomingFavoritesCount((n) => Math.max(0, n - 1))
+      )
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [currentUser?.id]);
