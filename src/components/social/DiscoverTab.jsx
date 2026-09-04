@@ -199,10 +199,16 @@ export default function DiscoverTab({
     if (sort === "📍 Proximité") {
       list.sort((a, b) => {
         const rank = (l) => (l.match.breakdown.location >= 10 ? 0 : l.match.breakdown.location > 0 ? 1 : 2);
-        return rank(a) - rank(b) || b.match.score - a.match.score;
+        // Départage sur rawScore (non plafonné/arrondi), pas "score" — voir
+        // le commentaire dans matchingService.js/computeMatch(). Même bug
+        // d'ordre de priorité que rankCandidates() : sans ça, deux profils
+        // à égalité de rang de proximité mais de compatibilité réelle
+        // différente pouvaient s'afficher dans le mauvais ordre dès que
+        // leurs scores arrondis/plafonnés coïncidaient (ex. 91 et 100 → 96).
+        return rank(a) - rank(b) || b.match.rawScore - a.match.rawScore;
       });
     } else if (sort === "❤️ Intentions") {
-      list.sort((a, b) => Number(b.match.compatibleIntentions) - Number(a.match.compatibleIntentions) || b.match.score - a.match.score);
+      list.sort((a, b) => Number(b.match.compatibleIntentions) - Number(a.match.compatibleIntentions) || b.match.rawScore - a.match.rawScore);
     } else if (sort === "🆕 Nouveaux") {
       list.sort((a, b) => new Date(b.profile.created_at || 0) - new Date(a.profile.created_at || 0));
     }

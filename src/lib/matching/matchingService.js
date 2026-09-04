@@ -200,7 +200,7 @@ function scoreLocation(userA, userB) {
 export function computeMatch(currentUser, candidate) {
   if (!currentUser || !candidate) {
     return {
-      score: 0, level: "unknown", reasons: [], commonInterests: [], compatibleIntentions: false,
+      score: 0, rawScore: 0, level: "unknown", reasons: [], commonInterests: [], compatibleIntentions: false,
       sharedIntentions: [], locationLabel: null,
       breakdown: {}, disclaimer: DISCLAIMER, source: "rules-v2",
     };
@@ -224,6 +224,15 @@ export function computeMatch(currentUser, candidate) {
 
   const rawScore = Object.values(breakdown).reduce((sum, v) => sum + v, 0);
   const score = Math.max(SCORE_FLOOR, Math.min(SCORE_CEIL, Math.round(rawScore)));
+  // rawScore (non plafonné/arrondi) est conservé à part et utilisé par
+  // rankCandidates() pour le TRI — jamais "score", qui plafonne à
+  // SCORE_CEIL (96, jamais 100% affiché, voir matchingConfig.js). Bug
+  // corrigé (audit ordre de priorité) : deux profils avec un rawScore de,
+  // par exemple, 91 et 100 s'affichaient tous deux à 96 une fois arrondi/
+  // plafonné et devenaient indiscernables pour un tri effectué sur "score"
+  // — l'ordre entre eux retombait alors sur l'ordre d'origine de la liste
+  // (Array.prototype.sort est stable) plutôt que de refléter lequel est
+  // réellement le plus compatible. "score" reste inchangé pour l'affichage.
 
   // Raisons : une phrase par catégorie qui a rapporté des points, dans
   // l'ordre des pondérations, jamais inventées, jamais plus de 4.
@@ -253,6 +262,7 @@ export function computeMatch(currentUser, candidate) {
 
   return {
     score,
+    rawScore,
     level: score >= 70 ? "high" : score >= 40 ? "medium" : "low",
     reasons,
     commonInterests: interests.shared,
@@ -321,5 +331,7 @@ export function rankCandidates(currentUser, candidates) {
   const filtered = filterCandidatesByPreferences(currentUser, candidates).filter((c) => c.id !== currentUser.id);
   return filtered
     .map((profile) => ({ profile, match: computeMatch(currentUser, profile) }))
-    .sort((a, b) => b.match.score - a.match.score);
+    // Tri sur rawScore (non plafonné/arrondi), pas sur "score" (affichage,
+    // plafonné à SCORE_CEIL) — voir le commentaire dans computeMatch().
+    .sort((a, b) => b.match.rawScore - a.match.rawScore);
 }
