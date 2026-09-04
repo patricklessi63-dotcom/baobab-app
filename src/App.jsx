@@ -1594,6 +1594,16 @@ export default function App() {
     }
   }
 
+  // Bug corrigé à l'audit : ce filtre ne consultait jamais banned_at/
+  // suspended_until (déjà chargés ici, "profiles" est un select("*") — voir
+  // loadAll), alors que ces colonnes sont exactement celles vérifiées pour
+  // son PROPRE compte (vue "banned"/"suspended" plus bas) et pour l'autre
+  // personne d'une conversation déjà ouverte (ConversationPane.jsx/
+  // MessagesTab.jsx). Un profil banni ou suspendu par un·e admin restait
+  // donc pleinement candidat dans Découverte (grille MatchCard ET pile) :
+  // toujours "likable"/"passable" comme un profil normal, sans la moindre
+  // indication, jusqu'à ce que quelqu'un l'aime et découvre le problème
+  // seulement une fois la conversation ouverte.
   const candidates = currentUser
     ? filterCandidatesByPreferences(
         currentUser,
@@ -1601,6 +1611,8 @@ export default function App() {
           (p) =>
             p.id !== currentUser.id &&
             p.dating_enabled !== false &&
+            !p.banned_at &&
+            !(p.suspended_until && new Date(p.suspended_until) > new Date()) &&
             !hasLiked(currentUser.id, p.id) &&
             !hasPassed(currentUser.id, p.id) &&
             !hasBlocked(currentUser.id, p.id) &&
