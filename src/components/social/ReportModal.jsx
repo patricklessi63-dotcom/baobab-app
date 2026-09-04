@@ -3,6 +3,7 @@ import ChipSelect from "../ChipSelect";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { primary, navy, coral, muted, card, primaryRgb } from "./theme";
+import { truncateUnicodeSafe } from "../../utils/format";
 
 const DEFAULT_CATEGORIES = [
   { value: "harcelement", label: "Harcèlement" },
@@ -80,7 +81,7 @@ export default function ReportModal({
               // seul texte libre de l'app sans aucune limite de longueur —
               // reports.reason est une colonne "text" illimitée côté base,
               // rien n'empêchait de coller un pavé de plusieurs Mo.
-              onChange={(e) => setReason(e.target.value.slice(0, 1000))}
+              onChange={(e) => setReason(truncateUnicodeSafe(e.target.value, 1000))}
               rows={3}
               placeholder={commentRequired ? "Explique brièvement pourquoi (obligatoire pour \"Autre\")..." : "Commentaire (facultatif)..."}
               className="w-full p-3 rounded-lg text-sm mt-3"

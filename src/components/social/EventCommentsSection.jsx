@@ -5,6 +5,7 @@ import EmptyState from "../home/EmptyState";
 import Skeleton from "../Skeleton";
 import ConfirmModal from "./ConfirmModal";
 import { primary, muted, bg, body, primaryRgb } from "./theme";
+import { truncateUnicodeSafe } from "../../utils/format";
 
 // Discussion légère liée à l'événement — table event_comments dédiée,
 // pas une extension de la messagerie 1:1 (voir rapport final pour le
@@ -21,7 +22,7 @@ export default function EventCommentsSection({ comments = [], loading, canPost, 
         <div className="flex items-center gap-2 pb-4 mb-3" style={{ borderBottom: `1px solid rgba(${primaryRgb},.06)` }}>
           <input
             value={draft}
-            onChange={(e) => setDraft(e.target.value.slice(0, 1000))}
+            onChange={(e) => setDraft(truncateUnicodeSafe(e.target.value, 1000))}
             placeholder="Écris un message pour les participants…"
             className="flex-1 rounded-full px-4 py-2.5 text-sm outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--bb-clay)]"
             style={{ background: bg }}

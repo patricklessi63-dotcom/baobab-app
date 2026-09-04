@@ -4,7 +4,7 @@ import Avatar from "../Avatar";
 import EmptyState from "../home/EmptyState";
 import Skeleton, { SkeletonCard } from "../Skeleton";
 import * as adminApi from "../../lib/adminApi";
-import { formatLongDate } from "../../utils/format";
+import { formatLongDate, truncateUnicodeSafe } from "../../utils/format";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { primary, coral, green, gold, muted, bg, card, primaryRgb, navy } from "../social/theme";
@@ -439,7 +439,7 @@ export default function AdminDashboard({ onBack, onError, myPlatformRole }) {
                 ce champ n'avait aucune limite de longueur — suspend_reason/ban_reason
                 sont des colonnes "text" illimitées côté base (supabase-admin.sql),
                 rien n'empêchait de coller un pavé de texte de plusieurs Mo. */}
-            <textarea value={actionReason} onChange={(e) => setActionReason(e.target.value.slice(0, 500))} placeholder="Motif (visible par la personne concernée)" rows={3} className="w-full mt-4 rounded-xl px-3.5 py-2.5 text-sm outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--bb-clay)] resize-none" style={{ background: bg }} />
+            <textarea value={actionReason} onChange={(e) => setActionReason(truncateUnicodeSafe(e.target.value, 500))} placeholder="Motif (visible par la personne concernée)" rows={3} className="w-full mt-4 rounded-xl px-3.5 py-2.5 text-sm outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--bb-clay)] resize-none" style={{ background: bg }} />
             <div className="flex gap-2 mt-4">
               <button onClick={() => setActionTarget(null)} disabled={actionSaving} className="flex-1 py-3 rounded-full text-sm font-semibold disabled:opacity-50" style={{ border: `1px solid rgba(${primaryRgb},.12)`, color: primary }}>Annuler</button>
               <button onClick={confirmAction} disabled={actionSaving} className="flex-1 py-3 rounded-full text-sm font-bold text-white disabled:opacity-50" style={{ background: coral }}>{actionSaving ? "..." : "Confirmer"}</button>

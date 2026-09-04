@@ -8,6 +8,7 @@ import AiSuggestButton from "../ai/AiSuggestButton";
 import EmojiPicker from "./EmojiPicker";
 import PostMediaGrid from "./PostMediaGrid";
 import PostDropZone from "./PostDropZone";
+import { truncateUnicodeSafe } from "../../utils/format";
 import { formatFileSize } from "../../lib/mediaConstants";
 import { primary, navy, green, coral, gold, bg, muted, primaryRgb } from "./theme";
 
@@ -64,10 +65,10 @@ export default function PostComposerModal({
   // "Impossible de publier. Réessaie.", sans aucun indice sur la vraie cause.
   const insertEmoji = (emoji) => {
     const el = textareaRef.current;
-    if (!el) { setDraft((d) => (d + emoji).slice(0, 4000)); return; }
+    if (!el) { setDraft((d) => truncateUnicodeSafe(d + emoji, 4000)); return; }
     const start = el.selectionStart ?? draft.length;
     const end = el.selectionEnd ?? draft.length;
-    const next = (draft.slice(0, start) + emoji + draft.slice(end)).slice(0, 4000);
+    const next = truncateUnicodeSafe(draft.slice(0, start) + emoji + draft.slice(end), 4000);
     setDraft(next);
     requestAnimationFrame(() => {
       el.focus();
@@ -142,7 +143,7 @@ export default function PostComposerModal({
                         <textarea
                           ref={textareaRef}
                           value={draft}
-                          onChange={(e) => setDraft(e.target.value.slice(0, 4000))}
+                          onChange={(e) => setDraft(truncateUnicodeSafe(e.target.value, 4000))}
                           disabled={Boolean(publishedPostId)}
                           className="w-full min-h-32 rounded-2xl p-4 outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--bb-clay)] resize-none disabled:opacity-70"
                           style={{ background: bg }}
@@ -154,7 +155,7 @@ export default function PostComposerModal({
                               action="improve_post"
                               label="Améliorer mon texte"
                               buildPayload={() => ({ text: draft })}
-                              onApply={(text) => setDraft(text.slice(0, 4000))}
+                              onApply={(text) => setDraft(truncateUnicodeSafe(text, 4000))}
                               disabled={!draft.trim()}
                             />
                           ) : <span />}

@@ -4,7 +4,7 @@ import Avatar from "../Avatar";
 import StatusBadge from "../StatusBadge";
 import ClickableImage from "../ClickableImage";
 import ConfirmModal from "./ConfirmModal";
-import { formatMessageTime, formatDayLabel } from "../../utils/format";
+import { formatMessageTime, formatDayLabel, truncateUnicodeSafe } from "../../utils/format";
 import { primary, coral, muted, bg, primaryRgb, navy } from "./theme";
 import { useClickOutside } from "../../hooks/useClickOutside";
 
@@ -158,7 +158,7 @@ export default function CommunityPostCard({
                             <div className="flex items-center gap-1.5 mt-1">
                               <input
                                 value={editDraft}
-                                onChange={(e) => setEditDraft(e.target.value.slice(0, 1000))}
+                                onChange={(e) => setEditDraft(truncateUnicodeSafe(e.target.value, 1000))}
                                 onKeyDown={(e) => { if (e.key === "Enter") submitEdit(); }}
                                 aria-label="Modifier le commentaire"
                                 className="flex-1 text-xs rounded-full px-3 py-1.5 outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--bb-clay)]"
@@ -203,7 +203,7 @@ export default function CommunityPostCard({
               <div className="flex items-center gap-2 mt-1">
                 <input
                   value={commentDraft}
-                  onChange={(e) => setCommentDraft(e.target.value.slice(0, 1000))}
+                  onChange={(e) => setCommentDraft(truncateUnicodeSafe(e.target.value, 1000))}
                   onKeyDown={(e) => { if (e.key === "Enter") submitComment(); }}
                   placeholder="Écrire un commentaire..."
                   aria-label="Écrire un commentaire"

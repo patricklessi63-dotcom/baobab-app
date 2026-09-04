@@ -11,6 +11,7 @@ import AiSuggestButton from "../components/ai/AiSuggestButton";
 import { validateMediaFile } from "../lib/mediaValidation";
 import { parseArrivedSince, formatArrivedSince } from "./onboarding/steps/Step4CanadaJourney";
 import { useImageLightbox } from "../lib/ImageLightboxContext";
+import { truncateUnicodeSafe } from "../utils/format";
 
 function hasIntimateIntent(lookingFor) {
   return (lookingFor || []).some((v) => v.includes("Amour") || v.includes("Relation sérieuse"));
@@ -327,7 +328,7 @@ export default function EditProfileForm({
         <p className="text-xs" style={{ color: "rgba(var(--bb-ink-rgb-static),0.5)" }}>Une bonne relation repose surtout sur (max 2)</p>
         <ChipSelect options={RELATIONSHIP_NEEDS_OPTIONS} value={editForm.relationshipNeeds} onChange={(v) => set({ relationshipNeeds: v })} multi max={2} />
 
-        <textarea placeholder="Une courte bio..." value={editForm.bio} onChange={(e) => set({ bio: e.target.value.slice(0, 300) })}
+        <textarea placeholder="Une courte bio..." value={editForm.bio} onChange={(e) => set({ bio: truncateUnicodeSafe(e.target.value, 300) })}
           rows={3} maxLength={300} className="bb-input w-full text-sm" />
         <p className="text-xs text-right -mt-1" style={{ color: "rgba(var(--bb-ink-rgb-static),0.4)" }}>{(editForm.bio || "").length}/300</p>
         {currentUser?.ai_suggestions_enabled !== false && (
@@ -335,7 +336,7 @@ export default function EditProfileForm({
             action="improve_bio"
             label="Améliorer ma bio"
             buildPayload={() => ({ text: editForm.bio || "" })}
-            onApply={(text) => set({ bio: text.slice(0, 300) })}
+            onApply={(text) => set({ bio: truncateUnicodeSafe(text, 300) })}
             disabled={!(editForm.bio || "").trim()}
           />
         )}

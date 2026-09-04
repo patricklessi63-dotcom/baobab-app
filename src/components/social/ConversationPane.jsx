@@ -3,7 +3,7 @@ import { ArrowLeft, MoreVertical, MoreHorizontal, Reply, X, Flag, Ban, Check, Ch
 import Avatar from "../Avatar";
 import StatusBadge from "../StatusBadge";
 import ConversationStarters from "./ConversationStarters";
-import { formatLastSeen, formatMessageTime, formatDayLabel } from "../../utils/format";
+import { formatLastSeen, formatMessageTime, formatDayLabel, truncateUnicodeSafe } from "../../utils/format";
 import { linkify } from "../../utils/linkify";
 import { detectMoneyRequest } from "../../lib/moneyGuard";
 import { detectPersonalCoordinates } from "../../lib/coordinatesGuard";
@@ -290,14 +290,14 @@ export default function ConversationPane({
         )}
 
         {messages.length === 0 && (
-          // .slice(0, 4000) : même contrainte que TOUS les autres chemins qui
+          // truncateUnicodeSafe(…, 4000) : même contrainte que TOUS les autres chemins qui
           // écrivent dans messageDraft (frappe clavier via maxLength, emoji,
           // reformulation IA, suggestions de réponse IA — voir plus bas) —
           // ce chemin-ci l'oubliait. Les questions brise-glace intègrent le
           // nom/la ville/le pays du match (texte libre, sans plafond strict)
           // : sans troncature, un texte anormalement long aurait pu porter
           // messageDraft au-delà de la limite avant même la première frappe.
-          <ConversationStarters currentUser={currentUser} match={activeMatch} onPick={(text) => setMessageDraft(text.slice(0, 4000))} />
+          <ConversationStarters currentUser={currentUser} match={activeMatch} onPick={(text) => setMessageDraft(truncateUnicodeSafe(text, 4000))} />
         )}
         {q && visibleMessages.length === 0 && (
           <p className="text-sm text-center py-6" style={{ color: muted }}>Aucun message ne contient « {searchQuery.trim()} ».</p>
@@ -509,18 +509,20 @@ export default function ConversationPane({
           <AiSuggestButton
             action="reformulate_message"
             buildPayload={() => ({ text: messageDraft })}
-            onApply={(text) => setMessageDraft(text.slice(0, 4000))}
+            onApply={(text) => setMessageDraft(truncateUnicodeSafe(text, 4000))}
             label="Reformuler avec l'IA"
           />
         </div>
       )}
       <div className="p-4 flex gap-2 items-end shrink-0 sticky bottom-0 bg-[var(--bb-surface)]" style={{ borderTop: replyingTo ? "none" : `1px solid rgba(${primaryRgb},.08)`, paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}>
-        {/* .slice(0, 4000) : comme pour la reformulation IA et les suggestions IA ci-dessus,
-            l'ajout d'un emoji passe par setMessageDraft() en dehors de l'événement onChange du
-            textarea, donc l'attribut maxLength du textarea (saisie clavier) ne s'applique pas
-            ici — sans troncature explicite, un emoji ajouté à un brouillon déjà proche de 4000
-            caractères pouvait dépasser la limite envoyée au serveur. */}
-        {!recorderActive && <EmojiPicker onPick={(emoji) => setMessageDraft((d) => (d + emoji).slice(0, 4000))} currentUserId={currentUser.id} />}
+        {/* truncateUnicodeSafe(…, 4000) : comme pour la reformulation IA et les suggestions IA
+            ci-dessus, l'ajout d'un emoji passe par setMessageDraft() en dehors de l'événement
+            onChange du textarea, donc l'attribut maxLength du textarea (saisie clavier) ne
+            s'applique pas ici — sans troncature explicite, un emoji ajouté à un brouillon déjà
+            proche de 4000 caractères pouvait dépasser la limite envoyée au serveur. La version
+            "safe" évite en plus de couper l'emoji tout juste ajouté en deux s'il chevauche la
+            limite (paire surrogate coupée en son milieu). */}
+        {!recorderActive && <EmojiPicker onPick={(emoji) => setMessageDraft((d) => truncateUnicodeSafe(d + emoji, 4000))} currentUserId={currentUser.id} />}
         {!recorderActive && (
           <MessageMediaPicker
             onPickFile={(file, kind) => guardedSend(sendMediaMessage)(file, kind)}
@@ -531,7 +533,7 @@ export default function ConversationPane({
         EditProfileForm/CommunityCreateForm/EventCreateForm/PostComposerModal) :
         même défaut que la reformulation ci-dessus, sur le bouton "Suggestions IA". */}
         {!recorderActive && currentUser?.ai_suggestions_enabled !== false && (
-          <AiConversationSuggestions currentUser={currentUser} match={activeMatch} onPick={(text) => setMessageDraft(text.slice(0, 4000))} />
+          <AiConversationSuggestions currentUser={currentUser} match={activeMatch} onPick={(text) => setMessageDraft(truncateUnicodeSafe(text, 4000))} />
         )}
         {!recorderActive && (
           <textarea

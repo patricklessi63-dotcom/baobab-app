@@ -6,7 +6,7 @@ import ClickableImage from "../ClickableImage";
 import PostMediaGrid from "./PostMediaGrid";
 import ConfirmModal from "./ConfirmModal";
 import { useImageLightbox } from "../../lib/ImageLightboxContext";
-import { formatMessageTime, formatDayLabel } from "../../utils/format";
+import { formatMessageTime, formatDayLabel, truncateUnicodeSafe } from "../../utils/format";
 import { primary, coral, muted, bg, primaryRgb } from "./theme";
 
 const MAX_LENGTH = 4000;
@@ -176,7 +176,7 @@ export default function PostCard({
               <div className="flex items-center gap-2 mt-1">
                 <input
                   value={commentDraft}
-                  onChange={(e) => setCommentDraft(e.target.value.slice(0, 1000))}
+                  onChange={(e) => setCommentDraft(truncateUnicodeSafe(e.target.value, 1000))}
                   onKeyDown={(e) => { if (e.key === "Enter") submitComment(); }}
                   placeholder="Écrire un commentaire..."
                   aria-label="Écrire un commentaire"

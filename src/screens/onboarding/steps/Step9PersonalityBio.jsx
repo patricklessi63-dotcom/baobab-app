@@ -1,6 +1,7 @@
 import React from "react";
 import { C, PERSONALITY_EVENING_OPTIONS, PERSONALITY_TRAVEL_OPTIONS, RELATIONSHIP_NEEDS_OPTIONS } from "../../../constants";
 import ChipSelect from "../../../components/ChipSelect";
+import { truncateUnicodeSafe } from "../../../utils/format";
 
 const BIO_MAX = 300;
 const BIO_PROMPTS = ["Qu'est-ce qui te passionne ?", "Qu'aimerais-tu découvrir au Canada ?"];
@@ -32,7 +33,7 @@ export default function Step9PersonalityBio({ draft, update }) {
       <p className="text-xs font-semibold mt-3" style={{ color: "rgba(var(--bb-ink-rgb-static),0.55)" }}>Parle-nous de toi</p>
       <textarea
         value={draft.bio}
-        onChange={(e) => update({ bio: e.target.value.slice(0, BIO_MAX) })}
+        onChange={(e) => update({ bio: truncateUnicodeSafe(e.target.value, BIO_MAX) })}
         rows={4}
         placeholder="J'aime découvrir de nouvelles villes, cuisiner et rencontrer des personnes positives."
         className="bb-input w-full text-sm"

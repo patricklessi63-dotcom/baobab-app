@@ -8,6 +8,7 @@ import ReportModal from "./ReportModal";
 import ConfirmModal from "./ConfirmModal";
 import EmptyState from "../home/EmptyState";
 import { validateMediaFile } from "../../lib/mediaValidation";
+import { truncateUnicodeSafe } from "../../utils/format";
 import { compressImageIfNeeded } from "../../lib/imageCompression";
 import { uploadWithProgress } from "../../lib/uploadWithProgress";
 import { POST_MEDIA_BUCKET, extFromMime } from "../../lib/mediaConstants";
@@ -275,7 +276,7 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
       // between 1 and 4000)" côté base (supabase-feed-posts.sql), donc la
       // publication du brouillon repris échouait silencieusement à
       // l'insertion avec "Impossible de publier. Réessaie.", sans indice.
-      setDraft(saved.slice(0, 4000));
+      setDraft(truncateUnicodeSafe(saved, 4000));
       setResumedDraft(true);
     }
     setComposer(true);
