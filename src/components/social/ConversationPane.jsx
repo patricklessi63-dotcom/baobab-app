@@ -97,6 +97,18 @@ export default function ConversationPane({
   useEffect(() => { setCoordsNudgeDismissed(false); }, [activeMatch?.id]);
   const showCoordsNudge = !coordsNudgeDismissed && detectPersonalCoordinates(messageDraft);
 
+  // Bug corrigé : banned_at/suspended_until ne sont vérifiés que pour SON
+  // PROPRE compte (App.jsx, vue "banned"/"suspended") — jamais pour l'autre
+  // personne d'une conversation, alors que ces colonnes sont déjà présentes
+  // sur activeMatch (jointure `profile:from_id(*)` dans App.jsx, aucune
+  // requête supplémentaire nécessaire). Résultat : si B est banni ou
+  // suspendu par un·e admin pendant qu'il/elle discute avec A, A continuait
+  // de voir "En ligne"/"Vu il y a X" comme si de rien n'était, sans jamais
+  // comprendre pourquoi B ne répond plus.
+  const otherUnavailable =
+    Boolean(activeMatch.banned_at) ||
+    Boolean(activeMatch.suspended_until && new Date(activeMatch.suspended_until) > new Date());
+
   // Traduction à la demande, message par message — jamais automatique,
   // toujours étiquetée comme générée pour ne jamais faire croire que
   // l'autre personne a écrit dans cette langue.
@@ -202,21 +214,25 @@ export default function ConversationPane({
         >
           <div style={{ position: "relative" }}>
             <Avatar name={activeMatch.name} url={activeMatch.avatar_url} size={38} />
-            <Circle size={10} fill={activeMatch.is_online ? online : offline} color="transparent" style={{ position: "absolute", bottom: -1, right: -1, background: "#fff", borderRadius: "50%" }} />
+            {!otherUnavailable && (
+              <Circle size={10} fill={activeMatch.is_online ? online : offline} color="transparent" style={{ position: "absolute", bottom: -1, right: -1, background: "#fff", borderRadius: "50%" }} />
+            )}
           </div>
           <div className="min-w-0">
             <div className="text-sm font-bold flex items-center gap-1.5 truncate">
               {activeMatch.name}
               <StatusBadge emailVerified={activeMatch.email_verified} phoneVerified={activeMatch.phone_verified} isFounder={activeMatch.is_founder} isPremium={activeMatch.is_premium} size={13} />
             </div>
-            <div className="text-xs truncate" style={{ color: otherTyping && currentUser.show_read_receipts !== false ? coral : muted }}>
+            <div className="text-xs truncate" style={{ color: otherUnavailable ? coral : otherTyping && currentUser.show_read_receipts !== false ? coral : muted }}>
               {/* show_online_status vérifié (bug corrigé à l'audit) : is_online est
                   déjà forcé à false côté écriture (App.jsx) quand ce réglage est
                   désactivé, mais last_seen, lui, reste figé à l'instant de la
                   désactivation et continuait d'être affiché ici via formatLastSeen
                   — donc "Vu il y a X" fuyait quand même une donnée réelle malgré
                   le réglage "Statut en ligne visible" éteint. */}
-              {otherTyping && currentUser.show_read_receipts !== false
+              {otherUnavailable
+                ? "Ce compte n'est plus disponible"
+                : otherTyping && currentUser.show_read_receipts !== false
                 ? "en train d'écrire…"
                 : activeMatch.is_online
                 ? "En ligne"

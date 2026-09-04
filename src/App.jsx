@@ -511,9 +511,15 @@ export default function App() {
       ]);
       ids.delete(currentUser?.id);
       if (ids.size === 0) return;
+      // banned_at/suspended_until inclus (bug corrigé à l'audit — voir
+      // ConversationPane.jsx/MessagesTab.jsx) : sans ça, ces deux colonnes
+      // ne se rafraîchissaient jamais après le chargement initial — un
+      // compte banni/suspendu APRÈS l'ouverture de l'app continuait
+      // d'afficher un statut "En ligne"/"Vu il y a X" normal à ses
+      // interlocuteurs jusqu'à un rechargement complet de la page.
       const { data, error } = await supabase
         .from("profiles")
-        .select("id, is_online, last_seen, show_online_status")
+        .select("id, is_online, last_seen, show_online_status, banned_at, suspended_until")
         .in("id", Array.from(ids));
       if (error || !data) return;
       const byId = new Map(data.map((r) => [r.id, r]));

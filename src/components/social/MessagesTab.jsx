@@ -136,6 +136,12 @@ export default function MessagesTab({
           const unread = unreadByKey[key] || 0;
           const preview = last ? (last.from_id === currentUser.id ? `Toi : ${messagePreviewLabel(last)}` : messagePreviewLabel(last)) : "Dites bonjour 👋";
           const isMenuOpen = openRowMenu === m.id;
+          // Même correctif que ConversationPane.jsx : ne pas afficher un
+          // point "en ligne"/"hors ligne" normal pour un compte banni ou
+          // suspendu (banned_at/suspended_until déjà présents sur m, voir
+          // App.jsx — jointure profile:from_id(*)).
+          const unavailable =
+            Boolean(m.banned_at) || Boolean(m.suspended_until && new Date(m.suspended_until) > new Date());
           return (
             <div key={m.id} className="relative group" style={{ borderBottom: `1px solid rgba(${primaryRgb},.05)` }}>
               <button
@@ -146,7 +152,9 @@ export default function MessagesTab({
               >
                 <div className="relative flex-shrink-0">
                   <Avatar name={m.name} url={m.avatar_url} size={50} />
-                  <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white" style={{ background: m.is_online ? online : offline }} />
+                  {!unavailable && (
+                    <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white" style={{ background: m.is_online ? online : offline }} />
+                  )}
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between gap-2">
@@ -154,7 +162,7 @@ export default function MessagesTab({
                     {last && <span className="text-[10px] shrink-0" style={{ color: muted }}>{formatMessageTime(last.created_at)}</span>}
                   </div>
                   <div className="flex items-center justify-between gap-2 mt-0.5">
-                    <span className="text-xs truncate" style={{ color: unread > 0 ? body : muted, fontWeight: unread > 0 ? 700 : 400 }}>{preview}</span>
+                    <span className="text-xs truncate" style={{ color: unavailable ? coral : unread > 0 ? body : muted, fontWeight: unread > 0 ? 700 : 400 }}>{unavailable ? "Ce compte n'est plus disponible" : preview}</span>
                     {unread > 0 && (
                       <span className="text-[10px] font-black text-white rounded-full h-5 min-w-5 px-1.5 flex items-center justify-center shrink-0" style={{ background: coral }}>
                         {unread}
