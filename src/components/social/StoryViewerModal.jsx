@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { X, Send, Volume2, VolumeX, Eye, Trash2, MoreVertical, Flag, Ban } from "lucide-react";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
-import { navy } from "./theme";
+import { navy, coral } from "./theme";
 import Avatar from "../Avatar";
 import StatusBadge from "../StatusBadge";
 
@@ -221,7 +221,7 @@ export default function StoryViewerModal({
                     role="menuitem"
                     onClick={() => { setMenuOpen(false); closeStoryViewer(); onBlock?.({ id: story.profile_id, name: story.name }); }}
                     className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-left border-t border-black/10 focus-visible:outline focus-visible:outline-2"
-                    style={{ color: "#e56b5d" }}
+                    style={{ color: coral }}
                   >
                     <Ban size={14} /> Bloquer
                   </button>

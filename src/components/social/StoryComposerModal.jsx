@@ -3,11 +3,15 @@ import { createPortal } from "react-dom";
 import { X, Image as ImageIcon, Camera, ArrowLeft } from "lucide-react";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
+import { C } from "../../constants";
 import { primary, navy, green, coral, gold, bg, primaryRgb } from "./theme";
 
 // Fonds proposés pour un statut texte — palette Baobab (pas de bleu
-// Facebook), cohérente avec STORY_COLORS de SocialShell.jsx.
-const BG_PRESETS = [coral, "#5667A9", green, gold, navy, "#C1613D"];
+// Facebook), cohérente avec STORY_COLORS de SocialShell.jsx. Dernière
+// couleur en C.clay (jeton nommé, voir constants.js) au lieu du littéral
+// "#C1613D" dupliqué ici (bug corrigé à l'audit, risque de dérive
+// silencieuse) — même pattern que MatchCelebrationModal.jsx.
+const BG_PRESETS = [coral, "#5667A9", green, gold, navy, C.clay];
 
 export default function StoryComposerModal({
   storyComposer,
