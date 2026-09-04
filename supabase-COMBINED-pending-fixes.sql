@@ -1,15 +1,418 @@
 -- ============================================================================
--- SCRIPT CONSOLIDÉ — tous les correctifs SQL en attente (19 fichiers)
--- Généré le 2026-09-04 00:21 à partir des fichiers supabase-*-fix.sql
--- individuels du dépôt, dans l'ordre où ils ont été trouvés/écrits pendant
--- la session d'audit. Chaque section est idempotente (drop/create ou
+-- SCRIPT CONSOLIDÉ — tous les correctifs SQL en attente (23 fichiers)
+-- Régénéré le 2026-09-04 12:38 à partir des fichiers supabase-*-fix.sql
+-- individuels du dépôt. Chaque section est idempotente (drop/create ou
 -- create or replace), donc rejouer ce script entier ne pose pas de
 -- problème si une partie a déjà été appliquée séparément.
+--
+-- ORDRE VOLONTAIRE : les 4 premières sections (sécurité critique/active,
+-- trouvées et corrigées après la première version de ce script consolidé)
+-- passent en premier. Si tu as déjà exécuté l'ancienne version de ce
+-- script (19 fichiers), tu peux exécuter UNIQUEMENT ces 4 premières
+-- sections plutôt que tout le fichier — repère les séparateurs "SOURCE :".
+--
+-- 1. supabase-authz-null-bypass-CRITIQUE-fix.sql — LE PLUS URGENT. Sans
+--    lui, admin_search_users()/admin_list_feedback() et plusieurs autres
+--    fonctions exposent de vraies données à n'importe quel visiteur
+--    anonyme, confirmé en direct contre la production.
+-- 2. supabase-storage-anon-listing-fix.sql — les buckets avatars/post-media
+--    sont lisibles et listables par n'importe qui sans compte.
+-- 3. supabase-stripe-webhook-ordering-fix.sql — nécessite AUSSI un
+--    redéploiement de la fonction après exécution du SQL :
+--      supabase functions deploy stripe-webhook --no-verify-jwt
+-- 4. supabase-create-community-event-authz-fix.sql — moins urgent (pas
+--    exploitable aujourd'hui), inclus pour être complet.
 --
 -- À exécuter en une fois dans Supabase SQL Editor. Si une erreur survient
 -- sur une section, note le nom du fichier source (marqué ci-dessous) et
 -- signale-le : le reste du script peut être rejoué séparément.
 -- ============================================================================
+
+
+-- ============================================================================
+-- SOURCE : supabase-authz-null-bypass-CRITIQUE-fix.sql
+-- ============================================================================
+-- ============================================================================
+-- CORRECTIF CRITIQUE — les gardes d'autorisation "if not is_X() then raise
+-- exception" sont contournables par NIMPORTE QUEL appelant qui n'a PAS de
+-- rôle privilégié (donc la quasi-totalité des utilisateurs normaux).
+--
+-- Trouvé en vérifiant en lecture seule, contre la production, que le
+-- correctif supabase-user-risk-level-authz-fix.sql (qui vient d'être exécuté)
+-- fonctionnait réellement : un appel anonyme (clé publique, sans session
+-- utilisateur) à user_risk_level() a renvoyé 'normal' avec HTTP 200 au lieu
+-- de lever l'exception attendue.
+--
+-- CAUSE RACINE (logique à trois valeurs de SQL) :
+--   is_moderator_or_above() est défini ainsi (supabase-admin.sql) :
+--     select platform_role(current_profile_id()) in ('moderator','admin','super_admin');
+--   Pour un utilisateur SANS ligne dans platform_roles (donc TOUT utilisateur
+--   normal, connecté ou non), platform_role(...) renvoie NULL (aucune ligne
+--   trouvée) — pas 'aucun rôle', littéralement NULL.
+--   `NULL in (...)` vaut NULL en SQL, ni vrai ni faux.
+--   Le résultat de la fonction est donc NULL, pas FALSE.
+--
+--   Ensuite, dans TOUTES les fonctions qui font :
+--     if not is_moderator_or_above() then raise exception 'Non autorise'; end if;
+--   `not NULL` vaut NULL, et en PL/pgSQL, un IF dont la condition est NULL
+--   est traité comme FAUX (la doc PostgreSQL le dit explicitement) — donc la
+--   branche "raise exception" n'est JAMAIS exécutée pour ce cas. L'appelant
+--   passe le contrôle silencieusement, alors que l'intention était de le
+--   rejeter.
+--
+-- PORTÉE — vérifiée exhaustivement (grep sur "returns boolean language sql"
+-- dans tous les fichiers .sql du dépôt, 13 fonctions au total) :
+--   BUGUÉES (utilisent "X() in (...)" ou "X() = 'y'", NULL-propagation) :
+--     is_moderator_or_above(), is_admin_or_above(), is_super_admin()   [supabase-admin.sql]
+--     is_community_staff(), is_community_mod()                        [supabase-communities.sql]
+--     is_event_staff()                                                [supabase-events-v2.sql]
+--     is_info_editor(), is_info_admin()                                [supabase-info.sql]
+--   SAINES (utilisent "is not null" ou "exists(...)", jamais NULL) :
+--     is_community_member(), is_event_mod(), is_event_participant(),
+--     can_view_event(), is_premium(), role_rank()
+--
+-- Ces 8 fonctions buguées servent de garde à TRÈS nombreuses fonctions
+-- "security definer" à travers le projet (admin_dashboard_stats,
+-- admin_list_reports, admin_list_feedback, admin_search_users,
+-- grant_platform_role, revoke_platform_role, suspend_user, ban_user,
+-- resolve_report, dismiss_report, les actions de modération beta-feedback,
+-- premium-messaging, profile-reports-moderation, report-minor-category, les
+-- actions d'édition de communauté réservées au staff, les actions d'édition
+-- d'articles Info réservées aux éditeurs, et désormais user_risk_level et
+-- platform_role elles-mêmes) — TOUTES potentiellement exécutables par un
+-- utilisateur normal sans le rôle requis, malgré une garde qui semblait
+-- correcte à la lecture du code.
+--
+-- CORRECTIF — un seul changement par fonction : envelopper le résultat dans
+-- coalesce(..., false), pour que "aucun rôle trouvé" redevienne
+-- explicitement FALSE au lieu de NULL. Aucun changement de comportement pour
+-- un appelant qui a réellement le rôle requis (le calcul renvoie alors un
+-- vrai TRUE/FALSE, jamais NULL, coalesce est alors un no-op). Idempotent
+-- (create or replace) — corrige d'un coup TOUS les appelants listés
+-- ci-dessus, sans avoir à toucher chacune de leurs définitions.
+--
+-- À EXÉCUTER EN PRIORITÉ ABSOLUE, avant même le reste du script consolidé
+-- si ce n'est pas déjà fait — c'est la vulnérabilité la plus large de toute
+-- la session d'audit.
+-- ============================================================================
+
+create or replace function is_moderator_or_above()
+returns boolean language sql stable security definer set search_path = public as $$
+  select coalesce(platform_role(current_profile_id()) in ('moderator','admin','super_admin'), false);
+$$;
+
+create or replace function is_admin_or_above()
+returns boolean language sql stable security definer set search_path = public as $$
+  select coalesce(platform_role(current_profile_id()) in ('admin','super_admin'), false);
+$$;
+
+create or replace function is_super_admin()
+returns boolean language sql stable security definer set search_path = public as $$
+  select coalesce(platform_role(current_profile_id()) = 'super_admin', false);
+$$;
+
+create or replace function is_community_staff(p_community_id uuid) -- owner/admin, peut editer
+returns boolean language sql stable security definer set search_path = public as $$
+  select coalesce(community_member_role(p_community_id, current_profile_id()) in ('owner','admin'), false);
+$$;
+
+create or replace function is_community_mod(p_community_id uuid) -- + moderator, peut moderer
+returns boolean language sql stable security definer set search_path = public as $$
+  select coalesce(community_member_role(p_community_id, current_profile_id()) in ('owner','admin','moderator'), false);
+$$;
+
+create or replace function is_event_staff(p_event_id uuid) -- organizer/co_organizer, peut editer
+returns boolean language sql stable security definer set search_path = public as $$
+  select coalesce(event_staff_role(p_event_id, current_profile_id()) in ('organizer','co_organizer'), false);
+$$;
+
+create or replace function is_info_editor()
+returns boolean language sql stable security definer set search_path = public as $$
+  select coalesce(info_role(current_profile_id()) in ('editor','admin'), false);
+$$;
+
+create or replace function is_info_admin()
+returns boolean language sql stable security definer set search_path = public as $$
+  select coalesce(info_role(current_profile_id()) = 'admin', false);
+$$;
+
+-- ----------------------------------------------------------------------------
+-- Vérification (facultatif, à exécuter séparément après, en te déconnectant
+-- ou avec la clé anonyme, jamais avec ton propre compte admin) :
+--   select is_moderator_or_above(); -- doit renvoyer "false", plus jamais NULL
+--   select user_risk_level('<uuid-quelconque>'); -- doit lever "Non autorise"
+-- ============================================================================
+
+
+-- ============================================================================
+-- SOURCE : supabase-storage-anon-listing-fix.sql
+-- ============================================================================
+-- ============================================================================
+-- Corrige une fuite confirmee EMPIRIQUEMENT (curl anonyme, cle publique anon
+-- uniquement, aucune session) : n'importe quel visiteur, meme jamais
+-- connecte a Baobab, peut lister l'INTEGRALITE du contenu des buckets
+-- Storage "avatars" et "post-media" via l'API Storage
+-- (POST /storage/v1/object/list/<bucket>), avec le nom exact de chaque
+-- fichier, sa taille et ses dates.
+--
+-- Ce n'est PAS le meme probleme que le contournement NULL des gardes RLS sur
+-- les TABLES (supabase-authz-null-bypass-CRITIQUE-fix.sql) : ici c'est une
+-- policy RLS sur storage.objects qui a toujours ete trop large par
+-- conception (aucune clause "to authenticated"), verifiee ce jour avec :
+--   curl -X POST "https://<projet>.supabase.co/storage/v1/object/list/avatars" \
+--     -H "apikey: <cle anon>" -H "Authorization: Bearer <cle anon>" \
+--     -H "Content-Type: application/json" -d '{"prefix":"","limit":1000,"offset":0}'
+-- -> renvoie la liste reelle des dossiers (un par profil_id) puis, avec un
+-- prefix "<uuid>/", la liste des fichiers de ce profil — y compris les
+-- fichiers "story-*.jpg"/"story-*.mp4" (les stories sont stockees dans le
+-- bucket "avatars", voir SocialShell.jsx ligne ~1550), donc y compris des
+-- stories deja EXPIREES dans l'app (l'expiration est un filtre de requete,
+-- pas une suppression du fichier Storage sous-jacent — voir
+-- supabase-stories-expiration.sql). Meme resultat pour "post-media".
+--
+-- A l'inverse, "chat-media"/"community-media"/"event-media"/"event-covers"
+-- renvoient [] pour ce meme test car leurs policies SELECT conditionnent
+-- l'acces a une appartenance/visibilite reelle (is_community_member,
+-- can_view_event, "conversation matchee"...) qui echoue naturellement pour
+-- un appelant anonyme sans session.
+--
+-- Correctif : restreindre la policy SELECT de "avatars" et "post-media" au
+-- role authenticated. Sans impact sur l'affichage normal des photos dans
+-- l'app (getPublicUrl() continue de fonctionner pour un lien direct connu :
+-- ces deux buckets sont marques public=true dans storage.buckets, ce qui
+-- fait deja sauter la verification RLS pour une LECTURE DIRECTE d'un
+-- fichier dont on connait l'URL exacte — c'est voulu, c'est ainsi que les
+-- photos de profil s'affichent). Seule la capacite de LISTER
+-- (enumerer) le contenu du bucket sans rien connaitre a l'avance passe par
+-- cette policy RLS, et c'est elle qui est resserree ici. LandingPage.jsx
+-- (page publique avant connexion) n'affiche aucune vraie photo de profil —
+-- verifie, aucun appel Storage cote non-connecte a preserver.
+--
+-- A executer dans Supabase : SQL Editor (une fois), sans dependance
+-- nouvelle sur d'autres migrations.
+-- ============================================================================
+
+do $$
+declare pol record;
+begin
+  for pol in select policyname from pg_policies where schemaname = 'storage' and tablename = 'objects' and policyname like 'avatars:%' loop
+    execute format('drop policy %I on storage.objects', pol.policyname);
+  end loop;
+
+  create policy "avatars: lecture publique"
+  on storage.objects for select
+  to authenticated
+  using (bucket_id = 'avatars');
+
+  create policy "avatars: televerse dans son propre dossier"
+  on storage.objects for insert
+  to authenticated
+  with check (bucket_id = 'avatars' and (storage.foldername(name))[1] = auth.uid()::text);
+
+  create policy "avatars: modifie ses propres fichiers"
+  on storage.objects for update
+  to authenticated
+  using (bucket_id = 'avatars' and owner = auth.uid())
+  with check (bucket_id = 'avatars' and (storage.foldername(name))[1] = auth.uid()::text);
+
+  create policy "avatars: supprime ses propres fichiers"
+  on storage.objects for delete
+  to authenticated
+  using (bucket_id = 'avatars' and owner = auth.uid());
+end $$;
+
+do $$
+declare pol record;
+begin
+  for pol in select policyname from pg_policies where schemaname='storage' and tablename='objects' and policyname like '%post-media%' loop
+    execute format('drop policy %I on storage.objects', pol.policyname);
+  end loop;
+
+  create policy "Lecture publique post-media"
+  on storage.objects for select
+  to authenticated
+  using (bucket_id = 'post-media');
+
+  create policy "Televersement post-media dans son propre dossier"
+  on storage.objects for insert
+  to authenticated
+  with check (bucket_id = 'post-media' and (storage.foldername(name))[1] = auth.uid()::text);
+
+  create policy "Suppression post-media dans son propre dossier"
+  on storage.objects for delete
+  to authenticated
+  using (bucket_id = 'post-media' and (storage.foldername(name))[1] = auth.uid()::text);
+end $$;
+
+-- Verification apres execution — refaire le curl anonyme ci-dessus depuis un
+-- terminal : la liste doit desormais etre vide / l'appel doit echouer sans
+-- jeton d'un compte reellement connecte (Authorization: Bearer <access_token
+-- de session>, pas juste la cle anon publique).
+
+
+-- ============================================================================
+-- SOURCE : supabase-stripe-webhook-ordering-fix.sql
+-- ============================================================================
+-- ============================================================================
+-- Corrige deux failles de fiabilite du webhook Stripe (supabase/functions/
+-- stripe-webhook/index.ts) sur la table "subscriptions" — a executer dans
+-- Supabase : SQL Editor (une fois), APRES supabase-premium.sql (deja en
+-- production).
+--
+-- Contexte : ce fichier accompagne un changement de code dans
+-- stripe-webhook/index.ts (deploiement de l'Edge Function requis en plus de
+-- ce script SQL — "supabase functions deploy stripe-webhook --no-verify-jwt").
+--
+-- Probleme 1 — desordre de livraison : Stripe garantit une livraison "au
+-- moins une fois" mais PAS l'ordre de livraison (voir doc Stripe : "Webhook
+-- events aren't guaranteed to be sent in the order in which they're
+-- generated"). L'ancien code ecrivait aveuglement dans "subscriptions" des
+-- qu'un evenement customer.subscription.* arrivait, sans jamais comparer son
+-- horodatage a celui du dernier evenement deja applique. Un evenement
+-- retarde (retry reseau, event.created plus ancien) livre APRES un evenement
+-- plus recent pouvait donc ecraser l'etat courant avec des donnees perimees
+-- (ex. reactiver "active"/cancel_at_period_end=false apres une annulation
+-- deja traitee).
+--
+-- Cette colonne memorise le "event.created" Stripe (temps ou Stripe a
+-- genere l'evenement, pas l'heure de reception) du dernier evenement
+-- reellement applique a cette ligne. Le nouveau code du webhook n'ecrit
+-- une mise a jour que si elle est strictement plus recente que la valeur
+-- deja enregistree.
+-- ============================================================================
+
+alter table subscriptions
+  add column if not exists stripe_event_created_at timestamptz;
+
+comment on column subscriptions.stripe_event_created_at is
+  'Horodatage (event.created, temps Stripe) du dernier evenement webhook reellement applique a cette ligne. Sert de garde anti-desordre : un evenement plus ancien que cette valeur est ignore par stripe-webhook/index.ts au lieu d''ecraser un etat plus recent.';
+
+-- Verification optionnelle post-execution :
+-- select stripe_subscription_id, status, cancel_at_period_end, stripe_event_created_at, updated_at
+-- from subscriptions order by updated_at desc limit 20;
+
+
+-- ============================================================================
+-- SOURCE : supabase-create-community-event-authz-fix.sql
+-- ============================================================================
+-- ============================================================================
+-- Corrige un défaut relevé à l'audit (passage suivant le correctif CRITIQUE
+-- NULL-bypass) : create_community() et create_event() sont les deux SEULES
+-- fonctions "create_xxx" du schéma à n'avoir AUCUNE vérification d'auth
+-- explicite en tête de fonction (toutes les autres, ex. create_info_article,
+-- appellent un garde type is_xxx() en premier). Elles valident bien les
+-- champs métier (titre, ville, date...) mais pas l'identité de l'appelant.
+--
+-- Ce n'était PAS le bug NULL-bypass déjà corrigé (aucune garde
+-- "X() in (...)" ici à contourner) : un appel anonyme (current_profile_id()
+-- = null, aucun profil) atteignait quand même l'INSERT, qui échouait
+-- seulement PAR ACCIDENT sur une contrainte "not null" en aval :
+--   - create_community() : communities.created_by est nullable (on delete
+--     set null), donc le premier insert réussit ; c'est le second insert,
+--     "insert into community_members (..., profile_id, ...)" avec
+--     profile_id not null references profiles(id), qui échoue en dernier
+--     avec une erreur Postgres brute ("null value in column profile_id
+--     violates not-null constraint") — un détail d'implémentation exposé
+--     tel quel au client au lieu d'un message propre.
+--   - create_event() : même mécanisme via event_staff.profile_id /
+--     event_attendees.profile_id (tous deux not null).
+--
+-- Rien d'exploitable ici (l'appel finissait de toute façon par échouer,
+-- aucune ligne orpheline créée grâce aux FK not null), mais le message
+-- d'erreur brut fuite un détail de schéma. Correctif : rejet explicite et
+-- propre en tête de fonction, comme le fait déjà create_info_article() avec
+-- is_info_editor(). Audit complémentaire : aucune autre fonction "create_xxx"
+-- du schéma n'a ce défaut (toutes les autres ont déjà une garde explicite).
+--
+-- Restate complet des dernières versions en date :
+--   - create_community() : signature avec p_rules (supabase-communities-2.sql,
+--     la plus récente).
+--   - create_event() : signature avec p_timezone + garde durée
+--     (supabase-events-duration-guard.sql, la plus récente).
+-- À exécuter dans Supabase : SQL Editor (une fois, indépendant des autres
+-- scripts de cette liste — mais APRÈS supabase-communities-2.sql et
+-- supabase-events-duration-guard.sql s'ils ne sont pas encore appliqués,
+-- puisque ce fichier restate les mêmes signatures).
+-- ============================================================================
+
+create or replace function create_community(
+  p_name text, p_description text, p_category text, p_city text, p_visibility text, p_cover_url text, p_rules text default null
+)
+returns communities
+language plpgsql security definer set search_path = public
+as $$
+declare v_community communities;
+begin
+  if current_profile_id() is null then
+    raise exception 'Non authentifie';
+  end if;
+  if p_name is null or char_length(trim(p_name)) = 0 then
+    raise exception 'Le nom est requis';
+  end if;
+  insert into communities (name, description, category, city, visibility, cover_url, rules, created_by)
+  values (trim(p_name), p_description, p_category, p_city, coalesce(p_visibility, 'public'), p_cover_url, p_rules, current_profile_id())
+  returning * into v_community;
+
+  insert into community_members (community_id, profile_id, role)
+  values (v_community.id, current_profile_id(), 'owner');
+
+  return v_community;
+end;
+$$;
+
+create or replace function create_event(
+  p_title text, p_description text, p_category text, p_cover_url text,
+  p_event_date timestamptz, p_duration_minutes integer,
+  p_city text, p_location text, p_max_participants integer,
+  p_visibility text, p_community_id uuid, p_timezone text default null
+)
+returns events
+language plpgsql security definer set search_path = public
+as $$
+declare v_event events;
+begin
+  if current_profile_id() is null then
+    raise exception 'Non authentifie';
+  end if;
+  if p_title is null or char_length(trim(p_title)) = 0 then
+    raise exception 'Le titre est requis';
+  end if;
+  if p_city is null or char_length(trim(p_city)) = 0 then
+    raise exception 'La ville est requise';
+  end if;
+  if p_event_date is null or p_event_date <= now() then
+    raise exception 'La date doit etre dans le futur';
+  end if;
+  if p_duration_minutes is not null and p_duration_minutes <= 0 then
+    raise exception 'La duree doit etre un nombre de minutes positif';
+  end if;
+  if p_max_participants is not null and p_max_participants <= 0 then
+    raise exception 'Le nombre maximum de participants doit etre positif';
+  end if;
+  if coalesce(p_visibility, 'public') = 'community' and p_community_id is null then
+    raise exception 'Une communaute est requise pour un evenement communautaire';
+  end if;
+  if p_community_id is not null and not is_community_member(p_community_id) then
+    raise exception 'Tu dois etre membre de cette communaute';
+  end if;
+
+  insert into events (
+    title, description, category, cover_url, event_date, duration_minutes,
+    city, location, max_participants, visibility, community_id, created_by, timezone
+  )
+  values (
+    trim(p_title), p_description, p_category, p_cover_url, p_event_date, p_duration_minutes,
+    trim(p_city), nullif(trim(coalesce(p_location, '')), ''), p_max_participants,
+    coalesce(p_visibility, 'public'), p_community_id, current_profile_id(), p_timezone
+  )
+  returning * into v_event;
+
+  insert into event_staff (event_id, profile_id, role) values (v_event.id, current_profile_id(), 'organizer');
+  insert into event_attendees (event_id, profile_id, status) values (v_event.id, current_profile_id(), 'going');
+
+  return v_event;
+end;
+$$;
 
 
 -- ============================================================================
