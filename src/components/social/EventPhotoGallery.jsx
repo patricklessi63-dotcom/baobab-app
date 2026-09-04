@@ -8,6 +8,7 @@ import { validateMediaFile } from "../../lib/mediaValidation";
 import { compressImageIfNeeded } from "../../lib/imageCompression";
 import { extFromMime } from "../../lib/mediaConstants";
 import { uploadWithProgress } from "../../lib/uploadWithProgress";
+import ConfirmModal from "./ConfirmModal";
 import { muted, bg, primaryRgb } from "./theme";
 
 const BUCKET = "event-media";
@@ -19,6 +20,9 @@ export default function EventPhotoGallery({ photos = [], loading, canUpload, cur
   const inputRef = useRef(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
+  // Suppression de photo en attente de confirmation — remplace l'ancien
+  // window.confirm(), voir ConfirmModal.jsx.
+  const [pendingDelete, setPendingDelete] = useState(null);
   const { openLightbox } = useImageLightbox();
   const gallery = photos.filter((p) => p.url).map((p) => ({ url: p.url, alt: "" }));
 
@@ -91,7 +95,7 @@ export default function EventPhotoGallery({ photos = [], loading, canUpload, cur
               ) : null}
               {(p.uploaded_by === currentUserId || canModerate) && (
                 <button
-                  onClick={() => { if (window.confirm("Supprimer cette photo ? Cette action est irréversible.")) onDelete(p); }}
+                  onClick={() => setPendingDelete(p)}
                   aria-label="Supprimer cette photo"
                   className="absolute top-1 right-1 h-7 w-7 rounded-full flex items-center justify-center focus-visible:outline focus-visible:outline-2"
                   style={{ background: `rgba(${primaryRgb},.6)` }}
@@ -104,6 +108,15 @@ export default function EventPhotoGallery({ photos = [], loading, canUpload, cur
         </div>
       )}
       <p className="text-[11px] mt-2" style={{ color: muted }}>{photos.length} photo{photos.length > 1 ? "s" : ""}</p>
+
+      <ConfirmModal
+        open={Boolean(pendingDelete)}
+        title="Supprimer cette photo ?"
+        message="Cette action est irréversible."
+        confirmLabel="Supprimer"
+        onCancel={() => setPendingDelete(null)}
+        onConfirm={() => { onDelete(pendingDelete); setPendingDelete(null); }}
+      />
     </div>
   );
 }

@@ -9,6 +9,7 @@ import EventCreateForm from "./EventCreateForm";
 import EventEditForm from "./EventEditForm";
 import EventInviteModal from "./EventInviteModal";
 import ReportModal from "./ReportModal";
+import ConfirmModal from "./ConfirmModal";
 import PublicProfileModal from "./PublicProfileModal";
 import EmptyState from "../home/EmptyState";
 import HorizontalScrollRow from "../HorizontalScrollRow";
@@ -123,6 +124,9 @@ export default function EventsTab({ currentUser, onError, initialEventId, onCons
   const [reports, setReports] = useState([]);
 
   const [viewedProfile, setViewedProfile] = useState(null);
+  // Annulation d'événement en attente de confirmation — remplace l'ancien
+  // window.confirm(), voir ConfirmModal.jsx.
+  const [cancelTarget, setCancelTarget] = useState(null);
   const [reportTarget, setReportTarget] = useState(null);
   const [reportCategory, setReportCategory] = useState("");
   const [reportReason, setReportReason] = useState("");
@@ -520,8 +524,13 @@ export default function EventsTab({ currentUser, onError, initialEventId, onCons
     setView("detail");
   };
 
-  const handleCancel = async (ev) => {
-    if (!window.confirm("Annuler cet événement ? Les participants seront notifiés.")) return;
+  const handleCancel = (ev) => {
+    setCancelTarget(ev);
+  };
+
+  const confirmCancel = async () => {
+    const ev = cancelTarget;
+    if (!ev) return;
     try {
       const { data, error } = await supabase.from("events").update({ canceled_at: new Date().toISOString() }).eq("id", ev.id).select().single();
       if (error) throw error;
@@ -529,6 +538,8 @@ export default function EventsTab({ currentUser, onError, initialEventId, onCons
     } catch (e) {
       console.error(e);
       onError("Impossible d'annuler cet événement.");
+    } finally {
+      setCancelTarget(null);
     }
   };
 
@@ -866,6 +877,15 @@ export default function EventsTab({ currentUser, onError, initialEventId, onCons
           sending={inviteSending}
           onInvite={handleInvite}
           onClose={() => setInviteOpen(false)}
+        />
+
+        <ConfirmModal
+          open={Boolean(cancelTarget)}
+          title="Annuler cet événement ?"
+          message="Les participants seront notifiés."
+          confirmLabel="Annuler l'événement"
+          onCancel={() => setCancelTarget(null)}
+          onConfirm={confirmCancel}
         />
 
         {shareOpen && (

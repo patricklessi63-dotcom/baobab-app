@@ -20,6 +20,7 @@ import AudioRecorder from "./AudioRecorder";
 import MessageBubbleMedia from "./MessageBubbleMedia";
 import ChatDropZone from "./ChatDropZone";
 import MessageActionsMenu from "./MessageActionsMenu";
+import ConfirmModal from "./ConfirmModal";
 import { primary, coral, bg, muted, online, offline, body, primaryRgb } from "./theme";
 
 function MessageText({ text }) {
@@ -115,10 +116,11 @@ export default function ConversationPane({
     setTranslations((prev) => ({ ...prev, [m.id]: error ? { error } : { text: data?.text || "" } }));
   };
 
+  // Suppression pour tout le monde en attente de confirmation — remplace
+  // l'ancien window.confirm(), voir ConfirmModal.jsx.
+  const [pendingDeleteForEveryone, setPendingDeleteForEveryone] = useState(null);
   function handleDeleteForEveryone(message) {
-    if (window.confirm("Supprimer ce message pour tout le monde ? Cette action est irréversible pour les deux personnes.")) {
-      deleteMessageForEveryone(message);
-    }
+    setPendingDeleteForEveryone(message);
   }
 
   useLayoutEffect(() => {
@@ -553,6 +555,18 @@ export default function ConversationPane({
           onActiveChange={setRecorderActive}
         />
       </div>
+
+      <ConfirmModal
+        open={Boolean(pendingDeleteForEveryone)}
+        title="Supprimer ce message pour tout le monde ?"
+        message="Cette action est irréversible pour les deux personnes."
+        confirmLabel="Supprimer"
+        onCancel={() => setPendingDeleteForEveryone(null)}
+        onConfirm={() => {
+          deleteMessageForEveryone(pendingDeleteForEveryone);
+          setPendingDeleteForEveryone(null);
+        }}
+      />
     </div>
   );
 }

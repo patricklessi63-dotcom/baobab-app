@@ -4,6 +4,7 @@ import CommunityPostCard from "./CommunityPostCard";
 import CommunityPostComposer from "./CommunityPostComposer";
 import CommunityMemberRow from "./CommunityMemberRow";
 import CommunityAdminPanel from "./CommunityAdminPanel";
+import ConfirmModal from "./ConfirmModal";
 import EventCard from "./EventCard";
 import EmptyState from "../home/EmptyState";
 import Skeleton from "../Skeleton";
@@ -63,6 +64,9 @@ export default function CommunityDetailView({
   onOpenInvite = () => {},
 }) {
   const [subTab, setSubTab] = useState("posts");
+  // Action destructive en attente de confirmation (quitter/supprimer la
+  // communauté) — remplace les window.confirm() natifs, voir ConfirmModal.jsx.
+  const [pendingAction, setPendingAction] = useState(null); // { type: "leave" | "delete" }
   const staff = isStaff(viewerRole);
   // Onglet "Gestion" : ouvert dès moderator, pas seulement owner/admin — les
   // signalements de communauté sont chargés côté serveur pour is_community_mod
@@ -121,7 +125,7 @@ export default function CommunityDetailView({
             {viewerRole ? (
               viewerRole !== "owner" && (
                 <button
-                  onClick={() => window.confirm("Veux-tu vraiment quitter cette communauté ?") && onLeave(community)}
+                  onClick={() => setPendingAction({ type: "leave" })}
                   className="px-4 py-2.5 rounded-full text-sm font-bold"
                   style={{ border: `1px solid rgba(${primaryRgb},.15)`, color: primary }}
                 >
@@ -147,7 +151,7 @@ export default function CommunityDetailView({
             )}
             {onDeleteCommunity && (viewerRole === "owner" || isPlatformAdmin) && (
               <button
-                onClick={() => window.confirm(`Supprimer définitivement "${community.name}" ? Publications, membres et événements de cette communauté seront aussi supprimés. Cette action est irréversible.`) && onDeleteCommunity(community)}
+                onClick={() => setPendingAction({ type: "delete" })}
                 className="px-4 py-2.5 rounded-full text-sm font-bold flex items-center gap-1.5"
                 style={{ border: `1px solid rgba(${primaryRgb},.15)`, color: coral }}
               >
@@ -292,6 +296,23 @@ export default function CommunityDetailView({
           />
         )}
       </div>
+
+      <ConfirmModal
+        open={Boolean(pendingAction)}
+        title={pendingAction?.type === "delete" ? `Supprimer définitivement "${community.name}" ?` : "Quitter la communauté ?"}
+        message={
+          pendingAction?.type === "delete"
+            ? "Publications, membres et événements de cette communauté seront aussi supprimés. Cette action est irréversible."
+            : "Veux-tu vraiment quitter cette communauté ?"
+        }
+        confirmLabel={pendingAction?.type === "delete" ? "Supprimer" : "Quitter"}
+        onCancel={() => setPendingAction(null)}
+        onConfirm={() => {
+          if (pendingAction?.type === "delete") onDeleteCommunity(community);
+          else if (pendingAction?.type === "leave") onLeave(community);
+          setPendingAction(null);
+        }}
+      />
     </div>
   );
 }

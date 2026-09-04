@@ -1,8 +1,9 @@
-import React from "react";
+import React, { useState } from "react";
 import { Send, Trash2 } from "lucide-react";
 import Avatar from "../Avatar";
 import EmptyState from "../home/EmptyState";
 import Skeleton from "../Skeleton";
+import ConfirmModal from "./ConfirmModal";
 import { primary, muted, bg, body, primaryRgb } from "./theme";
 
 // Discussion légère liée à l'événement — table event_comments dédiée,
@@ -11,6 +12,8 @@ import { primary, muted, bg, body, primaryRgb } from "./theme";
 // deux personnes, comme community_comments en Phase 6).
 export default function EventCommentsSection({ comments = [], loading, canPost, draft, setDraft, currentUserId, onSubmit, onDelete, canModerate }) {
   const trimmed = (draft || "").trim();
+  // Remplace l'ancien window.confirm() — voir ConfirmModal.jsx.
+  const [pendingDelete, setPendingDelete] = useState(null);
 
   return (
     <div>
@@ -52,7 +55,7 @@ export default function EventCommentsSection({ comments = [], loading, canPost, 
                   <p className="text-sm mt-0.5 whitespace-pre-wrap break-words" style={{ color: body }}>{c.body}</p>
                 </div>
                 {canDelete && (
-                  <button onClick={() => { if (window.confirm("Supprimer ce message ? Cette action est irréversible.")) onDelete(c); }} aria-label="Supprimer ce message" className="flex-shrink-0" style={{ color: muted }}>
+                  <button onClick={() => setPendingDelete(c)} aria-label="Supprimer ce message" className="flex-shrink-0" style={{ color: muted }}>
                     <Trash2 size={14} />
                   </button>
                 )}
@@ -61,6 +64,15 @@ export default function EventCommentsSection({ comments = [], loading, canPost, 
           })}
         </div>
       )}
+
+      <ConfirmModal
+        open={Boolean(pendingDelete)}
+        title="Supprimer ce message ?"
+        message="Cette action est irréversible."
+        confirmLabel="Supprimer"
+        onCancel={() => setPendingDelete(null)}
+        onConfirm={() => { onDelete(pendingDelete); setPendingDelete(null); }}
+      />
     </div>
   );
 }

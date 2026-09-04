@@ -1,12 +1,15 @@
-import React from "react";
+import React, { useState } from "react";
 import { ChevronUp, ChevronDown, ChevronsUp, ChevronsDown, UserMinus } from "lucide-react";
 import Avatar from "../Avatar";
 import StatusBadge from "../StatusBadge";
+import ConfirmModal from "./ConfirmModal";
 import { roleLabel } from "../../lib/communities/communityConfig";
 import { canSetRole, canRemoveMember } from "../../lib/communities/permissions";
 import { primary, coral, gold, muted } from "./theme";
 
 export default function CommunityMemberRow({ member, viewerRole, currentUserId, onViewProfile, onSetRole, onRemove }) {
+  // Remplace l'ancien window.confirm() de retrait — voir ConfirmModal.jsx.
+  const [confirmingRemove, setConfirmingRemove] = useState(false);
   const profile = member.profiles || {};
   const firstName = (profile.name || "").trim().split(" ")[0] || "?";
   const isSelf = member.profile_id === currentUserId;
@@ -70,7 +73,7 @@ export default function CommunityMemberRow({ member, viewerRole, currentUserId, 
           )}
           {canRemove && (
             <button
-              onClick={() => window.confirm(`Retirer ${firstName} de cette communauté ?`) && onRemove(member)}
+              onClick={() => setConfirmingRemove(true)}
               aria-label={`Retirer ${firstName} de la communauté`}
               className="h-8 w-8 rounded-full flex items-center justify-center"
               style={{ color: coral }}
@@ -80,6 +83,13 @@ export default function CommunityMemberRow({ member, viewerRole, currentUserId, 
           )}
         </div>
       )}
+      <ConfirmModal
+        open={confirmingRemove}
+        title={`Retirer ${firstName} de cette communauté ?`}
+        confirmLabel="Retirer"
+        onCancel={() => setConfirmingRemove(false)}
+        onConfirm={() => { onRemove(member); setConfirmingRemove(false); }}
+      />
     </div>
   );
 }

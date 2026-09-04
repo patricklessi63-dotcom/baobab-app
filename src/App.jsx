@@ -103,6 +103,7 @@ export default function App() {
   const [reportSending, setReportSending] = useState(false);
   const [reportSubmitted, setReportSubmitted] = useState(false);
   const [blockTarget, setBlockTarget] = useState(null); // profil en attente de confirmation de blocage
+  const [unmatchTarget, setUnmatchTarget] = useState(null); // profil en attente de confirmation de suppression de match (remplace l'ancien window.confirm())
   const [successNotice, setSuccessNotice] = useState("");
   // Minuteur du bandeau de succès ci-dessus, voir showSuccessNotice().
   const successNoticeTimerRef = useRef(null);
@@ -965,9 +966,17 @@ export default function App() {
   // mutuelles (getMatches()). L'utilisateur ne peut supprimer QUE sa propre
   // ligne via RLS — unmatch_profile() est une RPC security definer qui
   // supprime les deux côtés de façon atomique (voir supabase-dating-2.sql).
-  async function handleUnmatch(target) {
+  // Ouvre la confirmation de suppression de match — ne supprime jamais
+  // immédiatement (remplace l'ancien window.confirm(), incohérent avec le
+  // reste de l'UI — voir ConfirmModal.jsx).
+  function handleUnmatch(target) {
     if (!currentUser || !target) return;
-    if (!window.confirm(`Supprimer ton match avec ${target.name} ? Vous ne pourrez plus vous écrire, et vous ne vous reproposerez plus en Découverte.`)) return;
+    setUnmatchTarget(target);
+  }
+
+  async function confirmUnmatch() {
+    const target = unmatchTarget;
+    if (!currentUser || !target) return;
     try {
       const { error: unmatchError } = await supabase.rpc("unmatch_profile", { target_id: target.id });
       if (unmatchError) throw unmatchError;
@@ -979,6 +988,8 @@ export default function App() {
     } catch (e) {
       console.error(e);
       setError("Impossible de supprimer ce match.");
+    } finally {
+      setUnmatchTarget(null);
     }
   }
 
@@ -2478,6 +2489,9 @@ export default function App() {
           blockTarget={blockTarget}
           setBlockTarget={setBlockTarget}
           confirmBlock={confirmBlock}
+          unmatchTarget={unmatchTarget}
+          setUnmatchTarget={setUnmatchTarget}
+          confirmUnmatch={confirmUnmatch}
           settingsOpen={settingsOpen}
           setSettingsOpen={setSettingsOpen}
           currentUser={currentUser}
@@ -2598,6 +2612,9 @@ export default function App() {
         blockTarget={blockTarget}
         setBlockTarget={setBlockTarget}
         confirmBlock={confirmBlock}
+        unmatchTarget={unmatchTarget}
+        setUnmatchTarget={setUnmatchTarget}
+        confirmUnmatch={confirmUnmatch}
         settingsOpen={settingsOpen}
         setSettingsOpen={setSettingsOpen}
         currentUser={currentUser}

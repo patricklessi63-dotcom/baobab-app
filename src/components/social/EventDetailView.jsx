@@ -3,6 +3,7 @@ import { ArrowLeft, MapPin, Users, Share2, Flag, Lock, Users2, Clock, Calendar, 
 import EventParticipantsList from "./EventParticipantsList";
 import EventCommentsSection from "./EventCommentsSection";
 import EventPhotoGallery from "./EventPhotoGallery";
+import ConfirmModal from "./ConfirmModal";
 import EmptyState from "../home/EmptyState";
 import Skeleton from "../Skeleton";
 import { categoryIcon, categoryLabel, reportCategoryLabel, timezoneLabel } from "../../lib/events/eventConfig";
@@ -63,6 +64,9 @@ export default function EventDetailView({
 }) {
   const [subTab, setSubTab] = useState("about");
   const [shareOpen, setShareOpen] = useState(false);
+  // Suppression définitive de l'événement en attente de confirmation —
+  // remplace l'ancien window.confirm(), voir ConfirmModal.jsx.
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
   const staff = isEventStaff(viewerRole);
   // Le contenu de l'onglet "Gestion" ici n'est que la file de signalements
   // (event_reports), dont la RLS autorise is_event_mod — organizer/
@@ -199,7 +203,7 @@ export default function EventDetailView({
               )}
               {onDeleteEvent && (event.created_by === currentUser?.id || isPlatformAdmin) && (
                 <button
-                  onClick={() => window.confirm(`Supprimer définitivement "${event.title}" ? Participants, discussions et photos seront aussi supprimés. Cette action est irréversible.`) && onDeleteEvent(event)}
+                  onClick={() => setConfirmingDelete(true)}
                   className="px-4 py-2.5 rounded-full text-sm font-bold flex items-center gap-1.5"
                   style={{ border: "1px solid rgba(225,107,93,.3)", color: coral }}
                 >
@@ -314,6 +318,15 @@ export default function EventDetailView({
           </div>
         )}
       </div>
+
+      <ConfirmModal
+        open={confirmingDelete}
+        title={`Supprimer définitivement "${event.title}" ?`}
+        message="Participants, discussions et photos seront aussi supprimés. Cette action est irréversible."
+        confirmLabel="Supprimer"
+        onCancel={() => setConfirmingDelete(false)}
+        onConfirm={() => { onDeleteEvent(event); setConfirmingDelete(false); }}
+      />
     </div>
   );
 }

@@ -3,6 +3,7 @@ import { MessageCircle, Flag, Trash2, X, Reply, Pencil, Check } from "lucide-rea
 import Avatar from "../Avatar";
 import StatusBadge from "../StatusBadge";
 import ClickableImage from "../ClickableImage";
+import ConfirmModal from "./ConfirmModal";
 import { formatMessageTime, formatDayLabel } from "../../utils/format";
 import { primary, coral, muted, bg, primaryRgb, navy } from "./theme";
 import { useClickOutside } from "../../hooks/useClickOutside";
@@ -35,6 +36,9 @@ export default function CommunityPostCard({
   const [replyingTo, setReplyingTo] = useState(null); // comment being replied to
   const [editingId, setEditingId] = useState(null);
   const [editDraft, setEditDraft] = useState("");
+  // Suppression (publication ou commentaire) en attente de confirmation —
+  // remplace les window.confirm() natifs, voir ConfirmModal.jsx.
+  const [pendingDelete, setPendingDelete] = useState(null); // { type: "post" } | { type: "comment", commentId }
   const author = post.profiles || {};
   const totalReactions = Object.values(reactionCounts).reduce((a, b) => a + b, 0);
 
@@ -123,7 +127,7 @@ export default function CommunityPostCard({
               // irréversible désormais confirmée avant l'appel, cohérent avec
               // toutes les autres suppressions destructrices de l'app.
               <button
-                onClick={() => { if (window.confirm("Supprimer cette publication ? Cette action est irréversible.")) onDelete(post); }}
+                onClick={() => setPendingDelete({ type: "post" })}
                 aria-label="Supprimer la publication"
                 className="flex items-center gap-1.5 text-xs font-semibold ml-auto focus-visible:outline focus-visible:outline-2"
                 style={{ color: coral }}
@@ -181,7 +185,7 @@ export default function CommunityPostCard({
                               // Même garde-fou que la suppression de publication ci-dessus
                               // et que EventCommentsSection.jsx : évite la suppression
                               // irréversible d'un commentaire sur un tap accidentel.
-                              <button onClick={() => { if (window.confirm("Supprimer ce commentaire ? Cette action est irréversible.")) onDeleteComment(post.id, c.id); }} aria-label="Supprimer ce commentaire" className="focus-visible:outline focus-visible:outline-2"><X size={12} color={muted} /></button>
+                              <button onClick={() => setPendingDelete({ type: "comment", commentId: c.id })} aria-label="Supprimer ce commentaire" className="focus-visible:outline focus-visible:outline-2"><X size={12} color={muted} /></button>
                             )}
                           </div>
                         )}
@@ -214,6 +218,19 @@ export default function CommunityPostCard({
           )}
         </div>
       </div>
+
+      <ConfirmModal
+        open={Boolean(pendingDelete)}
+        title={pendingDelete?.type === "comment" ? "Supprimer ce commentaire ?" : "Supprimer cette publication ?"}
+        message="Cette action est irréversible."
+        confirmLabel="Supprimer"
+        onCancel={() => setPendingDelete(null)}
+        onConfirm={() => {
+          if (pendingDelete?.type === "comment") onDeleteComment(post.id, pendingDelete.commentId);
+          else if (pendingDelete?.type === "post") onDelete(post);
+          setPendingDelete(null);
+        }}
+      />
     </div>
   );
 }

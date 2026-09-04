@@ -10,6 +10,7 @@ import LocationSettingsModal from "./LocationSettingsModal";
 import DeleteAccountModal from "./DeleteAccountModal";
 import ReportModal from "./social/ReportModal";
 import BlockConfirmModal from "./social/BlockConfirmModal";
+import ConfirmModal from "./social/ConfirmModal";
 import { useEscapeKey } from "../hooks/useEscapeKey";
 import { useFocusTrap } from "../hooks/useFocusTrap";
 import { useTheme } from "../hooks/useTheme";
@@ -30,6 +31,9 @@ export default function AppModals({
   blockTarget,
   setBlockTarget,
   confirmBlock,
+  unmatchTarget,
+  setUnmatchTarget,
+  confirmUnmatch,
   settingsOpen,
   setSettingsOpen,
   currentUser,
@@ -100,6 +104,16 @@ export default function AppModals({
         target={blockTarget}
         onCancel={() => setBlockTarget(null)}
         onConfirm={confirmBlock}
+      />
+
+      {/* ---------- MODAL CONFIRMATION DE SUPPRESSION DE MATCH ---------- */}
+      <ConfirmModal
+        open={Boolean(unmatchTarget)}
+        title={`Supprimer ton match avec ${unmatchTarget?.name} ?`}
+        message="Vous ne pourrez plus vous écrire, et vous ne vous reproposerez plus en Découverte."
+        confirmLabel="Supprimer"
+        onCancel={() => setUnmatchTarget(null)}
+        onConfirm={confirmUnmatch}
       />
 
       {/* ---------- MODAL PARAMÈTRES ---------- */}

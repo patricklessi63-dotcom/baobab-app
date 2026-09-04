@@ -4,6 +4,7 @@ import Avatar from "../Avatar";
 import StatusBadge from "../StatusBadge";
 import ClickableImage from "../ClickableImage";
 import PostMediaGrid from "./PostMediaGrid";
+import ConfirmModal from "./ConfirmModal";
 import { useImageLightbox } from "../../lib/ImageLightboxContext";
 import { formatMessageTime, formatDayLabel } from "../../utils/format";
 import { primary, coral, muted, bg, primaryRgb } from "./theme";
@@ -33,6 +34,9 @@ export default function PostCard({
   const [commentDraft, setCommentDraft] = useState("");
   const [editing, setEditing] = useState(false);
   const [editDraft, setEditDraft] = useState(post.body);
+  // Suppression en attente de confirmation — remplace l'ancien
+  // window.confirm(), voir ConfirmModal.jsx.
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
   const { openLightbox } = useImageLightbox();
   const author = post.profiles || {};
   const isMine = post.author_id === currentUserId;
@@ -147,7 +151,7 @@ export default function PostCard({
                 // bouton appelait onDelete au premier tap, sans aucune
                 // confirmation ni possibilité d'annuler un tap accidentel.
                 <button
-                  onClick={() => { if (window.confirm("Supprimer cette publication ? Cette action est irréversible.")) onDelete(post); }}
+                  onClick={() => setConfirmingDelete(true)}
                   aria-label="Supprimer la publication"
                   className={`flex items-center gap-1.5 text-xs font-semibold focus-visible:outline focus-visible:outline-2 ${isMine ? "" : "ml-auto"}`}
                   style={{ color: coral }}
@@ -187,6 +191,15 @@ export default function PostCard({
           )}
         </div>
       </div>
+
+      <ConfirmModal
+        open={confirmingDelete}
+        title="Supprimer cette publication ?"
+        message="Cette action est irréversible."
+        confirmLabel="Supprimer"
+        onCancel={() => setConfirmingDelete(false)}
+        onConfirm={() => { onDelete(post); setConfirmingDelete(false); }}
+      />
     </div>
   );
 }

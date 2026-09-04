@@ -5,6 +5,7 @@ import PostCard from "./PostCard";
 import PostComposerModal from "./PostComposerModal";
 import PostMediaGrid from "./PostMediaGrid";
 import ReportModal from "./ReportModal";
+import ConfirmModal from "./ConfirmModal";
 import EmptyState from "../home/EmptyState";
 import { validateMediaFile } from "../../lib/mediaValidation";
 import { compressImageIfNeeded } from "../../lib/imageCompression";
@@ -40,6 +41,10 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
   const [postLikeCounts, setPostLikeCounts] = useState({});
   const [postCommentCounts, setPostCommentCounts] = useState({});
   const [commentsByPost, setCommentsByPost] = useState({});
+  // Suppression (vue grille) en attente de confirmation — remplace l'ancien
+  // window.confirm(), voir ConfirmModal.jsx. La vue liste passe déjà par
+  // PostCard.jsx, qui a sa propre confirmation.
+  const [pendingDelete, setPendingDelete] = useState(null);
 
   const [composer, setComposer] = useState(false);
   const [draft, setDraft] = useState("");
@@ -729,7 +734,7 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
                       // doigt supprimait la publication (+ ses médias) sans
                       // aucun moyen d'annuler. Même confirmation que le fil
                       // en liste (PostCard.jsx) et le reste de l'app.
-                      onClick={() => { if (window.confirm("Supprimer cette publication ? Cette action est irréversible.")) deletePost(p); }}
+                      onClick={() => setPendingDelete(p)}
                       aria-label="Supprimer la publication"
                       className="absolute top-1 right-1 h-6 w-6 rounded-full bg-black/50 text-white items-center justify-center hidden group-hover:flex focus-visible:flex focus-visible:outline focus-visible:outline-2"
                     >
@@ -749,6 +754,15 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
         )}
 
         <PostComposerModal {...composerProps} />
+
+        <ConfirmModal
+          open={Boolean(pendingDelete)}
+          title="Supprimer cette publication ?"
+          message="Cette action est irréversible."
+          confirmLabel="Supprimer"
+          onCancel={() => setPendingDelete(null)}
+          onConfirm={() => { deletePost(pendingDelete); setPendingDelete(null); }}
+        />
       </div>
     );
   }
