@@ -280,7 +280,7 @@ export default function AdminDashboard({ onBack, onError, myPlatformRole }) {
             ].map(([label, value, Icon, color]) => (
               <div key={label} className={`${card} p-4`}>
                 <Icon size={16} color={color} />
-                <div className="text-2xl font-black mt-2" style={{ color: primary }}>{value ?? 0}</div>
+                <div className="text-2xl font-black mt-2" style={{ color: primary }}>{(value ?? 0).toLocaleString("fr-CA")}</div>
                 <div className="text-xs mt-0.5" style={{ color: muted }}>{label}</div>
               </div>
             ))}
