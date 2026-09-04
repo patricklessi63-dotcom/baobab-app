@@ -12,6 +12,7 @@ import { usePremiumStatus } from "../../lib/premium/usePremiumStatus";
 import { fetchNearbyProfiles } from "../../lib/locationApi";
 import { LOOKING_FOR_OPTIONS, INTERESTS_OPTIONS, LANGUAGES_OPTIONS } from "../../constants";
 import { primary, navy, navyRgb, green, coral, gold, gold1, surface2, bg, muted, card, buttonBase, online, body, primaryRgb } from "./theme";
+import { ARRIVAL_STAGE_OPTIONS, matchesArrivalStage } from "../../lib/arrivalStage";
 
 const ACTIVE_RECENTLY_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
 
@@ -30,22 +31,10 @@ function isActiveRecently(p) {
 // Filtre "étape d'installation" (item audit rencontres/matching) — regroupe
 // le texte libre déjà saisi à l'onboarding (Step4CanadaJourney, ex. "8 mois",
 // "3 ans") en tranches, sans nouvelle colonne ni nouvelle saisie utilisateur.
-const ARRIVAL_STAGE_OPTIONS = ["🌱 Vient d'arriver (< 1 an)", "1 à 3 ans", "3 à 5 ans", "5 ans et plus"];
-function arrivedMonths(str) {
-  const m = String(str || "").trim().match(/^(\d+)\s*(mois|ans?|ann[ée]es?)$/i);
-  if (!m) return null;
-  const n = Number(m[1]);
-  return /an/i.test(m[2]) ? n * 12 : n;
-}
-function matchesArrivalStage(p, stage) {
-  const months = arrivedMonths(p.arrived_since);
-  if (months === null) return false;
-  if (stage === ARRIVAL_STAGE_OPTIONS[0]) return months < 12;
-  if (stage === ARRIVAL_STAGE_OPTIONS[1]) return months >= 12 && months < 36;
-  if (stage === ARRIVAL_STAGE_OPTIONS[2]) return months >= 36 && months < 60;
-  if (stage === ARRIVAL_STAGE_OPTIONS[3]) return months >= 60;
-  return true;
-}
+// ARRIVAL_STAGE_OPTIONS/matchesArrivalStage déplacés dans lib/arrivalStage.js
+// (bug corrigé à l'audit) : la section "Nouveaux au Canada" de FeedTab
+// utilisait un tout autre critère ("a rempli le champ", sans seuil) que le
+// palier "Vient d'arriver (< 1 an)" défini ici — voir SocialShell.jsx.
 
 const SORT_OPTIONS = ["✨ Pertinence", "📍 Proximité", "❤️ Intentions", "🆕 Nouveaux"];
 const GRID_PAGE_SIZE = 12;
@@ -144,8 +133,14 @@ export default function DiscoverTab({
   // Résultat : la liste déroulante "Ville" affichait nommément la ville d'un
   // profil qui l'avait explicitement masquée, et choisir cette ville dans le
   // filtre le faisait quand même apparaître dans la grille.
+  // Bug corrigé à l'audit : .sort() sans comparateur trie par unité de code
+  // UTF-16 brute — TOUTES les majuscules passent avant TOUTES les
+  // minuscules, et un caractère accentué (é, è, à…) se classe après z. Une
+  // ville tapée en minuscules ("montréal") ou un nom accentué se
+  // retrouvait donc mal placé dans la liste déroulante "Ville" (souvent
+  // tout en bas), au lieu d'un ordre alphabétique naturel fr-CA.
   const cityOptions = useMemo(
-    () => Array.from(new Set(filteredPeople.filter((p) => p.show_city !== false).map((p) => (p.city || "").trim()).filter(Boolean))).sort(),
+    () => Array.from(new Set(filteredPeople.filter((p) => p.show_city !== false).map((p) => (p.city || "").trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b, "fr-CA")),
     [filteredPeople]
   );
 
