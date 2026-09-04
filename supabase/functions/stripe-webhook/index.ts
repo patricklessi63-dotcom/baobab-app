@@ -39,10 +39,42 @@ Deno.serve(async (req) => {
     return new Response("Signature invalide.", { status: 400 });
   }
 
-  // Déduplication : Stripe peut renvoyer le même événement plusieurs fois.
-  const { data: alreadyProcessed } = await admin
-    .from("subscription_events").select("id").eq("stripe_event_id", event.id).maybeSingle();
-  if (alreadyProcessed) return new Response("ok (déjà traité)", { status: 200 });
+  // Déduplication : Stripe peut renvoyer le même événement plusieurs fois,
+  // y compris deux livraisons concurrentes (retry alors que la première
+  // requête est encore en cours de traitement). On CLAIME la ligne
+  // "subscription_events" ATOMIQUEMENT en l'insérant tout de suite (avant
+  // tout traitement), en s'appuyant sur la contrainte UNIQUE
+  // stripe_event_id — pas juste "SELECT puis, plus tard, INSERT", qui
+  // laissait une fenêtre de course où deux invocations concurrentes
+  // passaient toutes les deux le SELECT avant que l'une des deux n'ait posé
+  // l'INSERT, et traitaient donc chacune l'événement (double notification
+  // "premium activé" envoyée à l'utilisateur, entre autres effets de bord
+  // dupliqués). profile_id n'est pas encore connu à ce stade (résolu plus
+  // bas selon le type d'événement) — colonne nullable, mise à jour une fois
+  // connue.
+  const { error: claimError } = await admin.from("subscription_events").insert({
+    profile_id: null,
+    stripe_event_id: event.id,
+    type: event.type,
+    payload: event.data.object,
+  });
+  if (claimError) {
+    // code 23505 = violation de contrainte unique Postgres : un autre
+    // appel (livraison dupliquée, concurrente ou non) a déjà claimé et
+    // traité (ou est en train de traiter) cet event.id — rien à refaire.
+    if (claimError.code === "23505") return new Response("ok (déjà traité)", { status: 200 });
+    console.error("Erreur lors de la déduplication du webhook:", claimError);
+    return new Response("Erreur de traitement.", { status: 500 });
+  }
+
+  // event.created (temps Stripe, pas l'heure de réception) sert de garde
+  // anti-désordre : Stripe garantit une livraison au moins une fois mais PAS
+  // l'ordre de livraison. Sans cette garde, un événement retardé plus ancien
+  // livré APRÈS un événement plus récent écrasait silencieusement l'état
+  // courant de "subscriptions" avec des données périmées (ex. redevenir
+  // "active"/cancel_at_period_end=false après une annulation déjà traitée
+  // par un événement postérieur). Voir supabase-stripe-webhook-ordering-fix.sql.
+  const eventCreatedAt = new Date(event.created * 1000).toISOString();
 
   try {
     let profileId: string | null = null;
@@ -52,34 +84,40 @@ Deno.serve(async (req) => {
       profileId = (session.metadata?.profile_id as string) ?? null;
       if (profileId && session.subscription) {
         const subscription = await stripe.subscriptions.retrieve(session.subscription as string);
-        await upsertSubscription(profileId, session.customer as string, subscription);
+        await upsertSubscription(profileId, session.customer as string, subscription, eventCreatedAt);
       }
     } else if (event.type === "customer.subscription.created" || event.type === "customer.subscription.updated") {
       const subscription = event.data.object as Stripe.Subscription;
       profileId = (subscription.metadata?.profile_id as string) ?? await profileIdForCustomer(subscription.customer as string);
-      if (profileId) await upsertSubscription(profileId, subscription.customer as string, subscription);
+      if (profileId) await upsertSubscription(profileId, subscription.customer as string, subscription, eventCreatedAt);
     } else if (event.type === "customer.subscription.deleted") {
       const subscription = event.data.object as Stripe.Subscription;
       profileId = (subscription.metadata?.profile_id as string) ?? await profileIdForCustomer(subscription.customer as string);
+      // .or(...) : n'applique la mise à jour que si aucun événement n'a
+      // encore été appliqué à cette ligne, OU si le dernier appliqué est
+      // strictement plus ancien que celui-ci (même garde anti-désordre que
+      // upsertSubscription ci-dessous).
       await admin.from("subscriptions")
-        .update({ status: "canceled", updated_at: new Date().toISOString() })
-        .eq("stripe_subscription_id", subscription.id);
+        .update({ status: "canceled", updated_at: new Date().toISOString(), stripe_event_created_at: eventCreatedAt })
+        .eq("stripe_subscription_id", subscription.id)
+        .or(`stripe_event_created_at.is.null,stripe_event_created_at.lt.${eventCreatedAt}`);
     } else if (event.type === "invoice.payment_failed") {
       const invoice = event.data.object as Stripe.Invoice;
       profileId = await profileIdForCustomer(invoice.customer as string);
       if (invoice.subscription) {
         await admin.from("subscriptions")
-          .update({ status: "past_due", updated_at: new Date().toISOString() })
-          .eq("stripe_subscription_id", invoice.subscription as string);
+          .update({ status: "past_due", updated_at: new Date().toISOString(), stripe_event_created_at: eventCreatedAt })
+          .eq("stripe_subscription_id", invoice.subscription as string)
+          .or(`stripe_event_created_at.is.null,stripe_event_created_at.lt.${eventCreatedAt}`);
       }
     }
 
-    await admin.from("subscription_events").insert({
-      profile_id: profileId,
-      stripe_event_id: event.id,
-      type: event.type,
-      payload: event.data.object,
-    });
+    // Complète la ligne de déduplication claimée plus haut avec le
+    // profile_id désormais connu (best-effort — la déduplication elle-même
+    // ne dépend pas de cette mise à jour).
+    if (profileId) {
+      await admin.from("subscription_events").update({ profile_id: profileId }).eq("stripe_event_id", event.id);
+    }
 
     const notifType = profileId ? NOTIFY_TYPE[event.type] : undefined;
     if (notifType) {
@@ -94,6 +132,12 @@ Deno.serve(async (req) => {
   } catch (err) {
     console.error("Erreur de traitement du webhook:", err);
     // 500 pour que Stripe retente automatiquement cet événement plus tard.
+    // Sans risque de retraitement en double malgré ce retry : la ligne
+    // "subscription_events" a déjà été claimée ci-dessus, donc la tentative
+    // suivante ressortira "ok (déjà traité)" avant de rejouer la logique
+    // métier — au prix, ici, de ne jamais réessayer le travail qui a échoué
+    // (compromis identique à l'ancien comportement, qui inséreait aussi la
+    // ligne de dédup après un traitement réussi uniquement).
     return new Response("Erreur de traitement.", { status: 500 });
   }
 });
@@ -104,7 +148,19 @@ async function profileIdForCustomer(customerId: string): Promise<string | null> 
   return data?.profile_id ?? null;
 }
 
-async function upsertSubscription(profileId: string, customerId: string, subscription: Stripe.Subscription) {
+async function upsertSubscription(profileId: string, customerId: string, subscription: Stripe.Subscription, eventCreatedAt: string) {
+  // Garde anti-désordre : si une ligne existe déjà pour cet abonnement et
+  // qu'elle a déjà été mise à jour par un événement plus récent que celui
+  // qu'on traite maintenant, on n'écrase pas un état plus à jour avec des
+  // données périmées. Un événement sans ligne existante (première fois
+  // qu'on voit cet abonnement) passe toujours.
+  const { data: existing } = await admin.from("subscriptions")
+    .select("stripe_event_created_at").eq("stripe_subscription_id", subscription.id).maybeSingle();
+  if (existing?.stripe_event_created_at && existing.stripe_event_created_at >= eventCreatedAt) {
+    console.warn(`Événement Stripe ignoré (plus ancien que l'état déjà enregistré) pour l'abonnement ${subscription.id}`);
+    return;
+  }
+
   const price = subscription.items.data[0]?.price;
   const plan = price?.recurring?.interval === "year" ? "yearly" : "monthly";
   await admin.from("subscriptions").upsert(
@@ -120,6 +176,7 @@ async function upsertSubscription(profileId: string, customerId: string, subscri
         : null,
       cancel_at_period_end: subscription.cancel_at_period_end,
       updated_at: new Date().toISOString(),
+      stripe_event_created_at: eventCreatedAt,
     },
     { onConflict: "stripe_subscription_id" }
   );
