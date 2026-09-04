@@ -31,6 +31,7 @@ import BetaFeedbackModal from "./social/BetaFeedbackModal";
 import ChunkErrorBoundary from "./ChunkErrorBoundary";
 import { useHiddenRecommendations } from "../lib/useHiddenRecommendations";
 import { escapeLikePattern, escapeOrFilterValue } from "../lib/searchQuery";
+import { isRecentArrival } from "../lib/arrivalStage";
 
 // Chargées à la demande (item 27 de l'audit Phase 10) : ces 3 onglets sont
 // visités moins souvent que Fil/Découverte/Messages/Profil au démarrage de
@@ -1079,7 +1080,16 @@ export default function SocialShell({
   // show_canada_journey vérifié (bug corrigé à l'audit) : la section "Nouveaux
   // au Canada" (FeedTab) affiche arrived_since via ProfileCard — un profil
   // ayant masqué son parcours Canada ne doit donc pas y apparaître du tout.
-  const newArrivals = candidates.filter((p) => p.show_canada_journey !== false && p.arrived_since && p.arrived_since.trim());
+  //
+  // Bug corrigé à l'audit (incohérence de seuil) : ce filtre ne vérifiait
+  // que "le champ est rempli", donc un profil "Au Canada depuis 25 ans"
+  // apparaissait dans une section titrée "🧳 Nouveaux au Canada" ("Rencontre
+  // des personnes qui vivent un parcours similaire au tien") aux côtés d'un
+  // arrivant de la semaine. Le filtre "Étape d'installation" de DiscoverTab
+  // définit pourtant déjà "Vient d'arriver" comme < 1 an (ARRIVAL_STAGE_
+  // OPTIONS[0]/matchesArrivalStage) — isRecentArrival() (lib/arrivalStage.js)
+  // réutilise ce même seuil ici pour que les deux endroits s'accordent.
+  const newArrivals = candidates.filter((p) => p.show_canada_journey !== false && isRecentArrival(p));
 
   // Bug corrigé : "Masquer" un profil (bouton Masquer/EyeOff de MatchCard,
   // mode Grille "Pour toi") écrivait bien en base via useHiddenRecommendations,
