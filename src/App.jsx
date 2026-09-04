@@ -1604,6 +1604,18 @@ export default function App() {
   // toujours "likable"/"passable" comme un profil normal, sans la moindre
   // indication, jusqu'à ce que quelqu'un l'aime et découvre le problème
   // seulement une fois la conversation ouverte.
+  //
+  // Bug corrigé à l'audit (même principe généralisé à onboarding_completed_at) :
+  // OnboardingWizard.jsx crée la ligne "profiles" dès l'étape 1 (usage_goals
+  // + onboarding_step seulement — pas encore de nom, d'âge ni de photo), et
+  // ne pose onboarding_completed_at qu'à l'étape 10/10. dating_enabled vaut
+  // true par défaut (supabase-dating-2.sql) et rien d'autre dans ce filtre ne
+  // consultait onboarding_completed_at : une personne qui abandonne
+  // l'onboarding en cours de route (ou n'est simplement pas encore rendue au
+  // bout) restait donc un candidat "likable"/"passable" à part entière dans
+  // Découverte, affichée en carte quasi vide (MatchCard : nom vide, pas de
+  // photo, pas d'âge) et pouvait recevoir un like/message/favori avant même
+  // d'avoir terminé — ou choisi — son inscription.
   const candidates = currentUser
     ? filterCandidatesByPreferences(
         currentUser,
@@ -1613,6 +1625,7 @@ export default function App() {
             p.dating_enabled !== false &&
             !p.banned_at &&
             !(p.suspended_until && new Date(p.suspended_until) > new Date()) &&
+            !!p.onboarding_completed_at &&
             !hasLiked(currentUser.id, p.id) &&
             !hasPassed(currentUser.id, p.id) &&
             !hasBlocked(currentUser.id, p.id) &&
