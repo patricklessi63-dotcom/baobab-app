@@ -481,6 +481,16 @@ export default function SocialShell({
   // "follows" (from_id = moi) : un suivre/ne plus suivre fait sur un autre
   // appareil/onglet du même compte ne mettait à jour followingIds/
   // followedProfilesRaw que localement, jamais rediffusé.
+  //
+  // Bug corrigé (même famille que le DELETE manquant sur "likes" côté
+  // récepteur, voir le commentaire détaillé dans App.jsx) : ce canal ne
+  // couvrait QUE from_id=eq.moi (mes abonnements), jamais to_id=eq.moi (mes
+  // abonnés). La table "follows" a une policy SELECT publique ("using
+  // (true)", voir supabase-follows.sql) — rien n'empêche donc de recevoir ces
+  // événements — mais aucun écouteur ne les captait : quand quelqu'un
+  // commence/arrête de me suivre pendant que ma session reste ouverte,
+  // followerIds/followerProfilesRaw (liste "Abonnés" de ProfileTab) ne
+  // bougeait jamais avant un rechargement complet de la page.
   useEffect(() => {
     if (!currentUser) return;
     const channel = supabase
@@ -514,6 +524,37 @@ export default function SocialShell({
             return next;
           });
           setFollowedProfilesRaw((prev) => prev.filter((p) => p.id !== toId));
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "follows", filter: `to_id=eq.${currentUser.id}` },
+        (payload) => {
+          const fromId = payload.new.from_id;
+          setFollowerIds((prev) => (prev.has(fromId) ? prev : new Set(prev).add(fromId)));
+          (async () => {
+            const { data } = await supabase
+              .from("profiles")
+              .select("id,name,avatar_url,city,show_city,age,show_birth_year,looking_for,email_verified,phone_verified,is_founder,is_premium")
+              .eq("id", fromId)
+              .maybeSingle();
+            if (!data) return;
+            setFollowerProfilesRaw((prev) => (prev.some((p) => p.id === fromId) ? prev : [data, ...prev]));
+          })();
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "DELETE", schema: "public", table: "follows", filter: `to_id=eq.${currentUser.id}` },
+        (payload) => {
+          const fromId = payload.old.from_id;
+          setFollowerIds((prev) => {
+            if (!prev.has(fromId)) return prev;
+            const next = new Set(prev);
+            next.delete(fromId);
+            return next;
+          });
+          setFollowerProfilesRaw((prev) => prev.filter((p) => p.id !== fromId));
         }
       )
       .subscribe();
