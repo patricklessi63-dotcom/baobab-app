@@ -19,7 +19,13 @@ import { primary, coral, muted, card, primaryRgb } from "./theme";
 // serveur (get_my_likers()/get_liker_profile_reveal()) ne renvoie plus le
 // profil complet d'un·e admirateur·ice à sens unique tant que l'appelant
 // n'est pas Premium, donc admirerProfiles est réellement vide côté client
-// pour un compte gratuit, pas juste masqué à l'affichage.
+// pour un compte gratuit, pas juste masqué à l'affichage. Deuxième correctif
+// (voir supabase-likers-profile-overexposure-fix.sql) : même une fois
+// l'accès autorisé (Premium ou match mutuel), le RPC ne renvoie plus TOUTES
+// les colonnes de "profiles" (to_jsonb(p.*), y compris ban_reason/
+// birth_date/report_count/notification_preferences...) mais un sous-ensemble
+// explicite (profile_public_json) — seules les colonnes réellement affichées
+// ici/dans MatchCard/ConversationPane transitent sur le réseau.
 export default function AdmirersModal({ open, onClose, admirerProfiles = [], admirersCount = 0, currentUser, onLikeBack, onViewProfile, onUpgrade }) {
   const { isPremium, loading } = usePremiumStatus(currentUser);
   useEscapeKey(open, onClose);
