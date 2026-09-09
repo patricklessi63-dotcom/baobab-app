@@ -395,7 +395,10 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
   const loadJoinRequests = async (id, requestId) => {
     const { data, error } = await supabase
       .from("community_join_requests")
-      .select("*, profiles(name, avatar_url, is_founder, is_premium, email_verified, phone_verified)")
+      // Deux FK vers profiles (profile_id et decided_by) : sans le hint
+      // "!profile_id", PostgREST renvoie une erreur d'ambiguïté PGRST201
+      // ("more than one relationship was found") et la requête échoue.
+      .select("*, profiles!profile_id(name, avatar_url, is_founder, is_premium, email_verified, phone_verified)")
       .eq("community_id", id).eq("status", "pending")
       .order("created_at", { ascending: true })
       // Limite ajoutée (même correctif que loadMembers ci-dessus) : aucune
