@@ -32,6 +32,7 @@ import ChunkErrorBoundary from "./ChunkErrorBoundary";
 import { useHiddenRecommendations } from "../lib/useHiddenRecommendations";
 import { escapeLikePattern, escapeOrFilterValue } from "../lib/searchQuery";
 import { isRecentArrival } from "../lib/arrivalStage";
+import { OTHER_PROFILE_COLUMNS } from "../lib/otherProfileColumns";
 
 // Chargées à la demande (item 27 de l'audit Phase 10) : ces 3 onglets sont
 // visités moins souvent que Fil/Découverte/Messages/Profil au démarrage de
@@ -1042,7 +1043,11 @@ export default function SocialShell({
       : null;
     if (!viewedProfileId || localHit) { setFetchedViewedProfile(null); return; }
     let alive = true;
-    supabase.from("profiles").select("*").eq("id", viewedProfileId).maybeSingle().then(({ data, error }) => {
+    // select(OTHER_PROFILE_COLUMNS) et non select("*") (bug corrigé à
+    // l'audit — voir lib/otherProfileColumns.js) : viewedProfileId cible
+    // toujours le profil d'un AUTRE utilisateur (clic sur une notification,
+    // résultat de recherche...), jamais le sien propre.
+    supabase.from("profiles").select(OTHER_PROFILE_COLUMNS).eq("id", viewedProfileId).maybeSingle().then(({ data, error }) => {
       if (!alive) return;
       if (error) { console.error(error.message, error.code, error.details, error.hint); return; }
       setFetchedViewedProfile(data);
@@ -1094,7 +1099,11 @@ export default function SocialShell({
     // pouvait ouvrir la conversation B puis voir la réponse tardive de A
     // rappeler openChat(A) et la remplacer par la mauvaise conversation.
     const requestId = ++openChatRequestRef.current;
-    const { data, error } = await supabase.from("profiles").select("*").eq("id", id).maybeSingle();
+    // select(OTHER_PROFILE_COLUMNS) et non select("*") (même correctif que
+    // fetchedViewedProfile ci-dessus — voir lib/otherProfileColumns.js) : id
+    // vient toujours d'une notification "new_message" émise par un AUTRE
+    // utilisateur.
+    const { data, error } = await supabase.from("profiles").select(OTHER_PROFILE_COLUMNS).eq("id", id).maybeSingle();
     if (openChatRequestRef.current !== requestId) return;
     if (error) { console.error(error.message, error.code, error.details, error.hint); return; }
     if (data) { openChat(data); return; }
@@ -1214,9 +1223,16 @@ export default function SocialShell({
       // escapeLikePattern (%/_) manquait, seul escapeOrFilterValue
       // (virgule/guillemet) était appliqué à la recherche globale.
       const escaped = escapeOrFilterValue(escapeLikePattern(term));
+      // select(OTHER_PROFILE_COLUMNS) et non select("*") (bug corrigé à
+      // l'audit — voir lib/otherProfileColumns.js) : cette recherche globale
+      // interroge TOUS les profils sans filtre d'appartenance (juste
+      // p.id !== currentUser?.id plus bas), donc select("*") exposait dans la
+      // réponse réseau brute — à quiconque tape une lettre dans la recherche —
+      // des colonnes sensibles de n'importe quel compte tiers, même si
+      // l'UI n'affiche jamais que nom/ville/pays/profession/avatar.
       supabase
         .from("profiles")
-        .select("*")
+        .select(OTHER_PROFILE_COLUMNS)
         .or(`name.ilike."%${escaped}%",city.ilike."%${escaped}%",country.ilike."%${escaped}%",occupation.ilike."%${escaped}%"`)
         .limit(30)
         .then(({ data, error }) => {
@@ -1608,7 +1624,11 @@ export default function SocialShell({
     const target = profiles.find((p) => p.id === s.profile_id)
       || candidates.find((p) => p.id === s.profile_id)
       || matches.find((p) => p.id === s.profile_id);
-    const profile = target || (await supabase.from("profiles").select("*").eq("id", s.profile_id).maybeSingle()).data;
+    // select(OTHER_PROFILE_COLUMNS) et non select("*") (même correctif que
+    // fetchedViewedProfile plus haut — voir lib/otherProfileColumns.js) :
+    // s.own est déjà vérifié faux ci-dessus, donc s.profile_id est toujours
+    // l'auteur·ice d'un AUTRE utilisateur.
+    const profile = target || (await supabase.from("profiles").select(OTHER_PROFILE_COLUMNS).eq("id", s.profile_id).maybeSingle()).data;
     if (!profile) return;
     closeStoryViewer();
     await sendMessageTo(profile, text);

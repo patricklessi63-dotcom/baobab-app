@@ -33,51 +33,16 @@ import PrivacyPage from "./screens/public/PrivacyPage";
 import TermsPage from "./screens/public/TermsPage";
 import LocationRequiredGate from "./components/LocationRequiredGate";
 import { useOnlineStatus } from "./hooks/useOnlineStatus";
+import { OTHER_PROFILE_COLUMNS } from "./lib/otherProfileColumns";
 
 const PUBLIC_ONLY_PATHS = new Set(["/connexion", "/inscription", "/a-propos", "/confidentialite", "/conditions"]);
 
-// Colonnes de "profiles" pour un profil D'UN AUTRE UTILISATEUR (cache
-// candidats/Découverte, comptes bloqués) — jamais pour son PROPRE profil, qui
-// continue de charger select("*") (voir loadAll()/applyOwnProfile). Bug
-// corrigé à l'audit : loadAll() chargeait ces 500 profils avec select("*"),
-// exposant en clair dans la réponse réseau — à TOUS les utilisateurs connectés,
-// pas seulement Premium/staff — des colonnes jamais destinées à un autre
-// compte que son titulaire (même famille de bug que
-// supabase-likers-profile-overexposure-fix.sql, mais côté client cette
-// fois) : ban_reason/suspend_reason (texte de modération), report_count/
-// flagged_for_review (indicateurs de modération), notification_preferences
-// (réglages personnels), birth_date (date de naissance EXACTE, plus précise
-// que l'âge que show_birth_year prétend masquer), ainsi que des colonnes
-// jamais lues pour un tiers nulle part dans le code (user_id, last_name,
-// province, has_children, pref_*, onboarding_step, usage_goals,
-// personalization_enabled, ai_suggestions_enabled, show_read_receipts,
-// show_upcoming_events, personality_evening/travel, relationship_needs).
-//
-// Liste dérivée d'une recherche exhaustive des champs réellement lus sur un
-// profil candidat/bloqué (DiscoverTab.jsx, MatchCard.jsx, ProfileCard.jsx,
-// PublicProfileModal.jsx, ConversationCard.jsx, matchingService.js) — PLUS
-// banned_at/suspended_until/onboarding_completed_at/dating_enabled/
-// deletion_requested_at, dont App.jsx a réellement besoin ici pour le filtre
-// dur de "candidates" juste plus bas (comptes bannis/suspendus/incomplets/en
-// attente de suppression exclus de Découverte) : contrairement au RPC
-// get_my_likers(), il n'existe pas ici de filtrage équivalent côté serveur,
-// donc ces 4 colonnes doivent transiter jusqu'au client pour que ce filtre
-// fonctionne — les en retirer réintroduirait immédiatement les bugs
-// (comptes bannis/incomplets/en attente de suppression redevenus visibles
-// dans Découverte) corrigés séparément dans cette même session d'audit.
-const OTHER_PROFILE_COLUMNS = [
-  "id", "name", "age", "city", "country", "languages", "arrived_since",
-  "looking_for", "bio", "created_at",
-  "avatar_url", "cover_url", "occupation", "education_level", "interests",
-  "is_online", "last_seen", "show_online_status",
-  "email_verified", "phone_verified", "is_founder", "is_premium", "show_birth_year",
-  "show_city", "show_country", "show_occupation", "show_studies",
-  "show_canada_journey", "show_life_project", "show_interests",
-  "immigration_status", "arrival_city", "languages_detail", "relationship_values",
-  "wants_children", "family_importance", "career_goal", "geographic_openness",
-  "dating_enabled", "banned_at", "suspended_until", "onboarding_completed_at",
-  "deletion_requested_at",
-].join(",");
+// OTHER_PROFILE_COLUMNS déplacée dans lib/otherProfileColumns.js (audit du 8
+// septembre) : SocialShell.jsx avait le même bug de select("*") sur un profil
+// tiers (fiche ouverte depuis une notification, ouverture de conversation
+// depuis une notification, réponse à un statut, recherche globale) et devait
+// réutiliser exactement la même liste — voir ce fichier pour le détail du bug
+// et la provenance de la liste.
 
 export default function App() {
   // Réarme le filet anti-boucle de ChunkErrorBoundary.jsx une fois l'app
