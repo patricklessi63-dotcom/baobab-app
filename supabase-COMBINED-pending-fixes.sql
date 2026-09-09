@@ -1,27 +1,32 @@
 -- ============================================================================
--- SCRIPT CONSOLIDÉ — tous les correctifs SQL en attente (23 fichiers)
--- Régénéré le 2026-09-04 12:38 à partir des fichiers supabase-*-fix.sql
+-- SCRIPT CONSOLIDÉ — tous les correctifs SQL en attente (33 fichiers)
+-- Régénéré le 2026-09-08 23:xx à partir des fichiers supabase-*-fix.sql
 -- individuels du dépôt. Chaque section est idempotente (drop/create ou
 -- create or replace), donc rejouer ce script entier ne pose pas de
 -- problème si une partie a déjà été appliquée séparément.
 --
--- ORDRE VOLONTAIRE : les 4 premières sections (sécurité critique/active,
--- trouvées et corrigées après la première version de ce script consolidé)
--- passent en premier. Si tu as déjà exécuté l'ancienne version de ce
--- script (19 fichiers), tu peux exécuter UNIQUEMENT ces 4 premières
--- sections plutôt que tout le fichier — repère les séparateurs "SOURCE :".
+-- ⚠️ ORDRE IMPORTANT ET VOLONTAIRE — ne pas réordonner les sections
+-- manuellement : les sections "get_my_likers()/get_liker_profile_reveal()"
+-- apparaissent 3 fois (versions successives de la même fonction) — SEULE
+-- LA DERNIÈRE occurrence (supabase-likers-profile-overexposure-fix.sql,
+-- proche de la fin de ce fichier) doit rester active, elle seule filtre les
+-- colonnes sensibles (ban_reason, birth_date exact, notification_preferences...).
+-- Si tu exécutes ces fichiers un par un plutôt qu'en un bloc, exécute-les
+-- dans l'ordre où ils apparaissent ici, jamais dans l'autre sens.
 --
--- 1. supabase-authz-null-bypass-CRITIQUE-fix.sql — LE PLUS URGENT. Sans
---    lui, admin_search_users()/admin_list_feedback() et plusieurs autres
---    fonctions exposent de vraies données à n'importe quel visiteur
---    anonyme, confirmé en direct contre la production.
--- 2. supabase-storage-anon-listing-fix.sql — les buckets avatars/post-media
---    sont lisibles et listables par n'importe qui sans compte.
+-- SECTIONS LES PLUS URGENTES (sécurité active, à faire en premier si tu ne
+-- fais pas tout le fichier d'un coup) :
+-- 1. supabase-authz-null-bypass-CRITIQUE-fix.sql — LE PLUS URGENT.
+-- 2. supabase-storage-anon-listing-fix.sql — buckets avatars/post-media
+--    lisibles et listables par n'importe qui sans compte.
 -- 3. supabase-stripe-webhook-ordering-fix.sql — nécessite AUSSI un
---    redéploiement de la fonction après exécution du SQL :
---      supabase functions deploy stripe-webhook --no-verify-jwt
--- 4. supabase-create-community-event-authz-fix.sql — moins urgent (pas
---    exploitable aujourd'hui), inclus pour être complet.
+--    redéploiement : supabase functions deploy stripe-webhook --no-verify-jwt
+-- 4. supabase-existence-oracle-fix.sql — join_event/accept_join_request/
+--    reject_join_request exécutables SANS AUCUNE authentification.
+-- 5. supabase-security-definer-revoke-grant-audit-fix.sql —
+--    check_beta_whitelist et send_event_reminders exécutables sans
+--    authentification ; ferme aussi la porte "anon" sur une dizaine
+--    d'autres fonctions par défense en profondeur.
 --
 -- À exécuter en une fois dans Supabase SQL Editor. Si une erreur survient
 -- sur une section, note le nom du fichier source (marqué ci-dessous) et
@@ -293,6 +298,468 @@ comment on column subscriptions.stripe_event_created_at is
 
 
 -- ============================================================================
+-- SOURCE : supabase-existence-oracle-fix.sql
+-- ============================================================================
+-- ============================================================================
+-- Correctif : oracle d'existence via message d'erreur différentiel (IDOR
+-- "binaire") sur join_event()/accept_join_request()/reject_join_request().
+--
+-- Angle inédit de cette passe d'audit : pas une fuite de colonnes ni une
+-- liste sans limite (patterns déjà clos ce soir), mais une fuite
+-- d'information via le CONTENU du message d'erreur d'une RPC qui prend un
+-- UUID en paramètre.
+--
+-- Constat (lecture du code, confirmé par relecture des définitions SQL
+-- actuellement déployées) :
+--
+-- 1. join_event(p_event_id uuid) [supabase-events-guards.sql] :
+--      - UUID inexistant                         -> 'Evenement introuvable'
+--      - UUID existant mais can_view_event() faux -> 'Non autorise'
+--      - UUID existant, visible, mais annulé      -> 'Cet evenement est annule'
+--      - UUID existant, visible, mais passé       -> 'Cet evenement est deja passe'
+--    N'importe quel utilisateur AUTHENTIFIÉ peut donc distinguer "cet id
+--    n'existe pas" de "cet id existe mais m'est fermé" — et même, pour un
+--    événement fermé, savoir en plus s'il est annulé ou déjà passé — pour
+--    un événement privé/communautaire auquel il n'a jamais eu accès (lien
+--    partagé puis retiré, invitation révoquée, ancien membre d'une
+--    communauté qu'il a quittée, ou simple essai d'UUID au hasard).
+--
+-- 2. accept_join_request(p_request_id uuid) et reject_join_request(...)
+--    [supabase-communities.sql] :
+--      - UUID inexistant OU déjà traité -> 'Demande introuvable ou deja traitee'
+--      - UUID existant, en attente, mais staff communautaire faux -> 'Non autorise'
+--    Même schéma : "Non autorise" confirme à n'importe quel utilisateur
+--    authentifié qu'une demande d'adhésion EN ATTENTE existe avec cet UUID
+--    précis dans UNE communauté quelconque (pas forcément la sienne), sans
+--    jamais avoir eu de raison légitime de la consulter.
+--
+-- Sévérité pratique limitée (UUID v4 non énumérable par force brute), mais
+-- même famille de bug que "confirmer qu'un compte/une ressource existe sans
+-- y avoir droit" — corrigé ici en supprimant la branche d'erreur distincte
+-- et en la fusionnant avec le message générique "introuvable", AVANT toute
+-- autre vérification qui révélerait un détail supplémentaire (annulé/passé)
+-- sur une ressource à laquelle l'appelant n'a de toute façon pas accès.
+--
+-- Aucune connexion active, aucune ligne modifiée : ce fichier redéfinit
+-- uniquement le corps de trois fonctions déjà déployées, à exécuter
+-- manuellement (jamais par l'agent) via l'éditeur SQL Supabase.
+-- ============================================================================
+
+-- ----------------------------------------------------------------------------
+-- 1. join_event(p_event_id) — la vérification can_view_event() passe
+--    maintenant AVANT toute autre vérification (annulé/passé), et son échec
+--    est fusionné avec le cas "introuvable" plutôt que de lever 'Non autorise'.
+-- ----------------------------------------------------------------------------
+create or replace function join_event(p_event_id uuid)
+returns event_attendees
+language plpgsql security definer set search_path = public
+as $$
+declare v_max int; v_canceled timestamptz; v_date timestamptz; v_going int; v_status text; v_row event_attendees;
+begin
+  select max_participants, canceled_at, event_date into v_max, v_canceled, v_date from events where id = p_event_id for update;
+  if not found then raise exception 'Evenement introuvable'; end if;
+  -- Vérification d'accès déplacée ICI (avant tout autre exception) et
+  -- message fusionné avec le cas "introuvable" : un événement privé auquel
+  -- l'appelant n'a pas accès doit être indiscernable, dans la réponse
+  -- d'erreur, d'un événement qui n'existe pas — que ce soit sur le simple
+  -- fait de son existence, ou sur son statut (annulé/passé), qui ne
+  -- regarde pas quelqu'un qui n'a de toute façon pas le droit de le voir.
+  if not can_view_event(p_event_id) then raise exception 'Evenement introuvable'; end if;
+  if v_canceled is not null then raise exception 'Cet evenement est annule'; end if;
+  if v_date is not null and v_date <= now() then raise exception 'Cet evenement est deja passe'; end if;
+
+  select count(*) into v_going from event_attendees where event_id = p_event_id and status = 'going';
+  v_status := case when v_max is null or v_going < v_max then 'going' else 'waitlisted' end;
+
+  insert into event_attendees (event_id, profile_id, status)
+  values (p_event_id, current_profile_id(), v_status)
+  on conflict (event_id, profile_id) do update set status = excluded.status, updated_at = now()
+  returning * into v_row;
+
+  insert into notifications (recipient_id, type, actor_id, target_type, target_id, payload)
+  values (current_profile_id(), 'event_participation_confirmed', current_profile_id(), 'event', p_event_id,
+    jsonb_build_object('status', v_status));
+
+  return v_row;
+end;
+$$;
+
+-- ----------------------------------------------------------------------------
+-- 2. accept_join_request(p_request_id) — 'Non autorise' fusionné avec le
+--    message générique "introuvable ou deja traitee".
+-- ----------------------------------------------------------------------------
+create or replace function accept_join_request(p_request_id uuid)
+returns void
+language plpgsql security definer set search_path = public
+as $$
+declare v_community_id uuid; v_profile_id uuid;
+begin
+  select community_id, profile_id into v_community_id, v_profile_id
+    from community_join_requests where id = p_request_id and status = 'pending' for update;
+  if not found then
+    raise exception 'Demande introuvable ou deja traitee';
+  end if;
+  -- Message fusionné avec le cas "introuvable" ci-dessus (au lieu de 'Non
+  -- autorise') : sinon, n'importe quel utilisateur authentifié pouvait
+  -- confirmer qu'une demande d'adhésion EN ATTENTE existe avec un UUID
+  -- donné dans une communauté quelconque, simplement en observant lequel
+  -- des deux messages revient — sans jamais avoir été concerné par cette
+  -- communauté.
+  if not is_community_staff(v_community_id) then
+    raise exception 'Demande introuvable ou deja traitee';
+  end if;
+
+  update community_join_requests
+  set status = 'accepted', decided_at = now(), decided_by = current_profile_id()
+  where id = p_request_id;
+
+  insert into community_members (community_id, profile_id, role)
+  values (v_community_id, v_profile_id, 'member')
+  on conflict (community_id, profile_id) do nothing;
+
+  insert into notifications (recipient_id, type, actor_id, community_id)
+  values (v_profile_id, 'join_request_accepted', current_profile_id(), v_community_id);
+end;
+$$;
+
+-- ----------------------------------------------------------------------------
+-- 3. reject_join_request(p_request_id) — même correctif que ci-dessus.
+-- ----------------------------------------------------------------------------
+create or replace function reject_join_request(p_request_id uuid)
+returns void
+language plpgsql security definer set search_path = public
+as $$
+declare v_community_id uuid;
+begin
+  select community_id into v_community_id
+    from community_join_requests where id = p_request_id and status = 'pending' for update;
+  if not found then
+    raise exception 'Demande introuvable ou deja traitee';
+  end if;
+  -- Même fusion de message que accept_join_request() ci-dessus.
+  if not is_community_staff(v_community_id) then
+    raise exception 'Demande introuvable ou deja traitee';
+  end if;
+
+  update community_join_requests
+  set status = 'rejected', decided_at = now(), decided_by = current_profile_id()
+  where id = p_request_id;
+end;
+$$;
+
+-- ----------------------------------------------------------------------------
+-- 4. Durcissement complémentaire (constaté en testant ce correctif, lecture
+--    seule, avec la clé anonyme publique déjà présente dans le bundle
+--    client — aucune mutation, aucun compte réel utilisé) : ces trois
+--    fonctions n'ont JAMAIS eu de "revoke ... from public" contrairement à
+--    unmatch_profile()/decline_invite() dans ce même projet. Un appel POST
+--    anonyme (rôle "anon", sans session) sur
+--    /rest/v1/rpc/join_event et /rest/v1/rpc/accept_join_request avec un
+--    UUID au hasard exécute réellement la fonction et renvoie le message
+--    d'erreur normal ('Evenement introuvable' / 'Demande introuvable ou deja
+--    traitee') au lieu d'un refus de permission — l'oracle d'existence
+--    corrigé ci-dessus était donc exploitable sans même créer de compte.
+--    Le correctif de message ci-dessus le neutralise déjà (même message
+--    dans les deux cas, authentifié ou non), mais on restreint aussi
+--    l'exécution au rôle "authenticated" par défense en profondeur, comme
+--    c'est déjà le cas pour les fonctions équivalentes du fichier.
+-- ----------------------------------------------------------------------------
+revoke all on function join_event(uuid) from public;
+grant execute on function join_event(uuid) to authenticated;
+
+revoke all on function accept_join_request(uuid) from public;
+grant execute on function accept_join_request(uuid) to authenticated;
+
+revoke all on function reject_join_request(uuid) from public;
+grant execute on function reject_join_request(uuid) to authenticated;
+
+-- ----------------------------------------------------------------------------
+-- Vérification (facultatif, à exécuter séparément après) :
+-- select proname, prosrc from pg_proc where proname in ('join_event','accept_join_request','reject_join_request');
+-- -- Confirmer qu'aucune des trois ne contient plus la chaîne 'Non autorise'.
+-- select routine_name, grantee, privilege_type from information_schema.routine_privileges
+--   where routine_name in ('join_event','accept_join_request','reject_join_request');
+-- -- Confirmer qu'il ne reste plus de ligne grantee = 'PUBLIC'/'anon'.
+-- ============================================================================
+
+
+-- ============================================================================
+-- SOURCE : supabase-security-definer-revoke-grant-audit-fix.sql
+-- ============================================================================
+-- ============================================================================
+-- CROISEMENT EXHAUSTIF — pattern "fonction RPC security definer jamais
+-- protégée par revoke/grant" (suite de supabase-existence-oracle-fix.sql,
+-- qui avait trouvé ce trou sur join_event()/accept_join_request()/
+-- reject_join_request()). Cette passe relit TOUTES les fonctions
+-- "security definer" du dépôt (version la plus récente de chacune) et
+-- vérifie, pour chacune, l'existence d'un "revoke ... from public" suivi
+-- d'un "grant execute ... to authenticated" (ou équivalent).
+--
+-- MÉTHODE DE VÉRIFICATION EXPLOITÉE, PAS SEULEMENT LUE : rappel que
+-- PostgreSQL accorde EXECUTE à PUBLIC (donc au rôle "anon" ET "authenticated"
+-- de Supabase) sur toute fonction, par défaut, dès sa création — un simple
+-- "grant execute ... to authenticated" ajouté PLUS TARD ne retire jamais ce
+-- droit hérité de PUBLIC ; seul un "revoke ... from public" explicite le
+-- fait. Deux familles de trous trouvées ici :
+--   A. Aucun grant ET aucun revoke n'a jamais existé (comme join_event()
+--      avant son correctif) — fonctions listées en sections 1 et 2.
+--   B. Un "grant execute ... to authenticated" a bien été ajouté (dans
+--      supabase-geolocation.sql / supabase-geolocation-privacy-fix.sql /
+--      supabase-likers-profile-overexposure-fix.sql / supabase-premium-
+--      admirers-reveal-fix.sql / supabase-schema-cache-404-400-fix.sql),
+--      mais SANS jamais retirer le droit hérité de PUBLIC avant — donc le
+--      rôle "anon" (visiteur non connecté, clé publique) a QUAND MÊME pu
+--      exécuter ces fonctions depuis le tout début, malgré l'intention
+--      affichée dans ces fichiers. Section 3.
+--
+-- VERDICT DÉTAILLÉ PAR FONCTION (toutes les fonctions "security definer" du
+-- dépôt ont été passées en revue ; seules celles listées ci-dessous manquent
+-- de protection — voir le résumé final envoyé à l'utilisateur pour la liste
+-- complète des fonctions déjà protégées et de celles jugées non applicables,
+-- ex. les fonctions déclenchées uniquement par trigger — "returns trigger"
+-- — que PostgreSQL empêche déjà d'appeler directement via RPC, donc hors de
+-- portée de ce pattern par construction).
+--
+-- Aucune connexion active, aucune ligne modifiée par ce fichier lui-même :
+-- uniquement des "revoke"/"grant" sur des fonctions déjà déployées. À
+-- exécuter manuellement (jamais par l'agent) via l'éditeur SQL Supabase,
+-- dans l'ordre, après les fichiers qui définissent chaque fonction listée
+-- (supabase-admin.sql, supabase-communities.sql, supabase-communities-2.sql,
+-- supabase-events-v2.sql, supabase-create-community-event-authz-fix.sql,
+-- supabase-info.sql, supabase-beta-access.sql, supabase-beta-feedback-
+-- admin.sql, supabase-premium-messaging.sql, supabase-user-risk-level-authz-
+-- fix.sql, supabase-geolocation.sql, supabase-likers-profile-overexposure-
+-- fix.sql — tous déjà en prod ou en attente).
+-- ============================================================================
+
+-- ----------------------------------------------------------------------------
+-- 1. LE VRAI NOUVEAU TROU DE CETTE PASSE — check_beta_whitelist(event jsonb)
+-- [supabase-beta-access.sql]. C'est une fonction d'Auth Hook Supabase
+-- ("Before User Created"), censée n'être appelée QUE par le rôle interne
+-- "supabase_auth_admin" lors d'une inscription — jamais par le client. Or
+-- elle n'a JAMAIS eu de revoke/grant, donc PUBLIC (y compris "anon", sans
+-- aucun compte) peut l'appeler directement via
+-- supabase.rpc('check_beta_whitelist', { event: {...} }), ce qui expose
+-- DEUX problèmes réels, cumulables sans jamais créer de compte :
+--   - Oracle d'existence sur la liste blanche : la réponse (objet d'erreur
+--     403 vs objet vide) révèle si un email précis est déjà invité en beta,
+--     permettant d'énumérer/vérifier des adresses email de la table
+--     beta_testers (jamais censée être lisible depuis le client — RLS sans
+--     aucune policy sur cette table, précisément pour l'empêcher).
+--   - Effet de bord réel sans jamais s'inscrire : l'appel fait aussi
+--     "update beta_testers set used_at = now()" pour tout email déjà
+--     invité — n'importe qui peut donc marquer à distance l'invitation de
+--     quelqu'un d'autre comme "déjà utilisée" sans que cette personne ait
+--     jamais créé de compte, corrompant le suivi de la liste blanche.
+-- Correctif : restreindre l'exécution au seul rôle "supabase_auth_admin"
+-- (convention officielle Supabase pour les Auth Hooks), en retirant
+-- explicitement tout accès à "anon"/"authenticated"/public.
+-- ----------------------------------------------------------------------------
+revoke all on function check_beta_whitelist(jsonb) from public;
+revoke all on function check_beta_whitelist(jsonb) from anon, authenticated;
+grant execute on function check_beta_whitelist(jsonb) to supabase_auth_admin;
+
+-- ----------------------------------------------------------------------------
+-- 2. Fonction appelable "system-only" sans AUCUNE garde d'auth interne —
+-- send_event_reminders() [supabase-events-v2.sql, section "Rappels
+-- 24h/1h"]. Le fichier d'origine dit explicitement "fonction appelable, PAS
+-- un trigger" et prévue pour tourner via pg_cron/le propriétaire de la
+-- base — jamais un appel client. Sans revoke, PUBLIC (anon compris) peut la
+-- déclencher à volonté via supabase.rpc('send_event_reminders'), ce qui
+-- exécute des INSERT/UPDATE réels sur les notifications et jeux
+-- d'inscription (event_attendees) d'autres utilisateurs sans aucune
+-- vérification d'identité de l'appelant. Impact pratique limité par le
+-- garde-fou reminder_24h_sent_at/reminder_1h_sent_at (idempotent, ne double
+-- jamais un envoi), mais reste un appel non authentifié à une fonction à
+-- effet de bord qui ne devrait être déclenchable que par une tâche
+-- planifiée/le propriétaire — même défaut de conception que join_event()
+-- avant son correctif. Aucun grant ajouté : ni "anon" ni "authenticated"
+-- n'ont de raison légitime de l'appeler ; seul le propriétaire de la
+-- fonction (rôle d'exécution de pg_cron, non soumis aux grants) doit
+-- pouvoir la déclencher.
+-- ----------------------------------------------------------------------------
+revoke all on function send_event_reminders() from public;
+revoke all on function send_event_reminders() from anon, authenticated;
+
+-- ----------------------------------------------------------------------------
+-- 3. "grant" ajouté sans jamais avoir fait le "revoke" correspondant — le
+-- droit hérité de PUBLIC (donc "anon", visiteur SANS compte) n'a jamais été
+-- retiré, malgré l'intention affichée dans les fichiers d'origine. Impact
+-- réel limité (les deux fonctions renvoient un résultat vide/null pour un
+-- appelant non connecté, current_profile_id()/auth.uid() étant alors NULL
+-- et vérifié en premier dans chaque corps de fonction — pas de fuite de
+-- données ni d'effet de bord confirmé pour "anon"), mais c'est exactement
+-- la même case "convention non appliquée" que le reste de cette passe :
+--   - get_my_likers() / get_liker_profile_reveal(uuid)
+--     [supabase-likers-profile-overexposure-fix.sql /
+--      supabase-premium-admirers-reveal-fix.sql /
+--      supabase-schema-cache-404-400-fix.sql — 3 fichiers ont réécrit ces
+--      fonctions et ajouté le grant, aucun n'a ajouté le revoke]
+--   - nearby_profiles(text, numeric)
+--     [supabase-geolocation.sql / supabase-geolocation-privacy-fix.sql —
+--      même oubli]
+-- ----------------------------------------------------------------------------
+revoke all on function get_my_likers() from public;
+grant execute on function get_my_likers() to authenticated;
+
+revoke all on function get_liker_profile_reveal(uuid) from public;
+grant execute on function get_liker_profile_reveal(uuid) to authenticated;
+
+revoke all on function public.nearby_profiles(text, numeric) from public;
+grant execute on function public.nearby_profiles(text, numeric) to authenticated;
+
+-- ----------------------------------------------------------------------------
+-- 4. Fonctions à EFFET DE BORD (INSERT/UPDATE/DELETE) déjà protégées par une
+-- garde interne explicite (raise exception si non authentifié / non
+-- autorisé) — donc non exploitables aujourd'hui même sans revoke/grant,
+-- contrairement à join_event()/accept_join_request()/reject_join_request()
+-- avant leur correctif (qui laissaient l'INSERT/UPDATE s'exécuter avant ou
+-- sans jamais vérifier l'identité de l'appelant). Ajout du revoke/grant ici
+-- par pure défense en profondeur et cohérence avec le reste du projet
+-- (decline_invite()/unmatch_profile() ont déjà ce traitement pour la même
+-- famille de fonctions) — AUCUN changement de comportement attendu pour un
+-- appelant légitime déjà authentifié.
+--
+-- accept_invite(uuid) [supabase-communities.sql] : filtre déjà
+-- "invited_profile_id = current_profile_id()" dans la clause WHERE de
+-- lecture -> un appelant anonyme ou tiers tombe sur "introuvable", jamais
+-- d'accès à l'invitation d'autrui (contrairement au bug corrigé sur
+-- accept_join_request(), où la vérification de droit arrivait dans un IF
+-- séparé APRÈS confirmation d'existence, créant l'oracle).
+-- ----------------------------------------------------------------------------
+revoke all on function accept_invite(uuid) from public;
+grant execute on function accept_invite(uuid) to authenticated;
+
+-- accept_event_invitation(uuid) / decline_event_invitation(uuid)
+-- [supabase-events-v2.sql] : même motif qu'accept_invite() ci-dessus
+-- (filtre invited_profile_id = current_profile_id() dans le SELECT/UPDATE).
+revoke all on function accept_event_invitation(uuid) from public;
+grant execute on function accept_event_invitation(uuid) to authenticated;
+
+revoke all on function decline_event_invitation(uuid) from public;
+grant execute on function decline_event_invitation(uuid) to authenticated;
+
+-- create_community(...) / create_event(...)
+-- [supabase-create-community-event-authz-fix.sql, versions les plus
+-- récentes] : commencent explicitement par
+-- "if current_profile_id() is null then raise exception 'Non authentifie'".
+revoke all on function create_community(text, text, text, text, text, text, text) from public;
+grant execute on function create_community(text, text, text, text, text, text, text) to authenticated;
+
+revoke all on function create_event(text, text, text, text, timestamptz, integer, text, text, integer, text, uuid, text) from public;
+grant execute on function create_event(text, text, text, text, timestamptz, integer, text, text, integer, text, uuid, text) to authenticated;
+
+-- Rôles/modération plateforme [supabase-admin.sql] : chacune commence par
+-- "if not is_moderator_or_above()/is_admin_or_above() then raise exception"
+-- (ou une vérification de rang équivalente). Note d'honnêteté : cette garde
+-- dépend elle-même du correctif NULL-bypass
+-- (supabase-authz-null-bypass-CRITIQUE-fix.sql, "coalesce(..., false)") pour
+-- être fiable côté "authenticated" sans rôle — s'il n'est pas encore
+-- appliqué en prod, ces fonctions restent vulnérables à un contournement
+-- PAR UN COMPTE AUTHENTIFIÉ (pas par "anon", que ce fichier bloque bien).
+-- Le revoke/grant ci-dessous ferme au moins la voie "anon" dans tous les cas.
+revoke all on function grant_platform_role(uuid, text) from public;
+grant execute on function grant_platform_role(uuid, text) to authenticated;
+
+revoke all on function revoke_platform_role(uuid) from public;
+grant execute on function revoke_platform_role(uuid) to authenticated;
+
+revoke all on function suspend_user(uuid, timestamptz, text) from public;
+grant execute on function suspend_user(uuid, timestamptz, text) to authenticated;
+
+revoke all on function unsuspend_user(uuid) from public;
+grant execute on function unsuspend_user(uuid) to authenticated;
+
+revoke all on function ban_user(uuid, text) from public;
+grant execute on function ban_user(uuid, text) to authenticated;
+
+revoke all on function unban_user(uuid) from public;
+grant execute on function unban_user(uuid) to authenticated;
+
+revoke all on function admin_resolve_report(text, uuid, boolean) from public;
+grant execute on function admin_resolve_report(text, uuid, boolean) to authenticated;
+
+revoke all on function admin_set_monetization(boolean) from public;
+grant execute on function admin_set_monetization(boolean) to authenticated;
+
+revoke all on function admin_update_feedback(uuid, text, text, text) from public;
+grant execute on function admin_update_feedback(uuid, text, text, text) to authenticated;
+
+-- Cycle éditorial Baobab Info [supabase-info.sql] : chacune commence par
+-- "if not is_info_editor()/is_info_admin() then raise exception".
+revoke all on function create_info_article(text, text, text, text, text, text, text, boolean, boolean, text, text, text, text, timestamptz) from public;
+grant execute on function create_info_article(text, text, text, text, text, text, text, boolean, boolean, text, text, text, text, timestamptz) to authenticated;
+
+revoke all on function update_info_article(uuid, text, text, text, text, text, text, text, text, text, text, timestamptz) from public;
+grant execute on function update_info_article(uuid, text, text, text, text, text, text, text, text, text, text, timestamptz) to authenticated;
+
+revoke all on function submit_info_article_for_review(uuid) from public;
+grant execute on function submit_info_article_for_review(uuid) to authenticated;
+
+revoke all on function approve_info_article(uuid) from public;
+grant execute on function approve_info_article(uuid) to authenticated;
+
+revoke all on function publish_info_article(uuid) from public;
+grant execute on function publish_info_article(uuid) to authenticated;
+
+revoke all on function archive_info_article(uuid) from public;
+grant execute on function archive_info_article(uuid) to authenticated;
+
+revoke all on function revert_info_article_to_draft(uuid) from public;
+grant execute on function revert_info_article_to_draft(uuid) to authenticated;
+
+-- ----------------------------------------------------------------------------
+-- 5. Fonctions EN LECTURE SEULE (aucun INSERT/UPDATE/DELETE dans leur corps)
+-- déjà protégées par une garde interne (is_moderator_or_above() ou
+-- vérification équivalente basée sur current_profile_id()) — donc sans
+-- fuite de données confirmée aujourd'hui, mais listées ici pour la même
+-- raison de cohérence/défense en profondeur que la section 4 (même remarque
+-- sur la dépendance au correctif NULL-bypass pour un appelant "authenticated"
+-- sans rôle).
+-- ----------------------------------------------------------------------------
+revoke all on function admin_dashboard_stats() from public;
+grant execute on function admin_dashboard_stats() to authenticated;
+
+revoke all on function admin_search_users(text) from public;
+grant execute on function admin_search_users(text) to authenticated;
+
+revoke all on function admin_list_reports(text) from public;
+grant execute on function admin_list_reports(text) to authenticated;
+
+revoke all on function admin_list_feedback(text) from public;
+grant execute on function admin_list_feedback(text) to authenticated;
+
+revoke all on function user_risk_level(uuid) from public;
+grant execute on function user_risk_level(uuid) to authenticated;
+
+revoke all on function get_message_quota(text) from public;
+grant execute on function get_message_quota(text) to authenticated;
+
+-- ----------------------------------------------------------------------------
+-- Vérification (facultatif, à exécuter séparément après) :
+-- select routine_name, grantee, privilege_type from information_schema.routine_privileges
+--   where routine_name in (
+--     'check_beta_whitelist','send_event_reminders','get_my_likers',
+--     'get_liker_profile_reveal','nearby_profiles','accept_invite',
+--     'accept_event_invitation','decline_event_invitation','create_community',
+--     'create_event','grant_platform_role','revoke_platform_role',
+--     'suspend_user','unsuspend_user','ban_user','unban_user',
+--     'admin_resolve_report','admin_set_monetization','admin_update_feedback',
+--     'create_info_article','update_info_article',
+--     'submit_info_article_for_review','approve_info_article',
+--     'publish_info_article','archive_info_article',
+--     'revert_info_article_to_draft','admin_dashboard_stats',
+--     'admin_search_users','admin_list_reports','admin_list_feedback',
+--     'user_risk_level','get_message_quota'
+--   )
+--   order by routine_name, grantee;
+-- -- Confirmer qu'aucune ligne ne reste avec grantee = 'PUBLIC' (sauf
+-- -- check_beta_whitelist, dont le seul grantee attendu est
+-- -- 'supabase_auth_admin' et surtout pas 'public'/'anon'/'authenticated').
+-- ============================================================================
+
+
+-- ============================================================================
 -- SOURCE : supabase-create-community-event-authz-fix.sql
 -- ============================================================================
 -- ============================================================================
@@ -413,6 +880,1389 @@ begin
   return v_event;
 end;
 $$;
+
+
+-- ============================================================================
+-- SOURCE : supabase-premium-admirers-reveal-fix.sql
+-- ============================================================================
+-- ============================================================================
+-- Correctif : "Qui m'a aimé" (avantage Premium) n'était protégé QUE côté
+-- affichage, jamais côté serveur — même famille de bug que l'audit
+-- "client vs serveur" mené sur les statuts de compte (banni/suspendu/
+-- onboarding incomplet/suppression en attente), appliquée ici au Premium.
+--
+-- Constat (src/App.jsx, loadAll) :
+--   supabase.from("likes").select("from_id, profile:from_id(*)").eq("to_id", myProfileId)
+-- renvoie le PROFIL COMPLET (nom, photo, ville, âge, bio...) de TOUT LE
+-- MONDE qui a liké l'utilisateur courant, peu importe son statut Premium.
+-- AdmirersModal.jsx se contente ensuite d'afficher un Paywall à la place de
+-- la liste si !isPremium — mais la donnée elle-même a déjà transité en
+-- clair dans la réponse réseau (visible depuis l'onglet Réseau du
+-- navigateur ou le state React) AVANT toute vérification Premium. Un
+-- utilisateur gratuit un peu curieux peut donc voir l'identité de qui l'a
+-- aimé sans jamais payer, alors que c'est précisément la fonctionnalité
+-- vendue par l'abonnement. Même chose pour l'abonnement realtime "likes"
+-- (INSERT to_id=moi) : il refait un select("*") direct sur "profiles" dès
+-- qu'un nouveau like arrive, toujours sans vérifier is_premium().
+--
+-- Un match MUTUEL (les deux se sont likés) n'est PAS concerné : voir qui a
+-- matché avec soi n'a jamais été un avantage Premium dans cette app (voir
+-- getMatches() dans App.jsx) — seul le like à SENS UNIQUE (qui m'a aimé
+-- sans que je l'aie encore aimé en retour) doit rester caché à un compte
+-- gratuit.
+--
+-- Prérequis : supabase-premium.sql (is_premium, current_profile_id),
+-- supabase-matching.sql / supabase-protect-rls.sql (table "likes" existante
+-- avec RLS lecture sur from_id/to_id = soi).
+-- Additif uniquement : n'importe pas les policies RLS existantes sur
+-- "likes"/"profiles", ajoute seulement deux fonctions RPC.
+-- ============================================================================
+
+-- ----------------------------------------------------------------------------
+-- 1. get_my_likers() — remplace le select("from_id, profile:from_id(*)")
+-- fait directement depuis le client dans loadAll(). Ne renvoie le profil
+-- complet d'un·e admirateur·ice à sens unique que si l'appelant est
+-- Premium ; les profils de match mutuel sont toujours inclus. Le compteur
+-- "admirers_count" (aucune identité dedans) permet quand même d'afficher
+-- "X personnes t'ont déjà aimé·e" et le badge "(N)" de l'onglet Profil à un
+-- compte gratuit, sans rien révéler.
+-- ----------------------------------------------------------------------------
+create or replace function get_my_likers()
+returns jsonb language plpgsql stable security definer set search_path = public as $$
+declare
+  v_me uuid := current_profile_id();
+  v_premium boolean;
+  v_likers jsonb;
+  v_admirers_count int;
+begin
+  if v_me is null then
+    return jsonb_build_object('likers', '[]'::jsonb, 'admirers_count', 0);
+  end if;
+
+  v_premium := is_premium(v_me);
+
+  select coalesce(jsonb_agg(to_jsonb(p.*)), '[]'::jsonb)
+  into v_likers
+  from likes l
+  join profiles p on p.id = l.from_id
+  where l.to_id = v_me
+    and (
+      v_premium
+      or exists (select 1 from likes m where m.from_id = v_me and m.to_id = l.from_id)
+    );
+
+  select count(*) into v_admirers_count
+  from likes l
+  where l.to_id = v_me
+    and not exists (select 1 from likes m where m.from_id = v_me and m.to_id = l.from_id);
+
+  return jsonb_build_object('likers', v_likers, 'admirers_count', v_admirers_count);
+end;
+$$;
+
+grant execute on function get_my_likers() to authenticated;
+
+-- ----------------------------------------------------------------------------
+-- 2. get_liker_profile_reveal(p_from_id) — équivalent pour l'abonnement
+-- realtime "likes" (nouvel INSERT reçu en direct pendant la session). Ne
+-- renvoie le profil que si un like réel de p_from_id vers moi existe déjà
+-- en base ET (match mutuel OU je suis Premium) ; sinon renvoie null, sans
+-- toucher à "profiles" du tout — le client garde juste le compteur à jour
+-- côté React sans jamais recevoir l'identité.
+-- ----------------------------------------------------------------------------
+create or replace function get_liker_profile_reveal(p_from_id uuid)
+returns jsonb language plpgsql stable security definer set search_path = public as $$
+declare
+  v_me uuid := current_profile_id();
+begin
+  if v_me is null or p_from_id is null then
+    return null;
+  end if;
+
+  if not exists (select 1 from likes where from_id = p_from_id and to_id = v_me) then
+    return null;
+  end if;
+
+  if is_premium(v_me) or exists (select 1 from likes where from_id = v_me and to_id = p_from_id) then
+    return (select to_jsonb(p.*) from profiles p where p.id = p_from_id);
+  end if;
+
+  return null;
+end;
+$$;
+
+grant execute on function get_liker_profile_reveal(uuid) to authenticated;
+
+-- ----------------------------------------------------------------------------
+-- Vérification (facultatif, à exécuter séparément après) :
+-- select get_my_likers(); -- en tant qu'utilisateur connecté, via l'API PostgREST/RPC
+-- select get_liker_profile_reveal('<uuid-de-quelquun-qui-ma-like>');
+-- ============================================================================
+
+
+-- ============================================================================
+-- SOURCE : supabase-schema-cache-404-400-fix.sql
+-- ============================================================================
+-- ============================================================================
+-- Correctif : deux erreurs console en production, causes CONFIRMÉES par un
+-- test en conditions réelles (vrai compte créé via le flux d'inscription
+-- normal, onboarding jusqu'au bout, contre la vraie base de prod
+-- vozehymbihnckzklxesw.supabase.co — pas une hypothèse cette fois).
+--
+-- 1) GET/POST .../user_locations?select=* → 400
+--    Message PostgREST exact observé :
+--      {"code":"PGRST204","details":null,"hint":null,
+--       "message":"Could not find the 'last_in_canada_at' column of
+--       'user_locations' in the schema cache"}
+--    Origine : src/App.jsx appelle upsertMyLocation({ last_in_canada_at: ... })
+--    (garde-fou "Canada" du module Rencontres, voir supabase-canada-gate.sql)
+--    mais PostgREST ne voit pas cette colonne dans son cache de schéma —
+--    soit parce que supabase-canada-gate.sql n'a en réalité jamais été
+--    exécuté sur cette base de production, soit parce qu'il l'a été mais
+--    que le cache de schéma de PostgREST n'a jamais été rafraîchi depuis
+--    (arrive parfois avec du DDL passé par certains clients SQL). Impact
+--    réel au-delà du bruit console : le garde-fou de période de grâce
+--    "hors Canada" (discoverGateBlocked, src/App.jsx) ne peut jamais
+--    enregistrer last_in_canada_at, donc ne fonctionne jamais tel que conçu.
+--
+-- 2) RPC get_my_likers() → 404
+--    Message PostgREST exact observé :
+--      {"code":"PGRST202","details":"Searched for the function
+--       public.get_my_likers without parameters, but no matches were found
+--       in the schema cache.","hint":"Perhaps you meant to call the function
+--       public.get_message_quota","message":"Could not find the function
+--       public.get_my_likers without parameters in the schema cache"}
+--    Origine : supabase-premium-admirers-reveal-fix.sql définit cette
+--    fonction, appelée par TOUT compte connecté ayant un profil (loadAll(),
+--    src/App.jsx) — même cause probable que ci-dessus (jamais exécuté en
+--    prod, ou cache non rafraîchi). Impact réel : avant le correctif
+--    apporté au même commit à src/App.jsx (le throw sur likerRes.error
+--    faisait échouer TOUT loadAll()), cette seule RPC manquante empêchait le
+--    chargement des profils/likes/passes/blocages/photos pour tout le monde
+--    et affichait le bandeau "Impossible de charger les données. Réessaie."
+--
+-- Ce fichier réapplique les deux correctifs (idempotents dans leurs fichiers
+-- d'origine — add column if not exists / create or replace function) et
+-- force explicitement un rechargement du cache de schéma PostgREST, pour
+-- couvrir les deux causes possibles à la fois. Sans risque à exécuter même
+-- si supabase-canada-gate.sql et supabase-premium-admirers-reveal-fix.sql
+-- ont déjà été appliqués avec succès.
+-- À exécuter dans Supabase : SQL Editor.
+-- ============================================================================
+
+-- ----------------------------------------------------------------------------
+-- 1. Colonne last_in_canada_at (identique à supabase-canada-gate.sql)
+-- ----------------------------------------------------------------------------
+alter table public.user_locations add column if not exists last_in_canada_at timestamptz;
+
+update public.user_locations set last_in_canada_at = now() where last_in_canada_at is null;
+
+-- ----------------------------------------------------------------------------
+-- 2. Fonctions get_my_likers() / get_liker_profile_reveal() (identique à
+-- supabase-premium-admirers-reveal-fix.sql) — prérequis : is_premium() et
+-- current_profile_id() (supabase-premium.sql / supabase-communities.sql).
+-- ----------------------------------------------------------------------------
+create or replace function get_my_likers()
+returns jsonb language plpgsql stable security definer set search_path = public as $$
+declare
+  v_me uuid := current_profile_id();
+  v_premium boolean;
+  v_likers jsonb;
+  v_admirers_count int;
+begin
+  if v_me is null then
+    return jsonb_build_object('likers', '[]'::jsonb, 'admirers_count', 0);
+  end if;
+
+  v_premium := is_premium(v_me);
+
+  select coalesce(jsonb_agg(to_jsonb(p.*)), '[]'::jsonb)
+  into v_likers
+  from likes l
+  join profiles p on p.id = l.from_id
+  where l.to_id = v_me
+    and (
+      v_premium
+      or exists (select 1 from likes m where m.from_id = v_me and m.to_id = l.from_id)
+    );
+
+  select count(*) into v_admirers_count
+  from likes l
+  where l.to_id = v_me
+    and not exists (select 1 from likes m where m.from_id = v_me and m.to_id = l.from_id);
+
+  return jsonb_build_object('likers', v_likers, 'admirers_count', v_admirers_count);
+end;
+$$;
+
+grant execute on function get_my_likers() to authenticated;
+
+create or replace function get_liker_profile_reveal(p_from_id uuid)
+returns jsonb language plpgsql stable security definer set search_path = public as $$
+declare
+  v_me uuid := current_profile_id();
+begin
+  if v_me is null or p_from_id is null then
+    return null;
+  end if;
+
+  if not exists (select 1 from likes where from_id = p_from_id and to_id = v_me) then
+    return null;
+  end if;
+
+  if is_premium(v_me) or exists (select 1 from likes where from_id = v_me and to_id = p_from_id) then
+    return (select to_jsonb(p.*) from profiles p where p.id = p_from_id);
+  end if;
+
+  return null;
+end;
+$$;
+
+grant execute on function get_liker_profile_reveal(uuid) to authenticated;
+
+-- ----------------------------------------------------------------------------
+-- 3. Rechargement explicite du cache de schéma PostgREST — normalement
+-- automatique après du DDL exécuté depuis le SQL Editor (event trigger
+-- Supabase), mais sans effet indésirable si redondant. C'est la seule étape
+-- de ce fichier qui a un sens si les deux blocs ci-dessus étaient déjà
+-- appliqués avec succès mais que le cache n'avait simplement jamais suivi.
+-- ----------------------------------------------------------------------------
+notify pgrst, 'reload schema';
+
+-- ----------------------------------------------------------------------------
+-- Vérification (facultatif, à exécuter séparément après) :
+-- select column_name from information_schema.columns
+--   where table_schema = 'public' and table_name = 'user_locations'
+--   and column_name = 'last_in_canada_at';
+-- select proname from pg_proc where proname in ('get_my_likers', 'get_liker_profile_reveal');
+-- select get_my_likers(); -- en tant qu'utilisateur connecté, via l'API PostgREST/RPC
+-- ============================================================================
+
+
+-- ============================================================================
+-- SOURCE : supabase-likers-profile-overexposure-fix.sql
+-- ============================================================================
+-- ============================================================================
+-- Correctif : "Qui m'a aimé" / matchs renvoyaient le PROFIL COMPLET (toutes
+-- les colonnes de "profiles") au lieu d'un sous-ensemble sûr — même famille
+-- de bug que supabase-premium-admirers-reveal-fix.sql (client vs serveur),
+-- mais un cran plus loin : ce fichier-là a corrigé QUI peut recevoir le
+-- profil d'un·e admirateur·ice (gate Premium/match mutuel), pas QUELLES
+-- COLONNES sont renvoyées une fois l'accès autorisé.
+--
+-- Constat (get_my_likers()/get_liker_profile_reveal(), déjà en prod depuis
+-- supabase-premium-admirers-reveal-fix.sql) : `to_jsonb(p.*)` renvoie
+-- LITTÉRALEMENT toutes les colonnes de "profiles" à quiconque a un match
+-- mutuel (aucune restriction Premium sur les matchs) ou qui est Premium —
+-- y compris des colonnes jamais destinées à un autre utilisateur que le
+-- titulaire du compte : ban_reason, suspend_reason, flagged_for_review,
+-- report_count, deletion_requested_at, birth_date (date de naissance EXACTE,
+-- bien plus précise que l'année que show_birth_year prétend masquer),
+-- notification_preferences, pref_age_min/pref_age_max/pref_distance/
+-- pref_looking_for, onboarding_step, usage_goals. AdmirersModal.jsx/
+-- MatchCard.jsx/ConversationPane.jsx/MessagesTab.jsx n'affichent qu'une
+-- poignée de ces champs (voir profile_public_json ci-dessous, dont la liste
+-- est dérivée de l'usage réel côté client — PublicProfileModal.jsx a déjà le
+-- même principe : "allow-list explicite des champs affichés, jamais de
+-- spread {...profile}"), mais la donnée en trop a déjà transité en clair
+-- dans la réponse réseau du RPC (onglet Réseau du navigateur), qu'elle soit
+-- affichée ou non.
+--
+-- Portée volontairement limitée à ces deux RPC (pas de refonte de loadAll()
+-- dans App.jsx, qui charge encore "profiles" en `select("*")` pour la liste
+-- de candidats/le cache local — un chantier plus large, à traiter à part vu
+-- son ampleur et son rôle central dans l'app). Additif uniquement.
+--
+-- Prérequis : supabase-premium-admirers-reveal-fix.sql (fonctions à
+-- remplacer ci-dessous), supabase-premium.sql (current_profile_id/
+-- is_premium). À exécuter dans Supabase : SQL Editor.
+-- ============================================================================
+
+-- ----------------------------------------------------------------------------
+-- 0. Allow-list partagée — un seul endroit à maintenir si une carte a besoin
+-- d'un nouveau champ public plus tard, au lieu de dupliquer la liste dans
+-- chaque fonction. Ne renvoie jamais : user_id, ban_reason, suspend_reason,
+-- flagged_for_review, report_count, deletion_requested_at, birth_date,
+-- notification_preferences, pref_*, onboarding_*, usage_goals, last_name,
+-- province, created_at.
+-- ----------------------------------------------------------------------------
+create or replace function public.profile_public_json(p profiles)
+returns jsonb
+language sql
+stable
+as $$
+  select jsonb_build_object(
+    'id', p.id,
+    'name', p.name,
+    'avatar_url', p.avatar_url,
+    'cover_url', p.cover_url,
+    'age', p.age,
+    'show_birth_year', p.show_birth_year,
+    'city', p.city,
+    'show_city', p.show_city,
+    'country', p.country,
+    'show_country', p.show_country,
+    'arrived_since', p.arrived_since,
+    'immigration_status', p.immigration_status,
+    'arrival_city', p.arrival_city,
+    'show_canada_journey', p.show_canada_journey,
+    'looking_for', p.looking_for,
+    'relationship_values', p.relationship_values,
+    'languages', p.languages,
+    'languages_detail', p.languages_detail,
+    'occupation', p.occupation,
+    'show_occupation', p.show_occupation,
+    'education_level', p.education_level,
+    'show_studies', p.show_studies,
+    'interests', p.interests,
+    'show_interests', p.show_interests,
+    'wants_children', p.wants_children,
+    'family_importance', p.family_importance,
+    'career_goal', p.career_goal,
+    'geographic_openness', p.geographic_openness,
+    'show_life_project', p.show_life_project,
+    'bio', p.bio,
+    'email_verified', p.email_verified,
+    'phone_verified', p.phone_verified,
+    'is_founder', p.is_founder,
+    'is_premium', p.is_premium,
+    'is_online', p.is_online,
+    'last_seen', p.last_seen,
+    'show_online_status', p.show_online_status,
+    'banned_at', p.banned_at,
+    'suspended_until', p.suspended_until
+  );
+$$;
+
+-- ----------------------------------------------------------------------------
+-- 1. get_my_likers() — même logique d'autorisation qu'avant (inchangée),
+-- seule la projection de colonnes change (to_jsonb(p.*) -> profile_public_json(p)).
+-- ----------------------------------------------------------------------------
+create or replace function get_my_likers()
+returns jsonb language plpgsql stable security definer set search_path = public as $$
+declare
+  v_me uuid := current_profile_id();
+  v_premium boolean;
+  v_likers jsonb;
+  v_admirers_count int;
+begin
+  if v_me is null then
+    return jsonb_build_object('likers', '[]'::jsonb, 'admirers_count', 0);
+  end if;
+
+  v_premium := is_premium(v_me);
+
+  select coalesce(jsonb_agg(profile_public_json(p)), '[]'::jsonb)
+  into v_likers
+  from likes l
+  join profiles p on p.id = l.from_id
+  where l.to_id = v_me
+    and (
+      v_premium
+      or exists (select 1 from likes m where m.from_id = v_me and m.to_id = l.from_id)
+    );
+
+  select count(*) into v_admirers_count
+  from likes l
+  where l.to_id = v_me
+    and not exists (select 1 from likes m where m.from_id = v_me and m.to_id = l.from_id);
+
+  return jsonb_build_object('likers', v_likers, 'admirers_count', v_admirers_count);
+end;
+$$;
+
+grant execute on function get_my_likers() to authenticated;
+
+-- ----------------------------------------------------------------------------
+-- 2. get_liker_profile_reveal(p_from_id) — même changement.
+-- ----------------------------------------------------------------------------
+create or replace function get_liker_profile_reveal(p_from_id uuid)
+returns jsonb language plpgsql stable security definer set search_path = public as $$
+declare
+  v_me uuid := current_profile_id();
+begin
+  if v_me is null or p_from_id is null then
+    return null;
+  end if;
+
+  if not exists (select 1 from likes where from_id = p_from_id and to_id = v_me) then
+    return null;
+  end if;
+
+  if is_premium(v_me) or exists (select 1 from likes where from_id = v_me and to_id = p_from_id) then
+    return (select profile_public_json(p) from profiles p where p.id = p_from_id);
+  end if;
+
+  return null;
+end;
+$$;
+
+grant execute on function get_liker_profile_reveal(uuid) to authenticated;
+
+-- ----------------------------------------------------------------------------
+-- Vérification (facultatif, à exécuter séparément après) :
+-- select get_my_likers(); -- en tant qu'utilisateur connecté
+-- select jsonb_object_keys((get_my_likers()->'likers'->0)); -- doit lister
+--   uniquement les clés de profile_public_json ci-dessus, jamais ban_reason/
+--   birth_date/report_count/etc.
+-- ============================================================================
+
+
+-- ============================================================================
+-- SOURCE : supabase-global-action-rate-limit-fix.sql
+-- ============================================================================
+-- ============================================================================
+-- Limite de débit GLOBALE, transversale à toutes les actions dirigées vers
+-- un·e autre membre (messages / likes / follows / reports / invitations
+-- d'événement) — trouvé à l'audit (angle "rate limit global").
+--
+-- CONSTAT : chaque action a déjà sa propre limite serveur indépendante
+-- (supabase-scale-security-2.sql : messages 30/min, follows 100/24h ;
+-- supabase-like-rate-limit.sql : likes 150/24h ; supabase-report-rate-
+-- limit-fix.sql : reports 20/24h ; supabase-events-v2.sql : invitations
+-- 30/24h). Chacune compte UNIQUEMENT sa propre table sur sa propre
+-- fenêtre. Un script qui enchaîne rapidement des actions DIFFÉRENTES en
+-- boucle (un like, puis un message, puis un follow, puis un like, sur des
+-- cibles différentes) ne fait jamais monter un seul compteur assez vite
+-- pour déclencher SA limite individuelle, alors que le débit combiné sur
+-- le compte est anormalement élevé — exactement le signal de comportement
+-- de bot qu'aucune limite par-action ne capture isolément.
+--
+-- CORRECTIF : une fonction utilitaire additionne, sur une fenêtre courte
+-- (60 secondes), le nombre d'insertions récentes du même profil dans les
+-- cinq tables ci-dessus, et chacun des cinq triggers "check_*_rate_limit"
+-- existants l'appelle en plus de son propre compteur. Plafond généreux
+-- (40 actions/60s toutes tables confondues) : un usage normal, même une
+-- personne qui tape des messages très vite dans une conversation, n'a
+-- aucune raison d'approcher ce total en combinant plusieurs TYPES d'action
+-- différents sur une seule minute ; seul un script en boucle peut
+-- l'atteindre en alternant les types pour rester sous chaque limite
+-- individuelle. Ne remplace aucune des limites par-action existantes,
+-- s'ajoute strictement par-dessus.
+--
+-- Additif uniquement, idempotent (create or replace + drop/create trigger).
+-- À exécuter dans Supabase : SQL Editor (une fois), après
+-- supabase-scale-security-2.sql, supabase-like-rate-limit.sql,
+-- supabase-report-rate-limit-fix.sql et supabase-events-v2.sql (les
+-- fonctions qu'il patche doivent déjà exister).
+-- ============================================================================
+
+create or replace function global_recent_action_count(p_profile_id uuid)
+returns int language sql security definer set search_path = public stable as $$
+  select
+    (select count(*) from messages where from_id = p_profile_id and created_at > now() - interval '60 seconds')
+    + (select count(*) from likes where from_id = p_profile_id and created_at > now() - interval '60 seconds')
+    + (select count(*) from follows where from_id = p_profile_id and created_at > now() - interval '60 seconds')
+    + (select count(*) from reports where from_id = p_profile_id and created_at > now() - interval '60 seconds')
+    + (select count(*) from event_invitations where invited_by = p_profile_id and created_at > now() - interval '60 seconds');
+$$;
+
+create or replace function check_message_rate_limit()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare v_count int;
+begin
+  select count(*) into v_count from messages
+    where from_id = new.from_id and created_at > now() - interval '1 minute';
+  if v_count >= 30 then
+    raise exception 'Trop de messages envoyes recemment, reessaie dans un instant';
+  end if;
+  if global_recent_action_count(new.from_id) >= 40 then
+    raise exception 'Trop d actions envoyees recemment, reessaie dans un instant';
+  end if;
+  return new;
+end; $$;
+drop trigger if exists trg_message_rate_limit on messages;
+create trigger trg_message_rate_limit before insert on messages
+for each row execute function check_message_rate_limit();
+
+create or replace function check_follow_rate_limit()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare v_count int;
+begin
+  select count(*) into v_count from follows
+    where from_id = new.from_id and created_at > now() - interval '24 hours';
+  if v_count >= 100 then
+    raise exception 'Trop d abonnements crees recemment, reessaie plus tard';
+  end if;
+  if global_recent_action_count(new.from_id) >= 40 then
+    raise exception 'Trop d actions envoyees recemment, reessaie dans un instant';
+  end if;
+  return new;
+end; $$;
+drop trigger if exists trg_follow_rate_limit on follows;
+create trigger trg_follow_rate_limit before insert on follows
+for each row execute function check_follow_rate_limit();
+
+create or replace function check_like_rate_limit()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare v_count int;
+begin
+  select count(*) into v_count from likes
+    where from_id = new.from_id and created_at > now() - interval '24 hours';
+  if v_count >= 150 then
+    raise exception 'Trop de mises en relation initiees recemment, reessaie plus tard';
+  end if;
+  if global_recent_action_count(new.from_id) >= 40 then
+    raise exception 'Trop d actions envoyees recemment, reessaie dans un instant';
+  end if;
+  return new;
+end; $$;
+drop trigger if exists trg_like_rate_limit on likes;
+create trigger trg_like_rate_limit before insert on likes
+for each row execute function check_like_rate_limit();
+
+create or replace function check_report_rate_limit()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare v_count int;
+begin
+  select count(*) into v_count from reports
+    where from_id = new.from_id and created_at > now() - interval '24 hours';
+  if v_count >= 20 then
+    raise exception 'Trop de signalements envoyes recemment, reessaie plus tard';
+  end if;
+  if global_recent_action_count(new.from_id) >= 40 then
+    raise exception 'Trop d actions envoyees recemment, reessaie dans un instant';
+  end if;
+  return new;
+end; $$;
+drop trigger if exists trg_report_rate_limit on reports;
+create trigger trg_report_rate_limit before insert on reports
+for each row execute function check_report_rate_limit();
+
+create or replace function check_event_invite_rate_limit()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare v_count int;
+begin
+  select count(*) into v_count from event_invitations
+    where invited_by = new.invited_by and created_at > now() - interval '24 hours';
+  if v_count >= 30 then
+    raise exception 'Trop d invitations envoyees recemment, reessaie plus tard';
+  end if;
+  if global_recent_action_count(new.invited_by) >= 40 then
+    raise exception 'Trop d actions envoyees recemment, reessaie dans un instant';
+  end if;
+  return new;
+end; $$;
+drop trigger if exists trg_event_invite_rate_limit on event_invitations;
+create trigger trg_event_invite_rate_limit before insert on event_invitations
+for each row execute function check_event_invite_rate_limit();
+
+-- ----------------------------------------------------------------------------
+-- Vérification (facultatif, à exécuter séparément après) :
+-- select proname from pg_proc where proname in
+--   ('global_recent_action_count','check_message_rate_limit',
+--    'check_follow_rate_limit','check_like_rate_limit',
+--    'check_report_rate_limit','check_event_invite_rate_limit');
+-- ============================================================================
+
+
+-- ============================================================================
+-- SOURCE : supabase-banned-target-action-fix.sql
+-- ============================================================================
+-- ============================================================================
+-- Correctif — un compte banni ou suspendu peut encore RECEVOIR (et ENVOYER)
+-- des actions dirigées via l'API, sans aucun contrôle côté base.
+--
+-- CONTEXTE : l'admin peut bannir/suspendre un profil (profiles.banned_at /
+-- profiles.suspended_until, voir supabase-admin.sql). Côté client, cet état
+-- est bien vérifié pour SON PROPRE compte (App.jsx, vue "banned"/"suspended"
+-- qui remplace tout l'écran) et, depuis peu, affiché comme indication dans
+-- une conversation déjà ouverte avec un tiers banni/suspendu (voir
+-- ConversationPane.jsx / MessagesTab.jsx). Mais ce sont des gardes CÔTÉ
+-- CLIENT uniquement.
+--
+-- En auditant les policies RLS d'INSERT des tables qui créent une
+-- interaction dirigée vers un autre profil (likes, follows, favorites,
+-- messages, event_invitations), AUCUNE ne consulte banned_at/suspended_until
+-- — ni pour l'auteur de l'action, ni pour sa cible. Concrètement, par un
+-- appel direct à l'API Supabase (fetch/PostgREST, hors UI) :
+--   - un compte banni/suspendu peut continuer à liker, suivre, mettre en
+--     favori, écrire ou inviter, malgré l'écran de blocage côté client ;
+--   - n'IMPORTE QUEL compte (même normal, via l'UI standard : Découverte,
+--     recherche globale, favoris, abonnés/abonnements, membres d'une
+--     communauté, participants d'un événement — aucun de ces écrans ne
+--     filtre les profils bannis/suspendus) peut encore liker, suivre, mettre
+--     en favori, écrire ou inviter un profil qui vient d'être banni ou
+--     suspendu, puisque rien ne l'interdit côté serveur.
+--
+-- CORRECTIF : réplique le même garde-fou "not exists (...)" déjà utilisé
+-- pour les blocages (supabase-block-bypass-fix.sql) sur ces mêmes tables,
+-- cette fois pour interdire toute nouvelle interaction dès que L'UN DES DEUX
+-- profils (auteur ou cible) est banni, ou suspendu avec une suspension
+-- encore active (suspended_until > now()). Additif et sans risque de
+-- régression pour les comptes en règle : la condition n'ajoute qu'un NOT
+-- EXISTS supplémentaire aux checks déjà en place (repris tels quels).
+--
+-- Portée volontairement limitée aux interactions à SENS UNIQUE vers un autre
+-- profil. "community_members" (rejoindre une communauté publique) n'a pas de
+-- profil cible distinct — seul l'auteur agit pour lui-même, déjà couvert par
+-- l'écran client "banned"/"suspended" — et n'est donc pas touché ici.
+--
+-- IMPORTANT : fichier fourni pour revue/exécution manuelle par l'équipe.
+-- Non exécuté automatiquement (règle de sécurité de cet audit).
+-- ============================================================================
+
+-- ----------------------------------------------------------------------------
+-- 1. "likes"
+-- ----------------------------------------------------------------------------
+do $$
+declare pol record;
+begin
+  for pol in select policyname from pg_policies where schemaname = 'public' and tablename = 'likes' and cmd = 'INSERT' loop
+    execute format('drop policy %I on public.likes', pol.policyname);
+  end loop;
+
+  create policy "Un utilisateur like en son propre nom"
+  on likes for insert
+  with check (
+    auth.uid() = (select user_id from profiles where id = likes.from_id)
+    and likes.from_id <> likes.to_id
+    and not exists (
+      select 1 from blocks
+      where (blocks.from_id = likes.from_id and blocks.to_id = likes.to_id)
+         or (blocks.from_id = likes.to_id and blocks.to_id = likes.from_id)
+    )
+    and not exists (
+      select 1 from profiles p
+      where p.id in (likes.from_id, likes.to_id)
+        and (p.banned_at is not null or (p.suspended_until is not null and p.suspended_until > now()))
+    )
+  );
+end $$;
+
+-- ----------------------------------------------------------------------------
+-- 2. "follows"
+-- ----------------------------------------------------------------------------
+do $$
+declare pol record;
+begin
+  for pol in select policyname from pg_policies where schemaname = 'public' and tablename = 'follows' and cmd = 'INSERT' loop
+    execute format('drop policy %I on public.follows', pol.policyname);
+  end loop;
+
+  create policy "Un utilisateur s'abonne en son propre nom"
+  on follows for insert
+  with check (
+    current_profile_id() = follows.from_id
+    and follows.from_id <> follows.to_id
+    and not exists (
+      select 1 from blocks
+      where (blocks.from_id = follows.from_id and blocks.to_id = follows.to_id)
+         or (blocks.from_id = follows.to_id and blocks.to_id = follows.from_id)
+    )
+    and not exists (
+      select 1 from profiles p
+      where p.id in (follows.from_id, follows.to_id)
+        and (p.banned_at is not null or (p.suspended_until is not null and p.suspended_until > now()))
+    )
+  );
+end $$;
+
+-- ----------------------------------------------------------------------------
+-- 3. "favorites"
+-- ----------------------------------------------------------------------------
+do $$
+declare pol record;
+begin
+  for pol in select policyname from pg_policies where schemaname = 'public' and tablename = 'favorites' and cmd = 'INSERT' loop
+    execute format('drop policy %I on public.favorites', pol.policyname);
+  end loop;
+
+  create policy "Un utilisateur ajoute ses propres favoris"
+  on favorites for insert
+  with check (
+    auth.uid() = (select user_id from profiles where id = favorites.from_id)
+    and not exists (
+      select 1 from blocks
+      where (blocks.from_id = favorites.from_id and blocks.to_id = favorites.to_id)
+         or (blocks.from_id = favorites.to_id and blocks.to_id = favorites.from_id)
+    )
+    and not exists (
+      select 1 from profiles p
+      where p.id in (favorites.from_id, favorites.to_id)
+        and (p.banned_at is not null or (p.suspended_until is not null and p.suspended_until > now()))
+    )
+  );
+end $$;
+
+-- ----------------------------------------------------------------------------
+-- 4. "messages" — même check ajouté à l'intérieur de la clause qui porte
+-- déjà sur "other_id" (l'autre personne de la conversation), à côté du
+-- contrôle de blocage existant.
+-- ----------------------------------------------------------------------------
+do $$
+declare pol record;
+begin
+  for pol in select policyname from pg_policies where schemaname = 'public' and tablename = 'messages' and cmd = 'INSERT' loop
+    execute format('drop policy %I on public.messages', pol.policyname);
+  end loop;
+
+  create policy "Un utilisateur envoie seulement dans une conversation matchee"
+  on messages for insert
+  with check (
+    auth.uid() = (select user_id from profiles where id = messages.from_id)
+    and array_length(string_to_array(messages.match_key, '__'), 1) = 2
+    and (select id from profiles where user_id = auth.uid())::text
+      = any (string_to_array(messages.match_key, '__'))
+    and exists (
+      select 1
+      from unnest(string_to_array(messages.match_key, '__')) as other_id
+      where other_id::uuid <> messages.from_id
+        and exists (select 1 from likes where from_id = messages.from_id and to_id = other_id::uuid)
+        and exists (select 1 from likes where from_id = other_id::uuid and to_id = messages.from_id)
+        and not exists (
+          select 1 from blocks
+          where (blocks.from_id = messages.from_id and blocks.to_id = other_id::uuid)
+             or (blocks.from_id = other_id::uuid and blocks.to_id = messages.from_id)
+        )
+        and not exists (
+          select 1 from profiles p
+          where p.id in (messages.from_id, other_id::uuid)
+            and (p.banned_at is not null or (p.suspended_until is not null and p.suspended_until > now()))
+        )
+    )
+  );
+end $$;
+
+-- ----------------------------------------------------------------------------
+-- 5. "event_invitations"
+-- ----------------------------------------------------------------------------
+drop policy if exists "Inviter en son propre nom si participant et connexion reelle" on event_invitations;
+create policy "Inviter en son propre nom si participant et connexion reelle"
+on event_invitations for insert
+with check (
+  invited_by = current_profile_id()
+  and not exists (select 1 from events e where e.id = event_id and e.canceled_at is not null)
+  and (is_event_participant(event_id) or is_event_mod(event_id))
+  and not exists (
+    select 1 from blocks
+    where (blocks.from_id = current_profile_id() and blocks.to_id = invited_profile_id)
+       or (blocks.from_id = invited_profile_id and blocks.to_id = current_profile_id())
+  )
+  and not exists (
+    select 1 from profiles p
+    where p.id in (current_profile_id(), invited_profile_id)
+      and (p.banned_at is not null or (p.suspended_until is not null and p.suspended_until > now()))
+  )
+  and (
+    (
+      exists (select 1 from likes where from_id = current_profile_id() and to_id = invited_profile_id)
+      and exists (select 1 from likes where from_id = invited_profile_id and to_id = current_profile_id())
+    )
+    or (
+      (select community_id from events where id = event_id) is not null
+      and is_community_member((select community_id from events where id = event_id))
+    )
+  )
+);
+
+-- ----------------------------------------------------------------------------
+-- Vérification (facultatif, à exécuter séparément après) :
+-- select policyname, cmd, pg_get_expr(polwithcheck, polrelid)
+--   from pg_policy join pg_class on pg_class.oid = pg_policy.polrelid
+--   where pg_class.relname in ('likes','follows','favorites','messages','event_invitations')
+--   and cmd = 'a';
+-- ============================================================================
+
+
+-- ============================================================================
+-- SOURCE : supabase-onboarding-incomplete-target-action-fix.sql
+-- ============================================================================
+-- ============================================================================
+-- Correctif — un compte n'ayant jamais terminé l'onboarding peut encore
+-- ENVOYER (et RECEVOIR) des actions dirigées via l'API, sans aucun contrôle
+-- côté base. Même principe que supabase-banned-target-action-fix.sql,
+-- généralisé à onboarding_completed_at.
+--
+-- CONTEXTE : OnboardingWizard.jsx (src/screens/onboarding/OnboardingWizard.jsx)
+-- crée la ligne "profiles" dès l'étape 1/10 (usage_goals + onboarding_step
+-- seulement — pas encore de nom, d'âge, de photo ni d'aucune préférence) et
+-- ne pose onboarding_completed_at qu'à l'étape 10/10. dating_enabled vaut
+-- true par défaut (supabase-dating-2.sql). Le client vient d'être corrigé
+-- (candidates, App.jsx) pour ne plus proposer ces profils "en cours
+-- d'inscription" dans Découverte — mais c'est un garde CÔTÉ CLIENT
+-- uniquement.
+--
+-- En auditant les mêmes policies RLS d'INSERT que pour le correctif
+-- banned/suspended (likes, follows, favorites, messages, event_invitations),
+-- AUCUNE ne consulte onboarding_completed_at — ni pour l'auteur de l'action,
+-- ni pour sa cible. Concrètement, par un appel direct à l'API Supabase
+-- (fetch/PostgREST, hors UI) :
+--   - un compte qui vient tout juste de créer sa ligne profils à l'étape 1
+--     (avant même d'avoir choisi un nom) peut déjà liker, suivre, mettre en
+--     favori, écrire ou inviter quelqu'un d'autre ;
+--   - n'IMPORTE QUEL compte peut encore liker, suivre, mettre en favori,
+--     écrire ou inviter un profil qui n'a jamais terminé son inscription
+--     (abandon en cours de route, ou simplement pas encore rendu au bout) —
+--     une personne qui n'a jamais vu ni confirmé l'écran final de
+--     l'onboarding, ni choisi ses propres préférences (pref_age_min/max,
+--     distance, dating_enabled...), peut donc recevoir un like/message/
+--     favori/invitation en toute légitimité API, malgré l'écran "Découverte"
+--     qui ne la propose plus à personne depuis le correctif client.
+--
+-- CORRECTIF : réplique le garde-fou "not exists (...)" déjà utilisé pour les
+-- blocages (supabase-block-bypass-fix.sql) et pour banned/suspended
+-- (supabase-banned-target-action-fix.sql) sur ces mêmes tables, cette fois
+-- pour interdire toute nouvelle interaction dès que L'UN DES DEUX profils
+-- (auteur ou cible) n'a pas encore onboarding_completed_at renseigné.
+-- Additif et sans risque de régression pour les comptes ayant terminé leur
+-- inscription : la condition n'ajoute qu'un NOT EXISTS supplémentaire aux
+-- checks déjà en place (repris tels quels, y compris ceux du correctif
+-- banned/suspended). Fichier conçu pour être exécuté indépendamment de
+-- l'ordre d'exécution avec supabase-banned-target-action-fix.sql — chaque
+-- policy est redéfinie en entier, avec l'ensemble cumulé des conditions
+-- (blocage + banni/suspendu + onboarding), pas seulement l'ajout.
+--
+-- Portée volontairement limitée aux interactions à SENS UNIQUE vers un autre
+-- profil, comme pour le correctif banned/suspended. "community_members"
+-- (rejoindre une communauté publique) n'a pas de profil cible distinct et
+-- n'est donc pas touché ici.
+--
+-- IMPORTANT : fichier fourni pour revue/exécution manuelle par l'équipe.
+-- Non exécuté automatiquement (règle de sécurité de cet audit).
+-- ============================================================================
+
+-- ----------------------------------------------------------------------------
+-- 1. "likes"
+-- ----------------------------------------------------------------------------
+do $$
+declare pol record;
+begin
+  for pol in select policyname from pg_policies where schemaname = 'public' and tablename = 'likes' and cmd = 'INSERT' loop
+    execute format('drop policy %I on public.likes', pol.policyname);
+  end loop;
+
+  create policy "Un utilisateur like en son propre nom"
+  on likes for insert
+  with check (
+    auth.uid() = (select user_id from profiles where id = likes.from_id)
+    and likes.from_id <> likes.to_id
+    and not exists (
+      select 1 from blocks
+      where (blocks.from_id = likes.from_id and blocks.to_id = likes.to_id)
+         or (blocks.from_id = likes.to_id and blocks.to_id = likes.from_id)
+    )
+    and not exists (
+      select 1 from profiles p
+      where p.id in (likes.from_id, likes.to_id)
+        and (p.banned_at is not null or (p.suspended_until is not null and p.suspended_until > now()))
+    )
+    and not exists (
+      select 1 from profiles p
+      where p.id in (likes.from_id, likes.to_id)
+        and p.onboarding_completed_at is null
+    )
+  );
+end $$;
+
+-- ----------------------------------------------------------------------------
+-- 2. "follows"
+-- ----------------------------------------------------------------------------
+do $$
+declare pol record;
+begin
+  for pol in select policyname from pg_policies where schemaname = 'public' and tablename = 'follows' and cmd = 'INSERT' loop
+    execute format('drop policy %I on public.follows', pol.policyname);
+  end loop;
+
+  create policy "Un utilisateur s'abonne en son propre nom"
+  on follows for insert
+  with check (
+    current_profile_id() = follows.from_id
+    and follows.from_id <> follows.to_id
+    and not exists (
+      select 1 from blocks
+      where (blocks.from_id = follows.from_id and blocks.to_id = follows.to_id)
+         or (blocks.from_id = follows.to_id and blocks.to_id = follows.from_id)
+    )
+    and not exists (
+      select 1 from profiles p
+      where p.id in (follows.from_id, follows.to_id)
+        and (p.banned_at is not null or (p.suspended_until is not null and p.suspended_until > now()))
+    )
+    and not exists (
+      select 1 from profiles p
+      where p.id in (follows.from_id, follows.to_id)
+        and p.onboarding_completed_at is null
+    )
+  );
+end $$;
+
+-- ----------------------------------------------------------------------------
+-- 3. "favorites"
+-- ----------------------------------------------------------------------------
+do $$
+declare pol record;
+begin
+  for pol in select policyname from pg_policies where schemaname = 'public' and tablename = 'favorites' and cmd = 'INSERT' loop
+    execute format('drop policy %I on public.favorites', pol.policyname);
+  end loop;
+
+  create policy "Un utilisateur ajoute ses propres favoris"
+  on favorites for insert
+  with check (
+    auth.uid() = (select user_id from profiles where id = favorites.from_id)
+    and not exists (
+      select 1 from blocks
+      where (blocks.from_id = favorites.from_id and blocks.to_id = favorites.to_id)
+         or (blocks.from_id = favorites.to_id and blocks.to_id = favorites.from_id)
+    )
+    and not exists (
+      select 1 from profiles p
+      where p.id in (favorites.from_id, favorites.to_id)
+        and (p.banned_at is not null or (p.suspended_until is not null and p.suspended_until > now()))
+    )
+    and not exists (
+      select 1 from profiles p
+      where p.id in (favorites.from_id, favorites.to_id)
+        and p.onboarding_completed_at is null
+    )
+  );
+end $$;
+
+-- ----------------------------------------------------------------------------
+-- 4. "messages" — même check ajouté à l'intérieur de la clause qui porte
+-- déjà sur "other_id" (l'autre personne de la conversation), à côté des
+-- contrôles de blocage et de banni/suspendu existants.
+-- ----------------------------------------------------------------------------
+do $$
+declare pol record;
+begin
+  for pol in select policyname from pg_policies where schemaname = 'public' and tablename = 'messages' and cmd = 'INSERT' loop
+    execute format('drop policy %I on public.messages', pol.policyname);
+  end loop;
+
+  create policy "Un utilisateur envoie seulement dans une conversation matchee"
+  on messages for insert
+  with check (
+    auth.uid() = (select user_id from profiles where id = messages.from_id)
+    and array_length(string_to_array(messages.match_key, '__'), 1) = 2
+    and (select id from profiles where user_id = auth.uid())::text
+      = any (string_to_array(messages.match_key, '__'))
+    and exists (
+      select 1
+      from unnest(string_to_array(messages.match_key, '__')) as other_id
+      where other_id::uuid <> messages.from_id
+        and exists (select 1 from likes where from_id = messages.from_id and to_id = other_id::uuid)
+        and exists (select 1 from likes where from_id = other_id::uuid and to_id = messages.from_id)
+        and not exists (
+          select 1 from blocks
+          where (blocks.from_id = messages.from_id and blocks.to_id = other_id::uuid)
+             or (blocks.from_id = other_id::uuid and blocks.to_id = messages.from_id)
+        )
+        and not exists (
+          select 1 from profiles p
+          where p.id in (messages.from_id, other_id::uuid)
+            and (p.banned_at is not null or (p.suspended_until is not null and p.suspended_until > now()))
+        )
+        and not exists (
+          select 1 from profiles p
+          where p.id in (messages.from_id, other_id::uuid)
+            and p.onboarding_completed_at is null
+        )
+    )
+  );
+end $$;
+
+-- ----------------------------------------------------------------------------
+-- 5. "event_invitations"
+-- ----------------------------------------------------------------------------
+drop policy if exists "Inviter en son propre nom si participant et connexion reelle" on event_invitations;
+create policy "Inviter en son propre nom si participant et connexion reelle"
+on event_invitations for insert
+with check (
+  invited_by = current_profile_id()
+  and not exists (select 1 from events e where e.id = event_id and e.canceled_at is not null)
+  and (is_event_participant(event_id) or is_event_mod(event_id))
+  and not exists (
+    select 1 from blocks
+    where (blocks.from_id = current_profile_id() and blocks.to_id = invited_profile_id)
+       or (blocks.from_id = invited_profile_id and blocks.to_id = current_profile_id())
+  )
+  and not exists (
+    select 1 from profiles p
+    where p.id in (current_profile_id(), invited_profile_id)
+      and (p.banned_at is not null or (p.suspended_until is not null and p.suspended_until > now()))
+  )
+  and not exists (
+    select 1 from profiles p
+    where p.id in (current_profile_id(), invited_profile_id)
+      and p.onboarding_completed_at is null
+  )
+  and (
+    (
+      exists (select 1 from likes where from_id = current_profile_id() and to_id = invited_profile_id)
+      and exists (select 1 from likes where from_id = invited_profile_id and to_id = current_profile_id())
+    )
+    or (
+      (select community_id from events where id = event_id) is not null
+      and is_community_member((select community_id from events where id = event_id))
+    )
+  )
+);
+
+-- ----------------------------------------------------------------------------
+-- Vérification (facultatif, à exécuter séparément après) :
+-- select policyname, cmd, pg_get_expr(polwithcheck, polrelid)
+--   from pg_policy join pg_class on pg_class.oid = pg_policy.polrelid
+--   where pg_class.relname in ('likes','follows','favorites','messages','event_invitations')
+--   and cmd = 'a';
+-- ============================================================================
+
+
+-- ============================================================================
+-- SOURCE : supabase-deletion-pending-target-action-fix.sql
+-- ============================================================================
+-- ============================================================================
+-- Correctif — un compte ayant demandé la suppression de son profil
+-- (deletion_requested_at, délai de grâce 24h, voir
+-- supabase-account-deletion.sql / AccountDeletionBanner.jsx) peut encore
+-- RECEVOIR (et ENVOYER) des actions dirigées via l'API, sans aucun contrôle
+-- côté base. Même principe que supabase-banned-target-action-fix.sql et
+-- supabase-onboarding-incomplete-target-action-fix.sql, généralisé à
+-- deletion_requested_at.
+--
+-- CONTEXTE : requestAccountDeletion() (src/lib/deleteAccount.js) se contente
+-- de poser profiles.deletion_requested_at = now() ; la suppression réelle
+-- (Storage inclus) n'a lieu que 24h plus tard, via la tâche planifiée
+-- process-scheduled-deletions. Le client vient d'être corrigé (candidates,
+-- App.jsx) pour ne plus proposer ces profils "en attente de suppression"
+-- dans Découverte — mais c'est un garde CÔTÉ CLIENT uniquement.
+--
+-- En auditant les mêmes policies RLS d'INSERT que pour les correctifs
+-- banned/suspended et onboarding incomplet (likes, follows, favorites,
+-- messages, event_invitations), AUCUNE ne consulte deletion_requested_at —
+-- ni pour l'auteur de l'action, ni pour sa cible. Concrètement, par un appel
+-- direct à l'API Supabase (fetch/PostgREST, hors UI) :
+--   - n'IMPORTE QUEL compte peut encore liker, suivre, mettre en favori,
+--     écrire ou inviter un profil qui vient de demander la suppression de
+--     son compte, malgré l'écran "Découverte" qui ne le propose plus à
+--     personne depuis le correctif client — créant un nouveau match/like
+--     voué à disparaître sans préavis dans les 24h qui suivent ;
+--   - un compte en attente de suppression peut lui-même continuer à agir
+--     normalement (ce qui est VOULU, voir la note ci-dessous).
+--
+-- NUANCE PAR RAPPORT AUX DEUX CORRECTIFS PRÉCÉDENTS (à trancher par
+-- l'équipe avant exécution) : supabase-account-deletion.sql documente
+-- explicitement que le compte "reste pleinement fonctionnel (pas de
+-- restriction d'accès pendant les 24h), seule la bannière côté client
+-- change son comportement". Ce correctif-ci reprend malgré tout EXACTEMENT
+-- le même gabarit symétrique (auteur OU cible) que pour banned/suspended et
+-- onboarding incomplet, y compris sur "messages" — ce qui, contrairement
+-- aux deux correctifs précédents, peut couper une conversation déjà
+-- matchée AVANT la demande de suppression (pas seulement empêcher un
+-- nouveau match) dès qu'un des deux comptes est en attente de suppression.
+-- C'est un vrai changement de comportement pour des comptes qui n'ont rien
+-- fait de mal (contrairement à banned/suspended) et qui ont simplement
+-- demandé leur propre suppression — à évaluer par l'équipe : si ce n'est
+-- pas le comportement voulu, retirer le bloc "messages" ci-dessous (section
+-- 4) avant exécution, ou le restreindre pour ne bloquer que les NOUVEAUX
+-- matchs (via "likes"/"follows"/"favorites"/"event_invitations", sections
+-- 1/2/3/5) sans toucher aux conversations déjà en cours.
+--
+-- CORRECTIF (tel qu'appliqué ici) : réplique le garde-fou "not exists (...)"
+-- déjà utilisé pour les blocages, banned/suspended et onboarding incomplet
+-- sur ces mêmes tables, cette fois pour interdire toute nouvelle
+-- interaction dès que L'UN DES DEUX profils (auteur ou cible) a
+-- deletion_requested_at renseigné. Additif et sans risque de régression
+-- pour les comptes n'ayant pas demandé leur suppression : la condition
+-- n'ajoute qu'un NOT EXISTS supplémentaire aux checks déjà en place (repris
+-- tels quels, y compris ceux des deux correctifs précédents). Fichier conçu
+-- pour être exécuté indépendamment de l'ordre d'exécution avec les deux
+-- fichiers précédents — chaque policy est redéfinie en entier, avec
+-- l'ensemble cumulé des conditions (blocage + banni/suspendu + onboarding +
+-- suppression en attente), pas seulement l'ajout.
+--
+-- Portée volontairement limitée aux interactions à SENS UNIQUE vers un
+-- autre profil, comme pour les deux correctifs précédents.
+-- "community_members" (rejoindre une communauté publique) n'a pas de profil
+-- cible distinct et n'est donc pas touché ici.
+--
+-- IMPORTANT : fichier fourni pour revue/exécution manuelle par l'équipe.
+-- Non exécuté automatiquement (règle de sécurité de cet audit).
+-- ============================================================================
+
+-- ----------------------------------------------------------------------------
+-- 1. "likes"
+-- ----------------------------------------------------------------------------
+do $$
+declare pol record;
+begin
+  for pol in select policyname from pg_policies where schemaname = 'public' and tablename = 'likes' and cmd = 'INSERT' loop
+    execute format('drop policy %I on public.likes', pol.policyname);
+  end loop;
+
+  create policy "Un utilisateur like en son propre nom"
+  on likes for insert
+  with check (
+    auth.uid() = (select user_id from profiles where id = likes.from_id)
+    and likes.from_id <> likes.to_id
+    and not exists (
+      select 1 from blocks
+      where (blocks.from_id = likes.from_id and blocks.to_id = likes.to_id)
+         or (blocks.from_id = likes.to_id and blocks.to_id = likes.from_id)
+    )
+    and not exists (
+      select 1 from profiles p
+      where p.id in (likes.from_id, likes.to_id)
+        and (p.banned_at is not null or (p.suspended_until is not null and p.suspended_until > now()))
+    )
+    and not exists (
+      select 1 from profiles p
+      where p.id in (likes.from_id, likes.to_id)
+        and p.onboarding_completed_at is null
+    )
+    and not exists (
+      select 1 from profiles p
+      where p.id in (likes.from_id, likes.to_id)
+        and p.deletion_requested_at is not null
+    )
+  );
+end $$;
+
+-- ----------------------------------------------------------------------------
+-- 2. "follows"
+-- ----------------------------------------------------------------------------
+do $$
+declare pol record;
+begin
+  for pol in select policyname from pg_policies where schemaname = 'public' and tablename = 'follows' and cmd = 'INSERT' loop
+    execute format('drop policy %I on public.follows', pol.policyname);
+  end loop;
+
+  create policy "Un utilisateur s'abonne en son propre nom"
+  on follows for insert
+  with check (
+    current_profile_id() = follows.from_id
+    and follows.from_id <> follows.to_id
+    and not exists (
+      select 1 from blocks
+      where (blocks.from_id = follows.from_id and blocks.to_id = follows.to_id)
+         or (blocks.from_id = follows.to_id and blocks.to_id = follows.from_id)
+    )
+    and not exists (
+      select 1 from profiles p
+      where p.id in (follows.from_id, follows.to_id)
+        and (p.banned_at is not null or (p.suspended_until is not null and p.suspended_until > now()))
+    )
+    and not exists (
+      select 1 from profiles p
+      where p.id in (follows.from_id, follows.to_id)
+        and p.onboarding_completed_at is null
+    )
+    and not exists (
+      select 1 from profiles p
+      where p.id in (follows.from_id, follows.to_id)
+        and p.deletion_requested_at is not null
+    )
+  );
+end $$;
+
+-- ----------------------------------------------------------------------------
+-- 3. "favorites"
+-- ----------------------------------------------------------------------------
+do $$
+declare pol record;
+begin
+  for pol in select policyname from pg_policies where schemaname = 'public' and tablename = 'favorites' and cmd = 'INSERT' loop
+    execute format('drop policy %I on public.favorites', pol.policyname);
+  end loop;
+
+  create policy "Un utilisateur ajoute ses propres favoris"
+  on favorites for insert
+  with check (
+    auth.uid() = (select user_id from profiles where id = favorites.from_id)
+    and not exists (
+      select 1 from blocks
+      where (blocks.from_id = favorites.from_id and blocks.to_id = favorites.to_id)
+         or (blocks.from_id = favorites.to_id and blocks.to_id = favorites.from_id)
+    )
+    and not exists (
+      select 1 from profiles p
+      where p.id in (favorites.from_id, favorites.to_id)
+        and (p.banned_at is not null or (p.suspended_until is not null and p.suspended_until > now()))
+    )
+    and not exists (
+      select 1 from profiles p
+      where p.id in (favorites.from_id, favorites.to_id)
+        and p.onboarding_completed_at is null
+    )
+    and not exists (
+      select 1 from profiles p
+      where p.id in (favorites.from_id, favorites.to_id)
+        and p.deletion_requested_at is not null
+    )
+  );
+end $$;
+
+-- ----------------------------------------------------------------------------
+-- 4. "messages" — même check ajouté à l'intérieur de la clause qui porte
+-- déjà sur "other_id" (l'autre personne de la conversation), à côté des
+-- contrôles de blocage, banni/suspendu et onboarding incomplet existants.
+-- VOIR LA NUANCE CI-DESSUS : ce bloc coupe aussi l'envoi de nouveaux
+-- messages dans une conversation déjà matchée avant la demande de
+-- suppression, dès que l'un des deux comptes est en attente de suppression
+-- — à retirer avant exécution si ce n'est pas le comportement voulu.
+-- ----------------------------------------------------------------------------
+do $$
+declare pol record;
+begin
+  for pol in select policyname from pg_policies where schemaname = 'public' and tablename = 'messages' and cmd = 'INSERT' loop
+    execute format('drop policy %I on public.messages', pol.policyname);
+  end loop;
+
+  create policy "Un utilisateur envoie seulement dans une conversation matchee"
+  on messages for insert
+  with check (
+    auth.uid() = (select user_id from profiles where id = messages.from_id)
+    and array_length(string_to_array(messages.match_key, '__'), 1) = 2
+    and (select id from profiles where user_id = auth.uid())::text
+      = any (string_to_array(messages.match_key, '__'))
+    and exists (
+      select 1
+      from unnest(string_to_array(messages.match_key, '__')) as other_id
+      where other_id::uuid <> messages.from_id
+        and exists (select 1 from likes where from_id = messages.from_id and to_id = other_id::uuid)
+        and exists (select 1 from likes where from_id = other_id::uuid and to_id = messages.from_id)
+        and not exists (
+          select 1 from blocks
+          where (blocks.from_id = messages.from_id and blocks.to_id = other_id::uuid)
+             or (blocks.from_id = other_id::uuid and blocks.to_id = messages.from_id)
+        )
+        and not exists (
+          select 1 from profiles p
+          where p.id in (messages.from_id, other_id::uuid)
+            and (p.banned_at is not null or (p.suspended_until is not null and p.suspended_until > now()))
+        )
+        and not exists (
+          select 1 from profiles p
+          where p.id in (messages.from_id, other_id::uuid)
+            and p.onboarding_completed_at is null
+        )
+        and not exists (
+          select 1 from profiles p
+          where p.id in (messages.from_id, other_id::uuid)
+            and p.deletion_requested_at is not null
+        )
+    )
+  );
+end $$;
+
+-- ----------------------------------------------------------------------------
+-- 5. "event_invitations"
+-- ----------------------------------------------------------------------------
+drop policy if exists "Inviter en son propre nom si participant et connexion reelle" on event_invitations;
+create policy "Inviter en son propre nom si participant et connexion reelle"
+on event_invitations for insert
+with check (
+  invited_by = current_profile_id()
+  and not exists (select 1 from events e where e.id = event_id and e.canceled_at is not null)
+  and (is_event_participant(event_id) or is_event_mod(event_id))
+  and not exists (
+    select 1 from blocks
+    where (blocks.from_id = current_profile_id() and blocks.to_id = invited_profile_id)
+       or (blocks.from_id = invited_profile_id and blocks.to_id = current_profile_id())
+  )
+  and not exists (
+    select 1 from profiles p
+    where p.id in (current_profile_id(), invited_profile_id)
+      and (p.banned_at is not null or (p.suspended_until is not null and p.suspended_until > now()))
+  )
+  and not exists (
+    select 1 from profiles p
+    where p.id in (current_profile_id(), invited_profile_id)
+      and p.onboarding_completed_at is null
+  )
+  and not exists (
+    select 1 from profiles p
+    where p.id in (current_profile_id(), invited_profile_id)
+      and p.deletion_requested_at is not null
+  )
+  and (
+    (
+      exists (select 1 from likes where from_id = current_profile_id() and to_id = invited_profile_id)
+      and exists (select 1 from likes where from_id = invited_profile_id and to_id = current_profile_id())
+    )
+    or (
+      (select community_id from events where id = event_id) is not null
+      and is_community_member((select community_id from events where id = event_id))
+    )
+  )
+);
+
+-- ----------------------------------------------------------------------------
+-- Vérification (facultatif, à exécuter séparément après) :
+-- select policyname, cmd, pg_get_expr(polwithcheck, polrelid)
+-- from pg_policies join pg_policy on pg_policy.polname = pg_policies.policyname
+-- where schemaname = 'public' and tablename in ('likes','follows','favorites','messages','event_invitations') and cmd = 'INSERT';
+-- ============================================================================
+
+
+-- ============================================================================
+-- SOURCE : supabase-public-user-count-accuracy-fix.sql
+-- ============================================================================
+-- ============================================================================
+-- CORRECTIF — public_user_count() comptait TOUS les profils sans distinction
+-- (trouvé lors de l'audit autonome du 4 septembre 2026, angle "fiabilité du
+-- chiffre affiché sur la page d'accueil publique").
+-- ============================================================================
+-- public_user_count() (supabase-public-user-count.sql) fait actuellement :
+--   select count(*) from profiles;
+-- sans AUCUN filtre. Ce nombre est affiché comme preuve sociale aux
+-- visiteurs NON connectés ("X membres déjà sur Baobab",
+-- src/screens/public/LandingPage.jsx) et dans l'app connectée
+-- (src/components/home/HomeHeader.jsx, "X membres sur Baobab"). Il inclut
+-- donc actuellement :
+--   - les comptes BANNIS (profiles.banned_at is not null)
+--   - les comptes actuellement SUSPENDUS
+--     (profiles.suspended_until is not null and suspended_until > now())
+--   - les comptes en cours de SUPPRESSION DIFFÉRÉE
+--     (profiles.deletion_requested_at is not null — fenêtre de grâce avant
+--     suppression effective, supabase-account-deletion.sql)
+--   - les comptes qui n'ont JAMAIS terminé l'onboarding
+--     (profiles.onboarding_completed_at is null — une ligne "profiles"
+--     existe dès l'inscription, avant même que la personne choisisse un nom
+--     ou une photo ; supabase-profile-onboarding.sql)
+--
+-- Résultat concret : un visiteur qui voit "X membres déjà sur Baobab" peut
+-- voir un chiffre qui inclut des comptes bannis pour comportement abusif et
+-- des inscriptions jamais finalisées — pas des "membres" au sens où ce
+-- chiffre est présenté (preuve sociale de communauté active).
+--
+-- Vérifié EMPIRIQUEMENT (curl, clé anon, lecture seule) le 4 septembre 2026 :
+-- public_user_count() renvoyait 4 en production — impossible de savoir sans
+-- ce correctif combien de ces 4 comptes sont réellement des membres complets
+-- et en règle.
+--
+-- Remarque — pas touché ici : admin_dashboard_stats().total_users
+-- (supabase-admin-dashboard-stats-fix.sql) fait le même "select count(*)
+-- from profiles" sans filtre, donc le chiffre public N'ÉTAIT PAS incohérent
+-- avec le tableau de bord admin (les deux comptaient pareil) — mais les deux
+-- étaient gonflés de la même façon. Ce correctif ne touche QUE
+-- public_user_count() : "total_users" côté admin sert un usage différent
+-- (vue d'ensemble brute pour le propriétaire, où voir aussi les comptes
+-- bannis/incomplets a du sens) et reste inchangé volontairement.
+-- ============================================================================
+
+create or replace function public_user_count()
+returns bigint
+language sql stable security definer set search_path = public
+as $$
+  select count(*) from profiles
+  where onboarding_completed_at is not null
+    and banned_at is null
+    and (suspended_until is null or suspended_until <= now())
+    and deletion_requested_at is null;
+$$;
+
+-- "create or replace" préserve les grants déjà en place :
+-- grant execute on function public_user_count() to anon, authenticated;
+
+-- ----------------------------------------------------------------------------
+-- Vérification (facultatif, à exécuter séparément après) :
+-- select public_user_count();          -- nouveau chiffre, filtré
+-- select count(*) from profiles;        -- ancien chiffre, pour comparer
+-- ============================================================================
 
 
 -- ============================================================================
