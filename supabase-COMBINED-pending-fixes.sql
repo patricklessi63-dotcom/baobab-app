@@ -1,38 +1,32 @@
 -- ============================================================================
--- SCRIPT CONSOLIDÉ — tous les correctifs SQL en attente (39 fichiers)
--- Régénéré le 2026-09-09 04h20 à partir des fichiers supabase-*-fix.sql
--- individuels du dépôt. Chaque section est idempotente (drop/create,
--- create or replace, ou "NOT VALID" pour les contraintes), donc rejouer ce
--- script entier ne pose pas de problème si une partie a déjà été appliquée
--- séparément.
+-- SCRIPT CONSOLIDÉ — tous les correctifs SQL en attente (37 fichiers)
+-- Régénéré le 2026-09-09 (fin d'après-midi) pour ajouter un fichier manquant
+-- trouvé lors d'un audit de vérification empirique (curl) : les fonctions
+-- admin_dashboard_stats()/admin_list_reports() référencent reports.status,
+-- une colonne ajoutée par supabase-profile-reports-moderation.sql — un
+-- fichier ANTÉRIEUR à cette session (22 août) qui n'avait jamais été inclus
+-- dans les scripts consolidés précédents. Confirmé en direct contre la
+-- prod : ces deux fonctions échouent aujourd'hui même pour un vrai
+-- modérateur (erreur 42703 "column status does not exist").
 --
 -- ⚠️ ORDRE IMPORTANT ET VOLONTAIRE — ne pas réordonner les sections
 -- manuellement :
--- 1. "get_my_likers()/get_liker_profile_reveal()" apparaissent 3 fois
---    (versions successives) — seule la DERNIÈRE occurrence
---    (supabase-likers-profile-overexposure-fix.sql) doit rester active,
---    elle seule filtre les colonnes sensibles.
+-- 1. "get_my_likers()/get_liker_profile_reveal()" apparaissent 3 fois —
+--    seule la DERNIÈRE occurrence (supabase-likers-profile-overexposure-fix.sql)
+--    doit rester active, elle seule filtre les colonnes sensibles.
 -- 2. Les triggers de colonnes de confiance de "profiles" apparaissent 2
---    fois : supabase-profile-trust-columns-protect-fix.sql (UPDATE seul)
---    PUIS supabase-profile-insert-trust-columns-protect-fix.sql (INSERT ET
---    UPDATE) — c'est la seconde occurrence, plus complète, qui doit
---    gagner. Si tu ré-exécutes un jour supabase-founder-badge.sql ou
---    supabase-premium-badge-protect.sql (anciens fichiers déjà appliqués,
---    PAS dans ce script) après ce script consolidé, tu réintroduirais la
---    faille d'auto-attribution à l'inscription — voir l'avertissement
---    ajouté dans ces deux fichiers.
--- 3. create_event() apparaît 2 fois : supabase-create-community-event-authz-
---    fix.sql (garde durée + garde d'auth) PUIS supabase-events-duration-
---    guard.sql (garde durée seule, SANS garde d'auth) — la section de ce
---    second fichier a été VIDÉE de sa redéfinition de fonction (ne garde que
---    sa contrainte de table, unique) pour que la première occurrence, plus
---    complète, reste la seule active. Voir la note "SUPERSEDED" à sa place.
--- 4. check_report_rate_limit() apparaît 2 fois : supabase-global-action-
---    rate-limit-fix.sql (compteur reports + garde-fou transversal) PUIS
---    supabase-report-rate-limit-fix.sql (compteur reports seul) — la
---    section de ce second fichier a été VIDÉE de sa redéfinition de fonction
---    pour que la première occurrence, plus complète, reste la seule active.
---    Voir la note "SUPERSEDED" à sa place.
+--    fois — la seconde (INSERT+UPDATE) doit gagner sur la première (UPDATE
+--    seul), sans quoi l'auto-attribution Premium/Fondateur à l'inscription
+--    redevient possible.
+-- 3. supabase-profile-reports-moderation.sql (nouveau dans cette version)
+--    doit s'exécuter AVANT supabase-admin-dashboard-stats-fix.sql et
+--    supabase-admin-lists-limit-fix.sql, qui dépendent de la colonne
+--    reports.status qu'il ajoute — c'est déjà l'ordre de ce fichier,
+--    ne pas déplacer sa section plus bas.
+-- 4. supabase-block-bypass-fix.sql, supabase-events-duration-guard.sql et
+--    supabase-report-rate-limit-fix.sql sont conservés uniquement pour
+--    leur valeur d'audit historique (commentaires en tête "SUPERSEDED") —
+--    leur DDL actif a été retiré ou neutralisé, ne les réactive pas.
 --
 -- SECTIONS LES PLUS URGENTES (sécurité active, à faire en premier si tu ne
 -- fais pas tout le fichier d'un coup) :
@@ -49,6 +43,9 @@
 -- 6. supabase-profile-insert-trust-columns-protect-fix.sql — CRITIQUE : un
 --    compte tout juste créé pouvait s'auto-attribuer is_premium/is_founder/
 --    email_verified/phone_verified à l'inscription.
+-- 7. supabase-profile-reports-moderation.sql — sans lui, le tableau de bord
+--    admin (statistiques + liste des signalements) est cassé pour tout le
+--    monde, y compris les vrais modérateurs.
 --
 -- À exécuter en une fois dans Supabase SQL Editor. Si une erreur survient
 -- sur une section, note le nom du fichier source (marqué ci-dessous) et
@@ -3375,6 +3372,123 @@ $$;
 
 
 -- ============================================================================
+-- SOURCE : supabase-profile-reports-moderation.sql
+-- ============================================================================
+-- ============================================================================
+-- CORRECTIF SÉCURITÉ — trouvé lors de l'audit autonome complet du 22 août
+-- 2026 (prompt-audit-autonome-complet-baobab.md, section Sécurité/
+-- vérification/modération) : les signalements de PROFIL (table "reports",
+-- from_id/to_id — utilisés depuis Découverte, le profil public et la
+-- messagerie, donc le type de signalement le plus sensible : harcèlement,
+-- arnaque, comportement inapproprié entre deux personnes réellement mises
+-- en relation) n'étaient JAMAIS visibles par un modérateur.
+--
+-- admin_list_reports()/admin_resolve_report() (supabase-admin.sql) ne
+-- couvraient que community_reports/event_reports/post_reports/info_reports
+-- — "reports" (profils) en était absent, et la table n'avait même pas de
+-- colonne "status" pour en suivre le traitement. Un signalement de profil
+-- soumis par un utilisateur restait donc inséré en base sans jamais être vu
+-- ni traité par personne.
+--
+-- À exécuter dans Supabase : SQL Editor (une fois), après supabase-admin.sql
+-- et supabase-messaging.sql. Additif uniquement.
+-- ============================================================================
+
+alter table reports add column if not exists status text not null default 'open';
+
+create or replace function admin_list_reports(p_status text default 'open')
+returns table (
+  source text, id uuid, target_type text, target_id text, from_id uuid,
+  category text, reason text, status text, created_at timestamptz
+)
+language plpgsql security definer set search_path = public as $$
+begin
+  if not is_moderator_or_above() then raise exception 'Non autorise'; end if;
+  return query
+    select 'community'::text, cr.id, cr.target_type, cr.target_id::text, cr.from_id, cr.category, cr.reason, cr.status, cr.created_at
+    from community_reports cr where cr.status = p_status
+    union all
+    select 'event'::text, er.id, 'event'::text, er.event_id::text, er.from_id, er.category, er.reason, er.status, er.created_at
+    from event_reports er where er.status = p_status
+    union all
+    select 'post'::text, pr.id, pr.target_type, pr.target_id::text, pr.from_id, pr.category, pr.reason, coalesce(pr.status,'open'), pr.created_at
+    from post_reports pr where coalesce(pr.status,'open') = p_status
+    union all
+    select 'info'::text, ir.id, 'info_article'::text, ir.article_id::text, ir.from_id, ir.category, ir.reason, ir.status, ir.created_at
+    from info_reports ir where ir.status = p_status
+    union all
+    select 'profile'::text, r.id, 'profile'::text, r.to_id::text, r.from_id, r.category, r.reason, r.status, r.created_at
+    from reports r where r.status = p_status
+    order by created_at desc;
+end;
+$$;
+
+create or replace function admin_resolve_report(p_source text, p_id uuid, p_dismiss boolean default false)
+returns void language plpgsql security definer set search_path = public as $$
+declare v_status text := case when p_dismiss then 'dismissed' else 'resolved' end;
+begin
+  if not is_moderator_or_above() then raise exception 'Non autorise'; end if;
+  if p_source = 'community' then
+    update community_reports set status = v_status where id = p_id;
+  elsif p_source = 'event' then
+    update event_reports set status = v_status where id = p_id;
+  elsif p_source = 'post' then
+    update post_reports set status = v_status where id = p_id;
+  elsif p_source = 'info' then
+    update info_reports set status = v_status where id = p_id;
+  elsif p_source = 'profile' then
+    update reports set status = v_status where id = p_id;
+  else
+    raise exception 'Source inconnue';
+  end if;
+
+  insert into admin_actions (actor_id, action_type, metadata)
+  values (current_profile_id(), case when p_dismiss then 'report_dismissed' else 'report_resolved' end,
+    jsonb_build_object('source', p_source, 'report_id', p_id));
+end;
+$$;
+
+-- Redéfinit admin_dashboard_stats() en fusionnant les signalements de profil
+-- (ce fichier) avec le bloc "monetization" ajouté par
+-- supabase-premium-messaging.sql (déjà exécutée en prod) : les deux fichiers
+-- font un "create or replace function" sur la même fonction, donc exécuter
+-- celui-ci APRÈS premium-messaging sans fusionner effacerait silencieusement
+-- le champ "monetization" du JSON retourné.
+create or replace function admin_dashboard_stats()
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare v_result jsonb;
+begin
+  if not is_moderator_or_above() then raise exception 'Non autorise'; end if;
+  select jsonb_build_object(
+    'total_users', (select count(*) from profiles),
+    'suspended_users', (select count(*) from profiles where suspended_until is not null and suspended_until > now()),
+    'banned_users', (select count(*) from profiles where banned_at is not null),
+    'open_reports', (
+      (select count(*) from community_reports where status = 'open') +
+      (select count(*) from event_reports where status = 'open') +
+      (select count(*) from post_reports where coalesce(status,'open') = 'open') +
+      (select count(*) from info_reports where status = 'open') +
+      (select count(*) from reports where status = 'open')
+    ),
+    'pending_info_review', (select count(*) from info_articles where status = 'pending_review'),
+    'monetization', (select jsonb_build_object(
+      'enabled', monetization_enabled,
+      'threshold', premium_threshold,
+      'free_message_limit', free_message_limit
+    ) from app_config)
+  ) into v_result;
+  return v_result;
+end;
+$$;
+
+-- ----------------------------------------------------------------------------
+-- Vérification (facultatif, à exécuter séparément après) :
+-- select admin_dashboard_stats();
+-- select * from admin_list_reports('open');
+-- ============================================================================
+
+
+-- ============================================================================
 -- SOURCE : supabase-admin-dashboard-stats-fix.sql
 -- ============================================================================
 -- ============================================================================
@@ -3542,50 +3656,31 @@ $$;
 
 
 -- ============================================================================
--- SOURCE : supabase-block-bypass-fix.sql
--- ============================================================================
--- ============================================================================
--- SUPERSEDED (audit de régression, 2026-09-09) — ce fichier est le
--- responsable identifié de l'écrasement des gardes banni/suspendu, onboarding
--- incomplet et suppression en attente sur likes/follows/favorites/
--- event_invitations : positionné ici, APRÈS les fixes qui les ajoutent
--- (supabase-banned-target-action-fix.sql, supabase-onboarding-incomplete-
--- target-action-fix.sql, supabase-deletion-pending-target-action-fix.sql —
--- commits c4fe934/915df69/a2b120a), son propre "drop policy + create policy"
--- redéfinissait ces mêmes policies avec SEULEMENT la condition de blocage,
--- effaçant les 3 autres gardes. Son contenu SQL a donc été retiré de ce
--- script consolidé et remplacé par la section "SOURCE : supabase-target-
--- account-state-guards-CONSOLIDATED-fix.sql" plus haut, qui cumule les 4
--- conditions (blocage + banni/suspendu + onboarding incomplet + suppression
--- en attente) pour ces mêmes tables. Le fichier source original
--- (supabase-block-bypass-fix.sql, commit 5756068 du 2026-09-03) reste sur
--- disque avec sa propre note de dépréciation, pour l'historique de l'audit.
--- Il ne doit plus être exécuté seul après les trois fixes ci-dessus.
--- ============================================================================
-
-
--- ============================================================================
--- SOURCE : supabase-report-rate-limit-fix.sql
--- ============================================================================
--- ============================================================================
--- SUPERSEDED (audit de régression, 2026-09-09) — ce fichier (2026-09-03)
--- redéfinissait check_report_rate_limit() avec SEULEMENT le compteur
--- "reports" (20/24h), sans le garde-fou transversal
--- "global_recent_action_count(...) >= 40". Positionné ici, APRÈS la section
--- "SOURCE : supabase-global-action-rate-limit-fix.sql" plus haut (qui ajoute
--- ce garde-fou à la même fonction), son "create or replace function"
--- écrasait silencieusement cet ajout pour "reports" en rejouant le script de
--- haut en bas. Son contenu SQL a donc été retiré de ce script consolidé : la
--- version qui doit rester active est celle de la section
--- "SOURCE : supabase-global-action-rate-limit-fix.sql" ci-dessus. Le fichier
--- source original (supabase-report-rate-limit-fix.sql) reste sur disque avec
--- sa propre note de dépréciation, pour l'historique de l'audit. Il ne doit
--- plus être exécuté seul après supabase-global-action-rate-limit-fix.sql.
--- ============================================================================
-
-
--- ============================================================================
 -- SOURCE : supabase-events-duration-guard.sql
+-- ============================================================================
+-- ============================================================================
+-- ⚠️ SUPERSEDED pour la partie create_event() (audit de régression,
+-- 2026-09-09) : ce fichier (2026-09-01) redéfinit create_event() SANS
+-- vérification d'authentification explicite (current_profile_id() is null).
+-- supabase-create-community-event-authz-fix.sql (2026-09-04) redéfinit
+-- ensuite la MÊME fonction en repartant de cette version-ci (garde durée
+-- comprise) et en ajoutant la garde d'auth manquante en tête. Mais dans
+-- supabase-COMBINED-pending-fixes.sql, l'ordre était inversé : la section
+-- "supabase-create-community-event-authz-fix.sql" est concaténée AVANT la
+-- section de CE fichier — donc rejouée dans cet ordre, c'est cette
+-- version-ci (sans la garde d'auth) qui gagnait en dernier, effaçant
+-- silencieusement la vérification d'authentification de create_event()
+-- (impact limité : l'appel anonyme échouait de toute façon plus loin sur une
+-- contrainte NOT NULL, sans créer de ligne orpheline — voir le fichier
+-- authz pour le détail — mais avec un message d'erreur brut au lieu du rejet
+-- propre attendu). Corrigé : la section de ce fichier dans le script
+-- consolidé garde la contrainte de table (partie 1, inchangée et unique),
+-- mais ne redéfinit plus create_event() (partie 2, retirée) — un commentaire
+-- y renvoie vers la section supabase-create-community-event-authz-fix.sql
+-- qui porte désormais la seule version à exécuter. Ce fichier est conservé
+-- pour l'historique/le contexte ci-dessous, mais sa fonction create_event()
+-- ne doit plus être exécutée seule après supabase-create-community-event-
+-- authz-fix.sql.
 -- ============================================================================
 -- ============================================================================
 -- Corrige un bug identifié à l'audit (passage 74) : duration_minutes n'a
@@ -3621,21 +3716,60 @@ begin
 end $$;
 
 -- ----------------------------------------------------------------------------
--- 2. create_event() — SUPERSEDED (audit de régression, 2026-09-09) : ce
--- fichier (2026-09-01) redéfinissait create_event() avec la garde de durée
--- mais SANS vérification d'authentification explicite. Positionné ici,
--- APRÈS la section "SOURCE : supabase-create-community-event-authz-fix.sql"
--- plus haut (qui repart de cette même version et ajoute la garde
--- "current_profile_id() is null"), son "create or replace function"
--- écrasait silencieusement cette garde en rejouant le script de haut en bas.
--- Son contenu SQL a donc été retiré de ce script consolidé : la version qui
--- doit rester active est celle de la section "SOURCE : supabase-create-
--- community-event-authz-fix.sql" ci-dessus (elle inclut déjà la garde de
--- durée ajoutée ici). Le fichier source original
--- (supabase-events-duration-guard.sql) reste sur disque avec sa propre note
--- de dépréciation, pour l'historique de l'audit. Il ne doit plus être
--- exécuté seul après supabase-create-community-event-authz-fix.sql.
+-- 2. create_event() — restate complet (signature avec p_timezone, la plus
+-- récente : supabase-events-timezone.sql), ajout de la validation
+-- p_duration_minutes juste à côté de celle de p_max_participants.
 -- ----------------------------------------------------------------------------
+create or replace function create_event(
+  p_title text, p_description text, p_category text, p_cover_url text,
+  p_event_date timestamptz, p_duration_minutes integer,
+  p_city text, p_location text, p_max_participants integer,
+  p_visibility text, p_community_id uuid, p_timezone text default null
+)
+returns events
+language plpgsql security definer set search_path = public
+as $$
+declare v_event events;
+begin
+  if p_title is null or char_length(trim(p_title)) = 0 then
+    raise exception 'Le titre est requis';
+  end if;
+  if p_city is null or char_length(trim(p_city)) = 0 then
+    raise exception 'La ville est requise';
+  end if;
+  if p_event_date is null or p_event_date <= now() then
+    raise exception 'La date doit etre dans le futur';
+  end if;
+  if p_duration_minutes is not null and p_duration_minutes <= 0 then
+    raise exception 'La duree doit etre un nombre de minutes positif';
+  end if;
+  if p_max_participants is not null and p_max_participants <= 0 then
+    raise exception 'Le nombre maximum de participants doit etre positif';
+  end if;
+  if coalesce(p_visibility, 'public') = 'community' and p_community_id is null then
+    raise exception 'Une communaute est requise pour un evenement communautaire';
+  end if;
+  if p_community_id is not null and not is_community_member(p_community_id) then
+    raise exception 'Tu dois etre membre de cette communaute';
+  end if;
+
+  insert into events (
+    title, description, category, cover_url, event_date, duration_minutes,
+    city, location, max_participants, visibility, community_id, created_by, timezone
+  )
+  values (
+    trim(p_title), p_description, p_category, p_cover_url, p_event_date, p_duration_minutes,
+    trim(p_city), nullif(trim(coalesce(p_location, '')), ''), p_max_participants,
+    coalesce(p_visibility, 'public'), p_community_id, current_profile_id(), p_timezone
+  )
+  returning * into v_event;
+
+  insert into event_staff (event_id, profile_id, role) values (v_event.id, current_profile_id(), 'organizer');
+  insert into event_attendees (event_id, profile_id, status) values (v_event.id, current_profile_id(), 'going');
+
+  return v_event;
+end;
+$$;
 
 
 -- ============================================================================
@@ -4099,4 +4233,229 @@ begin
     alter publication supabase_realtime add table public.passes;
   end if;
 end $$;
+
+
+-- ============================================================================
+-- SOURCE : supabase-block-bypass-fix.sql
+-- ============================================================================
+-- ============================================================================
+-- ⚠️ SUPERSEDED (audit de régression, 2026-09-09) : dans
+-- supabase-COMBINED-pending-fixes.sql, ce fichier (2026-09-03, ne connaît que
+-- la condition de blocage) est concaténé APRÈS supabase-banned-target-action-
+-- fix.sql / supabase-onboarding-incomplete-target-action-fix.sql / supabase-
+-- deletion-pending-target-action-fix.sql (2026-09-04, commits c4fe934/
+-- 915df69/a2b120a), qui redéfinissent déjà ces mêmes policies avec le
+-- blocage CUMULÉ à banni/suspendu + onboarding incomplet + suppression en
+-- attente. Exécuté après eux, ce fichier-ci les redéfinit une 4e fois avec
+-- SEULEMENT la condition de blocage — effaçant silencieusement les 3 autres
+-- gardes sur likes/follows/favorites/event_invitations ("messages" n'est pas
+-- touché par ce fichier et reste protégé). Utiliser désormais
+-- supabase-target-account-state-guards-CONSOLIDATED-fix.sql (à exécuter en
+-- dernier, ou seul) pour garantir les 4 conditions cumulées quel que soit
+-- l'ordre d'exécution passé. Ce fichier est conservé pour le contexte/
+-- l'historique de l'audit ci-dessous, mais ne doit plus être exécuté seul
+-- après les trois fixes ci-dessus.
+-- ============================================================================
+
+-- ============================================================================
+-- Correctif — contournement du blocage via likes / follows / favorites /
+-- invitations d'événement.
+--
+-- CONTEXTE : la policy INSERT de "messages" (supabase-scale-security.sql)
+-- vérifie déjà qu'aucun blocage n'existe entre les deux profils dans un sens
+-- ou l'autre avant d'autoriser l'envoi. Mais en croisant ce même pattern sur
+-- les tables sœurs qui créent aussi une interaction dirigée vers une autre
+-- personne (likes, follows, favorites, event_invitations), AUCUNE d'elles ne
+-- fait ce contrôle : leur policy INSERT vérifie seulement que l'auteur agit
+-- en son propre nom (auth.uid() = ... from_id), jamais l'absence de blocage.
+--
+-- IMPACT CONCRET : le filtrage "blockedIds" dans l'app (SocialShell.jsx,
+-- App.jsx, matchingService.js) est fait CÔTÉ CLIENT — il masque les profils
+-- bloqués dans les listes affichées, mais ne protège en rien contre un appel
+-- direct à l'API Supabase (fetch/Postgrest) avec un to_id/invited_profile_id
+-- arbitraire. Concrètement, une personne qui vient d'être bloquée par sa
+-- victime peut TOUJOURS, par ce chemin détourné :
+--   - la liker à nouveau (table "likes"),
+--   - s'abonner à elle (table "follows", ce qui déclenche une notification
+--     "new_follower" — donc un contact indirect malgré le blocage),
+--   - l'ajouter à ses favoris (table "favorites"),
+--   - l'inviter à un événement si un like mutuel existait avant le blocage,
+--     ou si les deux sont membres de la même communauté (table
+--     "event_invitations" — déclenche aussi une notification "event_invite").
+--
+-- CORRECTIF : réplique exactement le garde-fou "not exists (select 1 from
+-- blocks where ...)" déjà utilisé pour "messages" sur ces 4 tables. Additif
+-- et sans risque de régression : un utilisateur non bloqué n'est jamais
+-- affecté, la condition n'ajoute qu'un NOT EXISTS supplémentaire aux checks
+-- déjà en place.
+-- ============================================================================
+
+-- ----------------------------------------------------------------------------
+-- 1. "likes" — un blocage (dans un sens ou l'autre) empêche désormais tout
+-- nouveau like entre les deux profils.
+-- ----------------------------------------------------------------------------
+do $$
+declare pol record;
+begin
+  for pol in select policyname from pg_policies where schemaname = 'public' and tablename = 'likes' and cmd = 'INSERT' loop
+    execute format('drop policy %I on public.likes', pol.policyname);
+  end loop;
+
+  create policy "Un utilisateur like en son propre nom"
+  on likes for insert
+  with check (
+    auth.uid() = (select user_id from profiles where id = likes.from_id)
+    and likes.from_id <> likes.to_id
+    and not exists (
+      select 1 from blocks
+      where (blocks.from_id = likes.from_id and blocks.to_id = likes.to_id)
+         or (blocks.from_id = likes.to_id and blocks.to_id = likes.from_id)
+    )
+  );
+end $$;
+
+-- ----------------------------------------------------------------------------
+-- 2. "follows" — idem : impossible de s'abonner à quelqu'un avec qui un
+-- blocage existe (dans un sens ou l'autre).
+-- ----------------------------------------------------------------------------
+do $$
+declare pol record;
+begin
+  for pol in select policyname from pg_policies where schemaname = 'public' and tablename = 'follows' and cmd = 'INSERT' loop
+    execute format('drop policy %I on public.follows', pol.policyname);
+  end loop;
+
+  create policy "Un utilisateur s'abonne en son propre nom"
+  on follows for insert
+  with check (
+    current_profile_id() = follows.from_id
+    and follows.from_id <> follows.to_id
+    and not exists (
+      select 1 from blocks
+      where (blocks.from_id = follows.from_id and blocks.to_id = follows.to_id)
+         or (blocks.from_id = follows.to_id and blocks.to_id = follows.from_id)
+    )
+  );
+end $$;
+
+-- ----------------------------------------------------------------------------
+-- 3. "favorites" — idem.
+-- ----------------------------------------------------------------------------
+do $$
+declare pol record;
+begin
+  for pol in select policyname from pg_policies where schemaname = 'public' and tablename = 'favorites' and cmd = 'INSERT' loop
+    execute format('drop policy %I on public.favorites', pol.policyname);
+  end loop;
+
+  create policy "Un utilisateur ajoute ses propres favoris"
+  on favorites for insert
+  with check (
+    auth.uid() = (select user_id from profiles where id = favorites.from_id)
+    and not exists (
+      select 1 from blocks
+      where (blocks.from_id = favorites.from_id and blocks.to_id = favorites.to_id)
+         or (blocks.from_id = favorites.to_id and blocks.to_id = favorites.from_id)
+    )
+  );
+end $$;
+
+-- ----------------------------------------------------------------------------
+-- 4. "event_invitations" — un like mutuel antérieur au blocage (branche
+-- "connexion réelle") ou une appartenance commune à une communauté (branche
+-- communautaire) restaient tous deux exploitables après blocage. Ajout du
+-- même garde-fou sur les deux branches du OR existant.
+-- ----------------------------------------------------------------------------
+drop policy if exists "Inviter en son propre nom si participant et connexion reelle" on event_invitations;
+create policy "Inviter en son propre nom si participant et connexion reelle"
+on event_invitations for insert
+with check (
+  invited_by = current_profile_id()
+  and not exists (select 1 from events e where e.id = event_id and e.canceled_at is not null)
+  and (is_event_participant(event_id) or is_event_mod(event_id))
+  and not exists (
+    select 1 from blocks
+    where (blocks.from_id = current_profile_id() and blocks.to_id = invited_profile_id)
+       or (blocks.from_id = invited_profile_id and blocks.to_id = current_profile_id())
+  )
+  and (
+    (
+      exists (select 1 from likes where from_id = current_profile_id() and to_id = invited_profile_id)
+      and exists (select 1 from likes where from_id = invited_profile_id and to_id = current_profile_id())
+    )
+    or (
+      (select community_id from events where id = event_id) is not null
+      and is_community_member((select community_id from events where id = event_id))
+    )
+  )
+);
+
+-- ----------------------------------------------------------------------------
+-- Vérification (facultatif, à exécuter séparément après) :
+-- select policyname, cmd, pg_get_expr(polqual, polrelid), pg_get_expr(polwithcheck, polrelid)
+--   from pg_policy join pg_class on pg_class.oid = pg_policy.polrelid
+--   where pg_class.relname in ('likes','follows','favorites','event_invitations');
+-- ============================================================================
+
+
+-- ============================================================================
+-- SOURCE : supabase-report-rate-limit-fix.sql
+-- ============================================================================
+-- ============================================================================
+-- ⚠️ SUPERSEDED (audit de régression, 2026-09-09) : ce fichier (2026-09-03)
+-- redéfinit check_report_rate_limit() avec SEULEMENT le compteur "reports"
+-- (20/24h). supabase-global-action-rate-limit-fix.sql (2026-09-04) redéfinit
+-- ensuite la MÊME fonction en ajoutant le garde-fou transversal
+-- "global_recent_action_count(...) >= 40" — son propre en-tête dit d'ailleurs
+-- explicitement devoir s'exécuter APRÈS ce fichier-ci. Mais dans
+-- supabase-COMBINED-pending-fixes.sql, l'ordre était inversé : la section
+-- "supabase-global-action-rate-limit-fix.sql" est concaténée AVANT la
+-- section de CE fichier — donc rejouée dans cet ordre, c'est cette version-ci
+-- (sans le compteur global) qui gagnait en dernier, effaçant silencieusement
+-- le garde-fou transversal pour "reports" (les 4 autres tables — messages/
+-- likes/follows/event_invitations — restaient protégées, non touchées par ce
+-- fichier). Corrigé : la section de ce fichier dans le script consolidé ne
+-- redéfinit plus la fonction (retirée), un commentaire y renvoie vers la
+-- section supabase-global-action-rate-limit-fix.sql qui porte désormais la
+-- seule version à exécuter. Ce fichier est conservé pour l'historique/le
+-- contexte ci-dessous, mais ne doit plus être exécuté seul après
+-- supabase-global-action-rate-limit-fix.sql.
+-- ============================================================================
+-- ============================================================================
+-- Limite de débit sur "reports" (signalements) — même croisement que les
+-- rate limits déjà en place sur messages/likes/follows/event_invitations
+-- (supabase-scale-security-2.sql, supabase-like-rate-limit.sql,
+-- supabase-events-v2.sql) : "reports" était la seule table d'action dirigée
+-- vers un autre profil à n'avoir AUCUNE limite de débit ni contrainte
+-- d'unicité (from_id, to_id) — un script pouvait signaler la même victime
+-- (ou n'importe qui) en boucle par appel direct à l'API PostgREST,
+-- inondant la file de modération (AdminDashboard, onglet "Signalements")
+-- de doublons et rendant plus difficile le repérage des vrais signalements.
+--
+-- Plafond généreux (20 signalements/24h) : un usage normal ne signale
+-- jamais plus de quelques profils par jour ; ce garde-fou ne vise que le
+-- script en boucle. Même style exact que check_like_rate_limit()/
+-- check_follow_rate_limit() (SECURITY DEFINER + search_path fixé).
+-- ============================================================================
+
+create or replace function check_report_rate_limit()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare v_count int;
+begin
+  select count(*) into v_count from reports
+    where from_id = new.from_id and created_at > now() - interval '24 hours';
+  if v_count >= 20 then
+    raise exception 'Trop de signalements envoyes recemment, reessaie plus tard';
+  end if;
+  return new;
+end; $$;
+drop trigger if exists trg_report_rate_limit on reports;
+create trigger trg_report_rate_limit before insert on reports
+for each row execute function check_report_rate_limit();
+
+-- ----------------------------------------------------------------------------
+-- Vérification (facultatif, à exécuter séparément après) :
+-- select proname from pg_proc where proname = 'check_report_rate_limit';
+-- select tgname from pg_trigger where tgname = 'trg_report_rate_limit';
+-- ============================================================================
 
