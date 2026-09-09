@@ -262,14 +262,22 @@ export default function App() {
       if (likeRes.error) throw likeRes.error;
       if (passRes.error) throw passRes.error;
       if (blockRes.error) throw blockRes.error;
-      if (likerRes.error) throw likerRes.error;
       if (blockedProfRes.error) throw blockedProfRes.error;
+      // get_my_likers() n'est PAS traité comme les tables ci-dessus (throw +
+      // écran "Impossible de charger les données") : une RPC manquante ou en
+      // erreur (ex. migration SQL pas encore appliquée en prod — voir
+      // supabase-premium-admirers-reveal-fix.sql) ne doit jamais faire
+      // échouer le chargement de tout le reste (profils, likes, passes,
+      // blocages, photos) juste pour l'onglet "Qui m'a aimé". Dégradation
+      // silencieuse : liste vide + compteur à 0, comme un compte sans
+      // admirateur pour l'instant.
+      if (likerRes.error) console.warn("get_my_likers indisponible :", likerRes.error);
       setProfiles(profRes.data || []);
       setLikePairs(likeRes.data || []);
       setPassPairs(passRes.data || []);
       setBlockPairs(blockRes.data || []);
-      setLikerProfilesRaw((likerRes.data?.likers) || []);
-      setAdmirersCount(likerRes.data?.admirers_count || 0);
+      setLikerProfilesRaw((likerRes.error ? [] : likerRes.data?.likers) || []);
+      setAdmirersCount((likerRes.error ? 0 : likerRes.data?.admirers_count) || 0);
       setBlockedProfilesRaw((blockedProfRes.data || []).map((r) => r.profile).filter(Boolean));
       const grouped = {};
       (photoRes.data || []).forEach((ph) => {
