@@ -40,7 +40,7 @@ function resolveInitialTimezone(ev) {
 // — la visibilité et la communauté associée ne sont volontairement pas
 // modifiables après création (évite les cas limites RLS d'un événement qui
 // changerait de visibilité avec des participants déjà inscrits/invités).
-export default function EventEditForm({ event, onSaved, onCancel, onError }) {
+export default function EventEditForm({ event, onSaved, onCancel, onError, onDirtyChange = () => {} }) {
   const [title, setTitle] = useState(event.title || "");
   const [description, setDescription] = useState(event.description || "");
   const [category, setCategory] = useState(event.category || "");
@@ -53,6 +53,10 @@ export default function EventEditForm({ event, onSaved, onCancel, onError }) {
   const [location, setLocation] = useState(event.location || "");
   const [maxParticipants, setMaxParticipants] = useState(event.max_participants || "");
   const [timezone, setTimezone] = useState(() => resolveInitialTimezone(event));
+  // Valeurs d'origine figées au premier rendu (useRef, pas useState : ne
+  // doivent jamais changer après coup) — servent uniquement à détecter une
+  // modification réelle ci-dessous, par comparaison avec l'état courant.
+  const initialRef = useRef({ title, description, category, date, time, durationMinutes, city, location, maxParticipants, timezone });
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   // Le formulaire se démonte dès que l'utilisateur clique "← Annuler" en
@@ -89,6 +93,22 @@ export default function EventEditForm({ event, onSaved, onCancel, onError }) {
       }
     };
   }, [coverPreview]);
+
+  // Signale au parent (EventsTab) si une modification réelle est en cours —
+  // sert à afficher une confirmation "Quitter sans enregistrer ?" au lieu
+  // d'écraser silencieusement la saisie sur "← Annuler"/Échap/retour
+  // navigateur (bug identifié à l'audit : contrairement au composeur de
+  // publication (PostsFeed.jsx, requestCloseComposer), ce formulaire n'avait
+  // jusqu'ici aucune protection contre la perte de saisie). Comparaison
+  // champ par champ avec initialRef plutôt qu'un simple "un champ est
+  // rempli" (comme pour la création) : ici tous les champs sont déjà
+  // pré-remplis depuis l'événement existant, donc presque toujours non vides.
+  const init = initialRef.current;
+  const isDirty = Boolean(coverFile) || title !== init.title || description !== init.description || category !== init.category
+    || date !== init.date || time !== init.time || String(durationMinutes) !== String(init.durationMinutes)
+    || city !== init.city || location !== init.location || String(maxParticipants) !== String(init.maxParticipants)
+    || timezone !== init.timezone;
+  useEffect(() => { onDirtyChange(isDirty); }, [isDirty]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const canSubmit = title.trim().length > 0 && category && date && time && city.trim().length > 0 && !submitting;
 

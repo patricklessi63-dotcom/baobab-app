@@ -15,7 +15,7 @@ const NAME_MAX = 80;
 const DESCRIPTION_MAX = 300;
 const RULES_MAX = 1000;
 
-export default function CommunityCreateForm({ currentUser, onCreated, onCancel, onError }) {
+export default function CommunityCreateForm({ currentUser, onCreated, onCancel, onError, onDirtyChange = () => {} }) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState("");
@@ -85,6 +85,15 @@ export default function CommunityCreateForm({ currentUser, onCreated, onCancel, 
       }
     };
   }, [coverPreview]);
+
+  // Signale au parent (CommunitiesTab) si le formulaire contient un travail
+  // en cours — sert à afficher une confirmation "Quitter sans enregistrer ?"
+  // au lieu de perdre silencieusement la saisie sur "← Annuler"/Échap/retour
+  // navigateur (bug identifié à l'audit : contrairement au composeur de
+  // publication (PostsFeed.jsx, requestCloseComposer), ce formulaire n'avait
+  // jusqu'ici aucune protection contre la perte de saisie).
+  const isDirty = Boolean(name.trim() || description.trim() || category || rules.trim() || coverFile);
+  useEffect(() => { onDirtyChange(isDirty); }, [isDirty]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const canSubmit = name.trim().length > 0 && category && !submitting;
 

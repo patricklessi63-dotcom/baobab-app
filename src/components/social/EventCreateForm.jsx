@@ -14,7 +14,7 @@ const TITLE_MAX = 80;
 const DESCRIPTION_MAX = 500;
 const COVER_URL_EXPIRY = 60 * 60 * 24 * 365 * 5; // 5 ans — bucket privé, pas de re-signature à gérer pour une couverture
 
-export default function EventCreateForm({ currentUser, initialCommunityId = null, onCreated, onCancel, onError }) {
+export default function EventCreateForm({ currentUser, initialCommunityId = null, onCreated, onCancel, onError, onDirtyChange = () => {} }) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState("");
@@ -91,6 +91,15 @@ export default function EventCreateForm({ currentUser, initialCommunityId = null
       }
     };
   }, [coverPreview]);
+
+  // Signale au parent (EventsTab) si le formulaire contient un travail en
+  // cours — sert à afficher une confirmation "Quitter sans enregistrer ?"
+  // au lieu de perdre silencieusement la saisie sur "← Annuler"/Échap/retour
+  // navigateur (bug identifié à l'audit : contrairement au composeur de
+  // publication (PostsFeed.jsx, requestCloseComposer), ce formulaire n'avait
+  // jusqu'ici aucune protection contre la perte de saisie).
+  const isDirty = Boolean(title.trim() || description.trim() || category || coverFile || date || time || location.trim());
+  useEffect(() => { onDirtyChange(isDirty); }, [isDirty]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const canSubmit = title.trim().length > 0 && category && date && time && city.trim().length > 0 && !submitting
     && (visibility !== "community" || communityId);

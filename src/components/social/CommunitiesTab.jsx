@@ -7,6 +7,7 @@ import CommunityDetailView from "./CommunityDetailView";
 import CommunityCreateForm from "./CommunityCreateForm";
 import CommunityInviteModal from "./CommunityInviteModal";
 import ReportModal from "./ReportModal";
+import ConfirmModal from "./ConfirmModal";
 import PublicProfileModal from "./PublicProfileModal";
 import EmptyState from "../home/EmptyState";
 import HorizontalScrollRow from "../HorizontalScrollRow";
@@ -522,6 +523,22 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
   // publique — même mécanisme réutilisé ici).
   useEscapeKey(view === "detail", goList);
 
+  // Bug corrigé à l'audit : le formulaire de création n'avait, lui, aucune
+  // protection contre la perte de saisie — "← Annuler" (bouton affiché à
+  // l'écran) ET Échap/retour navigateur (une fois useEscapeKey câblé
+  // ci-dessous) fermaient tous deux le formulaire immédiatement, sans la
+  // confirmation "Quitter sans enregistrer ?" qu'a déjà le composeur de
+  // publication (PostsFeed.jsx, requestCloseComposer) pour le même risque.
+  // createDirty vient de CommunityCreateForm (onDirtyChange), qui seul
+  // connaît l'état réel de ses champs.
+  const [createDirty, setCreateDirty] = useState(false);
+  const [confirmDiscardCreate, setConfirmDiscardCreate] = useState(false);
+  const requestCancelCreate = () => {
+    if (createDirty) setConfirmDiscardCreate(true);
+    else setView("list");
+  };
+  useEscapeKey(view === "create", requestCancelCreate);
+
   // Ouverture directe depuis "Mes communautés" (profil) — consommé une
   // seule fois pour ne pas rouvrir la même communauté à chaque montage.
   useEffect(() => {
@@ -998,10 +1015,19 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
     return (
       <section className="max-w-lg mx-auto">
         <div className="flex items-center gap-2 mb-4">
-          <button onClick={() => setView("list")} aria-label="Annuler" className="text-sm font-bold" style={{ color: primary }}>← Annuler</button>
+          <button onClick={requestCancelCreate} aria-label="Annuler" className="text-sm font-bold" style={{ color: primary }}>← Annuler</button>
         </div>
         <h1 className="text-2xl font-black mb-4" style={{ color: primary }}>Créer une communauté</h1>
-        <CommunityCreateForm currentUser={currentUser} onCreated={handleCreated} onCancel={() => setView("list")} onError={onError} />
+        <CommunityCreateForm currentUser={currentUser} onCreated={handleCreated} onCancel={requestCancelCreate} onDirtyChange={setCreateDirty} onError={onError} />
+        <ConfirmModal
+          open={confirmDiscardCreate}
+          title="Quitter sans enregistrer ?"
+          message="La communauté que tu es en train de créer sera perdue."
+          confirmLabel="Quitter"
+          cancelLabel="Continuer"
+          onCancel={() => setConfirmDiscardCreate(false)}
+          onConfirm={() => { setConfirmDiscardCreate(false); setView("list"); }}
+        />
       </section>
     );
   }

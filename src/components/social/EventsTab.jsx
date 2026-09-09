@@ -438,6 +438,28 @@ export default function EventsTab({ currentUser, onError, initialEventId, onCons
   // le faisait).
   useEscapeKey(view === "detail", goHome);
 
+  // Bug corrigé à l'audit : les formulaires de création et de modification
+  // n'avaient, eux, aucune protection contre la perte de saisie —
+  // "← Annuler" (bouton affiché à l'écran) ET Échap/retour navigateur (une
+  // fois useEscapeKey câblé ci-dessous) les fermaient tous deux
+  // immédiatement, sans la confirmation "Quitter sans enregistrer ?" qu'a
+  // déjà le composeur de publication (PostsFeed.jsx, requestCloseComposer)
+  // pour le même risque. formDirty vient d'EventCreateForm/EventEditForm
+  // (onDirtyChange), seuls à connaître l'état réel de leurs champs — vue
+  // "create" et "edit" jamais actives en même temps, un seul indicateur
+  // partagé suffit.
+  const [formDirty, setFormDirty] = useState(false);
+  const [discardConfirmTarget, setDiscardConfirmTarget] = useState(null); // 'create' | 'edit' | null
+  const requestCancelCreate = () => {
+    if (formDirty) setDiscardConfirmTarget("create");
+    else setView("home");
+  };
+  const requestCancelEdit = () => {
+    if (formDirty) setDiscardConfirmTarget("edit");
+    else setView("detail");
+  };
+  useEscapeKey(view === "create" || view === "edit", () => (view === "create" ? requestCancelCreate() : requestCancelEdit()));
+
   // Ouverture directe depuis "Mes événements" (profil) — consommé une
   // seule fois pour ne pas rouvrir le même événement à chaque montage.
   useEffect(() => {
@@ -799,9 +821,18 @@ export default function EventsTab({ currentUser, onError, initialEventId, onCons
   if (view === "create") {
     return (
       <section className="max-w-lg mx-auto">
-        <button onClick={() => setView("home")} className="text-sm font-bold mb-4" style={{ color: primary }}>← Annuler</button>
+        <button onClick={requestCancelCreate} className="text-sm font-bold mb-4" style={{ color: primary }}>← Annuler</button>
         <h1 className="text-2xl font-black mb-4" style={{ color: primary }}>Créer un événement</h1>
-        <EventCreateForm currentUser={currentUser} initialCommunityId={createCommunityId} onCreated={handleCreated} onCancel={() => setView("home")} onError={onError} />
+        <EventCreateForm currentUser={currentUser} initialCommunityId={createCommunityId} onCreated={handleCreated} onCancel={requestCancelCreate} onDirtyChange={setFormDirty} onError={onError} />
+        <ConfirmModal
+          open={discardConfirmTarget === "create"}
+          title="Quitter sans enregistrer ?"
+          message="L'événement que tu es en train de créer sera perdu."
+          confirmLabel="Quitter"
+          cancelLabel="Continuer"
+          onCancel={() => setDiscardConfirmTarget(null)}
+          onConfirm={() => { setDiscardConfirmTarget(null); setView("home"); }}
+        />
       </section>
     );
   }
@@ -809,9 +840,18 @@ export default function EventsTab({ currentUser, onError, initialEventId, onCons
   if (view === "edit" && event) {
     return (
       <section className="max-w-lg mx-auto">
-        <button onClick={() => setView("detail")} className="text-sm font-bold mb-4" style={{ color: primary }}>← Annuler</button>
+        <button onClick={requestCancelEdit} className="text-sm font-bold mb-4" style={{ color: primary }}>← Annuler</button>
         <h1 className="text-2xl font-black mb-4" style={{ color: primary }}>Modifier l'événement</h1>
-        <EventEditForm event={event} onSaved={handleEdited} onCancel={() => setView("detail")} onError={onError} />
+        <EventEditForm event={event} onSaved={handleEdited} onCancel={requestCancelEdit} onDirtyChange={setFormDirty} onError={onError} />
+        <ConfirmModal
+          open={discardConfirmTarget === "edit"}
+          title="Quitter sans enregistrer ?"
+          message="Tes modifications ne seront pas enregistrées."
+          confirmLabel="Quitter"
+          cancelLabel="Continuer"
+          onCancel={() => setDiscardConfirmTarget(null)}
+          onConfirm={() => { setDiscardConfirmTarget(null); setView("detail"); }}
+        />
       </section>
     );
   }
