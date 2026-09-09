@@ -2,7 +2,17 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <!-- viewport-fit=cover indispensable sur Safari iOS : sans lui, les
+  variables env(safe-area-inset-*) valent toujours 0 (utilisées un peu
+  partout dans l'app — nav du bas fixe, compositeur de messages, header
+  sticky, pied des modales — voir SocialShell.jsx/ConversationPane.jsx/
+  AppModals.jsx). Sans ce paramètre, ce padding de sécurité ne se
+  déclenche jamais dans le navigateur (Safari réserve lui-même cette zone
+  en dehors du viewport) ni de façon fiable en PWA installée sur l'écran
+  d'accueil (manifest.webmanifest, display: standalone) — la nav du bas
+  ou le champ de saisie peuvent alors chevaucher l'encoche/l'indicateur
+  d'accueil sur un iPhone avec encoche ou Dynamic Island. -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Baobab</title>
   <meta name="description" content="Baobab — l'application de rencontres et de communauté pour les immigrants au Canada. Trouve des rencontres, des communautés et des événements qui comprennent ton parcours." />
   <meta property="og:title" content="Baobab" />
