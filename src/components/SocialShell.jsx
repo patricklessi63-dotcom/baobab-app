@@ -844,10 +844,11 @@ export default function SocialShell({
   // l'ouverture du menu sans faire disparaître la liste sous les yeux.
   const [communityNotifications, setCommunityNotifications] = useState([]);
   const [unreadCommunityCount, setUnreadCommunityCount] = useState(0);
+  const fetchNotificationsRef = useRef(null);
   useEffect(() => {
     if (!currentUser) { setCommunityNotifications([]); setUnreadCommunityCount(0); return; }
     let alive = true;
-    supabase
+    const fetchNotifications = () => supabase
       .from("notifications")
       .select("id, type, community_id, target_type, target_id, actor_id, read_at, created_at, actor:actor_id(name, avatar_url)")
       .eq("recipient_id", currentUser.id)
@@ -860,6 +861,8 @@ export default function SocialShell({
         setCommunityNotifications(data || []);
         setUnreadCommunityCount((data || []).length);
       });
+    fetchNotificationsRef.current = fetchNotifications;
+    fetchNotifications();
     const channel = supabase
       .channel(`notifications:${currentUser.id}`)
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "notifications", filter: `recipient_id=eq.${currentUser.id}` }, (payload) => {
@@ -867,8 +870,25 @@ export default function SocialShell({
         setUnreadCommunityCount((n) => n + 1);
       })
       .subscribe();
-    return () => { alive = false; supabase.removeChannel(channel); };
+    return () => { alive = false; fetchNotificationsRef.current = null; supabase.removeChannel(channel); };
   }, [currentUser]);
+
+  // Bug corrigé (même famille que la resynchronisation des messages/badges
+  // ci-dessus) : le canal Realtime "notifications" ne rejoue jamais un INSERT
+  // manqué pendant une coupure websocket. Une notification (like, message,
+  // nouvel abonné...) reçue pendant une coupure réseau ne faisait donc jamais
+  // apparaître la cloche tant que l'app n'était pas rechargée. On relance la
+  // requête bornée ci-dessus (idempotente) dès un véritable retour en ligne.
+  const notificationsWasOfflineRef = useRef(false);
+  useEffect(() => {
+    if (!isOnline) {
+      notificationsWasOfflineRef.current = true;
+      return;
+    }
+    if (!notificationsWasOfflineRef.current) return; // pas une vraie reconnexion (ex. montage initial)
+    notificationsWasOfflineRef.current = false;
+    fetchNotificationsRef.current?.();
+  }, [isOnline]);
 
   // Les badges partagent le même compteur brut/mécanisme de remise à zéro
   // (markCommunityNotificationsRead) — répartition par "type" explicite
