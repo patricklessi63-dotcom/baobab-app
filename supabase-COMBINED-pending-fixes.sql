@@ -1,18 +1,26 @@
 -- ============================================================================
--- SCRIPT CONSOLIDÉ — tous les correctifs SQL en attente (33 fichiers)
--- Régénéré le 2026-09-08 23:xx à partir des fichiers supabase-*-fix.sql
--- individuels du dépôt. Chaque section est idempotente (drop/create ou
--- create or replace), donc rejouer ce script entier ne pose pas de
--- problème si une partie a déjà été appliquée séparément.
+-- SCRIPT CONSOLIDÉ — tous les correctifs SQL en attente (39 fichiers)
+-- Régénéré le 2026-09-09 04h20 à partir des fichiers supabase-*-fix.sql
+-- individuels du dépôt. Chaque section est idempotente (drop/create,
+-- create or replace, ou "NOT VALID" pour les contraintes), donc rejouer ce
+-- script entier ne pose pas de problème si une partie a déjà été appliquée
+-- séparément.
 --
 -- ⚠️ ORDRE IMPORTANT ET VOLONTAIRE — ne pas réordonner les sections
--- manuellement : les sections "get_my_likers()/get_liker_profile_reveal()"
--- apparaissent 3 fois (versions successives de la même fonction) — SEULE
--- LA DERNIÈRE occurrence (supabase-likers-profile-overexposure-fix.sql,
--- proche de la fin de ce fichier) doit rester active, elle seule filtre les
--- colonnes sensibles (ban_reason, birth_date exact, notification_preferences...).
--- Si tu exécutes ces fichiers un par un plutôt qu'en un bloc, exécute-les
--- dans l'ordre où ils apparaissent ici, jamais dans l'autre sens.
+-- manuellement :
+-- 1. "get_my_likers()/get_liker_profile_reveal()" apparaissent 3 fois
+--    (versions successives) — seule la DERNIÈRE occurrence
+--    (supabase-likers-profile-overexposure-fix.sql) doit rester active,
+--    elle seule filtre les colonnes sensibles.
+-- 2. Les triggers de colonnes de confiance de "profiles" apparaissent 2
+--    fois : supabase-profile-trust-columns-protect-fix.sql (UPDATE seul)
+--    PUIS supabase-profile-insert-trust-columns-protect-fix.sql (INSERT ET
+--    UPDATE) — c'est la seconde occurrence, plus complète, qui doit
+--    gagner. Si tu ré-exécutes un jour supabase-founder-badge.sql ou
+--    supabase-premium-badge-protect.sql (anciens fichiers déjà appliqués,
+--    PAS dans ce script) après ce script consolidé, tu réintroduirais la
+--    faille d'auto-attribution à l'inscription — voir l'avertissement
+--    ajouté dans ces deux fichiers.
 --
 -- SECTIONS LES PLUS URGENTES (sécurité active, à faire en premier si tu ne
 -- fais pas tout le fichier d'un coup) :
@@ -25,8 +33,10 @@
 --    reject_join_request exécutables SANS AUCUNE authentification.
 -- 5. supabase-security-definer-revoke-grant-audit-fix.sql —
 --    check_beta_whitelist et send_event_reminders exécutables sans
---    authentification ; ferme aussi la porte "anon" sur une dizaine
---    d'autres fonctions par défense en profondeur.
+--    authentification.
+-- 6. supabase-profile-insert-trust-columns-protect-fix.sql — CRITIQUE : un
+--    compte tout juste créé pouvait s'auto-attribuer is_premium/is_founder/
+--    email_verified/phone_verified à l'inscription.
 --
 -- À exécuter en une fois dans Supabase SQL Editor. Si une erreur survient
 -- sur une section, note le nom du fichier source (marqué ci-dessous) et
@@ -2263,6 +2273,967 @@ $$;
 -- select public_user_count();          -- nouveau chiffre, filtré
 -- select count(*) from profiles;        -- ancien chiffre, pour comparer
 -- ============================================================================
+
+
+-- ============================================================================
+-- SOURCE : supabase-event-media-columns-protect-fix.sql
+-- ============================================================================
+-- ============================================================================
+-- CORRECTIF — colonnes sensibles de "event_media" modifiables directement
+-- par un simple UPDATE de l'application (contournement des restrictions
+-- d'appartenance/moderation deja en place a l'INSERT).
+--
+-- Trouve lors du croisement exhaustif du 8 septembre 2026, angle "policy RLS
+-- UPDATE trop permissive au niveau colonne — le proprietaire peut
+-- legitimement modifier SA ligne mais pas n'importe quelle colonne dedans",
+-- applique a TOUTES les tables du projet (suite a
+-- supabase-profile-trust-columns-protect-fix.sql, qui ne traitait que
+-- "profiles"). Tables verifiees sans nouveau probleme : subscriptions/
+-- subscription_events (aucune policy UPDATE cliente), community_members et
+-- event_staff (deja restreints par hierarchie de role, cf. commentaire "item
+-- 28" dans supabase-communities.sql), community_join_requests (aucune
+-- policy UPDATE, statut change uniquement via RPC SECURITY DEFINER),
+-- messages (deja protegee colonne par colonne par
+-- enforce_message_update_rules, supabase-messaging-2.sql), likes/passes/
+-- blocks/follows/favorites/post_likes/community_post_likes/story_reactions/
+-- post_reports/community_reports/event_reports/info_reports (aucune policy
+-- UPDATE cliente, ou repointage de cle etrangere deja possible via INSERT
+-- donc pas une escalade nouvelle). Un seul cas confirme : "event_media".
+--
+-- Constat : supabase-events-v2.sql (et sa redefinition identique dans
+-- supabase-scale-security-2.sql) definit
+--   on event_media for update
+--   using (uploaded_by = current_profile_id() or is_event_mod(event_id))
+--   with check (uploaded_by = current_profile_id() or is_event_mod(event_id));
+-- Le with check n'est satisfait que par la condition OR "uploaded_by =
+-- current_profile_id()" pour un simple participant qui garde son propre id
+-- comme uploaded_by — ce qui rend "event_id" et "status" librement
+-- modifiables sur sa propre ligne, sans plus aucun rapport avec les
+-- restrictions imposees a l'INSERT :
+--   - "event_id" : la policy INSERT exige d'etre participant/staff de
+--     l'evenement cible ("Un participant partage une photo"). Un simple
+--     UPDATE de sa propre ligne event_media permet de reassigner event_id
+--     vers N'IMPORTE QUEL AUTRE evenement (y compris un evenement prive
+--     dont on n'est ni participant ni staff), sans jamais repasser par
+--     cette verification.
+--   - "status" ('visible'/'hidden'/'removed') : colonne de moderation
+--     normalement pilotee par le staff de l'evenement (policy "L'auteur ou
+--     le staff modifie une photo" combine les deux usages dans la meme
+--     policy). Un simple auteur peut aujourd'hui remettre lui-meme
+--     status='visible' sur une photo que le staff venait de masquer/retirer
+--     pour non-conformite — la moderation est totalement contournable.
+-- ("uploaded_by" n'a pas besoin d'un traitement separe : le with check
+-- existant bloque deja sa reassignation vers un tiers, la nouvelle valeur
+-- devant satisfaire elle-meme "= current_profile_id() ou is_event_mod(...)".)
+--
+-- Verifie : src/components/social/EventsTab.jsx n'appelle jamais
+-- .update() sur "event_media" (seulement .insert() et .delete()) — ce
+-- correctif ne retire donc aucune fonctionnalite existante de
+-- l'application, il ferme uniquement une possibilite d'appel direct via
+-- l'API Supabase (hors interface).
+--
+-- Ordre d'execution : a executer APRES supabase-events-v2.sql (et
+-- supabase-scale-security-2.sql si deja applique) — la table et la
+-- fonction is_event_mod() doivent deja exister. "create or replace
+-- function" et "drop trigger if exists" rendent ce fichier idempotent.
+-- ============================================================================
+
+create or replace function protect_event_media_columns()
+returns trigger language plpgsql as $$
+begin
+  -- Aucun cas d'usage reel (ni dans l'app, ni cote staff) ne deplace une
+  -- photo existante vers un autre evenement : plus simple et plus sur de
+  -- l'interdire completement plutot que de re-verifier l'appartenance au
+  -- nouvel evenement a chaque fois.
+  if new.event_id is distinct from old.event_id then
+    raise exception 'Impossible de deplacer une photo vers un autre evenement.';
+  end if;
+
+  -- Le statut de moderation ne peut etre change que par le staff de
+  -- l'evenement (organizer/co_organizer/moderator) — jamais par l'auteur
+  -- de la photo lui-meme, sous peine de pouvoir annuler sa propre
+  -- moderation.
+  if new.status is distinct from old.status and not is_event_mod(old.event_id) then
+    raise exception 'Seul le staff de l''evenement peut changer le statut d''une photo.';
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_protect_event_media_columns on event_media;
+create trigger trg_protect_event_media_columns
+before update on event_media
+for each row
+execute function protect_event_media_columns();
+
+-- ----------------------------------------------------------------------------
+-- Verification (facultatif, a executer separement apres) :
+--
+-- -- en tant qu'auteur de la photo (pas staff) :
+-- update event_media set event_id = '<uuid_autre_evenement>' where id = '<ma_photo>';
+-- -- doit lever : "Impossible de deplacer une photo vers un autre evenement."
+-- update event_media set status = 'visible' where id = '<ma_photo_masquee_par_le_staff>';
+-- -- doit lever : "Seul le staff de l'evenement peut changer le statut..."
+--
+-- -- en tant que staff (organizer/co_organizer/moderator) de l'evenement :
+-- update event_media set status = 'hidden' where id = '<photo_dans_mon_evenement>';
+-- -- doit toujours reussir (moderation normale, inchangee).
+--
+-- select tgname from pg_trigger where tgname = 'trg_protect_event_media_columns';
+-- ============================================================================
+
+
+-- ============================================================================
+-- SOURCE : supabase-content-creation-limits-fix.sql
+-- ============================================================================
+-- ============================================================================
+-- CORRECTIF — deux failles trouvées en poursuivant l'angle "policy trop
+-- permissive au niveau colonne" côté INSERT cette fois (déjà fait côté
+-- UPDATE dans supabase-profile-trust-columns-protect-fix.sql et
+-- supabase-event-media-columns-protect-fix.sql), et l'angle "création de
+-- lignes en nombre illimité, non couverte par le rate-limit global"
+-- (supabase-global-action-rate-limit-fix.sql ne compte que messages/likes/
+-- follows/reports/event_invitations).
+--
+-- À exécuter dans Supabase : SQL Editor (une fois), après
+-- supabase-communities.sql, supabase-communities-2.sql, supabase-events.sql,
+-- supabase-events-v2.sql, supabase-stories.sql, supabase-feed-posts.sql et
+-- supabase-global-action-rate-limit-fix.sql (les tables/fonctions qu'il
+-- patche doivent déjà exister). Additif et idempotent (create or replace +
+-- drop/create policy/trigger).
+-- ============================================================================
+
+-- ----------------------------------------------------------------------------
+-- PARTIE 1 — community_join_requests : la policy INSERT ("Demander a
+-- rejoindre une communaute privee en son propre nom", supabase-
+-- communities.sql) vérifie seulement "profile_id = current_profile_id()" et
+-- la visibilité de la communauté visée — elle ne dit RIEN sur "status",
+-- "decided_at" ni "decided_by", alors que la table définit
+-- "status default 'pending'" en s'attendant à ce que seul accept_join_request/
+-- reject_join_request (RPC SECURITY DEFINER, staff uniquement) la fasse
+-- passer à 'accepted'/'rejected'.
+--
+-- Un simple insert direct via l'API PostgREST peut donc aujourd'hui écrire :
+--   insert into community_join_requests (community_id, profile_id, status, decided_at, decided_by)
+--   values (<communaute privee ciblee>, <soi-meme>, 'accepted', now(), <n'importe quel profil, y compris un owner reel>);
+-- ce qui n'accorde heureusement PAS l'adhésion réelle (community_members
+-- n'est modifiée que par les RPC), mais :
+--   1) forge un faux enregistrement "accepté par <owner choisi arbitrairement>"
+--      dans une table que ce même owner peut consulter (policy SELECT
+--      "profile_id = current_profile_id() or is_community_staff(...)") —
+--      usurpation d'une décision jamais prise ;
+--   2) contourne l'index unique partiel "un seul PENDING a la fois" (qui ne
+--      s'applique qu'a status='pending') : rien n'empêche d'insérer un
+--      nombre illimité de lignes 'accepted'/'rejected' vers la même
+--      communauté, et le trigger trg_notify_join_request (AFTER INSERT,
+--      sans condition sur status) notifie TOUT le staff de la communauté à
+--      chaque insertion — spam de notifications non couvert par le
+--      rate-limit global (qui ne compte pas cette table).
+--
+-- Correctif : la policy n'autorise plus que la création d'une demande dans
+-- l'état initial exact prévu par le produit ; le passage à accepted/rejected
+-- reste exclusivement du ressort des RPC (qui, elles, écrivent en tant que
+-- SECURITY DEFINER et ne sont donc pas soumises à cette policy INSERT).
+do $$
+declare pol record;
+begin
+  for pol in select policyname from pg_policies
+    where schemaname='public' and tablename='community_join_requests' and cmd='INSERT'
+  loop
+    execute format('drop policy %I on public.community_join_requests', pol.policyname);
+  end loop;
+
+  create policy "Demander a rejoindre une communaute privee en son propre nom"
+  on community_join_requests for insert
+  with check (
+    profile_id = current_profile_id()
+    and status = 'pending'
+    and decided_at is null
+    and decided_by is null
+    and exists (select 1 from communities c where c.id = community_id and c.visibility = 'private')
+  );
+end $$;
+
+-- ----------------------------------------------------------------------------
+-- PARTIE 2 — création de contenu en nombre illimité. Aucune des tables
+-- ci-dessous n'a de contrainte de débit : un compte peut aujourd'hui créer
+-- des centaines de communautés/événements/statuts/publications par minute
+-- via un script, chacun visible publiquement (ou notifiant d'autres
+-- membres), sans jamais toucher aux compteurs déjà audités (messages,
+-- likes, follows, reports, invitations d'événement). Plafonds généreux
+-- (aucun usage humain normal ne les approche) posés en trigger BEFORE
+-- INSERT — donc valables que la création passe par une RPC SECURITY
+-- DEFINER (create_community, create_event) ou par un insert direct
+-- (stories, posts, community_posts).
+-- ----------------------------------------------------------------------------
+
+create or replace function check_community_creation_rate_limit()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare v_count int;
+begin
+  select count(*) into v_count from communities
+    where created_by = new.created_by and created_at > now() - interval '24 hours';
+  if v_count >= 5 then
+    raise exception 'Trop de communautes creees recemment, reessaie plus tard';
+  end if;
+  return new;
+end; $$;
+drop trigger if exists trg_community_creation_rate_limit on communities;
+create trigger trg_community_creation_rate_limit before insert on communities
+for each row execute function check_community_creation_rate_limit();
+
+create or replace function check_event_creation_rate_limit()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare v_count int;
+begin
+  select count(*) into v_count from events
+    where created_by = new.created_by and created_at > now() - interval '24 hours';
+  if v_count >= 10 then
+    raise exception 'Trop d evenements crees recemment, reessaie plus tard';
+  end if;
+  return new;
+end; $$;
+drop trigger if exists trg_event_creation_rate_limit on events;
+create trigger trg_event_creation_rate_limit before insert on events
+for each row execute function check_event_creation_rate_limit();
+
+create or replace function check_story_creation_rate_limit()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare v_count int;
+begin
+  select count(*) into v_count from stories
+    where profile_id = new.profile_id and created_at > now() - interval '24 hours';
+  if v_count >= 30 then
+    raise exception 'Trop de statuts crees recemment, reessaie plus tard';
+  end if;
+  return new;
+end; $$;
+drop trigger if exists trg_story_creation_rate_limit on stories;
+create trigger trg_story_creation_rate_limit before insert on stories
+for each row execute function check_story_creation_rate_limit();
+
+create or replace function check_post_creation_rate_limit()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare v_count int;
+begin
+  select count(*) into v_count from posts
+    where author_id = new.author_id and created_at > now() - interval '24 hours';
+  if v_count >= 50 then
+    raise exception 'Trop de publications creees recemment, reessaie plus tard';
+  end if;
+  return new;
+end; $$;
+drop trigger if exists trg_post_creation_rate_limit on posts;
+create trigger trg_post_creation_rate_limit before insert on posts
+for each row execute function check_post_creation_rate_limit();
+
+create or replace function check_community_post_creation_rate_limit()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare v_count int;
+begin
+  select count(*) into v_count from community_posts
+    where author_id = new.author_id and created_at > now() - interval '24 hours';
+  if v_count >= 50 then
+    raise exception 'Trop de publications creees recemment, reessaie plus tard';
+  end if;
+  return new;
+end; $$;
+drop trigger if exists trg_community_post_creation_rate_limit on community_posts;
+create trigger trg_community_post_creation_rate_limit before insert on community_posts
+for each row execute function check_community_post_creation_rate_limit();
+
+create or replace function check_join_request_creation_rate_limit()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare v_count int;
+begin
+  select count(*) into v_count from community_join_requests
+    where profile_id = new.profile_id and created_at > now() - interval '24 hours';
+  if v_count >= 30 then
+    raise exception 'Trop de demandes d adhesion envoyees recemment, reessaie plus tard';
+  end if;
+  return new;
+end; $$;
+drop trigger if exists trg_join_request_creation_rate_limit on community_join_requests;
+create trigger trg_join_request_creation_rate_limit before insert on community_join_requests
+for each row execute function check_join_request_creation_rate_limit();
+
+-- ----------------------------------------------------------------------------
+-- Vérification (facultatif, à exécuter séparément après) :
+-- select policyname, cmd from pg_policies where tablename = 'community_join_requests';
+-- select tgname from pg_trigger where tgrelid = 'public.communities'::regclass;
+-- select tgname from pg_trigger where tgrelid = 'public.events'::regclass;
+-- select tgname from pg_trigger where tgrelid = 'public.stories'::regclass;
+-- select tgname from pg_trigger where tgrelid = 'public.posts'::regclass;
+-- select tgname from pg_trigger where tgrelid = 'public.community_posts'::regclass;
+-- select tgname from pg_trigger where tgrelid = 'public.community_join_requests'::regclass;
+-- ============================================================================
+
+
+-- ============================================================================
+-- SOURCE : supabase-profile-trust-columns-protect-fix.sql
+-- ============================================================================
+-- ============================================================================
+-- CORRECTIF — colonnes de confiance/modération de "profiles" modifiables
+-- directement par un simple UPDATE de l'application (contournement des RPC
+-- de modération dédiées).
+--
+-- Trouvé lors de l'audit autonome du 8 septembre 2026, angle "policies RLS
+-- UPDATE/DELETE + triggers pouvant laisser un utilisateur modifier des
+-- colonnes qu'il ne devrait jamais pouvoir changer lui-même".
+--
+-- Constat : la policy RLS UPDATE sur "profiles" (voir
+-- supabase-profile-onboarding.sql, "Un utilisateur modifie son propre
+-- profil") est, comme documenté dans son propre commentaire, volontairement
+-- ouverte à TOUTES les colonnes de la ligne du propriétaire :
+--   using (auth.uid() = user_id) with check (auth.uid() = user_id)
+-- Deux colonnes ont déjà reçu une protection dédiée par trigger BEFORE
+-- UPDATE (is_founder via supabase-founder-badge.sql, is_premium via
+-- supabase-premium-badge-protect.sql), et la table "messages" a déjà le même
+-- traitement pour ses propres colonnes sensibles (voir
+-- messages_restrict_update_to_read_at dans supabase-messaging.sql et
+-- enforce_message_update_rules dans supabase-messaging-2.sql). Mais six
+-- autres colonnes de "profiles", tout aussi sensibles, n'ont jamais reçu ce
+-- traitement et restaient donc modifiables par n'importe quel utilisateur
+-- authentifié sur SA PROPRE ligne, via un simple
+-- supabase.from('profiles').update({...}).eq('id', monProfilId) :
+--
+--   - banned_at / ban_reason       -> un compte banni pouvait s'auto-débannir
+--     (update profiles set banned_at = null, ban_reason = null where id = moi)
+--   - suspended_until / suspend_reason -> idem pour une suspension temporaire
+--   - report_count / flagged_for_review -> un profil signalé 3 fois (drapeau
+--     posé par flag_profile_on_reports, supabase-dating-2.sql) pouvait remettre
+--     son propre compteur à 0 et lever son propre drapeau de vigilance
+--   - email_verified / phone_verified -> un compte non vérifié pouvait
+--     s'auto-attribuer les badges de vérification email/téléphone sans jamais
+--     confirmer quoi que ce soit, alors que ces colonnes sont normalement
+--     synchronisées uniquement depuis auth.users (supabase-protect-rls.sql)
+--
+-- Ces colonnes ne sont normalement écrites QUE par : suspend_user/ban_user/
+-- unsuspend_user/unban_user (supabase-admin.sql, réservées au staff),
+-- flag_profile_on_reports (supabase-dating-2.sql, trigger système sur
+-- "reports") et sync_profile_verification (supabase-protect-rls.sql, trigger
+-- système sur auth.users). Toutes ces écritures légitimes ont lieu alors que
+-- auth.role() vaut encore 'authenticated' (SECURITY DEFINER ne change pas le
+-- rôle JWT de la requête PostgREST d'origine), SAUF sync_profile_verification
+-- qui est déclenchée par le service Auth lui-même (connexion directe, jamais
+-- via PostgREST, donc auth.role() y est déjà NULL) — c'est pourquoi le simple
+-- garde-fou "auth.role() = 'authenticated'" utilisé par
+-- protect_founder_flag/protect_premium_flag ne suffit PAS ici : il bloquerait
+-- aussi les appels légitimes de suspend_user/ban_user/unsuspend_user/
+-- unban_user/flag_profile_on_reports, qui s'exécutent dans le même contexte
+-- authentifié que l'utilisateur qui a déclenché l'action. Ce correctif ajoute
+-- donc un drapeau de session transactionnel (set_config(..., true) = portée
+-- limitée à la transaction en cours, jamais persistant, jamais visible par
+-- une autre requête même sur une connexion réutilisée par le pooler) que ces
+-- fonctions posent juste avant leur UPDATE interne, et que le trigger exige
+-- pour laisser passer un changement sur l'une de ces colonnes.
+--
+-- Ordre d'exécution : aucun autre fichier supabase-*-fix.sql existant ne
+-- redéfinit suspend_user/ban_user/unsuspend_user/unban_user (originales dans
+-- supabase-admin.sql) ni flag_profile_on_reports (originale dans
+-- supabase-dating-2.sql) — vérifié par grep sur tout le dépôt avant d'écrire
+-- ce fichier. Ce correctif doit néanmoins s'exécuter APRÈS supabase-admin.sql,
+-- supabase-dating-2.sql et supabase-protect-rls.sql (les colonnes protégées
+-- doivent déjà exister). "create or replace function" étant idempotent, le
+-- réexécuter plusieurs fois est sans risque. Si un futur correctif redéfinit
+-- à nouveau l'une de ces 5 fonctions après celui-ci, il DEVRA reprendre la
+-- ligne "perform set_config('baobab.trust_column_write', 'on', true);"
+-- avant son UPDATE sur profiles, sous peine de recasser silencieusement la
+-- modération (suspend_user/ban_user cesseraient de fonctionner, pas de
+-- lever d'exception visible côté staff au premier abord — juste un profil
+-- qui reste non banni malgré l'appel RPC réussi).
+--
+-- MISE A JOUR (9 septembre 2026) - piege de nom de trigger partage trouve
+-- apres coup : le trigger trg_protect_profile_trust_columns cree ci-dessous
+-- est en BEFORE UPDATE seulement. supabase-profile-insert-trust-columns-
+-- protect-fix.sql redefinit ensuite CE MEME trigger (meme nom, sur
+-- "profiles") en BEFORE INSERT OR UPDATE, pour bloquer aussi
+-- l'auto-attribution de ces colonnes de confiance a LA CREATION du profil
+-- (banned_at/report_count/email_verified/etc. choisis librement dans le
+-- premier insert). Si CE fichier-ci est re-execute APRES
+-- supabase-profile-insert-trust-columns-protect-fix.sql (ordre alphabetique
+-- inverse des deux noms de fichiers : "insert" vient avant "trust"), le
+-- "drop trigger if exists" + "create trigger ... before update" ci-dessous
+-- ecrase SILENCIEUSEMENT la version BEFORE INSERT OR UPDATE, reintroduisant
+-- le contournement cote INSERT sans aucune erreur visible. Si vous devez
+-- reprendre ce fichier apres coup, re-executez immediatement apres
+-- supabase-profile-insert-trust-columns-protect-fix.sql pour restaurer la
+-- protection INSERT.
+-- ============================================================================
+
+-- ----------------------------------------------------------------------------
+-- 1. Trigger de protection — même principe que protect_founder_flag /
+-- protect_premium_flag, étendu à un drapeau de contournement transactionnel.
+-- ----------------------------------------------------------------------------
+create or replace function protect_profile_trust_columns()
+returns trigger language plpgsql as $$
+begin
+  if auth.role() = 'authenticated'
+     and coalesce(current_setting('baobab.trust_column_write', true), '') <> 'on'
+     and (
+       new.banned_at is distinct from old.banned_at
+       or new.ban_reason is distinct from old.ban_reason
+       or new.suspended_until is distinct from old.suspended_until
+       or new.suspend_reason is distinct from old.suspend_reason
+       or new.report_count is distinct from old.report_count
+       or new.flagged_for_review is distinct from old.flagged_for_review
+       or new.email_verified is distinct from old.email_verified
+       or new.phone_verified is distinct from old.phone_verified
+     )
+  then
+    raise exception 'Cette colonne ne peut pas etre modifiee directement via l''application — action serveur (moderation ou verification) requise.';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_protect_profile_trust_columns on profiles;
+create trigger trg_protect_profile_trust_columns
+before update on profiles
+for each row
+execute function protect_profile_trust_columns();
+
+-- ----------------------------------------------------------------------------
+-- 2. RPC de modération (supabase-admin.sql) — ajout du drapeau de
+-- contournement juste avant leur UPDATE interne. Logique métier inchangée.
+-- ----------------------------------------------------------------------------
+create or replace function suspend_user(p_profile_id uuid, p_until timestamptz, p_reason text)
+returns void language plpgsql security definer set search_path = public as $$
+declare v_actor_rank int; v_target_rank int;
+begin
+  if p_profile_id = current_profile_id() then raise exception 'Cible invalide'; end if;
+  v_actor_rank := role_rank(platform_role(current_profile_id()));
+  v_target_rank := role_rank(platform_role(p_profile_id));
+  if v_actor_rank < 1 then raise exception 'Non autorise'; end if;
+  if v_target_rank >= v_actor_rank then raise exception 'Impossible d''agir sur ce compte'; end if;
+
+  perform set_config('baobab.trust_column_write', 'on', true);
+  update profiles set suspended_until = p_until, suspend_reason = p_reason where id = p_profile_id;
+
+  insert into admin_actions (actor_id, action_type, target_profile_id, reason, metadata)
+  values (current_profile_id(), 'user_suspended', p_profile_id, p_reason, jsonb_build_object('until', p_until));
+end;
+$$;
+
+create or replace function unsuspend_user(p_profile_id uuid)
+returns void language plpgsql security definer set search_path = public as $$
+begin
+  if not is_moderator_or_above() then raise exception 'Non autorise'; end if;
+  perform set_config('baobab.trust_column_write', 'on', true);
+  update profiles set suspended_until = null, suspend_reason = null where id = p_profile_id;
+  insert into admin_actions (actor_id, action_type, target_profile_id)
+  values (current_profile_id(), 'user_unsuspended', p_profile_id);
+end;
+$$;
+
+create or replace function ban_user(p_profile_id uuid, p_reason text)
+returns void language plpgsql security definer set search_path = public as $$
+declare v_actor_rank int; v_target_rank int;
+begin
+  if p_profile_id = current_profile_id() then raise exception 'Cible invalide'; end if;
+  v_actor_rank := role_rank(platform_role(current_profile_id()));
+  v_target_rank := role_rank(platform_role(p_profile_id));
+  if v_actor_rank < 2 then raise exception 'Non autorise'; end if; -- ban reserve a admin+
+  if v_target_rank >= v_actor_rank then raise exception 'Impossible d''agir sur ce compte'; end if;
+
+  perform set_config('baobab.trust_column_write', 'on', true);
+  update profiles set banned_at = now(), ban_reason = p_reason where id = p_profile_id;
+
+  insert into admin_actions (actor_id, action_type, target_profile_id, reason)
+  values (current_profile_id(), 'user_banned', p_profile_id, p_reason);
+end;
+$$;
+
+create or replace function unban_user(p_profile_id uuid)
+returns void language plpgsql security definer set search_path = public as $$
+begin
+  if not is_admin_or_above() then raise exception 'Non autorise'; end if;
+  perform set_config('baobab.trust_column_write', 'on', true);
+  update profiles set banned_at = null, ban_reason = null where id = p_profile_id;
+  insert into admin_actions (actor_id, action_type, target_profile_id)
+  values (current_profile_id(), 'user_unbanned', p_profile_id);
+end;
+$$;
+
+-- ----------------------------------------------------------------------------
+-- 3. Trigger système de signalement (supabase-dating-2.sql) — même ajout.
+-- ----------------------------------------------------------------------------
+create or replace function flag_profile_on_reports()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  perform set_config('baobab.trust_column_write', 'on', true);
+  update profiles
+  set report_count = report_count + 1,
+      flagged_for_review = (report_count + 1) >= 3
+  where id = new.to_id;
+  return new;
+end;
+$$;
+
+-- ----------------------------------------------------------------------------
+-- Vérification (facultatif, à exécuter séparément après) :
+--
+-- -- en tant qu'utilisateur authentifié normal, sur SON PROPRE profil :
+-- update profiles set banned_at = null where id = '<mon_profile_id>';
+-- -- doit lever : "Cette colonne ne peut pas etre modifiee directement..."
+-- update profiles set suspended_until = null where id = '<mon_profile_id>';
+-- update profiles set report_count = 0 where id = '<mon_profile_id>';
+-- update profiles set flagged_for_review = false where id = '<mon_profile_id>';
+-- update profiles set email_verified = true where id = '<mon_profile_id>';
+-- update profiles set phone_verified = true where id = '<mon_profile_id>';
+-- -- toutes doivent échouer avec la même exception.
+--
+-- -- en tant que compte admin/super_admin (déjà présent dans platform_roles) :
+-- select ban_user('<uuid_profil_de_test>', 'test'); -- doit toujours réussir
+-- select unban_user('<uuid_profil_de_test>');        -- doit toujours réussir
+-- select suspend_user('<uuid_profil_de_test>', now() + interval '1 day', 'test');
+-- select unsuspend_user('<uuid_profil_de_test>');
+--
+-- select tgname from pg_trigger where tgname = 'trg_protect_profile_trust_columns';
+-- ============================================================================
+
+
+-- ============================================================================
+-- SOURCE : supabase-profile-insert-trust-columns-protect-fix.sql
+-- ============================================================================
+-- ============================================================================
+-- CORRECTIF CRITIQUE — colonnes de confiance de "profiles" librement
+-- choisies A LA CREATION du profil (contournement total des protections
+-- déjà posées côté UPDATE).
+--
+-- Trouvé en poursuivant l'angle "policy RLS trop permissive au niveau
+-- colonne" côté INSERT cette fois (déjà fait côté UPDATE dans
+-- supabase-profile-trust-columns-protect-fix.sql, supabase-founder-badge.sql
+-- et supabase-premium-badge-protect.sql).
+--
+-- CONSTAT : la policy INSERT sur "profiles" (supabase-scale-security.sql,
+-- "Creation de son propre profil uniquement") ne vérifie QUE la propriété
+-- de la ligne :
+--   with check (auth.uid() = user_id)
+-- Elle ne dit RIEN sur les autres colonnes. Et les TROIS triggers qui
+-- protègent normalement les colonnes sensibles de "profiles" sont tous les
+-- trois déclarés "BEFORE UPDATE" uniquement (comparaison NEW vs OLD) :
+--   - protect_profile_trust_columns (supabase-profile-trust-columns-protect-fix.sql)
+--   - protect_founder_flag (supabase-founder-badge.sql)
+--   - protect_premium_flag (supabase-premium-badge-protect.sql)
+-- Aucun des trois ne s'exécute sur INSERT (il n'y a même pas de ligne OLD à
+-- comparer) — un simple appel authentifié
+--   supabase.from('profiles').insert({ user_id: auth.uid(), name: '...',
+--     is_founder: true, is_premium: true, email_verified: true,
+--     phone_verified: true, banned_at: null, report_count: 0,
+--     flagged_for_review: false })
+-- crée directement le profil dans l'état "de confiance maximale", sans
+-- jamais passer par Stripe, par la vérification email/téléphone réelle, ni
+-- par un badge fondateur unique attribué manuellement. Aucune table
+-- "profiles" existante n'est écrasée (contrainte d'unicité sur user_id,
+-- supabase-scale-security.sql) : l'attaque ne fonctionne que sur SA PROPRE
+-- toute première création de profil (juste après l'inscription, avant ou à
+-- la place de l'insert habituel fait par l'application) — largement
+-- suffisant pour un compte flambant neuf qui s'auto-attribue Premium/le
+-- badge fondateur/les vérifications email+téléphone dès l'inscription.
+--
+-- CORRECTIF : les trois triggers deviennent BEFORE INSERT OR UPDATE. Sur
+-- INSERT (pas de ligne OLD), chaque colonne sensible doit valoir exactement
+-- sa valeur par défaut sûre, sauf si le drapeau de contournement
+-- transactionnel (déjà utilisé pour l'UPDATE) est actif. Le comportement
+-- UPDATE existant est repris à l'identique (aucune régression).
+--
+-- Ordre d'exécution : à appliquer APRÈS supabase-profile-trust-columns-
+-- protect-fix.sql, supabase-founder-badge.sql et supabase-premium-badge-
+-- protect.sql (ce correctif fait un "create or replace" des trois fonctions
+-- qui y sont définies et un "create trigger" avec les mêmes noms — idempotent).
+-- ============================================================================
+
+create or replace function protect_profile_trust_columns()
+returns trigger language plpgsql as $$
+begin
+  if TG_OP = 'INSERT' then
+    if auth.role() = 'authenticated'
+       and coalesce(current_setting('baobab.trust_column_write', true), '') <> 'on'
+       and (
+         new.banned_at is not null
+         or new.ban_reason is not null
+         or new.suspended_until is not null
+         or new.suspend_reason is not null
+         or coalesce(new.report_count, 0) <> 0
+         or coalesce(new.flagged_for_review, false) <> false
+         or coalesce(new.email_verified, false) <> false
+         or coalesce(new.phone_verified, false) <> false
+       )
+    then
+      raise exception 'Cette colonne ne peut pas etre definie a la creation du profil — action serveur (moderation ou verification) requise.';
+    end if;
+    return new;
+  end if;
+
+  if auth.role() = 'authenticated'
+     and coalesce(current_setting('baobab.trust_column_write', true), '') <> 'on'
+     and (
+       new.banned_at is distinct from old.banned_at
+       or new.ban_reason is distinct from old.ban_reason
+       or new.suspended_until is distinct from old.suspended_until
+       or new.suspend_reason is distinct from old.suspend_reason
+       or new.report_count is distinct from old.report_count
+       or new.flagged_for_review is distinct from old.flagged_for_review
+       or new.email_verified is distinct from old.email_verified
+       or new.phone_verified is distinct from old.phone_verified
+     )
+  then
+    raise exception 'Cette colonne ne peut pas etre modifiee directement via l''application — action serveur (moderation ou verification) requise.';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_protect_profile_trust_columns on profiles;
+create trigger trg_protect_profile_trust_columns
+before insert or update on profiles
+for each row
+execute function protect_profile_trust_columns();
+
+create or replace function protect_founder_flag()
+returns trigger language plpgsql as $$
+begin
+  if TG_OP = 'INSERT' then
+    if coalesce(new.is_founder, false) = true and auth.role() = 'authenticated' then
+      raise exception 'is_founder ne peut pas etre defini a la creation du profil — action admin requise.';
+    end if;
+    return new;
+  end if;
+
+  if new.is_founder is distinct from old.is_founder and auth.role() = 'authenticated' then
+    raise exception 'is_founder ne peut pas etre modifie via l''application — action admin requise.';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_protect_founder_flag on profiles;
+create trigger trg_protect_founder_flag
+before insert or update on profiles
+for each row
+execute function protect_founder_flag();
+
+create or replace function protect_premium_flag()
+returns trigger language plpgsql as $$
+begin
+  if TG_OP = 'INSERT' then
+    if coalesce(new.is_premium, false) = true and auth.role() = 'authenticated' then
+      raise exception 'is_premium ne peut pas etre defini a la creation du profil — synchronise automatiquement depuis les abonnements.';
+    end if;
+    return new;
+  end if;
+
+  if new.is_premium is distinct from old.is_premium and auth.role() = 'authenticated' then
+    raise exception 'is_premium ne peut pas etre modifie via l''application — synchronise automatiquement depuis les abonnements.';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_protect_premium_flag on profiles;
+create trigger trg_protect_premium_flag
+before insert or update on profiles
+for each row
+execute function protect_premium_flag();
+
+-- ----------------------------------------------------------------------------
+-- Vérification (facultatif, à exécuter séparément après) :
+--
+-- -- en tant qu'utilisateur authentifie normal, en creant un NOUVEAU profil :
+-- insert into profiles (user_id, name, is_founder) values (auth.uid(), 'Test', true);
+-- insert into profiles (user_id, name, is_premium) values (auth.uid(), 'Test', true);
+-- insert into profiles (user_id, name, email_verified) values (auth.uid(), 'Test', true);
+-- insert into profiles (user_id, name, phone_verified) values (auth.uid(), 'Test', true);
+-- insert into profiles (user_id, name, report_count) values (auth.uid(), 'Test', 5);
+-- -- toutes doivent echouer avec l'exception correspondante ; un insert sans
+-- -- ces colonnes (valeurs par defaut) doit toujours reussir normalement.
+--
+-- select tgname, tgtype from pg_trigger
+--   where tgrelid = 'public.profiles'::regclass
+--   and tgname in ('trg_protect_profile_trust_columns','trg_protect_founder_flag','trg_protect_premium_flag');
+-- ============================================================================
+
+
+-- ============================================================================
+-- SOURCE : supabase-profile-bio-length-guard-fix.sql
+-- ============================================================================
+-- ============================================================================
+-- Corrige un bug d'audit (passe applicatif/UX : cohérence validation client
+-- vs serveur du formulaire de profil) : le champ "bio" de "profiles" est
+-- limité à 300 caractères CÔTÉ CLIENT à trois endroits (EditProfileForm.jsx,
+-- Step9PersonalityBio.jsx à l'onboarding, et la troncature appliquée au
+-- résultat d'AiSuggestButton "Améliorer ma bio" dans les deux écrans) — mais
+-- ne l'était NULLE PART côté serveur : la colonne "bio" est un simple "text"
+-- sans aucune contrainte (voir supabase-schema.sql, ligne "bio text,").
+--
+-- supabase-profile-text-length-guard-fix.sql avait déjà ajouté la garde
+-- serveur symétrique pour name/last_name/country/province/city/occupation/
+-- arrival_city, mais son commentaire affirmait par erreur que "bio" était
+-- "limitée à 300 caractères des deux côtés" : ce n'est vrai que côté client.
+-- Un appel direct à l'API Supabase (contournant l'UI, avec un JWT valide déjà
+-- authentifié) peut donc toujours écrire une bio arbitrairement longue,
+-- ensuite affichée telle quelle sur PublicProfileModal/ProfileTab/les cartes
+-- de match, comme les autres champs déjà corrigés.
+--
+-- Même modèle que supabase-profile-text-length-guard-fix.sql : idempotent,
+-- NOT VALID (ne valide jamais rétroactivement les lignes déjà en base — seules
+-- les prochaines écritures sont contrôlées).
+-- À exécuter dans Supabase : SQL Editor (une fois, indépendant des autres
+-- scripts de cette liste).
+-- ============================================================================
+
+do $$
+begin
+  if not exists (select 1 from pg_constraint where conname = 'profiles_bio_length') then
+    alter table profiles add constraint profiles_bio_length
+      check (bio is null or char_length(bio) <= 300) not valid;
+  end if;
+end $$;
+
+-- Optionnel, une fois toutes les lignes existantes vérifiées propres :
+-- valider réellement la contrainte ci-dessus (la rend opposable aux lignes
+-- déjà en base, pas seulement aux futures écritures) :
+--   alter table profiles validate constraint profiles_bio_length;
+
+
+-- ============================================================================
+-- SOURCE : supabase-remaining-text-length-guards-fix.sql
+-- ============================================================================
+-- ============================================================================
+-- Audit de confiance (cette passe) : un correctif précédent
+-- (supabase-profile-text-length-guard-fix.sql) affirmait dans son propre
+-- commentaire que "bio" était "déjà protégée côté serveur", ce qui était
+-- faux — jamais vérifié empiriquement, seulement supposé
+-- (supabase-profile-bio-length-guard-fix.sql a corrigé "bio" seule). Cette
+-- passe relit donc RÉELLEMENT le SQL de base de chaque colonne prétendument
+-- protégée, puis étend la vérification à toutes les colonnes texte libre de
+-- contenu généré par l'utilisateur trouvées dans le dépôt.
+--
+-- Résultat de l'audit des correctifs déjà écrits (aucune correction requise
+-- ici, seulement une vérification) :
+--   - supabase-profile-text-length-guard-fix.sql (name/last_name/country/
+--     province/city/occupation/arrival_city) : contraintes CHECK réellement
+--     présentes dans ce même fichier, aucune autre définition de "profiles"
+--     ne les contredit. Confirmé correct.
+--   - supabase-profile-bio-length-guard-fix.sql (bio) : idem, confirmé correct.
+--   - community_posts.body / post_comments.body / posts.body (fil général)
+--     (supabase-communities.sql, supabase-feed-posts.sql) : la contrainte
+--     "check (char_length(body) between 1 and 4000)" / "...1000)" est posée
+--     directement à la création de la table — confirmé correct par lecture
+--     directe, pas par confiance au commentaire.
+--   - event_comments.body (supabase-events-v2.sql) : même motif, confirmé
+--     correct (between 1 and 1000).
+--   - messages.text (supabase-scale-security-2.sql) : "check (text is null
+--     or char_length(text) <= 4000)" réellement présent. Confirmé correct —
+--     couvre aussi la réponse à un statut (sendStoryReply -> messages).
+--   - immigration-news/info/beta-feedback (title/summary/body/message) :
+--     contraintes "between X and Y" réellement présentes à la création des
+--     tables (supabase-info.sql, supabase-beta-tracking.sql,
+--     supabase-beta-feedback-category.sql). Confirmé correct.
+--
+-- Colonnes texte libre trouvées SANS AUCUNE contrainte serveur réelle (vérifié
+-- par lecture directe de supabase-communities.sql, supabase-events.sql,
+-- supabase-events-v2.sql, supabase-stories.sql, supabase-messaging.sql,
+-- supabase-info.sql — pas seulement grep des commentaires) — voir le tableau
+-- complet dans le résumé de session. Toutes ont déjà une limite CÔTÉ CLIENT
+-- (sauf communities.city / events.city / events.location, qui n'en ont
+-- aucune, ni client ni serveur) ; ce script ajoute la garde serveur
+-- manquante, au même modèle que les correctifs précédents : idempotent
+-- (if not exists sur pg_constraint), NOT VALID (ne valide jamais
+-- rétroactivement les lignes déjà en base — seules les prochaines écritures
+-- sont contrôlées). À exécuter dans Supabase : SQL Editor (une fois,
+-- indépendant des autres scripts de cette liste).
+-- ============================================================================
+
+-- ---------- communities (name/description/rules/city) ----------
+-- Limites alignées sur le client (CommunityCreateForm.jsx : NAME_MAX=80,
+-- DESCRIPTION_MAX=300, RULES_MAX=1000) ; "city" n'a de limite nulle part
+-- (ni client ni serveur) — alignée sur profiles_city_length (80).
+
+do $$
+begin
+  if not exists (select 1 from pg_constraint where conname = 'communities_name_length') then
+    alter table communities add constraint communities_name_length
+      check (char_length(name) <= 80) not valid;
+  end if;
+end $$;
+
+do $$
+begin
+  if not exists (select 1 from pg_constraint where conname = 'communities_description_length') then
+    alter table communities add constraint communities_description_length
+      check (description is null or char_length(description) <= 300) not valid;
+  end if;
+end $$;
+
+do $$
+begin
+  if not exists (select 1 from pg_constraint where conname = 'communities_rules_length') then
+    alter table communities add constraint communities_rules_length
+      check (rules is null or char_length(rules) <= 1000) not valid;
+  end if;
+end $$;
+
+do $$
+begin
+  if not exists (select 1 from pg_constraint where conname = 'communities_city_length') then
+    alter table communities add constraint communities_city_length
+      check (city is null or char_length(city) <= 80) not valid;
+  end if;
+end $$;
+
+-- ---------- events (title/description/city/location) ----------
+-- Limites alignées sur le client (EventCreateForm.jsx/EventEditForm.jsx :
+-- TITLE_MAX=80, DESCRIPTION_MAX=500) ; "city" (alignée sur
+-- profiles_city_length, 80) et "location" (lieu public optionnel, ex.
+-- "Café Aunja, Plateau-Mont-Royal" — 150) n'ont de limite nulle part.
+
+do $$
+begin
+  if not exists (select 1 from pg_constraint where conname = 'events_title_length') then
+    alter table events add constraint events_title_length
+      check (char_length(title) <= 80) not valid;
+  end if;
+end $$;
+
+do $$
+begin
+  if not exists (select 1 from pg_constraint where conname = 'events_description_length') then
+    alter table events add constraint events_description_length
+      check (description is null or char_length(description) <= 500) not valid;
+  end if;
+end $$;
+
+do $$
+begin
+  if not exists (select 1 from pg_constraint where conname = 'events_city_length') then
+    alter table events add constraint events_city_length
+      check (city is null or char_length(city) <= 80) not valid;
+  end if;
+end $$;
+
+do $$
+begin
+  if not exists (select 1 from pg_constraint where conname = 'events_location_length') then
+    alter table events add constraint events_location_length
+      check (location is null or char_length(location) <= 150) not valid;
+  end if;
+end $$;
+
+-- ---------- stories.text (statuts) ----------
+-- Limite alignée sur le client (StoryComposerModal.jsx : maxLength={280}).
+
+do $$
+begin
+  if not exists (select 1 from pg_constraint where conname = 'stories_text_length') then
+    alter table stories add constraint stories_text_length
+      check (text is null or char_length(text) <= 280) not valid;
+  end if;
+end $$;
+
+-- ---------- reason des signalements (profil/communauté/post/événement/info)
+-- ----------
+-- Les cinq tables de signalement partagent la même modale côté client
+-- (ReportModal.jsx), qui tronque déjà "reason" à 1000 caractères
+-- (truncateUnicodeSafe(e.target.value, 1000)) — mais aucune des cinq tables
+-- n'avait de contrainte serveur correspondante : un appel direct à l'API
+-- pouvait toujours écrire un texte de taille arbitraire. "info_reports" et
+-- "recommendation_feedback" ne sont pour l'instant appelées par aucun
+-- composant de l'interface (fonctionnalité non branchée / feedback jamais
+-- envoyé avec un motif) mais restent atteignables via l'API avec un JWT
+-- valide — protégées par cohérence avec le reste de la famille.
+
+do $$
+begin
+  if not exists (select 1 from pg_constraint where conname = 'reports_reason_length') then
+    alter table reports add constraint reports_reason_length
+      check (reason is null or char_length(reason) <= 1000) not valid;
+  end if;
+end $$;
+
+do $$
+begin
+  if not exists (select 1 from pg_constraint where conname = 'community_reports_reason_length') then
+    alter table community_reports add constraint community_reports_reason_length
+      check (reason is null or char_length(reason) <= 1000) not valid;
+  end if;
+end $$;
+
+do $$
+begin
+  if not exists (select 1 from pg_constraint where conname = 'post_reports_reason_length') then
+    alter table post_reports add constraint post_reports_reason_length
+      check (reason is null or char_length(reason) <= 1000) not valid;
+  end if;
+end $$;
+
+do $$
+begin
+  if not exists (select 1 from pg_constraint where conname = 'event_reports_reason_length') then
+    alter table event_reports add constraint event_reports_reason_length
+      check (reason is null or char_length(reason) <= 1000) not valid;
+  end if;
+end $$;
+
+do $$
+begin
+  if not exists (select 1 from pg_constraint where conname = 'info_reports_reason_length') then
+    alter table info_reports add constraint info_reports_reason_length
+      check (reason is null or char_length(reason) <= 1000) not valid;
+  end if;
+end $$;
+
+do $$
+begin
+  if not exists (select 1 from pg_constraint where conname = 'recommendation_feedback_reason_length') then
+    alter table recommendation_feedback add constraint recommendation_feedback_reason_length
+      check (reason is null or char_length(reason) <= 1000) not valid;
+  end if;
+end $$;
+
+-- ----------------------------------------------------------------------------
+-- Colonnes texte volontairement NON incluses ci-dessus, vérifiées puis
+-- écartées (pas une omission) :
+--   - profiles.interests / usage_goals / pref_looking_for / relationship_values
+--     / relationship_needs / wants_children / family_importance / career_goal
+--     / geographic_openness / personality_evening / personality_travel /
+--     immigration_status / education_level : toutes alimentées exclusivement
+--     par des ChipSelect à vocabulaire FIXE côté client (constants.js), pas
+--     du texte réellement libre — vérifié en lisant chaque Step*.jsx /
+--     EditProfileForm.jsx, pas supposé.
+--   - blocks : pas de colonne "reason" du tout (vérifié dans
+--     supabase-matching.sql) — rien à protéger.
+--   - suspend_reason / ban_reason (supabase-admin.sql) : saisis par un
+--     modérateur/admin de confiance, jamais par un utilisateur final — hors
+--     périmètre "contenu généré par l'utilisateur" de cet audit.
+--   - user_locations.city/region/country (supabase-geolocation.sql) :
+--     renseignées par le service de géolocalisation IP côté serveur, jamais
+--     tapées par l'utilisateur.
+--
+-- Optionnel, une fois toutes les lignes existantes vérifiées propres :
+-- valider réellement les contraintes ci-dessus (les rend opposables aux
+-- lignes déjà en base, pas seulement aux futures écritures) :
+--   alter table communities validate constraint communities_name_length;
+--   alter table communities validate constraint communities_description_length;
+--   alter table communities validate constraint communities_rules_length;
+--   alter table communities validate constraint communities_city_length;
+--   alter table events validate constraint events_title_length;
+--   alter table events validate constraint events_description_length;
+--   alter table events validate constraint events_city_length;
+--   alter table events validate constraint events_location_length;
+--   alter table stories validate constraint stories_text_length;
+--   alter table reports validate constraint reports_reason_length;
+--   alter table community_reports validate constraint community_reports_reason_length;
+--   alter table post_reports validate constraint post_reports_reason_length;
+--   alter table event_reports validate constraint event_reports_reason_length;
+--   alter table info_reports validate constraint info_reports_reason_length;
+--   alter table recommendation_feedback validate constraint recommendation_feedback_reason_length;
 
 
 -- ============================================================================
