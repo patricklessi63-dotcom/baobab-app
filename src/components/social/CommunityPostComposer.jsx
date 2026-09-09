@@ -1,8 +1,8 @@
 import React, { useEffect, useRef, useState } from "react";
-import { ImagePlus, Video, X } from "lucide-react";
+import { ImagePlus, Video, X, Upload } from "lucide-react";
 import Avatar from "../Avatar";
 import { validateMediaFile } from "../../lib/mediaValidation";
-import { muted, bg, primaryRgb } from "./theme";
+import { muted, bg, primary, primaryRgb } from "./theme";
 
 const MAX_LENGTH = 4000; // miroir de la contrainte community_posts.body
 
@@ -10,12 +10,12 @@ export default function CommunityPostComposer({ currentUser, draft, setDraft, on
   const [mediaFile, setMediaFile] = useState(null);
   const [mediaKind, setMediaKind] = useState("");
   const [mediaPreview, setMediaPreview] = useState("");
+  const [dragActive, setDragActive] = useState(false);
+  const dragCounterRef = useRef(0);
   const photoInputRef = useRef(null);
   const videoInputRef = useRef(null);
 
-  const onMediaSelected = async (e, kind) => {
-    const file = e.target.files?.[0];
-    e.target.value = "";
+  const applyMediaFile = async (file, kind) => {
     if (!file) return;
     const { ok, error } = await validateMediaFile(file, kind === "image" ? "image" : "video");
     // Sans ce retour, un fichier invalide (trop lourd, mauvais format) ne
@@ -25,6 +25,40 @@ export default function CommunityPostComposer({ currentUser, draft, setDraft, on
     setMediaFile(file);
     setMediaKind(kind);
     setMediaPreview(URL.createObjectURL(file));
+  };
+
+  const onMediaSelected = async (e, kind) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    await applyMediaFile(file, kind);
+  };
+
+  // Le glisser-déposer existait déjà pour la messagerie (ChatDropZone) et le
+  // fil principal (PostDropZone), mais pas ici : composeur quasi identique
+  // (texte + une photo/vidéo), incohérence non documentée. Repris en local
+  // (plutôt que PostDropZone, prévu pour un conteneur flex en plein écran)
+  // car ce composeur s'insère dans une simple carte de page, pas un modal.
+  const handleDragEnter = (e) => {
+    e.preventDefault();
+    if (!e.dataTransfer?.types?.includes("Files")) return;
+    dragCounterRef.current += 1;
+    setDragActive(true);
+  };
+  const handleDragOver = (e) => {
+    e.preventDefault();
+  };
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    dragCounterRef.current = Math.max(0, dragCounterRef.current - 1);
+    if (dragCounterRef.current === 0) setDragActive(false);
+  };
+  const handleDrop = (e) => {
+    e.preventDefault();
+    dragCounterRef.current = 0;
+    setDragActive(false);
+    const file = e.dataTransfer?.files?.[0];
+    if (!file) return;
+    applyMediaFile(file, file.type?.startsWith("video/") ? "video" : "image");
   };
 
   // Révoque l'URL blob de l'aperçu à chaque remplacement et au démontage —
@@ -59,7 +93,22 @@ export default function CommunityPostComposer({ currentUser, draft, setDraft, on
   return (
     <div className="flex gap-3">
       <Avatar name={currentUser?.name} url={currentUser?.avatar_url} size={38} />
-      <div className="flex-1">
+      <div
+        className="relative flex-1"
+        onDragEnter={handleDragEnter}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+      >
+        {dragActive && (
+          <div
+            className="hidden md:flex absolute inset-0 rounded-2xl flex-col items-center justify-center gap-2 pointer-events-none z-10"
+            style={{ background: `rgba(${primaryRgb},.06)`, border: `2px dashed ${primary}` }}
+          >
+            <Upload size={24} color={primary} />
+            <span className="text-sm font-bold" style={{ color: primary }}>Dépose ta photo ou vidéo ici</span>
+          </div>
+        )}
         <textarea
           dir="auto"
           value={draft}
