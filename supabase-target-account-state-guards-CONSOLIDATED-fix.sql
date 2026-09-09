@@ -1,68 +1,72 @@
 -- ============================================================================
--- ⚠️ SUPERSEDED (audit de régression, 2026-09-09) : les policies RLS créées
--- ici sont redéfinies (drop+create) par supabase-block-bypass-fix.sql plus
--- loin dans supabase-COMBINED-pending-fixes.sql, ce qui EFFACE la condition
--- onboarding incomplet ajoutée ici sur likes/follows/favorites/
--- event_invitations si le script consolidé est exécuté tel quel. Utiliser
--- désormais supabase-target-account-state-guards-CONSOLIDATED-fix.sql, qui
--- cumule les 4 conditions (blocage + banni/suspendu + onboarding incomplet +
--- suppression en attente) sans risque d'écrasement. Ce fichier est conservé
--- pour le contexte/l'historique de l'audit ci-dessous, mais ne doit plus être
--- exécuté seul.
--- ============================================================================
-
--- ============================================================================
--- Correctif — un compte n'ayant jamais terminé l'onboarding peut encore
--- ENVOYER (et RECEVOIR) des actions dirigées via l'API, sans aucun contrôle
--- côté base. Même principe que supabase-banned-target-action-fix.sql,
--- généralisé à onboarding_completed_at.
+-- CORRECTIF CONSOLIDÉ — remplace, dans cet ordre exact d'application logique,
+-- supabase-block-bypass-fix.sql + supabase-banned-target-action-fix.sql +
+-- supabase-onboarding-incomplete-target-action-fix.sql +
+-- supabase-deletion-pending-target-action-fix.sql pour les policies INSERT de
+-- likes / follows / favorites / messages / event_invitations.
 --
--- CONTEXTE : OnboardingWizard.jsx (src/screens/onboarding/OnboardingWizard.jsx)
--- crée la ligne "profiles" dès l'étape 1/10 (usage_goals + onboarding_step
--- seulement — pas encore de nom, d'âge, de photo ni d'aucune préférence) et
--- ne pose onboarding_completed_at qu'à l'étape 10/10. dating_enabled vaut
--- true par défaut (supabase-dating-2.sql). Le client vient d'être corrigé
--- (candidates, App.jsx) pour ne plus proposer ces profils "en cours
--- d'inscription" dans Découverte — mais c'est un garde CÔTÉ CLIENT
--- uniquement.
+-- BUG TROUVÉ (audit de régression, 2026-09-09) : les trois fichiers
+-- "*-target-action-fix.sql" (commits c4fe934, 915df69, a2b120a) sont chacun
+-- BIEN conçus en interne — chaque fichier redéfinit la policy en entier avec
+-- l'ENSEMBLE CUMULÉ des conditions des fichiers précédents (blocage + banni/
+-- suspendu + onboarding incomplet + suppression en attente), pas seulement
+-- sa propre condition ajoutée. Exécutés seuls, dans n'importe quel ordre,
+-- ils ne se marchent donc PAS dessus entre eux.
 --
--- En auditant les mêmes policies RLS d'INSERT que pour le correctif
--- banned/suspended (likes, follows, favorites, messages, event_invitations),
--- AUCUNE ne consulte onboarding_completed_at — ni pour l'auteur de l'action,
--- ni pour sa cible. Concrètement, par un appel direct à l'API Supabase
--- (fetch/PostgREST, hors UI) :
---   - un compte qui vient tout juste de créer sa ligne profils à l'étape 1
---     (avant même d'avoir choisi un nom) peut déjà liker, suivre, mettre en
---     favori, écrire ou inviter quelqu'un d'autre ;
---   - n'IMPORTE QUEL compte peut encore liker, suivre, mettre en favori,
---     écrire ou inviter un profil qui n'a jamais terminé son inscription
---     (abandon en cours de route, ou simplement pas encore rendu au bout) —
---     une personne qui n'a jamais vu ni confirmé l'écran final de
---     l'onboarding, ni choisi ses propres préférences (pref_age_min/max,
---     distance, dating_enabled...), peut donc recevoir un like/message/
---     favori/invitation en toute légitimité API, malgré l'écran "Découverte"
---     qui ne la propose plus à personne depuis le correctif client.
+-- Le problème est ailleurs : dans supabase-COMBINED-pending-fixes.sql, la
+-- section "SOURCE : supabase-block-bypass-fix.sql" (fix plus ANCIEN,
+-- commit 5756068 du 2026-09-03, qui ne connaît que la condition de blocage)
+-- a été concaténée APRÈS les trois fixes plus récents (2026-09-04), alors
+-- que son contenu est un sous-ensemble strict du leur. Ce fichier fait lui
+-- aussi un "drop policy + create policy" sur likes/follows/favorites/
+-- event_invitations (mais jamais sur messages, qui avait déjà son check de
+-- blocage via supabase-scale-security.sql et n'est pas touché par ce
+-- fichier). Résultat : exécuter supabase-COMBINED-pending-fixes.sql de haut
+-- en bas sur une base fraîche redéfinit CES 4 TABLES une quatrième fois,
+-- en dernier, avec SEULEMENT la condition de blocage — effaçant purement et
+-- simplement les gardes banni/suspendu, onboarding incomplet et suppression
+-- en attente qui venaient d'être posées juste avant pour ces 4 tables.
+-- Seule "messages" ressort intacte avec les 4 conditions cumulées, car
+-- supabase-block-bypass-fix.sql ne la redéfinit jamais.
 --
--- CORRECTIF : réplique le garde-fou "not exists (...)" déjà utilisé pour les
--- blocages (supabase-block-bypass-fix.sql) et pour banned/suspended
--- (supabase-banned-target-action-fix.sql) sur ces mêmes tables, cette fois
--- pour interdire toute nouvelle interaction dès que L'UN DES DEUX profils
--- (auteur ou cible) n'a pas encore onboarding_completed_at renseigné.
--- Additif et sans risque de régression pour les comptes ayant terminé leur
--- inscription : la condition n'ajoute qu'un NOT EXISTS supplémentaire aux
--- checks déjà en place (repris tels quels, y compris ceux du correctif
--- banned/suspended). Fichier conçu pour être exécuté indépendamment de
--- l'ordre d'exécution avec supabase-banned-target-action-fix.sql — chaque
--- policy est redéfinie en entier, avec l'ensemble cumulé des conditions
--- (blocage + banni/suspendu + onboarding), pas seulement l'ajout.
+-- IMPACT : quiconque exécute le script consolidé tel quel se retrouve avec
+-- une protection RÉELLE (au niveau base, contournable par appel API direct)
+-- uniquement sur "messages" ; sur likes/follows/favorites/event_invitations,
+-- un compte banni/suspendu, un profil n'ayant jamais terminé l'onboarding,
+-- ou un compte en attente de suppression peut de nouveau émettre/recevoir
+-- ces actions dirigées — exactement le trou que les 3 fixes visaient à
+-- combler, silencieusement rouvert par l'ordre de concaténation.
 --
--- Portée volontairement limitée aux interactions à SENS UNIQUE vers un autre
--- profil, comme pour le correctif banned/suspended. "community_members"
--- (rejoindre une communauté publique) n'a pas de profil cible distinct et
--- n'est donc pas touché ici.
+-- CORRECTIF : ce fichier redéfinit une bonne fois pour toutes, pour les 5
+-- tables, la policy INSERT avec LES 4 CONDITIONS À LA FOIS (blocage OR
+-- banni/suspendu OR onboarding incomplet OR suppression en attente — chaque
+-- "not exists" est indépendant, donc en pratique un ET logique entre les 4
+-- gardes). Idempotent (drop + create), sans risque de régression pour un
+-- compte en règle. À exécuter :
+--   - après le script consolidé complet (pour corriger l'état final), ou
+--   - seul, sur une base qui a déjà reçu un sous-ensemble quelconque des
+--     4 fichiers ci-dessus, dans n'importe quel ordre — le résultat final
+--     est toujours le même jeu de conditions complet.
+--
+-- Les 4 fichiers suivants sont donc SUPERSEDED par celui-ci pour la partie
+-- policies RLS de likes/follows/favorites/messages/event_invitations :
+--   - supabase-block-bypass-fix.sql
+--   - supabase-banned-target-action-fix.sql
+--   - supabase-onboarding-incomplete-target-action-fix.sql
+--   - supabase-deletion-pending-target-action-fix.sql
+-- (voir la note ajoutée en tête de chacun). Le reste de leur contenu
+-- (commentaires d'audit, contexte) reste valable et n'est pas dupliqué ici.
+--
+-- NUANCE CONSERVÉE TELLE QUELLE (héritée de deletion-pending-target-action-
+-- fix.sql, non tranchée par cet audit) : le bloc "messages" coupe aussi
+-- l'envoi de nouveaux messages dans une conversation déjà matchée AVANT une
+-- demande de suppression, dès qu'un des deux comptes est en attente de
+-- suppression — à retirer de la section 4 ci-dessous si ce n'est pas le
+-- comportement voulu par l'équipe.
 --
 -- IMPORTANT : fichier fourni pour revue/exécution manuelle par l'équipe.
--- Non exécuté automatiquement (règle de sécurité de cet audit).
+-- Non exécuté automatiquement (règle de sécurité de cet audit). Jamais
+-- exécuté contre la base de production par cette session.
 -- ============================================================================
 
 -- ----------------------------------------------------------------------------
@@ -94,6 +98,11 @@ begin
       select 1 from profiles p
       where p.id in (likes.from_id, likes.to_id)
         and p.onboarding_completed_at is null
+    )
+    and not exists (
+      select 1 from profiles p
+      where p.id in (likes.from_id, likes.to_id)
+        and p.deletion_requested_at is not null
     )
   );
 end $$;
@@ -128,6 +137,11 @@ begin
       where p.id in (follows.from_id, follows.to_id)
         and p.onboarding_completed_at is null
     )
+    and not exists (
+      select 1 from profiles p
+      where p.id in (follows.from_id, follows.to_id)
+        and p.deletion_requested_at is not null
+    )
   );
 end $$;
 
@@ -160,13 +174,19 @@ begin
       where p.id in (favorites.from_id, favorites.to_id)
         and p.onboarding_completed_at is null
     )
+    and not exists (
+      select 1 from profiles p
+      where p.id in (favorites.from_id, favorites.to_id)
+        and p.deletion_requested_at is not null
+    )
   );
 end $$;
 
 -- ----------------------------------------------------------------------------
--- 4. "messages" — même check ajouté à l'intérieur de la clause qui porte
--- déjà sur "other_id" (l'autre personne de la conversation), à côté des
--- contrôles de blocage et de banni/suspendu existants.
+-- 4. "messages" — même check ajouté à l'intérieur de la clause qui porte déjà
+-- sur "other_id" (l'autre personne de la conversation), à côté du contrôle de
+-- blocage existant. Voir la NUANCE en tête de fichier pour la portée exacte
+-- du bloc suppression-en-attente sur les conversations déjà matchées.
 -- ----------------------------------------------------------------------------
 do $$
 declare pol record;
@@ -203,6 +223,11 @@ begin
           where p.id in (messages.from_id, other_id::uuid)
             and p.onboarding_completed_at is null
         )
+        and not exists (
+          select 1 from profiles p
+          where p.id in (messages.from_id, other_id::uuid)
+            and p.deletion_requested_at is not null
+        )
     )
   );
 end $$;
@@ -232,6 +257,11 @@ with check (
     where p.id in (current_profile_id(), invited_profile_id)
       and p.onboarding_completed_at is null
   )
+  and not exists (
+    select 1 from profiles p
+    where p.id in (current_profile_id(), invited_profile_id)
+      and p.deletion_requested_at is not null
+  )
   and (
     (
       exists (select 1 from likes where from_id = current_profile_id() and to_id = invited_profile_id)
@@ -245,8 +275,10 @@ with check (
 );
 
 -- ----------------------------------------------------------------------------
--- Vérification (facultatif, à exécuter séparément après) :
--- select policyname, cmd, pg_get_expr(polwithcheck, polrelid)
+-- Vérification (facultatif, à exécuter séparément après) — les 5 policies
+-- doivent chacune contenir "blocks", "banned_at", "onboarding_completed_at"
+-- ET "deletion_requested_at" dans leur "with check" :
+-- select tablename, policyname, pg_get_expr(polwithcheck, polrelid) as with_check
 --   from pg_policy join pg_class on pg_class.oid = pg_policy.polrelid
 --   where pg_class.relname in ('likes','follows','favorites','messages','event_invitations')
 --   and cmd = 'a';

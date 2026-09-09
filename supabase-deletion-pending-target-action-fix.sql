@@ -1,4 +1,18 @@
 -- ============================================================================
+-- ⚠️ SUPERSEDED (audit de régression, 2026-09-09) : les policies RLS créées
+-- ici sont redéfinies (drop+create) par supabase-block-bypass-fix.sql plus
+-- loin dans supabase-COMBINED-pending-fixes.sql, ce qui EFFACE la condition
+-- suppression-en-attente ajoutée ici (et les deux précédentes, banni/suspendu
+-- + onboarding incomplet) sur likes/follows/favorites/event_invitations si le
+-- script consolidé est exécuté tel quel. Utiliser désormais
+-- supabase-target-account-state-guards-CONSOLIDATED-fix.sql, qui cumule les
+-- 4 conditions (blocage + banni/suspendu + onboarding incomplet + suppression
+-- en attente) sans risque d'écrasement. Ce fichier est conservé pour le
+-- contexte/l'historique de l'audit ci-dessous, mais ne doit plus être exécuté
+-- seul.
+-- ============================================================================
+
+-- ============================================================================
 -- Correctif — un compte ayant demandé la suppression de son profil
 -- (deletion_requested_at, délai de grâce 24h, voir
 -- supabase-account-deletion.sql / AccountDeletionBanner.jsx) peut encore

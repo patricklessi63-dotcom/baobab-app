@@ -1,4 +1,23 @@
 -- ============================================================================
+-- ⚠️ SUPERSEDED (audit de régression, 2026-09-09) : dans
+-- supabase-COMBINED-pending-fixes.sql, ce fichier (2026-09-03, ne connaît que
+-- la condition de blocage) est concaténé APRÈS supabase-banned-target-action-
+-- fix.sql / supabase-onboarding-incomplete-target-action-fix.sql / supabase-
+-- deletion-pending-target-action-fix.sql (2026-09-04, commits c4fe934/
+-- 915df69/a2b120a), qui redéfinissent déjà ces mêmes policies avec le
+-- blocage CUMULÉ à banni/suspendu + onboarding incomplet + suppression en
+-- attente. Exécuté après eux, ce fichier-ci les redéfinit une 4e fois avec
+-- SEULEMENT la condition de blocage — effaçant silencieusement les 3 autres
+-- gardes sur likes/follows/favorites/event_invitations ("messages" n'est pas
+-- touché par ce fichier et reste protégé). Utiliser désormais
+-- supabase-target-account-state-guards-CONSOLIDATED-fix.sql (à exécuter en
+-- dernier, ou seul) pour garantir les 4 conditions cumulées quel que soit
+-- l'ordre d'exécution passé. Ce fichier est conservé pour le contexte/
+-- l'historique de l'audit ci-dessous, mais ne doit plus être exécuté seul
+-- après les trois fixes ci-dessus.
+-- ============================================================================
+
+-- ============================================================================
 -- Correctif — contournement du blocage via likes / follows / favorites /
 -- invitations d'événement.
 --

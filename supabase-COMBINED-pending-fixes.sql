@@ -1467,529 +1467,77 @@ for each row execute function check_event_invite_rate_limit();
 
 
 -- ============================================================================
--- SOURCE : supabase-banned-target-action-fix.sql
+-- SOURCE : supabase-target-account-state-guards-CONSOLIDATED-fix.sql
 -- ============================================================================
 -- ============================================================================
--- Correctif — un compte banni ou suspendu peut encore RECEVOIR (et ENVOYER)
--- des actions dirigées via l'API, sans aucun contrôle côté base.
+-- CORRECTIF CONSOLIDÉ — remplace, dans cet ordre exact d'application logique,
+-- supabase-block-bypass-fix.sql + supabase-banned-target-action-fix.sql +
+-- supabase-onboarding-incomplete-target-action-fix.sql +
+-- supabase-deletion-pending-target-action-fix.sql pour les policies INSERT de
+-- likes / follows / favorites / messages / event_invitations.
 --
--- CONTEXTE : l'admin peut bannir/suspendre un profil (profiles.banned_at /
--- profiles.suspended_until, voir supabase-admin.sql). Côté client, cet état
--- est bien vérifié pour SON PROPRE compte (App.jsx, vue "banned"/"suspended"
--- qui remplace tout l'écran) et, depuis peu, affiché comme indication dans
--- une conversation déjà ouverte avec un tiers banni/suspendu (voir
--- ConversationPane.jsx / MessagesTab.jsx). Mais ce sont des gardes CÔTÉ
--- CLIENT uniquement.
+-- BUG TROUVÉ (audit de régression, 2026-09-09) : les trois fichiers
+-- "*-target-action-fix.sql" (commits c4fe934, 915df69, a2b120a) sont chacun
+-- BIEN conçus en interne — chaque fichier redéfinit la policy en entier avec
+-- l'ENSEMBLE CUMULÉ des conditions des fichiers précédents (blocage + banni/
+-- suspendu + onboarding incomplet + suppression en attente), pas seulement
+-- sa propre condition ajoutée. Exécutés seuls, dans n'importe quel ordre,
+-- ils ne se marchent donc PAS dessus entre eux.
 --
--- En auditant les policies RLS d'INSERT des tables qui créent une
--- interaction dirigée vers un autre profil (likes, follows, favorites,
--- messages, event_invitations), AUCUNE ne consulte banned_at/suspended_until
--- — ni pour l'auteur de l'action, ni pour sa cible. Concrètement, par un
--- appel direct à l'API Supabase (fetch/PostgREST, hors UI) :
---   - un compte banni/suspendu peut continuer à liker, suivre, mettre en
---     favori, écrire ou inviter, malgré l'écran de blocage côté client ;
---   - n'IMPORTE QUEL compte (même normal, via l'UI standard : Découverte,
---     recherche globale, favoris, abonnés/abonnements, membres d'une
---     communauté, participants d'un événement — aucun de ces écrans ne
---     filtre les profils bannis/suspendus) peut encore liker, suivre, mettre
---     en favori, écrire ou inviter un profil qui vient d'être banni ou
---     suspendu, puisque rien ne l'interdit côté serveur.
+-- Le problème est ailleurs : dans supabase-COMBINED-pending-fixes.sql, la
+-- section "SOURCE : supabase-block-bypass-fix.sql" (fix plus ANCIEN,
+-- commit 5756068 du 2026-09-03, qui ne connaît que la condition de blocage)
+-- a été concaténée APRÈS les trois fixes plus récents (2026-09-04), alors
+-- que son contenu est un sous-ensemble strict du leur. Ce fichier fait lui
+-- aussi un "drop policy + create policy" sur likes/follows/favorites/
+-- event_invitations (mais jamais sur messages, qui avait déjà son check de
+-- blocage via supabase-scale-security.sql et n'est pas touché par ce
+-- fichier). Résultat : exécuter supabase-COMBINED-pending-fixes.sql de haut
+-- en bas sur une base fraîche redéfinit CES 4 TABLES une quatrième fois,
+-- en dernier, avec SEULEMENT la condition de blocage — effaçant purement et
+-- simplement les gardes banni/suspendu, onboarding incomplet et suppression
+-- en attente qui venaient d'être posées juste avant pour ces 4 tables.
+-- Seule "messages" ressort intacte avec les 4 conditions cumulées, car
+-- supabase-block-bypass-fix.sql ne la redéfinit jamais.
 --
--- CORRECTIF : réplique le même garde-fou "not exists (...)" déjà utilisé
--- pour les blocages (supabase-block-bypass-fix.sql) sur ces mêmes tables,
--- cette fois pour interdire toute nouvelle interaction dès que L'UN DES DEUX
--- profils (auteur ou cible) est banni, ou suspendu avec une suspension
--- encore active (suspended_until > now()). Additif et sans risque de
--- régression pour les comptes en règle : la condition n'ajoute qu'un NOT
--- EXISTS supplémentaire aux checks déjà en place (repris tels quels).
+-- IMPACT : quiconque exécute le script consolidé tel quel se retrouve avec
+-- une protection RÉELLE (au niveau base, contournable par appel API direct)
+-- uniquement sur "messages" ; sur likes/follows/favorites/event_invitations,
+-- un compte banni/suspendu, un profil n'ayant jamais terminé l'onboarding,
+-- ou un compte en attente de suppression peut de nouveau émettre/recevoir
+-- ces actions dirigées — exactement le trou que les 3 fixes visaient à
+-- combler, silencieusement rouvert par l'ordre de concaténation.
 --
--- Portée volontairement limitée aux interactions à SENS UNIQUE vers un autre
--- profil. "community_members" (rejoindre une communauté publique) n'a pas de
--- profil cible distinct — seul l'auteur agit pour lui-même, déjà couvert par
--- l'écran client "banned"/"suspended" — et n'est donc pas touché ici.
+-- CORRECTIF : ce fichier redéfinit une bonne fois pour toutes, pour les 5
+-- tables, la policy INSERT avec LES 4 CONDITIONS À LA FOIS (blocage OR
+-- banni/suspendu OR onboarding incomplet OR suppression en attente — chaque
+-- "not exists" est indépendant, donc en pratique un ET logique entre les 4
+-- gardes). Idempotent (drop + create), sans risque de régression pour un
+-- compte en règle. À exécuter :
+--   - après le script consolidé complet (pour corriger l'état final), ou
+--   - seul, sur une base qui a déjà reçu un sous-ensemble quelconque des
+--     4 fichiers ci-dessus, dans n'importe quel ordre — le résultat final
+--     est toujours le même jeu de conditions complet.
+--
+-- Les 4 fichiers suivants sont donc SUPERSEDED par celui-ci pour la partie
+-- policies RLS de likes/follows/favorites/messages/event_invitations :
+--   - supabase-block-bypass-fix.sql
+--   - supabase-banned-target-action-fix.sql
+--   - supabase-onboarding-incomplete-target-action-fix.sql
+--   - supabase-deletion-pending-target-action-fix.sql
+-- (voir la note ajoutée en tête de chacun). Le reste de leur contenu
+-- (commentaires d'audit, contexte) reste valable et n'est pas dupliqué ici.
+--
+-- NUANCE CONSERVÉE TELLE QUELLE (héritée de deletion-pending-target-action-
+-- fix.sql, non tranchée par cet audit) : le bloc "messages" coupe aussi
+-- l'envoi de nouveaux messages dans une conversation déjà matchée AVANT une
+-- demande de suppression, dès qu'un des deux comptes est en attente de
+-- suppression — à retirer de la section 4 ci-dessous si ce n'est pas le
+-- comportement voulu par l'équipe.
 --
 -- IMPORTANT : fichier fourni pour revue/exécution manuelle par l'équipe.
--- Non exécuté automatiquement (règle de sécurité de cet audit).
--- ============================================================================
-
--- ----------------------------------------------------------------------------
--- 1. "likes"
--- ----------------------------------------------------------------------------
-do $$
-declare pol record;
-begin
-  for pol in select policyname from pg_policies where schemaname = 'public' and tablename = 'likes' and cmd = 'INSERT' loop
-    execute format('drop policy %I on public.likes', pol.policyname);
-  end loop;
-
-  create policy "Un utilisateur like en son propre nom"
-  on likes for insert
-  with check (
-    auth.uid() = (select user_id from profiles where id = likes.from_id)
-    and likes.from_id <> likes.to_id
-    and not exists (
-      select 1 from blocks
-      where (blocks.from_id = likes.from_id and blocks.to_id = likes.to_id)
-         or (blocks.from_id = likes.to_id and blocks.to_id = likes.from_id)
-    )
-    and not exists (
-      select 1 from profiles p
-      where p.id in (likes.from_id, likes.to_id)
-        and (p.banned_at is not null or (p.suspended_until is not null and p.suspended_until > now()))
-    )
-  );
-end $$;
-
--- ----------------------------------------------------------------------------
--- 2. "follows"
--- ----------------------------------------------------------------------------
-do $$
-declare pol record;
-begin
-  for pol in select policyname from pg_policies where schemaname = 'public' and tablename = 'follows' and cmd = 'INSERT' loop
-    execute format('drop policy %I on public.follows', pol.policyname);
-  end loop;
-
-  create policy "Un utilisateur s'abonne en son propre nom"
-  on follows for insert
-  with check (
-    current_profile_id() = follows.from_id
-    and follows.from_id <> follows.to_id
-    and not exists (
-      select 1 from blocks
-      where (blocks.from_id = follows.from_id and blocks.to_id = follows.to_id)
-         or (blocks.from_id = follows.to_id and blocks.to_id = follows.from_id)
-    )
-    and not exists (
-      select 1 from profiles p
-      where p.id in (follows.from_id, follows.to_id)
-        and (p.banned_at is not null or (p.suspended_until is not null and p.suspended_until > now()))
-    )
-  );
-end $$;
-
--- ----------------------------------------------------------------------------
--- 3. "favorites"
--- ----------------------------------------------------------------------------
-do $$
-declare pol record;
-begin
-  for pol in select policyname from pg_policies where schemaname = 'public' and tablename = 'favorites' and cmd = 'INSERT' loop
-    execute format('drop policy %I on public.favorites', pol.policyname);
-  end loop;
-
-  create policy "Un utilisateur ajoute ses propres favoris"
-  on favorites for insert
-  with check (
-    auth.uid() = (select user_id from profiles where id = favorites.from_id)
-    and not exists (
-      select 1 from blocks
-      where (blocks.from_id = favorites.from_id and blocks.to_id = favorites.to_id)
-         or (blocks.from_id = favorites.to_id and blocks.to_id = favorites.from_id)
-    )
-    and not exists (
-      select 1 from profiles p
-      where p.id in (favorites.from_id, favorites.to_id)
-        and (p.banned_at is not null or (p.suspended_until is not null and p.suspended_until > now()))
-    )
-  );
-end $$;
-
--- ----------------------------------------------------------------------------
--- 4. "messages" — même check ajouté à l'intérieur de la clause qui porte
--- déjà sur "other_id" (l'autre personne de la conversation), à côté du
--- contrôle de blocage existant.
--- ----------------------------------------------------------------------------
-do $$
-declare pol record;
-begin
-  for pol in select policyname from pg_policies where schemaname = 'public' and tablename = 'messages' and cmd = 'INSERT' loop
-    execute format('drop policy %I on public.messages', pol.policyname);
-  end loop;
-
-  create policy "Un utilisateur envoie seulement dans une conversation matchee"
-  on messages for insert
-  with check (
-    auth.uid() = (select user_id from profiles where id = messages.from_id)
-    and array_length(string_to_array(messages.match_key, '__'), 1) = 2
-    and (select id from profiles where user_id = auth.uid())::text
-      = any (string_to_array(messages.match_key, '__'))
-    and exists (
-      select 1
-      from unnest(string_to_array(messages.match_key, '__')) as other_id
-      where other_id::uuid <> messages.from_id
-        and exists (select 1 from likes where from_id = messages.from_id and to_id = other_id::uuid)
-        and exists (select 1 from likes where from_id = other_id::uuid and to_id = messages.from_id)
-        and not exists (
-          select 1 from blocks
-          where (blocks.from_id = messages.from_id and blocks.to_id = other_id::uuid)
-             or (blocks.from_id = other_id::uuid and blocks.to_id = messages.from_id)
-        )
-        and not exists (
-          select 1 from profiles p
-          where p.id in (messages.from_id, other_id::uuid)
-            and (p.banned_at is not null or (p.suspended_until is not null and p.suspended_until > now()))
-        )
-    )
-  );
-end $$;
-
--- ----------------------------------------------------------------------------
--- 5. "event_invitations"
--- ----------------------------------------------------------------------------
-drop policy if exists "Inviter en son propre nom si participant et connexion reelle" on event_invitations;
-create policy "Inviter en son propre nom si participant et connexion reelle"
-on event_invitations for insert
-with check (
-  invited_by = current_profile_id()
-  and not exists (select 1 from events e where e.id = event_id and e.canceled_at is not null)
-  and (is_event_participant(event_id) or is_event_mod(event_id))
-  and not exists (
-    select 1 from blocks
-    where (blocks.from_id = current_profile_id() and blocks.to_id = invited_profile_id)
-       or (blocks.from_id = invited_profile_id and blocks.to_id = current_profile_id())
-  )
-  and not exists (
-    select 1 from profiles p
-    where p.id in (current_profile_id(), invited_profile_id)
-      and (p.banned_at is not null or (p.suspended_until is not null and p.suspended_until > now()))
-  )
-  and (
-    (
-      exists (select 1 from likes where from_id = current_profile_id() and to_id = invited_profile_id)
-      and exists (select 1 from likes where from_id = invited_profile_id and to_id = current_profile_id())
-    )
-    or (
-      (select community_id from events where id = event_id) is not null
-      and is_community_member((select community_id from events where id = event_id))
-    )
-  )
-);
-
--- ----------------------------------------------------------------------------
--- Vérification (facultatif, à exécuter séparément après) :
--- select policyname, cmd, pg_get_expr(polwithcheck, polrelid)
---   from pg_policy join pg_class on pg_class.oid = pg_policy.polrelid
---   where pg_class.relname in ('likes','follows','favorites','messages','event_invitations')
---   and cmd = 'a';
--- ============================================================================
-
-
--- ============================================================================
--- SOURCE : supabase-onboarding-incomplete-target-action-fix.sql
--- ============================================================================
--- ============================================================================
--- Correctif — un compte n'ayant jamais terminé l'onboarding peut encore
--- ENVOYER (et RECEVOIR) des actions dirigées via l'API, sans aucun contrôle
--- côté base. Même principe que supabase-banned-target-action-fix.sql,
--- généralisé à onboarding_completed_at.
---
--- CONTEXTE : OnboardingWizard.jsx (src/screens/onboarding/OnboardingWizard.jsx)
--- crée la ligne "profiles" dès l'étape 1/10 (usage_goals + onboarding_step
--- seulement — pas encore de nom, d'âge, de photo ni d'aucune préférence) et
--- ne pose onboarding_completed_at qu'à l'étape 10/10. dating_enabled vaut
--- true par défaut (supabase-dating-2.sql). Le client vient d'être corrigé
--- (candidates, App.jsx) pour ne plus proposer ces profils "en cours
--- d'inscription" dans Découverte — mais c'est un garde CÔTÉ CLIENT
--- uniquement.
---
--- En auditant les mêmes policies RLS d'INSERT que pour le correctif
--- banned/suspended (likes, follows, favorites, messages, event_invitations),
--- AUCUNE ne consulte onboarding_completed_at — ni pour l'auteur de l'action,
--- ni pour sa cible. Concrètement, par un appel direct à l'API Supabase
--- (fetch/PostgREST, hors UI) :
---   - un compte qui vient tout juste de créer sa ligne profils à l'étape 1
---     (avant même d'avoir choisi un nom) peut déjà liker, suivre, mettre en
---     favori, écrire ou inviter quelqu'un d'autre ;
---   - n'IMPORTE QUEL compte peut encore liker, suivre, mettre en favori,
---     écrire ou inviter un profil qui n'a jamais terminé son inscription
---     (abandon en cours de route, ou simplement pas encore rendu au bout) —
---     une personne qui n'a jamais vu ni confirmé l'écran final de
---     l'onboarding, ni choisi ses propres préférences (pref_age_min/max,
---     distance, dating_enabled...), peut donc recevoir un like/message/
---     favori/invitation en toute légitimité API, malgré l'écran "Découverte"
---     qui ne la propose plus à personne depuis le correctif client.
---
--- CORRECTIF : réplique le garde-fou "not exists (...)" déjà utilisé pour les
--- blocages (supabase-block-bypass-fix.sql) et pour banned/suspended
--- (supabase-banned-target-action-fix.sql) sur ces mêmes tables, cette fois
--- pour interdire toute nouvelle interaction dès que L'UN DES DEUX profils
--- (auteur ou cible) n'a pas encore onboarding_completed_at renseigné.
--- Additif et sans risque de régression pour les comptes ayant terminé leur
--- inscription : la condition n'ajoute qu'un NOT EXISTS supplémentaire aux
--- checks déjà en place (repris tels quels, y compris ceux du correctif
--- banned/suspended). Fichier conçu pour être exécuté indépendamment de
--- l'ordre d'exécution avec supabase-banned-target-action-fix.sql — chaque
--- policy est redéfinie en entier, avec l'ensemble cumulé des conditions
--- (blocage + banni/suspendu + onboarding), pas seulement l'ajout.
---
--- Portée volontairement limitée aux interactions à SENS UNIQUE vers un autre
--- profil, comme pour le correctif banned/suspended. "community_members"
--- (rejoindre une communauté publique) n'a pas de profil cible distinct et
--- n'est donc pas touché ici.
---
--- IMPORTANT : fichier fourni pour revue/exécution manuelle par l'équipe.
--- Non exécuté automatiquement (règle de sécurité de cet audit).
--- ============================================================================
-
--- ----------------------------------------------------------------------------
--- 1. "likes"
--- ----------------------------------------------------------------------------
-do $$
-declare pol record;
-begin
-  for pol in select policyname from pg_policies where schemaname = 'public' and tablename = 'likes' and cmd = 'INSERT' loop
-    execute format('drop policy %I on public.likes', pol.policyname);
-  end loop;
-
-  create policy "Un utilisateur like en son propre nom"
-  on likes for insert
-  with check (
-    auth.uid() = (select user_id from profiles where id = likes.from_id)
-    and likes.from_id <> likes.to_id
-    and not exists (
-      select 1 from blocks
-      where (blocks.from_id = likes.from_id and blocks.to_id = likes.to_id)
-         or (blocks.from_id = likes.to_id and blocks.to_id = likes.from_id)
-    )
-    and not exists (
-      select 1 from profiles p
-      where p.id in (likes.from_id, likes.to_id)
-        and (p.banned_at is not null or (p.suspended_until is not null and p.suspended_until > now()))
-    )
-    and not exists (
-      select 1 from profiles p
-      where p.id in (likes.from_id, likes.to_id)
-        and p.onboarding_completed_at is null
-    )
-  );
-end $$;
-
--- ----------------------------------------------------------------------------
--- 2. "follows"
--- ----------------------------------------------------------------------------
-do $$
-declare pol record;
-begin
-  for pol in select policyname from pg_policies where schemaname = 'public' and tablename = 'follows' and cmd = 'INSERT' loop
-    execute format('drop policy %I on public.follows', pol.policyname);
-  end loop;
-
-  create policy "Un utilisateur s'abonne en son propre nom"
-  on follows for insert
-  with check (
-    current_profile_id() = follows.from_id
-    and follows.from_id <> follows.to_id
-    and not exists (
-      select 1 from blocks
-      where (blocks.from_id = follows.from_id and blocks.to_id = follows.to_id)
-         or (blocks.from_id = follows.to_id and blocks.to_id = follows.from_id)
-    )
-    and not exists (
-      select 1 from profiles p
-      where p.id in (follows.from_id, follows.to_id)
-        and (p.banned_at is not null or (p.suspended_until is not null and p.suspended_until > now()))
-    )
-    and not exists (
-      select 1 from profiles p
-      where p.id in (follows.from_id, follows.to_id)
-        and p.onboarding_completed_at is null
-    )
-  );
-end $$;
-
--- ----------------------------------------------------------------------------
--- 3. "favorites"
--- ----------------------------------------------------------------------------
-do $$
-declare pol record;
-begin
-  for pol in select policyname from pg_policies where schemaname = 'public' and tablename = 'favorites' and cmd = 'INSERT' loop
-    execute format('drop policy %I on public.favorites', pol.policyname);
-  end loop;
-
-  create policy "Un utilisateur ajoute ses propres favoris"
-  on favorites for insert
-  with check (
-    auth.uid() = (select user_id from profiles where id = favorites.from_id)
-    and not exists (
-      select 1 from blocks
-      where (blocks.from_id = favorites.from_id and blocks.to_id = favorites.to_id)
-         or (blocks.from_id = favorites.to_id and blocks.to_id = favorites.from_id)
-    )
-    and not exists (
-      select 1 from profiles p
-      where p.id in (favorites.from_id, favorites.to_id)
-        and (p.banned_at is not null or (p.suspended_until is not null and p.suspended_until > now()))
-    )
-    and not exists (
-      select 1 from profiles p
-      where p.id in (favorites.from_id, favorites.to_id)
-        and p.onboarding_completed_at is null
-    )
-  );
-end $$;
-
--- ----------------------------------------------------------------------------
--- 4. "messages" — même check ajouté à l'intérieur de la clause qui porte
--- déjà sur "other_id" (l'autre personne de la conversation), à côté des
--- contrôles de blocage et de banni/suspendu existants.
--- ----------------------------------------------------------------------------
-do $$
-declare pol record;
-begin
-  for pol in select policyname from pg_policies where schemaname = 'public' and tablename = 'messages' and cmd = 'INSERT' loop
-    execute format('drop policy %I on public.messages', pol.policyname);
-  end loop;
-
-  create policy "Un utilisateur envoie seulement dans une conversation matchee"
-  on messages for insert
-  with check (
-    auth.uid() = (select user_id from profiles where id = messages.from_id)
-    and array_length(string_to_array(messages.match_key, '__'), 1) = 2
-    and (select id from profiles where user_id = auth.uid())::text
-      = any (string_to_array(messages.match_key, '__'))
-    and exists (
-      select 1
-      from unnest(string_to_array(messages.match_key, '__')) as other_id
-      where other_id::uuid <> messages.from_id
-        and exists (select 1 from likes where from_id = messages.from_id and to_id = other_id::uuid)
-        and exists (select 1 from likes where from_id = other_id::uuid and to_id = messages.from_id)
-        and not exists (
-          select 1 from blocks
-          where (blocks.from_id = messages.from_id and blocks.to_id = other_id::uuid)
-             or (blocks.from_id = other_id::uuid and blocks.to_id = messages.from_id)
-        )
-        and not exists (
-          select 1 from profiles p
-          where p.id in (messages.from_id, other_id::uuid)
-            and (p.banned_at is not null or (p.suspended_until is not null and p.suspended_until > now()))
-        )
-        and not exists (
-          select 1 from profiles p
-          where p.id in (messages.from_id, other_id::uuid)
-            and p.onboarding_completed_at is null
-        )
-    )
-  );
-end $$;
-
--- ----------------------------------------------------------------------------
--- 5. "event_invitations"
--- ----------------------------------------------------------------------------
-drop policy if exists "Inviter en son propre nom si participant et connexion reelle" on event_invitations;
-create policy "Inviter en son propre nom si participant et connexion reelle"
-on event_invitations for insert
-with check (
-  invited_by = current_profile_id()
-  and not exists (select 1 from events e where e.id = event_id and e.canceled_at is not null)
-  and (is_event_participant(event_id) or is_event_mod(event_id))
-  and not exists (
-    select 1 from blocks
-    where (blocks.from_id = current_profile_id() and blocks.to_id = invited_profile_id)
-       or (blocks.from_id = invited_profile_id and blocks.to_id = current_profile_id())
-  )
-  and not exists (
-    select 1 from profiles p
-    where p.id in (current_profile_id(), invited_profile_id)
-      and (p.banned_at is not null or (p.suspended_until is not null and p.suspended_until > now()))
-  )
-  and not exists (
-    select 1 from profiles p
-    where p.id in (current_profile_id(), invited_profile_id)
-      and p.onboarding_completed_at is null
-  )
-  and (
-    (
-      exists (select 1 from likes where from_id = current_profile_id() and to_id = invited_profile_id)
-      and exists (select 1 from likes where from_id = invited_profile_id and to_id = current_profile_id())
-    )
-    or (
-      (select community_id from events where id = event_id) is not null
-      and is_community_member((select community_id from events where id = event_id))
-    )
-  )
-);
-
--- ----------------------------------------------------------------------------
--- Vérification (facultatif, à exécuter séparément après) :
--- select policyname, cmd, pg_get_expr(polwithcheck, polrelid)
---   from pg_policy join pg_class on pg_class.oid = pg_policy.polrelid
---   where pg_class.relname in ('likes','follows','favorites','messages','event_invitations')
---   and cmd = 'a';
--- ============================================================================
-
-
--- ============================================================================
--- SOURCE : supabase-deletion-pending-target-action-fix.sql
--- ============================================================================
--- ============================================================================
--- Correctif — un compte ayant demandé la suppression de son profil
--- (deletion_requested_at, délai de grâce 24h, voir
--- supabase-account-deletion.sql / AccountDeletionBanner.jsx) peut encore
--- RECEVOIR (et ENVOYER) des actions dirigées via l'API, sans aucun contrôle
--- côté base. Même principe que supabase-banned-target-action-fix.sql et
--- supabase-onboarding-incomplete-target-action-fix.sql, généralisé à
--- deletion_requested_at.
---
--- CONTEXTE : requestAccountDeletion() (src/lib/deleteAccount.js) se contente
--- de poser profiles.deletion_requested_at = now() ; la suppression réelle
--- (Storage inclus) n'a lieu que 24h plus tard, via la tâche planifiée
--- process-scheduled-deletions. Le client vient d'être corrigé (candidates,
--- App.jsx) pour ne plus proposer ces profils "en attente de suppression"
--- dans Découverte — mais c'est un garde CÔTÉ CLIENT uniquement.
---
--- En auditant les mêmes policies RLS d'INSERT que pour les correctifs
--- banned/suspended et onboarding incomplet (likes, follows, favorites,
--- messages, event_invitations), AUCUNE ne consulte deletion_requested_at —
--- ni pour l'auteur de l'action, ni pour sa cible. Concrètement, par un appel
--- direct à l'API Supabase (fetch/PostgREST, hors UI) :
---   - n'IMPORTE QUEL compte peut encore liker, suivre, mettre en favori,
---     écrire ou inviter un profil qui vient de demander la suppression de
---     son compte, malgré l'écran "Découverte" qui ne le propose plus à
---     personne depuis le correctif client — créant un nouveau match/like
---     voué à disparaître sans préavis dans les 24h qui suivent ;
---   - un compte en attente de suppression peut lui-même continuer à agir
---     normalement (ce qui est VOULU, voir la note ci-dessous).
---
--- NUANCE PAR RAPPORT AUX DEUX CORRECTIFS PRÉCÉDENTS (à trancher par
--- l'équipe avant exécution) : supabase-account-deletion.sql documente
--- explicitement que le compte "reste pleinement fonctionnel (pas de
--- restriction d'accès pendant les 24h), seule la bannière côté client
--- change son comportement". Ce correctif-ci reprend malgré tout EXACTEMENT
--- le même gabarit symétrique (auteur OU cible) que pour banned/suspended et
--- onboarding incomplet, y compris sur "messages" — ce qui, contrairement
--- aux deux correctifs précédents, peut couper une conversation déjà
--- matchée AVANT la demande de suppression (pas seulement empêcher un
--- nouveau match) dès qu'un des deux comptes est en attente de suppression.
--- C'est un vrai changement de comportement pour des comptes qui n'ont rien
--- fait de mal (contrairement à banned/suspended) et qui ont simplement
--- demandé leur propre suppression — à évaluer par l'équipe : si ce n'est
--- pas le comportement voulu, retirer le bloc "messages" ci-dessous (section
--- 4) avant exécution, ou le restreindre pour ne bloquer que les NOUVEAUX
--- matchs (via "likes"/"follows"/"favorites"/"event_invitations", sections
--- 1/2/3/5) sans toucher aux conversations déjà en cours.
---
--- CORRECTIF (tel qu'appliqué ici) : réplique le garde-fou "not exists (...)"
--- déjà utilisé pour les blocages, banned/suspended et onboarding incomplet
--- sur ces mêmes tables, cette fois pour interdire toute nouvelle
--- interaction dès que L'UN DES DEUX profils (auteur ou cible) a
--- deletion_requested_at renseigné. Additif et sans risque de régression
--- pour les comptes n'ayant pas demandé leur suppression : la condition
--- n'ajoute qu'un NOT EXISTS supplémentaire aux checks déjà en place (repris
--- tels quels, y compris ceux des deux correctifs précédents). Fichier conçu
--- pour être exécuté indépendamment de l'ordre d'exécution avec les deux
--- fichiers précédents — chaque policy est redéfinie en entier, avec
--- l'ensemble cumulé des conditions (blocage + banni/suspendu + onboarding +
--- suppression en attente), pas seulement l'ajout.
---
--- Portée volontairement limitée aux interactions à SENS UNIQUE vers un
--- autre profil, comme pour les deux correctifs précédents.
--- "community_members" (rejoindre une communauté publique) n'a pas de profil
--- cible distinct et n'est donc pas touché ici.
---
--- IMPORTANT : fichier fourni pour revue/exécution manuelle par l'équipe.
--- Non exécuté automatiquement (règle de sécurité de cet audit).
+-- Non exécuté automatiquement (règle de sécurité de cet audit). Jamais
+-- exécuté contre la base de production par cette session.
 -- ============================================================================
 
 -- ----------------------------------------------------------------------------
@@ -2106,13 +1654,10 @@ begin
 end $$;
 
 -- ----------------------------------------------------------------------------
--- 4. "messages" — même check ajouté à l'intérieur de la clause qui porte
--- déjà sur "other_id" (l'autre personne de la conversation), à côté des
--- contrôles de blocage, banni/suspendu et onboarding incomplet existants.
--- VOIR LA NUANCE CI-DESSUS : ce bloc coupe aussi l'envoi de nouveaux
--- messages dans une conversation déjà matchée avant la demande de
--- suppression, dès que l'un des deux comptes est en attente de suppression
--- — à retirer avant exécution si ce n'est pas le comportement voulu.
+-- 4. "messages" — même check ajouté à l'intérieur de la clause qui porte déjà
+-- sur "other_id" (l'autre personne de la conversation), à côté du contrôle de
+-- blocage existant. Voir la NUANCE en tête de fichier pour la portée exacte
+-- du bloc suppression-en-attente sur les conversations déjà matchées.
 -- ----------------------------------------------------------------------------
 do $$
 declare pol record;
@@ -2201,10 +1746,13 @@ with check (
 );
 
 -- ----------------------------------------------------------------------------
--- Vérification (facultatif, à exécuter séparément après) :
--- select policyname, cmd, pg_get_expr(polwithcheck, polrelid)
--- from pg_policies join pg_policy on pg_policy.polname = pg_policies.policyname
--- where schemaname = 'public' and tablename in ('likes','follows','favorites','messages','event_invitations') and cmd = 'INSERT';
+-- Vérification (facultatif, à exécuter séparément après) — les 5 policies
+-- doivent chacune contenir "blocks", "banned_at", "onboarding_completed_at"
+-- ET "deletion_requested_at" dans leur "with check" :
+-- select tablename, policyname, pg_get_expr(polwithcheck, polrelid) as with_check
+--   from pg_policy join pg_class on pg_class.oid = pg_policy.polrelid
+--   where pg_class.relname in ('likes','follows','favorites','messages','event_invitations')
+--   and cmd = 'a';
 -- ============================================================================
 
 
@@ -3985,143 +3533,22 @@ $$;
 -- SOURCE : supabase-block-bypass-fix.sql
 -- ============================================================================
 -- ============================================================================
--- Correctif — contournement du blocage via likes / follows / favorites /
--- invitations d'événement.
---
--- CONTEXTE : la policy INSERT de "messages" (supabase-scale-security.sql)
--- vérifie déjà qu'aucun blocage n'existe entre les deux profils dans un sens
--- ou l'autre avant d'autoriser l'envoi. Mais en croisant ce même pattern sur
--- les tables sœurs qui créent aussi une interaction dirigée vers une autre
--- personne (likes, follows, favorites, event_invitations), AUCUNE d'elles ne
--- fait ce contrôle : leur policy INSERT vérifie seulement que l'auteur agit
--- en son propre nom (auth.uid() = ... from_id), jamais l'absence de blocage.
---
--- IMPACT CONCRET : le filtrage "blockedIds" dans l'app (SocialShell.jsx,
--- App.jsx, matchingService.js) est fait CÔTÉ CLIENT — il masque les profils
--- bloqués dans les listes affichées, mais ne protège en rien contre un appel
--- direct à l'API Supabase (fetch/Postgrest) avec un to_id/invited_profile_id
--- arbitraire. Concrètement, une personne qui vient d'être bloquée par sa
--- victime peut TOUJOURS, par ce chemin détourné :
---   - la liker à nouveau (table "likes"),
---   - s'abonner à elle (table "follows", ce qui déclenche une notification
---     "new_follower" — donc un contact indirect malgré le blocage),
---   - l'ajouter à ses favoris (table "favorites"),
---   - l'inviter à un événement si un like mutuel existait avant le blocage,
---     ou si les deux sont membres de la même communauté (table
---     "event_invitations" — déclenche aussi une notification "event_invite").
---
--- CORRECTIF : réplique exactement le garde-fou "not exists (select 1 from
--- blocks where ...)" déjà utilisé pour "messages" sur ces 4 tables. Additif
--- et sans risque de régression : un utilisateur non bloqué n'est jamais
--- affecté, la condition n'ajoute qu'un NOT EXISTS supplémentaire aux checks
--- déjà en place.
--- ============================================================================
-
--- ----------------------------------------------------------------------------
--- 1. "likes" — un blocage (dans un sens ou l'autre) empêche désormais tout
--- nouveau like entre les deux profils.
--- ----------------------------------------------------------------------------
-do $$
-declare pol record;
-begin
-  for pol in select policyname from pg_policies where schemaname = 'public' and tablename = 'likes' and cmd = 'INSERT' loop
-    execute format('drop policy %I on public.likes', pol.policyname);
-  end loop;
-
-  create policy "Un utilisateur like en son propre nom"
-  on likes for insert
-  with check (
-    auth.uid() = (select user_id from profiles where id = likes.from_id)
-    and likes.from_id <> likes.to_id
-    and not exists (
-      select 1 from blocks
-      where (blocks.from_id = likes.from_id and blocks.to_id = likes.to_id)
-         or (blocks.from_id = likes.to_id and blocks.to_id = likes.from_id)
-    )
-  );
-end $$;
-
--- ----------------------------------------------------------------------------
--- 2. "follows" — idem : impossible de s'abonner à quelqu'un avec qui un
--- blocage existe (dans un sens ou l'autre).
--- ----------------------------------------------------------------------------
-do $$
-declare pol record;
-begin
-  for pol in select policyname from pg_policies where schemaname = 'public' and tablename = 'follows' and cmd = 'INSERT' loop
-    execute format('drop policy %I on public.follows', pol.policyname);
-  end loop;
-
-  create policy "Un utilisateur s'abonne en son propre nom"
-  on follows for insert
-  with check (
-    current_profile_id() = follows.from_id
-    and follows.from_id <> follows.to_id
-    and not exists (
-      select 1 from blocks
-      where (blocks.from_id = follows.from_id and blocks.to_id = follows.to_id)
-         or (blocks.from_id = follows.to_id and blocks.to_id = follows.from_id)
-    )
-  );
-end $$;
-
--- ----------------------------------------------------------------------------
--- 3. "favorites" — idem.
--- ----------------------------------------------------------------------------
-do $$
-declare pol record;
-begin
-  for pol in select policyname from pg_policies where schemaname = 'public' and tablename = 'favorites' and cmd = 'INSERT' loop
-    execute format('drop policy %I on public.favorites', pol.policyname);
-  end loop;
-
-  create policy "Un utilisateur ajoute ses propres favoris"
-  on favorites for insert
-  with check (
-    auth.uid() = (select user_id from profiles where id = favorites.from_id)
-    and not exists (
-      select 1 from blocks
-      where (blocks.from_id = favorites.from_id and blocks.to_id = favorites.to_id)
-         or (blocks.from_id = favorites.to_id and blocks.to_id = favorites.from_id)
-    )
-  );
-end $$;
-
--- ----------------------------------------------------------------------------
--- 4. "event_invitations" — un like mutuel antérieur au blocage (branche
--- "connexion réelle") ou une appartenance commune à une communauté (branche
--- communautaire) restaient tous deux exploitables après blocage. Ajout du
--- même garde-fou sur les deux branches du OR existant.
--- ----------------------------------------------------------------------------
-drop policy if exists "Inviter en son propre nom si participant et connexion reelle" on event_invitations;
-create policy "Inviter en son propre nom si participant et connexion reelle"
-on event_invitations for insert
-with check (
-  invited_by = current_profile_id()
-  and not exists (select 1 from events e where e.id = event_id and e.canceled_at is not null)
-  and (is_event_participant(event_id) or is_event_mod(event_id))
-  and not exists (
-    select 1 from blocks
-    where (blocks.from_id = current_profile_id() and blocks.to_id = invited_profile_id)
-       or (blocks.from_id = invited_profile_id and blocks.to_id = current_profile_id())
-  )
-  and (
-    (
-      exists (select 1 from likes where from_id = current_profile_id() and to_id = invited_profile_id)
-      and exists (select 1 from likes where from_id = invited_profile_id and to_id = current_profile_id())
-    )
-    or (
-      (select community_id from events where id = event_id) is not null
-      and is_community_member((select community_id from events where id = event_id))
-    )
-  )
-);
-
--- ----------------------------------------------------------------------------
--- Vérification (facultatif, à exécuter séparément après) :
--- select policyname, cmd, pg_get_expr(polqual, polrelid), pg_get_expr(polwithcheck, polrelid)
---   from pg_policy join pg_class on pg_class.oid = pg_policy.polrelid
---   where pg_class.relname in ('likes','follows','favorites','event_invitations');
+-- SUPERSEDED (audit de régression, 2026-09-09) — ce fichier est le
+-- responsable identifié de l'écrasement des gardes banni/suspendu, onboarding
+-- incomplet et suppression en attente sur likes/follows/favorites/
+-- event_invitations : positionné ici, APRÈS les fixes qui les ajoutent
+-- (supabase-banned-target-action-fix.sql, supabase-onboarding-incomplete-
+-- target-action-fix.sql, supabase-deletion-pending-target-action-fix.sql —
+-- commits c4fe934/915df69/a2b120a), son propre "drop policy + create policy"
+-- redéfinissait ces mêmes policies avec SEULEMENT la condition de blocage,
+-- effaçant les 3 autres gardes. Son contenu SQL a donc été retiré de ce
+-- script consolidé et remplacé par la section "SOURCE : supabase-target-
+-- account-state-guards-CONSOLIDATED-fix.sql" plus haut, qui cumule les 4
+-- conditions (blocage + banni/suspendu + onboarding incomplet + suppression
+-- en attente) pour ces mêmes tables. Le fichier source original
+-- (supabase-block-bypass-fix.sql, commit 5756068 du 2026-09-03) reste sur
+-- disque avec sa propre note de dépréciation, pour l'historique de l'audit.
+-- Il ne doit plus être exécuté seul après les trois fixes ci-dessus.
 -- ============================================================================
 
 
