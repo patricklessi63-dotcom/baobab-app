@@ -13,6 +13,7 @@ import { compressImageIfNeeded } from "../../lib/imageCompression";
 import { uploadWithProgress } from "../../lib/uploadWithProgress";
 import { POST_MEDIA_BUCKET, extFromMime } from "../../lib/mediaConstants";
 import { beginCriticalOperation, endCriticalOperation } from "../../lib/criticalOperationGuard";
+import { useOnlineStatus } from "../../hooks/useOnlineStatus";
 import { primary, navy, coral, muted, bg, card } from "./theme";
 
 const PAGE_SIZE = 20;
@@ -75,6 +76,14 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
   const [newPostsCount, setNewPostsCount] = useState(0);
   const sentinelRef = useRef(null);
   const loadingMoreRef = useRef(false);
+  const { isOnline } = useOnlineStatus();
+  // Lus par l'effet de reconnexion plus bas, qui recalcule newPostsCount
+  // depuis la base plutôt que de dépendre uniquement des événements Realtime
+  // reçus pendant que l'app était hors ligne.
+  const postsRef = useRef(posts);
+  postsRef.current = posts;
+  const blockedIdsRef = useRef(blockedIds);
+  blockedIdsRef.current = blockedIds;
 
   const [reportTarget, setReportTarget] = useState(null);
   const [reportCategory, setReportCategory] = useState("");
@@ -211,6 +220,40 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [currentUser?.id, authorId, blockedIds]);
+
+  // Bug corrigé (même famille que la resynchronisation messages/badges et
+  // cloche de notifications) : le canal Realtime ci-dessus ne rejoue jamais
+  // les INSERT manqués pendant une coupure websocket — une publication créée
+  // par quelqu'un d'autre pendant que l'utilisateur était hors ligne ne
+  // faisait donc jamais apparaître le bandeau "nouvelles publications" tant
+  // que l'app n'était pas rechargée. On recalcule newPostsCount depuis la
+  // base (requête bornée, valeur absolue plutôt qu'incrémentée) dès un
+  // véritable retour en ligne.
+  const wasOfflineRef = useRef(false);
+  useEffect(() => {
+    if (!isOnline) {
+      wasOfflineRef.current = true;
+      return;
+    }
+    if (!wasOfflineRef.current) return; // pas une vraie reconnexion (ex. montage initial)
+    wasOfflineRef.current = false;
+    if (!currentUser) return;
+    const cutoff = postsRef.current[0]?.created_at;
+    if (!cutoff) return; // rien encore chargé, le prochain loadPosts() suffit
+    let query = supabase
+      .from("posts")
+      .select("id, author_id, created_at")
+      .gt("created_at", cutoff)
+      .order("created_at", { ascending: false })
+      .limit(50);
+    if (authorId) query = query.eq("author_id", authorId);
+    query.then(({ data, error }) => {
+      if (error) { console.error(error); return; }
+      const count = (data || []).filter((p) => p.author_id !== currentUser.id && !blockedIdsRef.current.has(p.author_id)).length;
+      setNewPostsCount(count);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOnline, currentUser?.id, authorId]);
 
   const loadNewPosts = () => {
     loadPosts(null);
