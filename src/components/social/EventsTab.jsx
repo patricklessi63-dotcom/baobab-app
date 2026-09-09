@@ -304,7 +304,14 @@ export default function EventsTab({ currentUser, onError, initialEventId, onCons
         // EventParticipantsList puisse afficher les badges de statut.
         .select("*, profiles(id, name, avatar_url, city, show_city, is_founder, is_premium, email_verified, phone_verified)")
         .eq("event_id", id)
-        .order("created_at", { ascending: true });
+        .order("created_at", { ascending: true })
+        // Limite ajoutée (bug corrigé à l'audit, angle "nombre de lignes non
+        // borné" — même correctif que loadMembers dans CommunitiesTab.jsx) :
+        // cette requête n'avait aucune limite et renvoyait la totalité des
+        // participants (profils tiers complets) en un seul appel, sans
+        // rapport avec le compteur affiché ailleurs (event_participant_count,
+        // lui déjà correct et indépendant de cette liste).
+        .limit(1000);
       if (error) throw error;
       if (requestId !== undefined && detailRequestRef.current !== requestId) return;
       setParticipants(data || []);
@@ -690,7 +697,11 @@ export default function EventsTab({ currentUser, onError, initialEventId, onCons
     if (ev.community_id) {
       const { data: members } = await supabase
         .from("community_members").select("profile_id, profiles(id, name, avatar_url, is_founder, is_premium, email_verified, phone_verified)")
-        .eq("community_id", ev.community_id);
+        .eq("community_id", ev.community_id)
+        // Limite ajoutée (même correctif que loadMembers/loadParticipants
+        // ci-dessus) : cette requête n'avait aucune borne sur le nombre de
+        // membres renvoyés pour construire la liste de candidats à inviter.
+        .limit(1000);
       const extra = (members || []).map((m) => m.profiles).filter(Boolean).filter((p) => !blockedIds.has(p.id) && !alreadyInEvent.has(p.id));
       const seen = new Set(candidates.map((c) => c.id));
       extra.forEach((p) => { if (!seen.has(p.id)) { candidates.push(p); seen.add(p.id); } });

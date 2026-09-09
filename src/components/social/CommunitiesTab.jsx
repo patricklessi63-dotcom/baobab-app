@@ -346,16 +346,28 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
       // événement (EventsTab.jsx) : sans "id" ici, Signaler et Bloquer
       // échouaient silencieusement (to_id undefined) pour tout profil
       // ouvert depuis l'onglet "Membres" d'une communauté.
-      const { data, error } = await supabase
+      const { data, error, count } = await supabase
         .from("community_members")
         // is_founder/is_premium/email_verified/phone_verified ajoutés (bug
         // corrigé à l'audit, même famille que le "id" manquant ci-dessus) :
         // CommunityMemberRow ne peut afficher les badges de statut (parité
         // avec MatchCard/DiscoverTab pour ce même profil) que si ces champs
         // sont chargés ici.
-        .select("*, profiles(id, name, avatar_url, city, show_city, is_founder, is_premium, email_verified, phone_verified)")
+        // { count: "exact" } + .limit() ajoutés (bug corrigé à l'audit,
+        // angle "nombre de lignes non borné" — même famille que les
+        // correctifs select('*') sur profils tiers de cette même session,
+        // mais côté volume plutôt que colonnes) : cette requête n'avait
+        // AUCUNE limite. Une communauté qui grossit (des milliers de
+        // membres) aurait renvoyé la totalité de leurs profils en un seul
+        // appel réseau — dégradation mémoire/perf côté client, et surface
+        // inutilement large de données tierces exposées d'un coup. Le
+        // count exact est demandé séparément pour que memberCount (utilisé
+        // ailleurs à l'écran) reste exact même quand la liste réellement
+        // affichée est tronquée par la limite.
+        .select("*, profiles(id, name, avatar_url, city, show_city, is_founder, is_premium, email_verified, phone_verified)", { count: "exact" })
         .eq("community_id", id)
-        .order("joined_at", { ascending: true });
+        .order("joined_at", { ascending: true })
+        .limit(1000);
       if (error) throw error;
       if (requestId !== undefined && detailRequestRef.current !== requestId) return;
       // Le total affiché doit compter tous les membres réels (cohérent avec
@@ -365,7 +377,7 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
       // se fait désormais au rendu (comme les publications ci-dessus) pour
       // qu'un blocage effectué en cours de session masque immédiatement le
       // membre sans recharger la communauté.
-      setMemberCount((data || []).length);
+      setMemberCount(count ?? (data || []).length);
       setMembers(data || []);
     } catch (e) {
       console.error(e);
@@ -383,7 +395,10 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
       .from("community_join_requests")
       .select("*, profiles(name, avatar_url, is_founder, is_premium, email_verified, phone_verified)")
       .eq("community_id", id).eq("status", "pending")
-      .order("created_at", { ascending: true });
+      .order("created_at", { ascending: true })
+      // Limite ajoutée (même correctif que loadMembers ci-dessus) : aucune
+      // borne n'existait sur le nombre de demandes en attente renvoyées.
+      .limit(500);
     if (!error && !(requestId !== undefined && detailRequestRef.current !== requestId)) setJoinRequests(data || []);
   };
 
