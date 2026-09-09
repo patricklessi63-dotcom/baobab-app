@@ -107,6 +107,12 @@ export default function App() {
   // après celle de B écrasait les messages de B (déjà affichés sous le bon
   // en-tête) avec ceux de A.
   const chatLoadTokenRef = useRef(0);
+  // Cache par conversation (clé = match_key) des messages restés en échec
+  // d'envoi ("_status: failed") — voir l'effet qui l'alimente plus bas et
+  // refreshMessages() qui les réinjecte. Ces messages n'ont jamais atteint
+  // la base (l'INSERT a échoué), donc rien ne permet de les retrouver au
+  // rechargement de la conversation sans ce cache.
+  const pendingFailedMessagesRef = useRef({});
   const [messageDraft, setMessageDraft] = useState("");
   const [replyingTo, setReplyingTo] = useState(null);
   const [reactionsByMessageId, setReactionsByMessageId] = useState({}); // { [messageId]: [{profile_id, emoji}] }
@@ -593,6 +599,30 @@ export default function App() {
     activeMatchRef.current = activeMatch;
   }, [activeMatch]);
 
+  // Bug corrigé à l'audit : un message resté "failed" (échec d'envoi, bouton
+  // "Réessayer" affiché — voir ConversationPane.jsx) disparaissait
+  // définitivement dès qu'on quittait la conversation (retour à la liste,
+  // ouverture d'une autre conversation) — "messages" est un state unique
+  // remplacé en bloc par refreshMessages() à chaque conversation ouverte, et
+  // ce message n'a jamais atteint la base puisque son INSERT a justement
+  // échoué : rien ne permettait de le retrouver au retour sur cette
+  // conversation. Le texte tapé (ou la photo/vidéo choisie) par l'utilisateur
+  // s'évaporait donc sans aucun avertissement au moindre changement d'écran,
+  // alors qu'il restait visible avec un bouton "Réessayer" tant qu'on restait
+  // sur place. On le met ici en cache, par conversation (match_key), pour le
+  // réinjecter automatiquement si cette même conversation est rouverte (voir
+  // refreshMessages plus bas).
+  useEffect(() => {
+    if (!currentUser || !activeMatch) return;
+    const key = matchKey(currentUser.id, activeMatch.id);
+    const failed = messages.filter((m) => m._status === "failed");
+    if (failed.length > 0) {
+      pendingFailedMessagesRef.current[key] = failed;
+    } else {
+      delete pendingFailedMessagesRef.current[key];
+    }
+  }, [messages, activeMatch, currentUser]);
+
   // Déconnexion automatique par inactivité : retirée définitivement sur
   // demande explicite (les sessions ne doivent plus jamais expirer par
   // simple inactivité).
@@ -937,6 +967,11 @@ export default function App() {
     setLikerProfilesRaw([]);
     setAdmirersCount(0);
     setBlockedProfilesRaw([]);
+    // Un message resté en échec d'envoi n'a jamais atteint la base (voir
+    // pendingFailedMessagesRef) : sur un appareil partagé, un compte B se
+    // connectant ensuite ne doit jamais pouvoir le voir réapparaître dans
+    // une conversation qui, pour lui, porterait la même clé match_key.
+    pendingFailedMessagesRef.current = {};
   }
 
   const hasLiked = (from, to) => likePairs.some((l) => l.from_id === from && l.to_id === to);
@@ -1877,7 +1912,11 @@ export default function App() {
       // pour ne pas écraser les messages de la conversation actuellement affichée.
       if (chatLoadTokenRef.current !== token) return;
       const chronological = (data || []).slice().reverse();
-      setMessages(chronological);
+      // Réinjecte les messages en échec d'envoi mis en cache pour cette
+      // conversation (voir pendingFailedMessagesRef) : ils n'existent pas en
+      // base (leur INSERT a échoué), donc absents de "data" ci-dessus.
+      const cachedFailed = pendingFailedMessagesRef.current[matchKey(currentUser.id, match.id)] || [];
+      setMessages(cachedFailed.length > 0 ? [...chronological, ...cachedFailed] : chronological);
       setHasMoreHistory((data || []).length === MESSAGES_PAGE_SIZE);
       markConversationRead(match);
       loadReactionsFor(chronological.map((m) => m.id));
