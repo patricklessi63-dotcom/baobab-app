@@ -1,4 +1,28 @@
 -- ============================================================================
+-- ⚠️ SUPERSEDED pour la partie create_event() (audit de régression,
+-- 2026-09-09) : ce fichier (2026-09-01) redéfinit create_event() SANS
+-- vérification d'authentification explicite (current_profile_id() is null).
+-- supabase-create-community-event-authz-fix.sql (2026-09-04) redéfinit
+-- ensuite la MÊME fonction en repartant de cette version-ci (garde durée
+-- comprise) et en ajoutant la garde d'auth manquante en tête. Mais dans
+-- supabase-COMBINED-pending-fixes.sql, l'ordre était inversé : la section
+-- "supabase-create-community-event-authz-fix.sql" est concaténée AVANT la
+-- section de CE fichier — donc rejouée dans cet ordre, c'est cette
+-- version-ci (sans la garde d'auth) qui gagnait en dernier, effaçant
+-- silencieusement la vérification d'authentification de create_event()
+-- (impact limité : l'appel anonyme échouait de toute façon plus loin sur une
+-- contrainte NOT NULL, sans créer de ligne orpheline — voir le fichier
+-- authz pour le détail — mais avec un message d'erreur brut au lieu du rejet
+-- propre attendu). Corrigé : la section de ce fichier dans le script
+-- consolidé garde la contrainte de table (partie 1, inchangée et unique),
+-- mais ne redéfinit plus create_event() (partie 2, retirée) — un commentaire
+-- y renvoie vers la section supabase-create-community-event-authz-fix.sql
+-- qui porte désormais la seule version à exécuter. Ce fichier est conservé
+-- pour l'historique/le contexte ci-dessous, mais sa fonction create_event()
+-- ne doit plus être exécutée seule après supabase-create-community-event-
+-- authz-fix.sql.
+-- ============================================================================
+-- ============================================================================
 -- Corrige un bug identifié à l'audit (passage 74) : duration_minutes n'a
 -- jamais eu de contrainte serveur, contrairement à max_participants
 -- (events_max_participants_positive, supabase-events-v2.sql). Le formulaire

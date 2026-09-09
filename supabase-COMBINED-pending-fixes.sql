@@ -21,6 +21,18 @@
 --    PAS dans ce script) après ce script consolidé, tu réintroduirais la
 --    faille d'auto-attribution à l'inscription — voir l'avertissement
 --    ajouté dans ces deux fichiers.
+-- 3. create_event() apparaît 2 fois : supabase-create-community-event-authz-
+--    fix.sql (garde durée + garde d'auth) PUIS supabase-events-duration-
+--    guard.sql (garde durée seule, SANS garde d'auth) — la section de ce
+--    second fichier a été VIDÉE de sa redéfinition de fonction (ne garde que
+--    sa contrainte de table, unique) pour que la première occurrence, plus
+--    complète, reste la seule active. Voir la note "SUPERSEDED" à sa place.
+-- 4. check_report_rate_limit() apparaît 2 fois : supabase-global-action-
+--    rate-limit-fix.sql (compteur reports + garde-fou transversal) PUIS
+--    supabase-report-rate-limit-fix.sql (compteur reports seul) — la
+--    section de ce second fichier a été VIDÉE de sa redéfinition de fonction
+--    pour que la première occurrence, plus complète, reste la seule active.
+--    Voir la note "SUPERSEDED" à sa place.
 --
 -- SECTIONS LES PLUS URGENTES (sécurité active, à faire en premier si tu ne
 -- fais pas tout le fichier d'un coup) :
@@ -3556,41 +3568,19 @@ $$;
 -- SOURCE : supabase-report-rate-limit-fix.sql
 -- ============================================================================
 -- ============================================================================
--- Limite de débit sur "reports" (signalements) — même croisement que les
--- rate limits déjà en place sur messages/likes/follows/event_invitations
--- (supabase-scale-security-2.sql, supabase-like-rate-limit.sql,
--- supabase-events-v2.sql) : "reports" était la seule table d'action dirigée
--- vers un autre profil à n'avoir AUCUNE limite de débit ni contrainte
--- d'unicité (from_id, to_id) — un script pouvait signaler la même victime
--- (ou n'importe qui) en boucle par appel direct à l'API PostgREST,
--- inondant la file de modération (AdminDashboard, onglet "Signalements")
--- de doublons et rendant plus difficile le repérage des vrais signalements.
---
--- Plafond généreux (20 signalements/24h) : un usage normal ne signale
--- jamais plus de quelques profils par jour ; ce garde-fou ne vise que le
--- script en boucle. Même style exact que check_like_rate_limit()/
--- check_follow_rate_limit() (SECURITY DEFINER + search_path fixé).
--- ============================================================================
-
-create or replace function check_report_rate_limit()
-returns trigger language plpgsql security definer set search_path = public as $$
-declare v_count int;
-begin
-  select count(*) into v_count from reports
-    where from_id = new.from_id and created_at > now() - interval '24 hours';
-  if v_count >= 20 then
-    raise exception 'Trop de signalements envoyes recemment, reessaie plus tard';
-  end if;
-  return new;
-end; $$;
-drop trigger if exists trg_report_rate_limit on reports;
-create trigger trg_report_rate_limit before insert on reports
-for each row execute function check_report_rate_limit();
-
--- ----------------------------------------------------------------------------
--- Vérification (facultatif, à exécuter séparément après) :
--- select proname from pg_proc where proname = 'check_report_rate_limit';
--- select tgname from pg_trigger where tgname = 'trg_report_rate_limit';
+-- SUPERSEDED (audit de régression, 2026-09-09) — ce fichier (2026-09-03)
+-- redéfinissait check_report_rate_limit() avec SEULEMENT le compteur
+-- "reports" (20/24h), sans le garde-fou transversal
+-- "global_recent_action_count(...) >= 40". Positionné ici, APRÈS la section
+-- "SOURCE : supabase-global-action-rate-limit-fix.sql" plus haut (qui ajoute
+-- ce garde-fou à la même fonction), son "create or replace function"
+-- écrasait silencieusement cet ajout pour "reports" en rejouant le script de
+-- haut en bas. Son contenu SQL a donc été retiré de ce script consolidé : la
+-- version qui doit rester active est celle de la section
+-- "SOURCE : supabase-global-action-rate-limit-fix.sql" ci-dessus. Le fichier
+-- source original (supabase-report-rate-limit-fix.sql) reste sur disque avec
+-- sa propre note de dépréciation, pour l'historique de l'audit. Il ne doit
+-- plus être exécuté seul après supabase-global-action-rate-limit-fix.sql.
 -- ============================================================================
 
 
@@ -3631,60 +3621,21 @@ begin
 end $$;
 
 -- ----------------------------------------------------------------------------
--- 2. create_event() — restate complet (signature avec p_timezone, la plus
--- récente : supabase-events-timezone.sql), ajout de la validation
--- p_duration_minutes juste à côté de celle de p_max_participants.
+-- 2. create_event() — SUPERSEDED (audit de régression, 2026-09-09) : ce
+-- fichier (2026-09-01) redéfinissait create_event() avec la garde de durée
+-- mais SANS vérification d'authentification explicite. Positionné ici,
+-- APRÈS la section "SOURCE : supabase-create-community-event-authz-fix.sql"
+-- plus haut (qui repart de cette même version et ajoute la garde
+-- "current_profile_id() is null"), son "create or replace function"
+-- écrasait silencieusement cette garde en rejouant le script de haut en bas.
+-- Son contenu SQL a donc été retiré de ce script consolidé : la version qui
+-- doit rester active est celle de la section "SOURCE : supabase-create-
+-- community-event-authz-fix.sql" ci-dessus (elle inclut déjà la garde de
+-- durée ajoutée ici). Le fichier source original
+-- (supabase-events-duration-guard.sql) reste sur disque avec sa propre note
+-- de dépréciation, pour l'historique de l'audit. Il ne doit plus être
+-- exécuté seul après supabase-create-community-event-authz-fix.sql.
 -- ----------------------------------------------------------------------------
-create or replace function create_event(
-  p_title text, p_description text, p_category text, p_cover_url text,
-  p_event_date timestamptz, p_duration_minutes integer,
-  p_city text, p_location text, p_max_participants integer,
-  p_visibility text, p_community_id uuid, p_timezone text default null
-)
-returns events
-language plpgsql security definer set search_path = public
-as $$
-declare v_event events;
-begin
-  if p_title is null or char_length(trim(p_title)) = 0 then
-    raise exception 'Le titre est requis';
-  end if;
-  if p_city is null or char_length(trim(p_city)) = 0 then
-    raise exception 'La ville est requise';
-  end if;
-  if p_event_date is null or p_event_date <= now() then
-    raise exception 'La date doit etre dans le futur';
-  end if;
-  if p_duration_minutes is not null and p_duration_minutes <= 0 then
-    raise exception 'La duree doit etre un nombre de minutes positif';
-  end if;
-  if p_max_participants is not null and p_max_participants <= 0 then
-    raise exception 'Le nombre maximum de participants doit etre positif';
-  end if;
-  if coalesce(p_visibility, 'public') = 'community' and p_community_id is null then
-    raise exception 'Une communaute est requise pour un evenement communautaire';
-  end if;
-  if p_community_id is not null and not is_community_member(p_community_id) then
-    raise exception 'Tu dois etre membre de cette communaute';
-  end if;
-
-  insert into events (
-    title, description, category, cover_url, event_date, duration_minutes,
-    city, location, max_participants, visibility, community_id, created_by, timezone
-  )
-  values (
-    trim(p_title), p_description, p_category, p_cover_url, p_event_date, p_duration_minutes,
-    trim(p_city), nullif(trim(coalesce(p_location, '')), ''), p_max_participants,
-    coalesce(p_visibility, 'public'), p_community_id, current_profile_id(), p_timezone
-  )
-  returning * into v_event;
-
-  insert into event_staff (event_id, profile_id, role) values (v_event.id, current_profile_id(), 'organizer');
-  insert into event_attendees (event_id, profile_id, status) values (v_event.id, current_profile_id(), 'going');
-
-  return v_event;
-end;
-$$;
 
 
 -- ============================================================================

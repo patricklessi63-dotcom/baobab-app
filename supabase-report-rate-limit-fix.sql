@@ -1,4 +1,24 @@
 -- ============================================================================
+-- ⚠️ SUPERSEDED (audit de régression, 2026-09-09) : ce fichier (2026-09-03)
+-- redéfinit check_report_rate_limit() avec SEULEMENT le compteur "reports"
+-- (20/24h). supabase-global-action-rate-limit-fix.sql (2026-09-04) redéfinit
+-- ensuite la MÊME fonction en ajoutant le garde-fou transversal
+-- "global_recent_action_count(...) >= 40" — son propre en-tête dit d'ailleurs
+-- explicitement devoir s'exécuter APRÈS ce fichier-ci. Mais dans
+-- supabase-COMBINED-pending-fixes.sql, l'ordre était inversé : la section
+-- "supabase-global-action-rate-limit-fix.sql" est concaténée AVANT la
+-- section de CE fichier — donc rejouée dans cet ordre, c'est cette version-ci
+-- (sans le compteur global) qui gagnait en dernier, effaçant silencieusement
+-- le garde-fou transversal pour "reports" (les 4 autres tables — messages/
+-- likes/follows/event_invitations — restaient protégées, non touchées par ce
+-- fichier). Corrigé : la section de ce fichier dans le script consolidé ne
+-- redéfinit plus la fonction (retirée), un commentaire y renvoie vers la
+-- section supabase-global-action-rate-limit-fix.sql qui porte désormais la
+-- seule version à exécuter. Ce fichier est conservé pour l'historique/le
+-- contexte ci-dessous, mais ne doit plus être exécuté seul après
+-- supabase-global-action-rate-limit-fix.sql.
+-- ============================================================================
+-- ============================================================================
 -- Limite de débit sur "reports" (signalements) — même croisement que les
 -- rate limits déjà en place sur messages/likes/follows/event_invitations
 -- (supabase-scale-security-2.sql, supabase-like-rate-limit.sql,
