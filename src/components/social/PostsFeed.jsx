@@ -229,6 +229,16 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
   // que l'app n'était pas rechargée. On recalcule newPostsCount depuis la
   // base (requête bornée, valeur absolue plutôt qu'incrémentée) dès un
   // véritable retour en ligne.
+  //
+  // Régression corrigée (audit du correctif ci-dessus) : contrairement aux
+  // resynchronisations équivalentes de App.jsx/SocialShell.jsx (commits
+  // 65980a9/cdb5702), cet effet ne protégeait pas son `.then()` avec un
+  // indicateur "composant démonté" — si l'utilisateur quittait cet écran
+  // (ou se déconnectait, ce qui démonte SocialShell/PostsFeed) juste après
+  // être revenu en ligne mais avant la résolution de la requête, le
+  // setNewPostsCount() tardif s'exécutait quand même sur un composant déjà
+  // démonté (avertissement React + fuite). `alive` reproduit la même garde
+  // que les fetchs bornés de SocialShell.jsx.
   const wasOfflineRef = useRef(false);
   useEffect(() => {
     if (!isOnline) {
@@ -240,6 +250,7 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
     if (!currentUser) return;
     const cutoff = postsRef.current[0]?.created_at;
     if (!cutoff) return; // rien encore chargé, le prochain loadPosts() suffit
+    let alive = true;
     let query = supabase
       .from("posts")
       .select("id, author_id, created_at")
@@ -248,10 +259,12 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
       .limit(50);
     if (authorId) query = query.eq("author_id", authorId);
     query.then(({ data, error }) => {
+      if (!alive) return;
       if (error) { console.error(error); return; }
       const count = (data || []).filter((p) => p.author_id !== currentUser.id && !blockedIdsRef.current.has(p.author_id)).length;
       setNewPostsCount(count);
     });
+    return () => { alive = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOnline, currentUser?.id, authorId]);
 
