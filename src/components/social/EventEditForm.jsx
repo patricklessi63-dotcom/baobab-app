@@ -63,10 +63,17 @@ export default function EventEditForm({ event, onSaved, onCancel, onError }) {
   const mountedRef = useRef(true);
   useEffect(() => () => { mountedRef.current = false; }, []);
 
-  const onPickCover = (e) => {
+  const onPickCover = async (e) => {
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
+    // Même garde-fou qu'à la création (EventCreateForm) et que
+    // CommunityCreateForm : valider dès la sélection plutôt qu'à
+    // l'enregistrement final, pour ne pas faire découvrir un fichier
+    // invalide/trop volumineux seulement après avoir modifié tout le reste
+    // du formulaire.
+    const { ok, error: validationError } = await validateMediaFile(file, "image");
+    if (!ok) { onError?.(validationError); return; }
     setCoverFile(file);
     setCoverPreview(URL.createObjectURL(file));
   };

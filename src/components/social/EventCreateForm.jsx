@@ -64,10 +64,19 @@ export default function EventCreateForm({ currentUser, initialCommunityId = null
       });
   }, [currentUser?.id]);
 
-  const onPickCover = (e) => {
+  const onPickCover = async (e) => {
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
+    // Validé dès la sélection (même garde-fou que CommunityCreateForm),
+    // pas seulement à la soumission finale : sans ça, un fichier trop
+    // volumineux/d'un mauvais format n'était signalé qu'au clic sur "Créer
+    // l'événement", après que l'utilisateur ait déjà rempli titre,
+    // description, date, heure, ville, etc. L'aperçu (URL.createObjectURL)
+    // s'affichait normalement pour n'importe quel fichier entre-temps,
+    // donnant une fausse impression que tout était en ordre.
+    const { ok, error: validationError } = await validateMediaFile(file, "image");
+    if (!ok) { onError?.(validationError); return; }
     setCoverFile(file);
     setCoverPreview(URL.createObjectURL(file));
   };
