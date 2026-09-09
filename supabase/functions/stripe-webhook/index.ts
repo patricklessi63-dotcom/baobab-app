@@ -14,9 +14,20 @@
 import Stripe from "npm:stripe@17";
 import { createClient } from "npm:@supabase/supabase-js@2";
 
-const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY")!, { apiVersion: "2024-06-20" });
-const webhookSecret = Deno.env.get("STRIPE_WEBHOOK_SECRET")!;
-const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+// Lus paresseusement (pas au chargement du module), même motif que
+// create-checkout-session/create-portal-session : un secret manquant ici
+// (en particulier SUPABASE_SERVICE_ROLE_KEY, qui n'est PAS injecté
+// automatiquement pour les Edge Functions — voir commentaire en tête de
+// fichier) ferait planter tout l'isolate Deno au démarrage si ces appels
+// étaient faits au niveau module. Résultat concret : Stripe reçoit une
+// erreur de boot opaque sur CHAQUE tentative (y compris les retries), sans
+// jamais atteindre le message clair renvoyé ci-dessous.
+const stripeSecret = Deno.env.get("STRIPE_SECRET_KEY");
+const stripe = stripeSecret ? new Stripe(stripeSecret, { apiVersion: "2024-06-20" }) : null;
+const webhookSecret = Deno.env.get("STRIPE_WEBHOOK_SECRET");
+const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+const supabaseUrl = Deno.env.get("SUPABASE_URL");
+const admin = serviceRoleKey && supabaseUrl ? createClient(supabaseUrl, serviceRoleKey) : null;
 
 // Un seul type de notification par événement traité — réutilise la table
 // "notifications" existante (Phase 6), aucun nouveau système.
@@ -27,6 +38,21 @@ const NOTIFY_TYPE: Record<string, string> = {
 };
 
 Deno.serve(async (req) => {
+  if (!stripe || !webhookSecret || !admin) {
+    // Config incomplète (secret manquant côté Supabase) : on log clairement
+    // côté serveur et on renvoie 500 pour que Stripe retente plus tard une
+    // fois le secret ajouté, plutôt que de laisser l'isolate planter au
+    // boot sans aucun message exploitable dans les logs de la fonction.
+    console.error(
+      "stripe-webhook : configuration incomplète —",
+      !stripeSecret ? "STRIPE_SECRET_KEY manquant" : null,
+      !webhookSecret ? "STRIPE_WEBHOOK_SECRET manquant" : null,
+      !serviceRoleKey ? "SUPABASE_SERVICE_ROLE_KEY manquant" : null,
+      !supabaseUrl ? "SUPABASE_URL manquant" : null,
+    );
+    return new Response("Configuration serveur incomplète.", { status: 500 });
+  }
+
   const signature = req.headers.get("Stripe-Signature");
   const body = await req.text(); // corps BRUT obligatoire pour la vérification de signature — ne jamais parser le JSON avant
   if (!signature) return new Response("Signature manquante.", { status: 400 });
