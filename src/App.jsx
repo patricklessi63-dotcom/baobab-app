@@ -36,6 +36,49 @@ import { useOnlineStatus } from "./hooks/useOnlineStatus";
 
 const PUBLIC_ONLY_PATHS = new Set(["/connexion", "/inscription", "/a-propos", "/confidentialite", "/conditions"]);
 
+// Colonnes de "profiles" pour un profil D'UN AUTRE UTILISATEUR (cache
+// candidats/Découverte, comptes bloqués) — jamais pour son PROPRE profil, qui
+// continue de charger select("*") (voir loadAll()/applyOwnProfile). Bug
+// corrigé à l'audit : loadAll() chargeait ces 500 profils avec select("*"),
+// exposant en clair dans la réponse réseau — à TOUS les utilisateurs connectés,
+// pas seulement Premium/staff — des colonnes jamais destinées à un autre
+// compte que son titulaire (même famille de bug que
+// supabase-likers-profile-overexposure-fix.sql, mais côté client cette
+// fois) : ban_reason/suspend_reason (texte de modération), report_count/
+// flagged_for_review (indicateurs de modération), notification_preferences
+// (réglages personnels), birth_date (date de naissance EXACTE, plus précise
+// que l'âge que show_birth_year prétend masquer), ainsi que des colonnes
+// jamais lues pour un tiers nulle part dans le code (user_id, last_name,
+// province, has_children, pref_*, onboarding_step, usage_goals,
+// personalization_enabled, ai_suggestions_enabled, show_read_receipts,
+// show_upcoming_events, personality_evening/travel, relationship_needs).
+//
+// Liste dérivée d'une recherche exhaustive des champs réellement lus sur un
+// profil candidat/bloqué (DiscoverTab.jsx, MatchCard.jsx, ProfileCard.jsx,
+// PublicProfileModal.jsx, ConversationCard.jsx, matchingService.js) — PLUS
+// banned_at/suspended_until/onboarding_completed_at/dating_enabled/
+// deletion_requested_at, dont App.jsx a réellement besoin ici pour le filtre
+// dur de "candidates" juste plus bas (comptes bannis/suspendus/incomplets/en
+// attente de suppression exclus de Découverte) : contrairement au RPC
+// get_my_likers(), il n'existe pas ici de filtrage équivalent côté serveur,
+// donc ces 4 colonnes doivent transiter jusqu'au client pour que ce filtre
+// fonctionne — les en retirer réintroduirait immédiatement les bugs
+// (comptes bannis/incomplets/en attente de suppression redevenus visibles
+// dans Découverte) corrigés séparément dans cette même session d'audit.
+const OTHER_PROFILE_COLUMNS = [
+  "id", "name", "age", "city", "country", "languages", "arrived_since",
+  "looking_for", "bio", "created_at",
+  "avatar_url", "cover_url", "occupation", "education_level", "interests",
+  "is_online", "last_seen", "show_online_status",
+  "email_verified", "phone_verified", "is_founder", "is_premium", "show_birth_year",
+  "show_city", "show_country", "show_occupation", "show_studies",
+  "show_canada_journey", "show_life_project", "show_interests",
+  "immigration_status", "arrival_city", "languages_detail", "relationship_values",
+  "wants_children", "family_importance", "career_goal", "geographic_openness",
+  "dating_enabled", "banned_at", "suspended_until", "onboarding_completed_at",
+  "deletion_requested_at",
+].join(",");
+
 export default function App() {
   // Réarme le filet anti-boucle de ChunkErrorBoundary.jsx une fois l'app
   // montée avec succès, pour qu'un futur déploiement (nouveaux hashs de
@@ -191,7 +234,13 @@ export default function App() {
         // demanderait de déplacer rankCandidates() côté serveur (hors
         // périmètre de cette phase), donc ce plafond borne le pire cas
         // sans changer le comportement de classement actuel.
-        supabase.from("profiles").select("*").order("created_at", { ascending: true }).limit(500),
+        // select(OTHER_PROFILE_COLUMNS) et non select("*") (bug corrigé à
+        // l'audit — voir le commentaire sur OTHER_PROFILE_COLUMNS en haut du
+        // fichier) : ce cache sert à afficher/filtrer les profils des AUTRES
+        // utilisateurs (Découverte, tri de compatibilité), jamais le sien
+        // propre — applyOwnProfile()/le profil courant ne dépendent plus de
+        // ce cache (voir plus bas, chargement dédié systématique).
+        supabase.from("profiles").select(OTHER_PROFILE_COLUMNS).order("created_at", { ascending: true }).limit(500),
         // Plafonné pour la même raison que "profiles" (borne le pire cas
         // sans dépendre des 500 profils déjà résolus, chargés en parallèle).
         // Trié par profile_id d'abord : 500 profils × MAX_PHOTOS(6) = 3000
@@ -249,7 +298,7 @@ export default function App() {
       // bien que le blocage existait toujours en base. Jointure directe sur
       // "blocks" (from_id = moi) à la place.
       const blockedQuery = myProfileId
-        ? supabase.from("blocks").select("to_id, profile:to_id(*)").eq("from_id", myProfileId)
+        ? supabase.from("blocks").select(`to_id, profile:to_id(${OTHER_PROFILE_COLUMNS})`).eq("from_id", myProfileId)
         : null;
 
       const [likeRes, passRes, blockRes, likerRes, blockedProfRes] = await Promise.all([
@@ -762,20 +811,22 @@ export default function App() {
   useEffect(() => {
     if (view !== "checking-profile") return;
     if (!session) return;
-    const own = profiles.find((p) => p.user_id === session.user.id);
-    if (own) {
-      applyOwnProfile(own);
-      return;
-    }
-    // Bug corrigé : "profiles" (chargé par loadAll) est plafonné à 500 lignes
-    // triées par ancienneté — tout compte créé après ce plafond n'y figure
-    // jamais. Sans filet de secours, ce `.find` échouait silencieusement pour
-    // ces comptes à CHAQUE connexion (et à chaque rechargement de page), et
-    // l'app les renvoyait vers l'onboarding en les traitant comme s'ils
-    // n'avaient jamais créé de profil — alors que le profil existe bien en
-    // base. On retente donc une requête directe par user_id avant de conclure
-    // à l'absence de profil (même filet que likerProfilesRaw/favoriteProfiles
-    // ailleurs dans l'app pour ce même cache plafonné).
+    // Bug corrigé à l'audit : ce "chemin rapide" retrouvait auparavant son
+    // propre profil via `profiles.find(...)` — le cache "profiles" (loadAll,
+    // voir OTHER_PROFILE_COLUMNS) ne contient QUE les colonnes utiles à un
+    // profil D'UN AUTRE UTILISATEUR (Découverte). Continuer à s'en servir ici
+    // aurait initialisé currentUser (son PROPRE profil) avec des colonnes
+    // manquantes — notification_preferences, pref_*, onboarding_step,
+    // usage_goals, etc. — pour quiconque figure parmi ces 500 profils
+    // (comptes les plus anciens), à CHAQUE connexion/rechargement, avec un
+    // risque concret d'écraser en base ses vraies préférences déjà
+    // enregistrées (voir handleToggleNotificationPref, qui fusionne sur
+    // l'état actuel de currentUser.notification_preferences). On charge donc
+    // systématiquement son propre profil via une requête dédiée select("*")
+    // — même requête que l'ancien "filet de secours" ci-dessous (comptes
+    // créés après le plafond de 500), désormais le seul chemin, garantissant
+    // TOUJOURS le profil complet quel que soit le rang d'ancienneté du
+    // compte.
     let alive = true;
     supabase.from("profiles").select("*").eq("user_id", session.user.id).maybeSingle().then(({ data, error }) => {
       if (!alive) return;
@@ -789,7 +840,7 @@ export default function App() {
     });
     return () => { alive = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [view, profiles, session]);
+  }, [view, session]);
 
   function handleAccountDeletionRequested() {
     setCurrentUser((u) => (u ? { ...u, deletion_requested_at: new Date().toISOString() } : u));
@@ -2380,7 +2431,11 @@ export default function App() {
           setBlockPairs((prev) => (prev.some((b) => b.from_id === currentUser.id && b.to_id === toId) ? prev : [...prev, { from_id: currentUser.id, to_id: toId }]));
           if (activeMatchRef.current?.id === toId) setActiveMatch(null);
           (async () => {
-            const { data } = await supabase.from("profiles").select("*").eq("id", toId).maybeSingle();
+            // select(OTHER_PROFILE_COLUMNS) et non select("*") (même correctif
+            // que loadAll() ci-dessus — voir le commentaire sur
+            // OTHER_PROFILE_COLUMNS en haut du fichier) : le profil bloqué ici
+            // est TOUJOURS celui d'un autre utilisateur (from_id = moi).
+            const { data } = await supabase.from("profiles").select(OTHER_PROFILE_COLUMNS).eq("id", toId).maybeSingle();
             if (!data) return;
             setBlockedProfilesRaw((prev) => (prev.some((p) => p.id === toId) ? prev : [...prev, data]));
           })();
