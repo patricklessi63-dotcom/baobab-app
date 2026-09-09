@@ -7,6 +7,7 @@ import { supabase } from "../supabaseClient";
 import { matchKey, visibleAge } from "../utils/format";
 import { useClickOutside } from "../hooks/useClickOutside";
 import { useEscapeKey } from "../hooks/useEscapeKey";
+import { useOnlineStatus } from "../hooks/useOnlineStatus";
 import { primary, navy, coral, gold, bg, muted, buttonBase, body, primaryRgb } from "./social/theme";
 import { NOTIFICATION_LABELS, NOTIF_CATEGORIES, groupNotificationRows } from "../lib/notificationLabels";
 import Skeleton from "./Skeleton";
@@ -652,14 +653,16 @@ export default function SocialShell({
 
   const [lastByKey, setLastByKey] = useState({});
   const [unreadByKey, setUnreadByKey] = useState({});
+  const { isOnline } = useOnlineStatus();
 
   // Aperçu du dernier message + compte de non-lus par conversation — une
   // seule requête bornée, sans nouvelle table (voir plan Phase 5).
+  const fetchConversationsPreviewRef = useRef(null);
   useEffect(() => {
     if (!currentUser || !matchIdsKey) { setLastByKey({}); setUnreadByKey({}); return; }
     let alive = true;
     const keys = matchIdsKey.split(",").map((id) => matchKey(currentUser.id, id));
-    supabase
+    const fetchPreview = () => supabase
       .from("messages")
       .select("id, match_key, from_id, kind, text, media_path, media_meta, created_at, read_at, deleted_at, deleted_for")
       .in("match_key", keys)
@@ -685,8 +688,29 @@ export default function SocialShell({
         setLastByKey(lastMap);
         setUnreadByKey(unreadMap);
       });
-    return () => { alive = false; };
+    fetchConversationsPreviewRef.current = fetchPreview;
+    fetchPreview();
+    return () => { alive = false; fetchConversationsPreviewRef.current = null; };
   }, [currentUser, matchIdsKey]);
+
+  // Bug corrigé : comme pour la conversation ouverte dans App.jsx, les
+  // canaux Realtime ci-dessous (INSERT/UPDATE sur "messages") ne rattrapent
+  // jamais les événements manqués pendant une coupure réseau — Supabase ne
+  // rejoue rien après reconnexion du websocket. Un message reçu pendant que
+  // l'utilisateur était hors ligne ne mettait donc à jour ni l'aperçu du
+  // dernier message ni le badge de non-lus tant que l'app n'était pas
+  // rechargée. On relance la requête bornée ci-dessus (idempotente, calcule
+  // l'état complet depuis la base) dès la reconnexion.
+  const wasOfflineRef = useRef(false);
+  useEffect(() => {
+    if (!isOnline) {
+      wasOfflineRef.current = true;
+      return;
+    }
+    if (!wasOfflineRef.current) return; // pas une vraie reconnexion (ex. montage initial)
+    wasOfflineRef.current = false;
+    fetchConversationsPreviewRef.current?.();
+  }, [isOnline]);
 
   // Corrige un bug d'incohérence signalé par l'utilisateur : l'effet
   // ci-dessus ne se déclenche qu'au montage/changement de matchIdsKey (ex.

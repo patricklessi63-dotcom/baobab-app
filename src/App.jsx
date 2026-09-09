@@ -107,6 +107,11 @@ export default function App() {
   // après celle de B écrasait les messages de B (déjà affichés sous le bon
   // en-tête) avec ceux de A.
   const chatLoadTokenRef = useRef(0);
+  // Marque qu'une vraie coupure réseau a eu lieu (par opposition au montage
+  // initial du composant, où isOnline vaut déjà true) — lu par l'effet de
+  // reconnexion ci-dessous pour ne resynchroniser les messages qu'après un
+  // véritable retour en ligne, pas à chaque rendu initial.
+  const wasOfflineRef = useRef(false);
   // Cache par conversation (clé = match_key) des messages restés en échec
   // d'envoi ("_status: failed") — voir l'effet qui l'alimente plus bas et
   // refreshMessages() qui les réinjecte. Ces messages n'ont jamais atteint
@@ -2177,10 +2182,27 @@ export default function App() {
   // retour en ligne (useOnlineStatus, déjà utilisé par ConnectivityBanner),
   // on relance automatiquement les messages en échec de la conversation
   // ouverte — même mécanisme que retrySend(), juste déclenché tout seul.
+  //
+  // Bug corrigé : ce même retour en ligne ne resynchronisait que les envois
+  // en échec, jamais les messages REÇUS pendant la coupure. Le canal Realtime
+  // (postgres_changes) ne rejoue pas les événements manqués pendant que le
+  // websocket était déconnecté — Supabase ne garantit aucune livraison
+  // différée. Résultat : si la conversation active recevait un message
+  // pendant que le wifi/les données étaient coupés, il n'apparaissait jamais
+  // tant que l'utilisateur ne rechargeait pas la page ou ne quittait/rouvrait
+  // pas la conversation (seul openChat() appelle refreshMessages()). On
+  // rappelle donc explicitement refreshMessages() ici pour la conversation
+  // ouverte au moment de la reconnexion.
   useEffect(() => {
-    if (!isOnline) return;
+    if (!isOnline) {
+      wasOfflineRef.current = true;
+      return;
+    }
+    if (!wasOfflineRef.current) return; // pas une vraie reconnexion (ex. montage initial)
+    wasOfflineRef.current = false;
     const failed = messagesRef.current.filter((msg) => msg._status === "failed");
     failed.forEach((msg) => retrySend(msg));
+    if (activeMatchRef.current) refreshMessages(activeMatchRef.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOnline]);
 
