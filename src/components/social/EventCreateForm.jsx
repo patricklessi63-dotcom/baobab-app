@@ -98,7 +98,13 @@ export default function EventCreateForm({ currentUser, initialCommunityId = null
   // navigateur (bug identifié à l'audit : contrairement au composeur de
   // publication (PostsFeed.jsx, requestCloseComposer), ce formulaire n'avait
   // jusqu'ici aucune protection contre la perte de saisie).
-  const isDirty = Boolean(title.trim() || description.trim() || category || coverFile || date || time || location.trim());
+  // Bug de régression identifié à l'audit (2b75ed7) : durationMinutes et
+  // maxParticipants sont, comme location, des champs facultatifs vides par
+  // défaut — mais contrairement à location (et contrairement à
+  // EventEditForm, qui les suit tous les deux), ils étaient absents de ce
+  // calcul. Remplir uniquement la durée ou le plafond de participants puis
+  // annuler perdait cette saisie sans la moindre confirmation.
+  const isDirty = Boolean(title.trim() || description.trim() || category || coverFile || date || time || location.trim() || durationMinutes.trim() || maxParticipants.trim());
   useEffect(() => { onDirtyChange(isDirty); }, [isDirty]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const canSubmit = title.trim().length > 0 && category && date && time && city.trim().length > 0 && !submitting
