@@ -887,9 +887,17 @@ export default function App() {
         stories: supabase.from("stories").select("*").eq("profile_id", currentUser.id),
         event_participations: supabase.from("event_attendees").select("event_id, status, created_at").eq("profile_id", currentUser.id),
         community_memberships: supabase.from("community_members").select("community_id, role, created_at").eq("profile_id", currentUser.id),
-        messages_sent: supabase.from("messages").select("id, match_key, kind, text, created_at").eq("from_id", currentUser.id),
+        // media_path ajouté (audit RGPD — qualité du contenu de l'export) :
+        // un message photo/vidéo/note vocale a "text" à null (le contenu réel
+        // est le fichier), donc sans cette colonne ce message ressortait de
+        // l'export sans aucun moyen de retrouver le média envoyé. Résolu en
+        // URL signée plus bas (chat-media est un bucket privé, le chemin brut
+        // seul seul n'aurait mené à rien pour l'utilisateur).
+        messages_sent: supabase.from("messages").select("id, match_key, kind, text, media_path, created_at").eq("from_id", currentUser.id),
         post_comments: supabase.from("post_comments").select("id, post_id, body, created_at").eq("author_id", currentUser.id),
-        community_posts: supabase.from("community_posts").select("id, community_id, body, created_at").eq("author_id", currentUser.id),
+        // media_url/media_kind ajoutés (même bug) : une publication de
+        // communauté avec photo/vidéo ressortait sans son média.
+        community_posts: supabase.from("community_posts").select("id, community_id, body, media_url, media_kind, created_at").eq("author_id", currentUser.id),
         community_comments: supabase.from("community_comments").select("id, post_id, body, created_at").eq("author_id", currentUser.id),
         // Bug corrigé (audit RGPD/LPRPDE) : cet export se présentait comme "mes
         // données" mais omettait plusieurs catégories de données personnelles
@@ -916,6 +924,36 @@ export default function App() {
         if (error) { console.error(key, error); failedCategories.push(key); }
         payload[key] = data || [];
       });
+
+      // Résolution des médias de messagerie (audit RGPD — qualité du contenu
+      // de l'export) : media_path est un chemin interne au bucket privé
+      // chat-media (aucune policy de lecture publique), donc inutilisable
+      // tel quel dans un fichier téléchargé — surtout une fois le compte
+      // supprimé, où même une URL signée ne mènerait plus à rien de toute
+      // façon. On résout ici une URL signée valable 7 jours (plus long que
+      // le TTL d'1h utilisé en direct par la messagerie — voir
+      // lib/signedUrlCache.js — pour laisser le temps de récupérer le fichier
+      // après le téléchargement de l'export) plutôt que d'exposer le chemin
+      // brut ou un lien déjà expiré.
+      const pathsToSign = (payload.messages_sent || []).map((m) => m.media_path).filter(Boolean);
+      let signedUrlByPath = {};
+      if (pathsToSign.length > 0) {
+        try {
+          const { data: signedList, error: signError } = await supabase.storage
+            .from(MEDIA_BUCKET)
+            .createSignedUrls(pathsToSign, 60 * 60 * 24 * 7);
+          if (signError) { console.error("messages_sent media", signError); failedCategories.push("messages_sent_media"); }
+          (signedList || []).forEach((row) => {
+            if (row.path && row.signedUrl) signedUrlByPath[row.path] = row.signedUrl;
+          });
+        } catch (e) {
+          console.error("messages_sent media", e);
+          failedCategories.push("messages_sent_media");
+        }
+      }
+      payload.messages_sent = (payload.messages_sent || []).map(({ media_path, ...rest }) => (
+        media_path ? { ...rest, media_url: signedUrlByPath[media_path] || null, media_url_expires_in: "7 jours" } : rest
+      ));
 
       const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
       const url = URL.createObjectURL(blob);
