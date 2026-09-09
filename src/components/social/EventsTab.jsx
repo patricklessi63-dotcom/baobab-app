@@ -701,6 +701,17 @@ export default function EventsTab({ currentUser, onError, initialEventId, onCons
         // Limite ajoutée (même correctif que loadMembers/loadParticipants
         // ci-dessus) : cette requête n'avait aucune borne sur le nombre de
         // membres renvoyés pour construire la liste de candidats à inviter.
+        // .order() ajouté (bug corrigé à l'audit — angle "tri non
+        // déterministe sous LIMIT") : contrairement à loadMembers ci-dessus
+        // (même table, même .limit(1000)), cette requête n'avait AUCUN
+        // .order(). Un LIMIT sans ORDER BY explicite renvoie un sous-ensemble
+        // dont l'ordre — et donc le contenu une fois tronqué — n'est pas
+        // garanti stable par Postgres/PostgREST : pour une communauté de plus
+        // de 1000 membres, les candidats à l'invitation proposés pouvaient
+        // varier de façon arbitraire (et non liée à l'ancienneté ou à
+        // l'activité) d'un appel à l'autre. Tri par joined_at pour rester
+        // cohérent avec loadMembers et rendre le résultat déterministe.
+        .order("joined_at", { ascending: true })
         .limit(1000);
       const extra = (members || []).map((m) => m.profiles).filter(Boolean).filter((p) => !blockedIds.has(p.id) && !alreadyInEvent.has(p.id));
       const seen = new Set(candidates.map((c) => c.id));
