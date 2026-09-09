@@ -20,6 +20,15 @@ export function traduireAuthErreur(err) {
     return "Entre une adresse email valide.";
   if (code === "over_email_send_rate_limit" || msg.includes("rate limit"))
     return "Trop de tentatives. Réessaie dans quelques minutes.";
+  // Rejet par le hook Auth "before user created" de la liste blanche beta
+  // (voir check_beta_whitelist, supabase-beta-access.sql) : sans ce cas,
+  // le message explicite renvoyé par le hook ("beta privée sur invitation")
+  // ne correspondait à aucune règle ci-dessus et tombait dans le filet de
+  // sécurité générique "Une erreur est survenue. Réessaie dans un instant."
+  // — qui suggère à tort de réessayer alors que réessayer ne débloquera
+  // jamais un email non invité.
+  if (msg.toLowerCase().includes("beta privée"))
+    return msg;
   if (msg.toLowerCase().includes("already confirmed"))
     return "Cette adresse est déjà vérifiée. Tu peux te connecter directement.";
   // Session de récupération manquante/expirée (item b du cahier des charges
