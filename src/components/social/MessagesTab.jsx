@@ -87,7 +87,7 @@ export default function MessagesTab({
   }
 
   const ConversationList = (
-    <div className={`${card} overflow-hidden flex flex-col ${activeMatch ? "hidden md:flex" : "flex"}`} style={{ maxHeight: "calc(100vh - 180px)" }}>
+    <div className={`${card} overflow-hidden flex flex-col bb-msg-maxh ${activeMatch ? "hidden md:flex" : "flex"}`}>
       <div className="p-4 shrink-0 flex flex-col gap-3" style={{ borderBottom: `1px solid rgba(${primaryRgb},.08)` }}>
         <div className="flex items-center justify-between gap-2">
           <h1 className="text-lg font-black" style={{ color: primary }}>💬 Messages</h1>
@@ -204,7 +204,7 @@ export default function MessagesTab({
   );
 
   const Pane = activeMatch ? (
-    <div className={`${card} overflow-hidden ${activeMatch ? "flex" : "hidden md:flex"}`} style={{ height: "calc(100vh - 180px)" }}>
+    <div className={`${card} overflow-hidden bb-msg-h ${activeMatch ? "flex" : "hidden md:flex"}`}>
       <ConversationPane
         key={activeMatch.id}
         activeMatch={activeMatch}
@@ -235,13 +235,29 @@ export default function MessagesTab({
       />
     </div>
   ) : (
-    <div className={`${card} hidden md:flex items-center justify-center`} style={{ height: "calc(100vh - 180px)" }}>
+    <div className={`${card} hidden md:flex items-center justify-center bb-msg-h`}>
       <p className="text-sm" style={{ color: muted }}>Sélectionne une conversation.</p>
     </div>
   );
 
   return (
     <section className="max-w-6xl mx-auto grid md:grid-cols-[340px_1fr] gap-4">
+      {/* 100vh sur mobile Safari inclut la zone recouverte par la barre
+          d'adresse/outils : quand elle est visible, la hauteur réelle
+          disponible est plus petite que 100vh, ce qui poussait le champ de
+          saisie (en bas du volet de conversation, hauteur fixe calc(100vh -
+          180px)) sous la zone visible — obligeant à scroller pour l'atteindre
+          en pleine conversation mobile. 100dvh (dynamic viewport height) se
+          recalcule avec la barre d'outils ; fallback 100vh conservé pour les
+          navigateurs qui ne le supportent pas encore (Safari < 15.4). */}
+      <style>{`
+        .bb-msg-maxh { max-height: calc(100vh - 180px); }
+        .bb-msg-h { height: calc(100vh - 180px); }
+        @supports (height: 100dvh) {
+          .bb-msg-maxh { max-height: calc(100dvh - 180px); }
+          .bb-msg-h { height: calc(100dvh - 180px); }
+        }
+      `}</style>
       {ConversationList}
       {Pane}
     </section>
