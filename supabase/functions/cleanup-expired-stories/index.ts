@@ -64,30 +64,44 @@ Deno.serve(async (req) => {
     // publié dans le bucket "avatars" sous <profile_id>/story-..., et
     // media_url stocke l'URL publique complète.
     const marker = "/avatars/";
-    const storagePaths = dueStories
-      .map((s) => {
-        const idx = s.media_url?.indexOf(marker);
-        if (idx === undefined || idx === -1) return null;
-        return decodeURIComponent(s.media_url.slice(idx + marker.length));
-      })
-      .filter((p): p is string => Boolean(p));
 
-    if (storagePaths.length) {
-      const { error: removeError } = await admin.storage.from("avatars").remove(storagePaths);
-      // Un échec de suppression Storage (fichier déjà absent, etc.) ne doit
-      // pas empêcher la purge des lignes en base — sinon un statut resterait
-      // indéfiniment coincé en attente de purge à cause d'un seul fichier
-      // problématique. On journalise seulement.
-      if (removeError) console.error("Suppression Storage partielle échouée :", removeError);
+    // Bug corrigé à l'audit : le lot entier était traité en deux appels
+    // groupés (un seul "remove(storagePaths)" pour tous les fichiers, puis un
+    // seul "delete().in('id', ...)" pour toutes les lignes). Si l'appel
+    // groupé de suppression des LIGNES échouait (réseau/timeout, verrou,
+    // etc.), TOUT le lot restait non purgé — y compris les statuts dont le
+    // fichier Storage venait d'être supprimé avec succès juste avant. Comme
+    // le prochain passage du cron resélectionne exactement le même lot
+    // (toujours "expires_at <= cutoff"), un seul statut à problème pouvait
+    // ainsi bloquer indéfiniment la purge de TOUS les autres statuts dus,
+    // chaque jour, y compris ceux arrivés après. Traitement story par story
+    // avec try/catch individuel désormais — même principe que
+    // process-scheduled-deletions/index.ts (traitement par profil isolé) :
+    // un échec isolé ne doit jamais empêcher la purge des autres lignes dues.
+    const results: { id: string; ok: boolean; error?: string }[] = [];
+    for (const story of dueStories) {
+      try {
+        const idx = story.media_url?.indexOf(marker);
+        if (idx !== undefined && idx !== -1) {
+          const path = decodeURIComponent(story.media_url.slice(idx + marker.length));
+          const { error: removeError } = await admin.storage.from("avatars").remove([path]);
+          // Un échec de suppression Storage (fichier déjà absent — notamment
+          // en cas de nouvelle tentative après un précédent échec côté ligne
+          // — ou autre) ne doit pas empêcher la purge de la ligne en base :
+          // on journalise seulement.
+          if (removeError) console.error("Suppression Storage échouée pour", story.id, removeError);
+        }
+
+        const { error: deleteError } = await admin.from("stories").delete().eq("id", story.id);
+        if (deleteError) throw deleteError;
+        results.push({ id: story.id, ok: true });
+      } catch (e) {
+        console.error("Purge du statut échouée pour", story.id, e);
+        results.push({ id: story.id, ok: false, error: String(e) });
+      }
     }
 
-    const { error: deleteError } = await admin
-      .from("stories")
-      .delete()
-      .in("id", dueStories.map((s) => s.id));
-    if (deleteError) throw deleteError;
-
-    return new Response(JSON.stringify({ ok: true, processed: dueStories.length }), {
+    return new Response(JSON.stringify({ ok: true, processed: results.length, results }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
