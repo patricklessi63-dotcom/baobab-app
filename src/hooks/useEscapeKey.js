@@ -35,6 +35,28 @@ function ensureListeners() {
     const entry = stack[stack.length - 1];
     entry.consumedByPopstate = true; // le nettoyage n'a pas besoin de consommer une entrée déjà consommée par ce popstate
     entry.onClose();
+    // Bug corrigé à l'audit de régression : certains appelants (ex. les
+    // formulaires "quitter sans enregistrer ?" de CommunitiesTab/EventsTab,
+    // depuis 2b75ed7) ne ferment pas réellement sur onClose() — ils affichent
+    // une confirmation et laissent la vue active tant que rien n'est
+    // confirmé. Le vrai retour navigateur/mobile a pourtant déjà consommé
+    // l'entrée d'historique ci-dessus. Sans ce filet, cliquer "Continuer"
+    // dans la confirmation laissait la vue protégée par AUCUNE entrée
+    // d'historique : une pression supplémentaire sur "retour" naviguait
+    // directement au-delà (jusqu'à sortir de l'application) au lieu de
+    // redéclencher la confirmation. On vérifie donc, après le prochain
+    // rendu, si l'entrée est toujours sur la pile (vue restée active) : si
+    // oui, on lui redonne une entrée d'historique fraîche et on la remet à
+    // l'état "non consommée" pour que la prochaine fermeture (programmatique
+    // ou via un nouveau retour) se comporte normalement. N'a aucun effet sur
+    // les appelants existants qui ferment réellement au premier appel : leur
+    // effet aura déjà retiré l'entrée de la pile avant ce setTimeout(0).
+    setTimeout(() => {
+      if (stack.includes(entry)) {
+        entry.consumedByPopstate = false;
+        window.history.pushState({ bbOverlay: true }, "");
+      }
+    }, 0);
   });
 }
 
