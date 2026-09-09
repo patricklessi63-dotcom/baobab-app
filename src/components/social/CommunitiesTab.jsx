@@ -21,6 +21,7 @@ import { extFromMime } from "../../lib/mediaConstants";
 import { uploadWithProgress } from "../../lib/uploadWithProgress";
 import { escapeLikePattern, escapeOrFilterValue } from "../../lib/searchQuery";
 import { primary, coral, muted, bg, card, navy } from "./theme";
+import { useEscapeKey } from "../../hooks/useEscapeKey";
 
 const COMMUNITY_MEDIA_BUCKET = "community-media";
 
@@ -511,6 +512,15 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
     setSelectedId(null);
     setCommunity(null);
   };
+
+  // Bug corrigé à l'audit : ouvrir le détail d'une communauté (liste →
+  // détail) ne poussait aucune entrée d'historique — le bouton retour du
+  // navigateur/mobile (contrairement au bouton "Annuler" affiché à
+  // l'écran) ne refermait donc pas le détail, et pouvait à la place faire
+  // sortir carrément de l'application (voir useEscapeKey.js, déjà utilisé
+  // pour ce même problème sur les fenêtres modales et la fiche profil
+  // publique — même mécanisme réutilisé ici).
+  useEscapeKey(view === "detail", goList);
 
   // Ouverture directe depuis "Mes communautés" (profil) — consommé une
   // seule fois pour ne pas rouvrir la même communauté à chaque montage.

@@ -27,6 +27,7 @@ import { disablePushNotifications } from "./lib/pushNotifications";
 import { isLikelyInCanada, TRAVEL_GRACE_PERIOD_MS } from "./lib/canadaGate";
 import { friendlyDbError } from "./lib/friendlyDbError";
 import { usePathname } from "./hooks/usePathname";
+import { useEscapeKey } from "./hooks/useEscapeKey";
 import LandingPage from "./screens/public/LandingPage";
 import AboutPage from "./screens/public/AboutPage";
 import PrivacyPage from "./screens/public/PrivacyPage";
@@ -99,6 +100,15 @@ export default function App() {
   const likesChannelRef = useRef(null);
   const [matchNotice, setMatchNotice] = useState(null);
   const [activeMatch, setActiveMatch] = useState(null);
+  // Bug corrigé à l'audit : ouvrir une conversation (liste des messages →
+  // conversation) ne poussait aucune entrée d'historique, contrairement
+  // aux fenêtres modales et à la fiche profil publique (voir
+  // useEscapeKey.js) — le bouton retour du navigateur/mobile ne refermait
+  // donc pas la conversation pour revenir à la liste (seul le bouton
+  // "Retour" affiché à l'écran le faisait), et pouvait à la place faire
+  // sortir carrément de l'application. closeChat est une déclaration de
+  // fonction (hissée), définie plus bas dans ce composant.
+  useEscapeKey(Boolean(activeMatch), closeChat);
   const [messages, setMessages] = useState([]);
   const messagesRef = useRef(messages); // lu par l'effet d'inactivité sans le forcer à se réabonner à chaque message
   // Jeton anti-race pour refreshMessages : un clic rapide entre deux

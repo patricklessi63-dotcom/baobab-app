@@ -431,6 +431,13 @@ export default function EventsTab({ currentUser, onError, initialEventId, onCons
     setEvent(null);
   };
 
+  // Bug corrigé à l'audit : même problème que côté communautés
+  // (CommunitiesTab.jsx) — ouvrir le détail d'un événement ne poussait
+  // aucune entrée d'historique, donc le bouton retour du navigateur/mobile
+  // ne refermait pas le détail (seul le bouton "Annuler" affiché à l'écran
+  // le faisait).
+  useEscapeKey(view === "detail", goHome);
+
   // Ouverture directe depuis "Mes événements" (profil) — consommé une
   // seule fois pour ne pas rouvrir le même événement à chaque montage.
   useEffect(() => {
