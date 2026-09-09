@@ -4,6 +4,22 @@
 -- uniquement, sans lien avec email_verified/phone_verified (badge de
 -- vérification réel, laissé intact pour tous les utilisateurs — le badge
 -- fondateur est un marqueur séparé, pas un remplacement de la vérification).
+--
+-- ATTENTION — ORDRE D'EXÉCUTION (piège de nom de trigger partagé, trouvé le
+-- 9 septembre 2026) : ce fichier crée trg_protect_founder_flag en BEFORE
+-- UPDATE seulement. supabase-profile-insert-trust-columns-protect-fix.sql
+-- redéfinit ensuite CE MÊME trigger (même nom, sur "profiles") en BEFORE
+-- INSERT OR UPDATE, pour bloquer aussi l'auto-attribution de is_founder à LA
+-- CRÉATION du profil. Si ce fichier-ci (supabase-founder-badge.sql) est
+-- ré-exécuté APRÈS supabase-profile-insert-trust-columns-protect-fix.sql
+-- (copier-coller par erreur, script qui rejoue tous les fichiers dans
+-- l'ordre alphabétique, etc.), le "drop trigger if exists" + "create
+-- trigger ... before update" ci-dessous écrase SILENCIEUSEMENT la version
+-- BEFORE INSERT OR UPDATE — la protection anti-auto-attribution à la
+-- création de profil disparaît sans aucune erreur visible. Si vous devez
+-- reprendre ce fichier après coup, ré-exécutez immédiatement après
+-- supabase-profile-insert-trust-columns-protect-fix.sql pour restaurer la
+-- protection INSERT.
 -- ============================================================================
 
 alter table profiles add column if not exists is_founder boolean not null default false;

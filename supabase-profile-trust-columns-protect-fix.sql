@@ -68,6 +68,23 @@
 -- modération (suspend_user/ban_user cesseraient de fonctionner, pas de
 -- lever d'exception visible côté staff au premier abord — juste un profil
 -- qui reste non banni malgré l'appel RPC réussi).
+--
+-- MISE A JOUR (9 septembre 2026) - piege de nom de trigger partage trouve
+-- apres coup : le trigger trg_protect_profile_trust_columns cree ci-dessous
+-- est en BEFORE UPDATE seulement. supabase-profile-insert-trust-columns-
+-- protect-fix.sql redefinit ensuite CE MEME trigger (meme nom, sur
+-- "profiles") en BEFORE INSERT OR UPDATE, pour bloquer aussi
+-- l'auto-attribution de ces colonnes de confiance a LA CREATION du profil
+-- (banned_at/report_count/email_verified/etc. choisis librement dans le
+-- premier insert). Si CE fichier-ci est re-execute APRES
+-- supabase-profile-insert-trust-columns-protect-fix.sql (ordre alphabetique
+-- inverse des deux noms de fichiers : "insert" vient avant "trust"), le
+-- "drop trigger if exists" + "create trigger ... before update" ci-dessous
+-- ecrase SILENCIEUSEMENT la version BEFORE INSERT OR UPDATE, reintroduisant
+-- le contournement cote INSERT sans aucune erreur visible. Si vous devez
+-- reprendre ce fichier apres coup, re-executez immediatement apres
+-- supabase-profile-insert-trust-columns-protect-fix.sql pour restaurer la
+-- protection INSERT.
 -- ============================================================================
 
 -- ----------------------------------------------------------------------------

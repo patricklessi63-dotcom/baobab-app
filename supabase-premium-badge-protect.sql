@@ -1,6 +1,21 @@
 -- ============================================================================
 -- Protection anti-auto-attribution du badge Premium (profiles.is_premium).
 -- Additif à supabase-premium-badge.sql. À exécuter dans Supabase : SQL Editor.
+--
+-- ATTENTION — ORDRE D'EXÉCUTION (piège de nom de trigger partagé, trouvé le
+-- 9 septembre 2026) : ce fichier crée trg_protect_premium_flag en BEFORE
+-- UPDATE seulement. supabase-profile-insert-trust-columns-protect-fix.sql
+-- redéfinit ensuite CE MÊME trigger (même nom, sur "profiles") en BEFORE
+-- INSERT OR UPDATE, pour bloquer aussi l'auto-attribution de is_premium à LA
+-- CRÉATION du profil. Si ce fichier-ci est ré-exécuté APRÈS
+-- supabase-profile-insert-trust-columns-protect-fix.sql, le "drop trigger if
+-- exists" + "create trigger ... before update" ci-dessous écrase
+-- SILENCIEUSEMENT la version BEFORE INSERT OR UPDATE — un compte flambant
+-- neuf pourrait de nouveau s'auto-attribuer is_premium=true à l'inscription,
+-- sans aucune erreur visible. Si vous devez reprendre ce fichier après coup,
+-- ré-exécutez immédiatement après
+-- supabase-profile-insert-trust-columns-protect-fix.sql pour restaurer la
+-- protection INSERT.
 -- ============================================================================
 -- Bug trouvé lors de l'audit Premium/paywall (2026-08-22) : la policy RLS
 -- UPDATE existante sur "profiles" ("Un utilisateur modifie son propre
