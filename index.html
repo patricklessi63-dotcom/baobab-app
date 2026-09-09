@@ -28,6 +28,26 @@
   <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
   <link rel="apple-touch-icon" href="/icon-192.png" />
   <link rel="manifest" href="/manifest.webmanifest" />
+  <!-- manifest.webmanifest déclare display: standalone, mais iOS ignore
+  cette propriété du manifest pour "Ajouter à l'écran d'accueil" sur de
+  nombreuses versions encore répandues (support complet du manifest
+  seulement depuis iOS 16.4) : sans apple-mobile-web-app-capable, l'app
+  installée s'ouvrait comme un simple signet dans Safari (barre d'adresse
+  et onglets visibles) au lieu d'une PWA plein écran. mobile-web-app-capable
+  est l'équivalent non préfixé désormais reconnu par Chrome/Android, à
+  déclarer en plus (jamais à la place, tant que d'anciens iOS circulent).
+  apple-mobile-web-app-status-bar-style: la couleur de la barre de statut en
+  mode standalone iOS n'est PAS pilotée par theme-color/manifest (spécifique
+  à Apple) — "black" plutôt que le "default" gris clair pour rester cohérent
+  avec la palette vert foncé/or-noir de l'app, sans passer en
+  "black-translucent" (qui ferait dessiner le contenu sous la barre de
+  statut : plusieurs écrans plein écran, ex. OnboardingWizard.jsx, n'ont pas
+  de padding-top env(safe-area-inset-top) et seraient alors rognés par
+  l'encoche/Dynamic Island). -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black" />
+  <meta name="apple-mobile-web-app-title" content="Baobab" />
   <!-- Deux balises plutôt qu'une seule (support natif Safari/Chrome des
   attributs media sur theme-color, pas besoin de JS) — la barre d'état du
   PWA/onglet suit désormais la palette or/noir en mode sombre système,
