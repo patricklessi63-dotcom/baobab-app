@@ -2,19 +2,38 @@ export function matchKey(a, b) {
   return [a, b].sort().join("__");
 }
 
-// Tronque une chaîne à `maxLength` unités UTF-16 sans jamais couper une paire
-// surrogate en deux — cas concret : bio, message ou commentaire proche de sa
-// limite (300/500/1000/4000 selon l'endroit) auquel on ajoute un emoji hors
-// du plan multilingue de base (😀🎉🚀... la plupart des emoji modernes,
-// codés sur 2 unités UTF-16) via le sélecteur d'emoji, une suggestion IA ou
-// un collage. Un `.slice(0, N)` nu peut couper exactement entre les deux
-// moitiés de cet emoji si la longueur totale dépasse la limite d'une seule
-// unité, laissant un surrogate orphelin dans le texte — rendu ensuite comme
-// un caractère invalide (tofu) à l'écran, et envoyé tel quel si le message
-// est publié. `str.length` (utilisé par tous les compteurs "x/N" de l'app)
-// compte déjà en unités UTF-16, donc ce plafond reste cohérent avec eux.
+// Tronque une chaîne à `maxLength` unités UTF-16 sans jamais couper un
+// graphème Unicode en deux — cas concret : bio, message ou commentaire
+// proche de sa limite (300/500/1000/4000 selon l'endroit) auquel on ajoute
+// un emoji via le sélecteur d'emoji (EmojiPicker, cf. src/lib/emojiData.js),
+// une suggestion IA ou un collage. Un `.slice(0, N)` nu peut couper :
+// - au milieu d'une paire surrogate (emoji simple type 😀🎉🚀, 2 unités
+//   UTF-16) → laisse un surrogate orphelin, rendu comme un caractère
+//   invalide (tofu) à l'écran ;
+// - entre les deux indicateurs régionaux d'un drapeau (🇨🇦, 🇫🇷...) → deux
+//   points de code valides individuellement mais un drapeau coupé en deux
+//   symboles bizarres ;
+// - au milieu d'une séquence ZWJ (🧑‍💻, 🧑‍🚀...) ou entre un caractère et
+//   son sélecteur de variation (❤️, ✈️...) → glyphe combiné éclaté en ses
+//   composants.
+// `Intl.Segmenter` (bien supporté sur les navigateurs modernes, y compris
+// mobile Safari) découpe le texte en graphèmes visuels et évite ces trois
+// cas d'un coup ; on retombe sur la simple protection anti-surrogate si
+// l'environnement ne le supporte pas. `str.length` (utilisé par tous les
+// compteurs "x/N" de l'app) compte en unités UTF-16, donc ce plafond reste
+// cohérent avec eux dans les deux cas.
 export function truncateUnicodeSafe(str, maxLength) {
   if (!str || str.length <= maxLength) return str || "";
+  if (typeof Intl !== "undefined" && typeof Intl.Segmenter === "function") {
+    const segmenter = new Intl.Segmenter(undefined, { granularity: "grapheme" });
+    let end = 0;
+    for (const { segment } of segmenter.segment(str)) {
+      const nextEnd = end + segment.length;
+      if (nextEnd > maxLength) break;
+      end = nextEnd;
+    }
+    return str.slice(0, end);
+  }
   let end = maxLength;
   const code = str.charCodeAt(end - 1);
   if (code >= 0xd800 && code <= 0xdbff) end -= 1; // high surrogate laissé seul par la coupe
