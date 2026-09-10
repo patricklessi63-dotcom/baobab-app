@@ -109,7 +109,10 @@
       --bb-surface-2: #F2EEE4;
       --bb-gold-1: var(--bb-ochre);
       --bb-gold-2: #C1613D;
-      --bb-text-faint: rgba(43,36,32,0.5);
+      /* Contraste : 0.5 donnait ~3.1:1 sur --bb-bg/--bb-surface (échec AA
+      texte normal) ; 0.66 remonte à ~4.9:1 tout en restant nettement plus
+      pâle que --bb-muted (hiérarchie faint < muted < text préservée). */
+      --bb-text-faint: rgba(43,36,32,0.66);
     }
     /* Identité or/noir (Baobab 3.0, refonte visuelle août 2026) — mode
     sombre uniquement, à partir des maquettes fournies par l'utilisateur
@@ -126,12 +129,17 @@
         --bb-text: #F2EDE0;
         --bb-text-rgb: 242,237,224;
         --bb-body-text: #F2EDE0;
-        --bb-muted: rgba(168,154,124,0.85);
+        /* Contraste (thème sombre) : l'ancien rgba(168,154,124,0.85) tombait
+        à ~4.8:1 sur --bb-surface-2 (limite AA, re-signalé par l'audit) ;
+        rgba(186,172,142,0.9) remonte à ~6.3:1 sans changer la teinte tan. */
+        --bb-muted: rgba(186,172,142,0.9);
         --bb-border: #2B271F;
         --bb-ink-rgb: 242,237,224;
         --bb-gold-1: #F6D271;
         --bb-gold-2: #C9962F;
-        --bb-text-faint: #6E6450;
+        /* Contraste : #6E6450 ne donnait que ~3:1 sur les surfaces sombres
+        (échec AA) ; #948A6E atteint ~4.9:1, en restant sous --bb-muted. */
+        --bb-text-faint: #948A6E;
       }
     }
     :root[data-theme="dark"] {
@@ -142,12 +150,14 @@
       --bb-text: #F2EDE0;
       --bb-text-rgb: 242,237,224;
       --bb-body-text: #F2EDE0;
-      --bb-muted: rgba(168,154,124,0.85);
+      /* Voir la note du bloc @media (prefers-color-scheme: dark) ci-dessus —
+      mêmes valeurs, dupliquées pour le toggle manuel data-theme="dark". */
+      --bb-muted: rgba(186,172,142,0.9);
       --bb-border: #2B271F;
       --bb-ink-rgb: 242,237,224;
       --bb-gold-1: #F6D271;
       --bb-gold-2: #C9962F;
-      --bb-text-faint: #6E6450;
+      --bb-text-faint: #948A6E;
     }
     * { box-sizing: border-box; }
     html { -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
