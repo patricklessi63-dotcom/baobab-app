@@ -8,7 +8,7 @@ import { matchKey, visibleAge } from "../utils/format";
 import { useClickOutside } from "../hooks/useClickOutside";
 import { useEscapeKey } from "../hooks/useEscapeKey";
 import { useOnlineStatus } from "../hooks/useOnlineStatus";
-import { primary, navy, coral, gold, bg, muted, buttonBase, body, primaryRgb } from "./social/theme";
+import { primary, navy, coral, coralText, gold, bg, muted, buttonBase, body, primaryRgb } from "./social/theme";
 import { NOTIFICATION_LABELS, NOTIF_CATEGORIES, groupNotificationRows } from "../lib/notificationLabels";
 import Skeleton from "./Skeleton";
 import FeedTab from "./social/FeedTab";
@@ -1869,7 +1869,7 @@ export default function SocialShell({
                 <div className="flex items-center justify-between px-2 pb-2">
                   <b>Notifications</b>
                   {unreadCommunityCount > 0 && (
-                    <button onClick={markCommunityNotificationsRead} className="text-xs font-bold focus-visible:outline focus-visible:outline-2" style={{ color: coral }}>
+                    <button onClick={markCommunityNotificationsRead} className="text-xs font-bold focus-visible:outline focus-visible:outline-2" style={{ color: coralText }}>
                       Tout marquer comme lu
                     </button>
                   )}
@@ -1996,7 +1996,7 @@ export default function SocialShell({
                   <button onClick={() => { setMenu(false); goTab("admin"); }} className="w-full text-left rounded-xl px-3 py-3 text-sm hover:bg-[var(--bb-bg)]"><Shield size={16} className="inline mr-3" />Baobab Admin</button>
                 )}
                 <button onClick={() => { setMenu(false); setFeedbackOpen(true); }} className="w-full text-left rounded-xl px-3 py-3 text-sm hover:bg-[var(--bb-bg)]"><Megaphone size={16} className="inline mr-3" />Un souci, une idée ?</button>
-                <button onClick={() => { setMenu(false); handleSignOut(); }} className="w-full text-left rounded-xl px-3 py-3 text-sm" style={{ color: coral }}><LogOut size={16} className="inline mr-3" />Déconnexion</button>
+                <button onClick={() => { setMenu(false); handleSignOut(); }} className="w-full text-left rounded-xl px-3 py-3 text-sm" style={{ color: coralText }}><LogOut size={16} className="inline mr-3" />Déconnexion</button>
               </div>
             )}
             </div>
