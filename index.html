@@ -189,7 +189,7 @@
       border: 1px solid var(--bb-border);
       border-radius: var(--bb-radius-sm);
       padding: 12px 14px;
-      font-size: 16px !important; /* évite le zoom auto de Safari iOS au focus (déclenché sous 16px) ; !important nécessaire car le CDN Tailwind charge son stylesheet après celui-ci et une classe comme text-sm gagnerait sinon la cascade */
+      font-size: 16px !important; /* évite le zoom auto de Safari iOS au focus (déclenché sous 16px) ; !important nécessaire car la feuille Tailwind (build PostCSS via postcss.config.js, importée dans main.jsx) se charge après ce style inline et une classe comme text-sm gagnerait sinon la cascade */
       background: var(--bb-surface);
       color: var(--bb-text);
       transition: border-color .15s var(--bb-ease), box-shadow .15s var(--bb-ease);
