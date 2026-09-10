@@ -107,7 +107,7 @@ export default function EventDetailView({
         >
           {canceled && (
             <div className="absolute inset-0 flex items-center justify-center" style={{ background: `rgba(${primaryRgb},.55)` }}>
-              <span className="text-white font-black text-sm px-4 py-2 rounded-full" style={{ background: coral }}>❌ Événement annulé</span>
+              <span className="text-white font-black text-sm px-4 py-2 rounded-full" style={{ background: coralText }}>❌ Événement annulé</span>
             </div>
           )}
         </div>
