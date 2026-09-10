@@ -32,21 +32,35 @@ export default function PremiumPage({ currentUser, onBack, onError, justSubscrib
   // "Choisis un plan" juste après un paiement réussi, jusqu'à un rechargement
   // manuel. On revérifie quelques fois puis on abandonne silencieusement
   // (le statut réel reste correct à la prochaine visite, RLS/webhook faisant foi).
+  //
+  // Bug corrigé : cet effet dépendait de [justSubscribed] tout en appelant
+  // onJustSubscribedHandled() (-> setJustSubscribed(false) dans App.jsx) dès
+  // sa première exécution. Le prop repassait donc à false au rendu suivant,
+  // React exécutait le cleanup (clearInterval) puis relançait l'effet, qui
+  // ressortait aussitôt sur `if (!justSubscribed) return;` : l'intervalle de
+  // revérification était détruit en quelques millisecondes, avant son premier
+  // tick. refresh() n'était jamais appelé et confirmingPayment restait bloqué
+  // à true indéfiniment (« confirmation en cours... » sans fin), même une fois
+  // le webhook passé, jusqu'à un rechargement manuel. On capture la valeur au
+  // montage et on ne dépend plus du prop.
+  const justSubscribedAtMountRef = useRef(justSubscribed);
   useEffect(() => {
-    if (!justSubscribed) return;
+    if (!justSubscribedAtMountRef.current) return;
     onJustSubscribedHandled();
     if (isPremiumRef.current) { setConfirmingPayment(false); return; }
     let attempts = 0;
     const maxAttempts = 6;
+    let cancelled = false;
     const interval = setInterval(() => {
+      if (cancelled) return;
       if (isPremiumRef.current) { setConfirmingPayment(false); clearInterval(interval); return; }
       attempts += 1;
       refresh();
       if (attempts >= maxAttempts) { setConfirmingPayment(false); clearInterval(interval); }
     }, 2500);
-    return () => clearInterval(interval);
+    return () => { cancelled = true; clearInterval(interval); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [justSubscribed]);
+  }, []);
 
   const handleSubscribe = async () => {
     if (submittingRef.current) return;
