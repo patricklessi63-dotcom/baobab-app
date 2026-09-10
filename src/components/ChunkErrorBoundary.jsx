@@ -1,6 +1,7 @@
 import React from "react";
 import { RefreshCw } from "lucide-react";
 import { C } from "../constants";
+import { reportError } from "../lib/errorReporter";
 
 // Filet de sécurité pour les onglets chargés à la demande (lazy(), voir
 // SocialShell.jsx) — après un déploiement, un onglet gardé ouvert longtemps
@@ -27,6 +28,10 @@ export default class ChunkErrorBoundary extends React.Component {
     const isChunkError = /dynamically imported module|Failed to fetch|Loading chunk|ChunkLoadError/i.test(
       String(error?.message || error)
     );
+    // Remonte vers `client_errors` sans toucher au comportement de fallback ni
+    // au rechargement auto ci-dessous. reportError ne lève jamais (try/catch
+    // interne) et déduplique déjà par signature.
+    reportError({ message: error?.message, stack: error?.stack, kind: "react" });
     // sessionStorage peut lui-même jeter (navigation privée stricte,
     // stockage désactivé par politique navigateur/entreprise) — sans ce
     // try/catch, ce filet de sécurité censé éviter l'écran vide provoquait

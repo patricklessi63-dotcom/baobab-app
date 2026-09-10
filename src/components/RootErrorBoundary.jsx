@@ -1,6 +1,7 @@
 import React from "react";
 import { RefreshCw } from "lucide-react";
 import { C } from "../constants";
+import { reportError } from "../lib/errorReporter";
 
 // Filet de sécurité de dernier recours — TOUT l'arbre applicatif (App.jsx et
 // donc SocialShell, Auth, l'onboarding, les écrans banni/suspendu, etc.) n'a
@@ -29,6 +30,9 @@ export default class RootErrorBoundary extends React.Component {
 
   componentDidCatch(error, info) {
     console.error("Erreur non rattrapée au niveau racine :", error, info);
+    // Remonte le crash de rendu vers `client_errors` sans rien changer au
+    // fallback ci-dessous. reportError ne lève jamais.
+    reportError({ message: error?.message, stack: error?.stack, kind: "react" });
   }
 
   render() {
