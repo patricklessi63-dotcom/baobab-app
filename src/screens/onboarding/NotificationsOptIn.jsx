@@ -37,7 +37,7 @@ export default function NotificationsOptIn({ onDone }) {
         Active les notifications pour être prévenu(e) dès un nouveau match, un message ou une invitation. Jamais de spam — ajustable à tout moment dans les réglages.
       </p>
       {error && (
-        <p className="text-sm mt-3 font-semibold" style={{ color: C.clay }}>{error}</p>
+        <p role="alert" className="text-sm mt-3 font-semibold" style={{ color: C.clay }}>{error}</p>
       )}
       {supported ? (
         <>

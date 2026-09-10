@@ -47,7 +47,7 @@ export default function AiSuggestButton({ action, buildPayload, onApply, label =
         {loading ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
         {loading ? "Génération..." : label}
       </button>
-      {error && <p className="text-[11px] mt-1" style={{ color: coral }}>{error}</p>}
+      {error && <p role="alert" className="text-[11px] mt-1" style={{ color: coral }}>{error}</p>}
     </div>
   );
 }

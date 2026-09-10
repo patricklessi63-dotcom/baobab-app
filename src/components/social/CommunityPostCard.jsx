@@ -117,7 +117,7 @@ export default function CommunityPostCard({
               </div>
             )}
             </div>
-            <button onClick={toggleComments} className="flex items-center gap-1.5 text-xs font-semibold focus-visible:outline focus-visible:outline-2" style={{ color: muted }}>
+            <button onClick={toggleComments} aria-label="Afficher les commentaires" className="flex items-center gap-1.5 text-xs font-semibold focus-visible:outline focus-visible:outline-2" style={{ color: muted }}>
               <MessageCircle size={15} /> {(commentsLoaded ? comments.length : commentCount) > 0 ? (commentsLoaded ? comments.length : commentCount) : "Commenter"}
             </button>
             <button onClick={() => onReport(post)} aria-label="Signaler la publication" className="flex items-center gap-1.5 text-xs font-semibold focus-visible:outline focus-visible:outline-2" style={{ color: muted }}>

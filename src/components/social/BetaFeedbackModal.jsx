@@ -99,7 +99,7 @@ export default function BetaFeedbackModal({ open, onClose, currentUser, screen }
             <p className="text-sm mt-1 mb-3" style={{ color: muted }}>
               Baobab est en beta privée — ton retour va directement à l'équipe.
             </p>
-            {error && <p className="text-sm mb-2" style={{ color: coral }}>{error}</p>}
+            {error && <p role="alert" className="text-sm mb-2" style={{ color: coral }}>{error}</p>}
             <div className="flex gap-2 mb-3" role="radiogroup" aria-label="Type de retour">
               {REACTIONS.map(([value, emoji, label]) => (
                 <button

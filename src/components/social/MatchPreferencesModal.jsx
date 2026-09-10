@@ -86,7 +86,7 @@ export default function MatchPreferencesModal({ open, onClose, currentUser, onSa
           <ChipSelect options={LOOKING_FOR_OPTIONS} value={lookingFor} onChange={setLookingFor} multi />
         </div>
 
-        {error && <p className="text-xs mt-3" style={{ color: coral }}>{error}</p>}
+        {error && <p role="alert" className="text-xs mt-3" style={{ color: coral }}>{error}</p>}
 
         <button onClick={save} className="bb-btn-gold w-full mt-5 py-3 rounded-full text-sm font-bold focus-visible:outline focus-visible:outline-2">
           Enregistrer

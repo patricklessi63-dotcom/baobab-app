@@ -132,7 +132,7 @@ export default function PostCard({
               <button onClick={() => onToggleLike(post)} aria-label={liked ? "Retirer le like" : "Aimer"} aria-pressed={liked} className="flex items-center gap-1.5 text-xs font-semibold focus-visible:outline focus-visible:outline-2" style={{ color: liked ? coral : muted }}>
                 <Heart size={15} fill={liked ? coral : "none"} /> {likeCount > 0 ? likeCount : ""}
               </button>
-              <button onClick={toggleComments} className="flex items-center gap-1.5 text-xs font-semibold focus-visible:outline focus-visible:outline-2" style={{ color: muted }}>
+              <button onClick={toggleComments} aria-label="Afficher les commentaires" className="flex items-center gap-1.5 text-xs font-semibold focus-visible:outline focus-visible:outline-2" style={{ color: muted }}>
                 <MessageCircle size={15} /> {(commentsLoaded ? comments.length : commentCount) > 0 ? (commentsLoaded ? comments.length : commentCount) : "Commenter"}
               </button>
               {!isMine && (

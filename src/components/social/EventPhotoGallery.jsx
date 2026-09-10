@@ -70,7 +70,7 @@ export default function EventPhotoGallery({ photos = [], loading, canUpload, cur
           déjà comme jeton nommé ("coral", voir theme.js) importé partout
           ailleurs dans ce même dossier pour le même usage — risque de
           dérive silencieuse si "coral" était un jour retouché. */}
-      {error && <p className="text-xs mb-3" style={{ color: coral }}>{error}</p>}
+      {error && <p role="alert" className="text-xs mb-3" style={{ color: coral }}>{error}</p>}
 
       {loading ? (
         <Skeleton rows={2} height={80} />

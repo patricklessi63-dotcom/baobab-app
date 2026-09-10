@@ -78,7 +78,7 @@ export default function LocationSettingsModal({ open, onClose, onBack, location,
         {view === "error" && (
           <div className="py-6 text-center">
             <div className="text-3xl mb-2">📍</div>
-            <p className="text-sm" style={{ color: "rgba(var(--bb-ink-rgb),0.7)" }}>{errorMessage}</p>
+            <p role="alert" className="text-sm" style={{ color: "rgba(var(--bb-ink-rgb),0.7)" }}>{errorMessage}</p>
             <button onClick={() => setView("idle")} className="w-full mt-5 rounded-xl py-3 font-bold text-white" style={{ background: C.indigo }}>Compris</button>
           </div>
         )}
