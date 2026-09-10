@@ -24,11 +24,26 @@ export const PREMIUM_PLANS = [
   },
 ];
 
+// Uniquement des avantages RÉELLEMENT actifs en prod aujourd'hui — pas de
+// promesse en avance sur le code. La messagerie illimitée existe côté SQL
+// (supabase-premium-messaging.sql) mais reste désactivée
+// (monetization_enabled = false) : elle n'est donc pas listée ici tant
+// qu'un·e admin ne l'a pas activée.
 export const PREMIUM_FEATURES = [
   {
     icon: "🔍",
     label: "Filtres de recherche avancés",
     description: "Affine Découverte par centres d'intérêt, langues parlées et activité récente.",
+  },
+  {
+    icon: "💛",
+    label: "Vois qui t'a aimé·e en premier",
+    description: "Accède à la liste complète de tes admirateur·ice·s et matche sans attendre la réciprocité.",
+  },
+  {
+    icon: "✨",
+    label: "Badge Premium sur ton profil",
+    description: "Un repère de confiance visible partout où ton profil apparaît dans Baobab.",
   },
 ];
 
