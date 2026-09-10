@@ -1,5 +1,5 @@
 -- ============================================================================
--- SCRIPT CONSOLIDÉ — tous les correctifs SQL en attente (39 fichiers)
+-- SCRIPT CONSOLIDÉ — tous les correctifs SQL en attente (44 fichiers)
 -- Régénéré le 2026-09-09 (fin d'après-midi) pour ajouter un fichier manquant
 -- trouvé lors d'un audit de vérification empirique (curl) : les fonctions
 -- admin_dashboard_stats()/admin_list_reports() référencent reports.status,
@@ -33,6 +33,15 @@
 --    supabase-report-rate-limit-fix.sql sont conservés uniquement pour
 --    leur valeur d'audit historique (commentaires en tête "SUPERSEDED") —
 --    leur DDL actif a été retiré ou neutralisé, ne les réactive pas.
+-- 5. Les 3 DERNIÈRES sections (supabase-cleanup-old-notifications.sql,
+--    supabase-event-reminders-cron.sql, supabase-cleanup-expired-stories.sql)
+--    planifient des tâches pg_cron. Elles sont idempotentes (unschedule +
+--    schedule). supabase-cleanup-expired-stories.sql suppose que l'Edge
+--    Function "cleanup-expired-stories" est DÉJÀ déployée et que le secret
+--    Vault "service_role_key" existe (créé par supabase-account-deletion.sql) ;
+--    si le cron est planifié avant le déploiement de la fonction, sa première
+--    exécution échoue sans dommage et la suivante réussit une fois la
+--    fonction en ligne.
 --
 -- SECTIONS LES PLUS URGENTES (sécurité active, à faire en premier si tu ne
 -- fais pas tout le fichier d'un coup) :
@@ -5230,3 +5239,186 @@ end $$;
 --     'message_reactions')
 --   and cmd = 'a';
 -- ============================================================================
+
+
+-- ==========================================================================
+-- SOURCE : supabase-cleanup-old-notifications.sql
+-- ==========================================================================
+-- ============================================================================
+-- Purge des notifications trop anciennes (90 jours). À exécuter dans
+-- Supabase : SQL Editor, après supabase-notifications-persistence.sql.
+-- ============================================================================
+-- TROUVÉ EN CHERCHANT D'AUTRES DONNÉES SANS NETTOYAGE DE FOND (même audit
+-- que supabase-cleanup-expired-stories.sql) : la table "notifications"
+-- (supabase-communities.sql, étendue par supabase-notifications-persistence.sql
+-- à new_like/new_match/new_message — donc une notification par like ET par
+-- message envoyé sur toute la plateforme) n'a JAMAIS eu de policy de
+-- masquage ni de cron de purge. Contrairement aux statuts (masqués par RLS
+-- dès l'expiration), une notification vieille de plusieurs années reste
+-- pour toujours visible dans la liste de l'utilisateur (SocialShell.jsx ne
+-- fait que marquer "lu", jamais supprimer — voir handleNotificationClick /
+-- handleMarkAllRead). Sur une table qui reçoit une ligne par like et par
+-- message, c'est la plus mauvaise candidate à une croissance illimitée sans
+-- purge de tout le projet.
+--
+-- Vérifié avant de choisir cette politique : la table n'est PAS utilisée
+-- comme journal d'audit (contrairement à admin_actions, volontairement
+-- permanent — voir supabase-admin.sql) ni comme source d'un rapport
+-- historique (supabase-beta-dashboard.sql ne l'interroge jamais). Sa seule
+-- fonction est l'affichage "Notifications" de l'utilisateur courant : une
+-- notification de plusieurs mois n'a plus de valeur actionnable. Purge
+-- inconditionnelle (lue ou non) après 90 jours plutôt qu'un masquage RLS
+-- (contrairement aux statuts, il n'existe ici aucune raison de conserver la
+-- ligne au-delà : pas de fenêtre de modération à couvrir, pas de fichier
+-- Storage associé à synchroniser).
+--
+-- Fonction Postgres pure (comme send_event_reminders()) plutôt qu'une Edge
+-- Function : aucun accès Storage/API externe nécessaire ici.
+-- ============================================================================
+
+create or replace function cleanup_old_notifications()
+returns void language plpgsql as $$
+begin
+  delete from notifications where created_at < now() - interval '90 days';
+end; $$;
+
+create extension if not exists pg_cron;
+
+select cron.unschedule('baobab-cleanup-old-notifications')
+where exists (select 1 from cron.job where jobname = 'baobab-cleanup-old-notifications');
+
+select cron.schedule(
+  'baobab-cleanup-old-notifications',
+  '30 3 * * *', -- une fois par jour à 3h30 (décalé du cron des statuts à 3h)
+  $$ select cleanup_old_notifications(); $$
+);
+
+-- ----------------------------------------------------------------------------
+-- Vérification (facultatif, à exécuter séparément après) :
+-- select jobname, schedule, active from cron.job where jobname = 'baobab-cleanup-old-notifications';
+-- select jobid, status, return_message, start_time from cron.job_run_details
+--   where jobid = (select jobid from cron.job where jobname = 'baobab-cleanup-old-notifications')
+--   order by start_time desc limit 5;
+-- Test manuel immédiat (sans attendre) : select cleanup_old_notifications();
+-- ============================================================================
+
+
+-- ==========================================================================
+-- SOURCE : supabase-event-reminders-cron.sql
+-- ==========================================================================
+-- ============================================================================
+-- Active enfin la tâche planifiée des rappels d'événements (24h/1h avant).
+-- À exécuter dans Supabase : SQL Editor, après supabase-events-v2.sql (et
+-- supabase-scale-security.sql si déjà appliqué — les deux définissent
+-- send_event_reminders(), le nom de fonction appelé ici ne change pas).
+-- ============================================================================
+-- INCOHÉRENCE TROUVÉE À L'AUDIT (angle "cohérence des CRON") : send_event_
+-- reminders() existe depuis supabase-events-v2.sql avec un commentaire
+-- explicite "PAS de tâche planifiée activée automatiquement [...]
+-- vérification/activation manuelle laissée à l'utilisateur" — mais
+-- contrairement aux deux AUTRES tâches de fond du projet
+-- (baobab-process-scheduled-deletions dans supabase-account-deletion.sql,
+-- baobab-fetch-immigration-news dans supabase-immigration-news.sql), qui
+-- fournissent toutes les deux un bloc "select cron.schedule(...)" prêt à
+-- l'emploi, AUCUN fichier du dépôt ne fournissait ce bloc pour les rappels
+-- d'événements. Résultat concret : tant que ce fichier n'est pas exécuté,
+-- send_event_reminders() n'est appelée par rien — aucun rappel 24h/1h n'est
+-- jamais envoyé, silencieusement, malgré une fonction et des colonnes
+-- (reminder_24h_sent_at/reminder_1h_sent_at) pleinement fonctionnelles.
+--
+-- Fréquence choisie — 15 minutes : la fonction ne capture que deux fenêtres
+-- étroites (23h-24h avant, et 45-60 min avant). Un cron moins fréquent que
+-- ~15 min risquerait de sauter complètement la fenêtre de 15 minutes du
+-- rappel "1h avant" pour certains événements.
+--
+-- Contrairement aux deux autres tâches, pas besoin de net.http_post/vault
+-- ici : send_event_reminders() est une fonction Postgres (pas une Edge
+-- Function), donc le job peut l'appeler directement en SQL.
+-- ============================================================================
+
+create extension if not exists pg_cron;
+
+select cron.unschedule('baobab-send-event-reminders')
+where exists (select 1 from cron.job where jobname = 'baobab-send-event-reminders');
+
+select cron.schedule(
+  'baobab-send-event-reminders',
+  '*/15 * * * *', -- toutes les 15 minutes
+  $$ select send_event_reminders(); $$
+);
+
+-- ----------------------------------------------------------------------------
+-- Vérification (facultatif, à exécuter séparément après) :
+-- select jobname, schedule, active from cron.job where jobname = 'baobab-send-event-reminders';
+-- select jobid, status, return_message, start_time from cron.job_run_details
+--   where jobid = (select jobid from cron.job where jobname = 'baobab-send-event-reminders')
+--   order by start_time desc limit 5;
+-- Test manuel immédiat (sans attendre) : select send_event_reminders();
+-- ============================================================================
+
+
+-- ==========================================================================
+-- SOURCE : supabase-cleanup-expired-stories.sql
+-- ==========================================================================
+-- ============================================================================
+-- Purge réelle des statuts (stories) expirés depuis plus de 7 jours — lignes
+-- ET fichiers Storage associés. À exécuter dans Supabase : SQL Editor, après
+-- avoir déployé la nouvelle Edge Function cleanup-expired-stories
+-- (supabase functions deploy cleanup-expired-stories). Réutilise le secret
+-- Vault "service_role_key" déjà créé pour baobab-process-scheduled-deletions
+-- (voir supabase-account-deletion.sql) — aucune étape manuelle
+-- supplémentaire nécessaire si ce secret existe déjà.
+-- ============================================================================
+-- POINT LAISSÉ EN SUSPENS À L'AUDIT PRÉCÉDENT, TRANCHÉ ICI : depuis
+-- supabase-stories-expiration.sql, un statut expiré (24h) disparaît de
+-- l'affichage uniquement via la policy RLS SELECT ("expires_at > now()") —
+-- la ligne reste en base et son média orphelin reste dans le bucket
+-- "avatars" pour toujours. C'est la SEULE tâche de fond du projet sans cron
+-- de purge réelle (comptes en délai de grâce : baobab-process-scheduled-
+-- deletions ; actualités immigration : baobab-fetch-immigration-news ;
+-- rappels d'événements : baobab-send-event-reminders).
+--
+-- Politique retenue, alignée sur celle des comptes (délai de grâce avant
+-- purge réelle plutôt que suppression immédiate) : purge 7 jours après
+-- EXPIRATION (donc 8 jours après publication), pas immédiatement à
+-- l'expiration. Ce délai ne profite pas à l'auteur (son statut n'est déjà
+-- plus visible par personne dès l'expiration à 24h, RLS oblige) — il sert
+-- uniquement de marge de modération : un statut signalé avant son expiration
+-- reste consultable par la modération/le support pendant cette semaine
+-- plutôt que d'être irrécupérable dès la purge.
+-- ============================================================================
+
+create extension if not exists pg_cron;
+create extension if not exists pg_net;
+
+select cron.unschedule('baobab-cleanup-expired-stories')
+where exists (select 1 from cron.job where jobname = 'baobab-cleanup-expired-stories');
+
+select cron.schedule(
+  'baobab-cleanup-expired-stories',
+  '0 3 * * *', -- une fois par jour à 3h (heure serveur, hors heures de pointe)
+  $$
+  select net.http_post(
+    url := 'https://vozehymbihnckzklxesw.supabase.co/functions/v1/cleanup-expired-stories',
+    headers := jsonb_build_object(
+      'Authorization', 'Bearer ' || (select decrypted_secret from vault.decrypted_secrets where name = 'service_role_key'),
+      'Content-Type', 'application/json'
+    )
+  );
+  $$
+);
+
+-- ----------------------------------------------------------------------------
+-- Vérification (facultatif, à exécuter séparément après) :
+-- select jobname, schedule, active from cron.job where jobname = 'baobab-cleanup-expired-stories';
+-- select jobid, status, return_message, start_time from cron.job_run_details
+--   where jobid = (select jobid from cron.job where jobname = 'baobab-cleanup-expired-stories')
+--   order by start_time desc limit 5;
+-- Si le secret Vault "service_role_key" n'existe pas encore (nouvelle
+-- instance sans supabase-account-deletion.sql appliqué), le créer d'abord :
+--   select vault.create_secret('TA_CLE_SERVICE_ROLE_ICI', 'service_role_key');
+-- (clé disponible dans Project Settings > API > service_role — jamais dans
+-- le code frontend, jamais dans .env du projet React).
+-- ============================================================================
+
+
