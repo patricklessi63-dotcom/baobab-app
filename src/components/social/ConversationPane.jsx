@@ -190,6 +190,19 @@ export default function ConversationPane({
   // s'exécutait quand même (avertissement React, état perdu dans le vide).
   const mountedRef = useRef(true);
   useEffect(() => () => { mountedRef.current = false; }, []);
+
+  // « Pop » d'apparition d'une réaction (Messages 4.0) : animé uniquement
+  // pour les réactions APPARUES depuis le montage — jamais tout le lot au
+  // chargement de la conversation. Set de clés "messageId|emoji" déjà vues ;
+  // null au premier rendu = on n'anime rien.
+  const seenReactionKeysRef = useRef(null);
+  useEffect(() => {
+    const keys = new Set();
+    for (const [mid, list] of Object.entries(reactionsByMessageId)) {
+      for (const r of list) keys.add(`${mid}|${r.emoji}`);
+    }
+    seenReactionKeysRef.current = keys;
+  }, [reactionsByMessageId]);
   const handleTranslate = async (m) => {
     setTranslations((prev) => ({ ...prev, [m.id]: { loading: true } }));
     const { data, error } = await invokeAI("translate_message", { text: m.text, targetLanguage: "français" });
@@ -496,16 +509,21 @@ export default function ConversationPane({
                 </div>
                 {groupedReactions.length > 0 && (
                   <div className="flex flex-wrap gap-1 mt-1" style={{ justifyContent: isMine ? "flex-end" : "flex-start" }}>
-                    {groupedReactions.map((r) => (
-                      <button
-                        key={r.emoji}
-                        onClick={() => toggleReaction(m, r.emoji)}
-                        className="text-xs px-1.5 py-0.5 rounded-full flex items-center gap-1"
-                        style={{ background: r.mine ? `rgba(${primaryRgb},.12)` : bg, border: r.mine ? `1px solid ${primary}` : "none" }}
-                      >
-                        {r.emoji} {r.count > 1 && <span style={{ color: muted }}>{r.count}</span>}
-                      </button>
-                    ))}
+                    {groupedReactions.map((r) => {
+                      const isNewReaction =
+                        seenReactionKeysRef.current &&
+                        !seenReactionKeysRef.current.has(`${m.id}|${r.emoji}`);
+                      return (
+                        <button
+                          key={r.emoji}
+                          onClick={() => toggleReaction(m, r.emoji)}
+                          className={`text-xs px-1.5 py-0.5 rounded-full flex items-center gap-1${isNewReaction ? " bb-reaction-pop" : ""}`}
+                          style={{ background: r.mine ? `rgba(${primaryRgb},.12)` : bg, border: r.mine ? `1px solid ${primary}` : "none" }}
+                        >
+                          {r.emoji} {r.count > 1 && <span style={{ color: muted }}>{r.count}</span>}
+                        </button>
+                      );
+                    })}
                   </div>
                 )}
                 {!isMine && !isDeleted && m.kind === "text" && (

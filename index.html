@@ -273,6 +273,12 @@
     .bb-composer-input { border: 1px solid transparent; transition: border-color .16s var(--bb-ease), box-shadow .16s var(--bb-ease); }
     .bb-composer-input:focus, .bb-composer-input:focus-visible { outline: none; border-color: var(--bb-leaf); box-shadow: 0 0 0 3px rgba(31,122,90,0.16); }
 
+    /* Réaction posée sur un message (Messages 4.0) — petit « pop » d'apparition
+    (~250ms) sur la pastille emoji, joué une seule fois au montage de la
+    pastille. prefers-reduced-motion : couvert par la règle globale. */
+    .bb-reaction-pop { animation: bbReactionPop .25s var(--bb-ease); }
+    @keyframes bbReactionPop { 0% { transform: scale(0); } 60% { transform: scale(1.2); } 100% { transform: scale(1); } }
+
     /* Bouton d'action à fond corail plein + libellé texte (Confirmer, Traiter,
     Bloquer, Envoyer un signalement, Aperçu d'une story...). L'aplat d'identité
     #E56B5D ne donne que 3.19:1 avec du texte blanc — échec WCAG AA pour du
