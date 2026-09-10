@@ -40,6 +40,28 @@ export default function EditProfileForm({
 }) {
   const set = (patch) => setEditForm({ ...editForm, ...patch });
   const { openLightbox } = useImageLightbox();
+
+  // Un profil doit toujours garder au moins une photo — l'onboarding l'impose
+  // (Step2Photo.jsx : photoPreviews.length >= 1 obligatoire). removeExistingPhoto
+  // (App.jsx) supprime la ligne + le fichier Storage IMMÉDIATEMENT, sans passer
+  // par "Enregistrer" : sans ce garde, un clic sur la croix de la dernière photo
+  // laissait le profil sans aucune photo et mettait avatar_url à null partout
+  // dans l'app (en-tête, cartes, messages), pour soi comme pour les autres.
+  const totalPhotoCount = existingPhotos.length + newPhotoPreviews.length;
+  const removeExistingPhotoGuarded = (photo) => {
+    if (totalPhotoCount <= 1) {
+      onError("Tu dois garder au moins une photo de profil.");
+      return;
+    }
+    removeExistingPhoto(photo);
+  };
+  const removeNewPhotoFileGuarded = (i) => {
+    if (totalPhotoCount <= 1) {
+      onError("Tu dois garder au moins une photo de profil.");
+      return;
+    }
+    removeNewPhotoFile(i);
+  };
   const photoGallery = [
     ...existingPhotos.map((p) => ({ url: p.url, alt: "Photo" })),
     ...newPhotoPreviews.map((src, i) => ({ url: src, alt: `Nouvelle photo ${i + 1}` })),
@@ -131,7 +153,7 @@ export default function EditProfileForm({
                   className="focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
                   style={{ width: 72, height: 72, borderRadius: "var(--bb-radius-sm)", objectFit: "cover", boxShadow: "var(--bb-shadow-sm)", cursor: "pointer" }}
                 />
-                <button type="button" onClick={() => removeExistingPhoto(photo)} aria-label="Supprimer la photo"
+                <button type="button" onClick={() => removeExistingPhotoGuarded(photo)} aria-label="Supprimer la photo"
                   style={{ position: "absolute", top: -6, right: -6, width: 20, height: 20, borderRadius: "50%", background: C.indigo, color: "#fff", fontSize: 12, display: "flex", alignItems: "center", justifyContent: "center" }}>
                   ×
                 </button>
@@ -174,7 +196,7 @@ export default function EditProfileForm({
                   className="focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
                   style={{ width: 72, height: 72, borderRadius: "var(--bb-radius-sm)", objectFit: "cover", boxShadow: "var(--bb-shadow-sm)", cursor: "pointer" }}
                 />
-                <button type="button" onClick={() => removeNewPhotoFile(i)} aria-label="Supprimer la nouvelle photo"
+                <button type="button" onClick={() => removeNewPhotoFileGuarded(i)} aria-label="Supprimer la nouvelle photo"
                   style={{ position: "absolute", top: -6, right: -6, width: 20, height: 20, borderRadius: "50%", background: C.indigo, color: "#fff", fontSize: 12, display: "flex", alignItems: "center", justifyContent: "center" }}>
                   ×
                 </button>
