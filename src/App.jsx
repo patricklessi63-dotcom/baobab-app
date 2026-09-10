@@ -1421,7 +1421,11 @@ export default function App() {
     // uploadPhoto servant les trois) partaient intégralement, souvent
     // plusieurs Mo pour une photo de téléphone directement issue de
     // l'appareil photo, jamais redimensionnées ni recompressées.
-    const finalFile = await compressImageIfNeeded(file);
+    // 1280 px : ce même uploadPhoto sert l'avatar, les photos de galerie de
+    // profil ET la photo de couverture — 1280 couvre une bannière pleine
+    // largeur et une photo ouverte en grand dans la visionneuse, tout en
+    // divisant par ~3 le poids d'une photo d'appareil photo (souvent 3000+ px).
+    const finalFile = await compressImageIfNeeded(file, 1280);
     const ext = finalFile.name.split(".").pop();
     const path = `${userId}/photo-${Date.now()}-${idx}.${ext}`;
     const { error: uploadError } = await supabase.storage
@@ -2232,7 +2236,7 @@ export default function App() {
     // photo envoyée en message partait toujours en taille originale, jamais
     // compressée comme les images du fil (PostsFeed.jsx) — les vidéos ne
     // sont volontairement jamais touchées (voir imageCompression.js).
-    if (kind === "image") file = await compressImageIfNeeded(file);
+    if (kind === "image") file = await compressImageIfNeeded(file, 1600);
     const key = matchKey(currentUser.id, activeMatch.id);
     const tempId = tempIdOverride || `temp-${Date.now()}-${Math.random().toString(36).slice(2)}`;
     const media_meta = { original_name: file.name, mime: file.type, size: file.size };

@@ -1470,7 +1470,7 @@ export default function SocialShell({
         // compressImageIfNeeded, déjà utilisé par PostsFeed.jsx) : une photo
         // de statut partait toujours en taille originale, jamais compressée
         // — les vidéos de statut ne sont volontairement jamais touchées.
-        const finalMedia = mediaKind === "photo" ? await compressImageIfNeeded(storyMedia) : storyMedia;
+        const finalMedia = mediaKind === "photo" ? await compressImageIfNeeded(storyMedia, 1280) : storyMedia;
         const uploaded = await uploadStoryMedia(currentUser.user_id, finalMedia);
         mediaUrl = uploaded.url;
         uploadedPath = uploaded.path;
