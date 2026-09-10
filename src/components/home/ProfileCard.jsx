@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Heart, X, MessageCircle } from "lucide-react";
 import StatusBadge from "../StatusBadge";
 import { visibleAge } from "../../utils/format";
-import { coral, coralText, gold, green, muted, bg, primaryRgb } from "../social/theme";
+import { coralText, gold, green, muted, bg, primaryRgb } from "../social/theme";
 
 export default function ProfileCard({
   profile,
@@ -47,7 +47,7 @@ export default function ProfileCard({
         ? { borderColor: gold, borderWidth: 2, boxShadow: `0 0 0 1px ${gold}` }
         : { borderColor: `rgba(${primaryRgb},.08)` }}
     >
-      <div className="h-28 relative overflow-hidden" style={{ background: `linear-gradient(150deg,${gold},${coral})` }}>
+      <div className="h-28 relative overflow-hidden" style={{ background: `linear-gradient(150deg,${gold},var(--bb-leaf))` }}>
         {profile.avatar_url && !imgError ? (
           <img
             src={profile.avatar_url}

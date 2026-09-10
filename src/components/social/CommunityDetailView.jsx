@@ -10,7 +10,7 @@ import EmptyState from "../home/EmptyState";
 import Skeleton from "../Skeleton";
 import { categoryIcon, categoryLabel } from "../../lib/communities/communityConfig";
 import { isStaff, isMod, canPost } from "../../lib/communities/permissions";
-import { primary, green, coral, coralText, gold, muted, bg, card, body, primaryRgb, navy } from "./theme";
+import { primary, green, coralText, gold, muted, bg, card, body, primaryRgb, navy } from "./theme";
 
 const SUB_TABS = [["about", "À propos"], ["posts", "Publications"], ["events", "Événements"], ["members", "Membres"]];
 
@@ -90,7 +90,7 @@ export default function CommunityDetailView({
       </button>
 
       <div className={`${card} overflow-hidden`}>
-        <div className="h-36 relative" style={{ background: community.cover_url ? `url(${community.cover_url}) center/cover` : `linear-gradient(150deg,${gold},${coral})` }} />
+        <div className="h-36 relative" style={{ background: community.cover_url ? `url(${community.cover_url}) center/cover` : `linear-gradient(150deg,${gold},var(--bb-leaf))` }} />
         <div className="p-5">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">

@@ -3,7 +3,7 @@ import { Heart, X, MessageCircle, Star, Flag, Ban, EyeOff, HeartCrack } from "lu
 import Avatar from "../Avatar";
 import StatusBadge from "../StatusBadge";
 import { visibleAge } from "../../utils/format";
-import { primary, green, coral, coralText, gold, bg, muted, card, body, primaryRgb } from "./theme";
+import { primary, green, coralText, gold, bg, muted, card, body, primaryRgb } from "./theme";
 
 export default function MatchCard({
   profile,
@@ -53,7 +53,7 @@ export default function MatchCard({
         {profile.avatar_url && !imgError ? (
           <img src={profile.avatar_url} alt={profile.name ? `Photo de ${profile.name}` : "Photo de profil"} loading="lazy" onError={() => setImgError(true)} className="absolute inset-0 w-full h-full object-cover" />
         ) : (
-          <div className="absolute inset-0 flex items-center justify-center" style={{ background: `linear-gradient(150deg,${gold},${coral})` }}>
+          <div className="absolute inset-0 flex items-center justify-center" style={{ background: `linear-gradient(150deg,${gold},var(--bb-leaf))` }}>
             <Avatar name={profile.name} url={null} size={72} />
           </div>
         )}

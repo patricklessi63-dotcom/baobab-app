@@ -1,7 +1,7 @@
 import React from "react";
 import { MapPin, Users, Lock, Mail } from "lucide-react";
 import { categoryIcon, categoryLabel } from "../../lib/communities/communityConfig";
-import { primary, green, coral, gold, bg, muted, card, primaryRgb } from "./theme";
+import { primary, green, gold, bg, muted, card, primaryRgb } from "./theme";
 
 // Nommée "CommunityGroupCard" (pas "CommunityCard") pour éviter la
 // collision avec src/components/home/CommunityCard.jsx, qui est un
@@ -45,7 +45,7 @@ export default function CommunityGroupCard({ community, memberCount = 0, joined,
       }}
       className={`${card} overflow-hidden text-left w-full cursor-pointer focus-visible:outline focus-visible:outline-2`}
     >
-      <div className="h-28 relative" style={{ background: community.cover_url ? `url(${community.cover_url}) center/cover` : `linear-gradient(150deg,${gold},${coral})` }}>
+      <div className="h-28 relative" style={{ background: community.cover_url ? `url(${community.cover_url}) center/cover` : `linear-gradient(150deg,${gold},var(--bb-leaf))` }}>
         {isPrivate && (
           <span className="absolute top-2 right-2 h-7 w-7 rounded-full flex items-center justify-center" style={{ background: `rgba(${primaryRgb},.55)` }} aria-label="Communauté privée">
             <Lock size={13} color="#fff" />

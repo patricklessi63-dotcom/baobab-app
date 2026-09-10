@@ -2,7 +2,7 @@ import React from "react";
 import { MapPin, Users, Lock, Users2 } from "lucide-react";
 import { categoryIcon, categoryLabel, timezoneLabel } from "../../lib/events/eventConfig";
 import { formatEventWhen } from "../../utils/format";
-import { primary, green, coral, gold, bg, muted, card, primaryRgb } from "./theme";
+import { primary, green, gold, bg, muted, card, primaryRgb } from "./theme";
 
 // Déplacée de src/components/home/EventCard.jsx (Phase 5) vers social/ —
 // même déplacement que CommunityGroupCard en Phase 6, pour rester
@@ -24,7 +24,7 @@ export default function EventCard({ event, participantCount = 0, status, onView 
 
   return (
     <button onClick={() => onView(event)} className={`${card} overflow-hidden text-left w-full focus-visible:outline focus-visible:outline-2`}>
-      <div className="h-28 relative" style={{ background: event.cover_url ? `url(${event.cover_url}) center/cover` : `linear-gradient(150deg,${gold},${coral})` }}>
+      <div className="h-28 relative" style={{ background: event.cover_url ? `url(${event.cover_url}) center/cover` : `linear-gradient(150deg,${gold},var(--bb-leaf))` }}>
         {isPrivate && (
           <span className="absolute top-2 right-2 h-7 w-7 rounded-full flex items-center justify-center" style={{ background: `rgba(${primaryRgb},.55)` }} aria-label="Événement privé">
             <Lock size={13} color="#fff" />
