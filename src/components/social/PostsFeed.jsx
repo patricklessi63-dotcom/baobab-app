@@ -69,6 +69,16 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
   const videoInputRef = useRef(null);
   const publishingRef = useRef(false);
   const likeInFlightRef = useRef(new Set());
+  // Incrémenté à chaque fermeture du composeur — capturé par addFiles() au
+  // moment de l'appel puis revérifié après chaque await (validation,
+  // compression) avant de toucher à mediaItems. Sans ça : sélectionner une
+  // photo/vidéo puis fermer le composeur (croix, fond, Échap) AVANT que la
+  // validation/compression asynchrone se termine laissait cet appel arriver
+  // après coup et réinjecter l'item dans mediaItems déjà remis à [] par
+  // closeComposerFully() — un média "fantôme" (jamais choisi pour de vrai
+  // du point de vue de l'utilisateur, blob jamais révoqué) apparaissait
+  // silencieusement à la prochaine ouverture du composeur.
+  const composerSessionRef = useRef(0);
 
   // Scroll infini + bandeau "nouvelles publications" (item audit — jusqu'ici
   // seul un bouton "Charger plus" manuel existait, aucun moyen de savoir
@@ -375,6 +385,7 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
   useEffect(() => () => revokePreviews(mediaItemsRef.current), []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const closeComposerFully = () => {
+    composerSessionRef.current += 1;
     setExitConfirmOpen(false);
     setComposer(false);
     setDraft("");
@@ -420,6 +431,10 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
   // (item 25) — trie les fichiers par type déclaré plutôt que d'exiger un
   // "kind" unique par lot, pour que déposer un mélange photo+vidéo marche.
   const addFiles = async (files) => {
+    // Voir composerSessionRef : capturé ici, revérifié après chaque await
+    // pour ignorer un résultat qui arriverait après la fermeture du
+    // composeur (croix/fond/Échap cliqué pendant la validation/compression).
+    const session = composerSessionRef.current;
     const room = MAX_MEDIA_ITEMS - mediaItems.length;
     if (room <= 0) {
       onError(`Maximum ${MAX_MEDIA_ITEMS} fichiers par publication.`);
@@ -431,8 +446,10 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
     for (const file of toProcess) {
       const kind = file.type.startsWith("video/") ? "video" : "photo";
       const { ok, error } = await validateMediaFile(file, kind === "video" ? "video" : "image");
+      if (session !== composerSessionRef.current) return; // composeur fermé entre-temps
       if (!ok) { onError(error); continue; }
       const finalFile = kind === "photo" ? await compressImageIfNeeded(file) : file;
+      if (session !== composerSessionRef.current) return; // composeur fermé entre-temps
       const item = { id: `${Date.now()}-${Math.random().toString(36).slice(2)}`, file: finalFile, kind, previewUrl: URL.createObjectURL(finalFile) };
       setMediaItems((prev) => [...prev, item]);
     }
