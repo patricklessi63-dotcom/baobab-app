@@ -866,8 +866,23 @@ export default function SocialShell({
     const channel = supabase
       .channel(`notifications:${currentUser.id}`)
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "notifications", filter: `recipient_id=eq.${currentUser.id}` }, (payload) => {
-        setCommunityNotifications((prev) => [payload.new, ...prev].slice(0, 20));
-        setUnreadCommunityCount((n) => n + 1);
+        // Déduplication (même garde `.some()` que partout ailleurs sur les
+        // canaux Realtime, ex. conversations-preview/global-messages/messages
+        // dans App.jsx) : Supabase Realtime peut redélivrer un INSERT, et il
+        // existe une course au montage entre la résolution de
+        // fetchNotifications() et l'établissement de l'abonnement — la même
+        // notification pouvait alors être ajoutée deux fois à la liste ET
+        // gonfler durablement unreadCommunityCount (le badge de la cloche)
+        // jusqu'au prochain refetch. On n'incrémente le compteur que si la
+        // ligne n'était pas déjà connue.
+        setCommunityNotifications((prev) => {
+          if (prev.some((n) => n.id === payload.new.id)) return prev;
+          // setState imbriqué (même schéma que le canal "reactions" dans
+          // App.jsx) : n'incrémenter le badge que dans la transition où la
+          // ligne est réellement ajoutée, jamais sur une redélivrance.
+          setUnreadCommunityCount((n) => n + 1);
+          return [payload.new, ...prev].slice(0, 20);
+        });
       })
       .subscribe();
     return () => { alive = false; fetchNotificationsRef.current = null; supabase.removeChannel(channel); };
