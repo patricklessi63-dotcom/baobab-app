@@ -1,5 +1,38 @@
 # Journal des modifications
 
+## 10 septembre 2026 (après-midi) — Identité 4.0 : le vert remplace l'orange
+
+Direction validée (proposition : `claude.ai/code/artifact/a56e8049…`). L'orange
+terracotta `--bb-clay #C1613D` est retiré de toute l'interface.
+
+- **Accent unique = vert feuille** `--bb-leaf #1F7A5A` (5,3:1 sur blanc, WCAG AA).
+  `--bb-leaf-light #3FB37E` pour le décor non-textuel (halo « en ligne », points
+  « écrit… »). `--bb-leaf-deep #185C43` pour survol/pressé.
+- **CTA** (Auth, landing, boutons d'envoi, `.bb-btn-heart`, cœurs match) : orange → vert.
+- **Bulles de messagerie envoyées** : dégradé or→orange → aplat vert feuille, texte blanc.
+- **Dégradés** : `--bb-gold-2` #C1613D → #C98A2E (ambré) ; couvertures de cartes
+  `or→corail` → `or→vert` ; barres de progression onboarding/profil.
+- **Corail confiné aux alertes** : tous les états d'erreur / danger passent en
+  `--bb-coral-text #C0392B` (réactif) ou `coralTextStatic` (écrans crème fixe).
+- **Contour de focus clavier** : `--bb-clay` → `--bb-leaf` (24 fichiers).
+- **`--bb-clay` / `C.clay` entièrement supprimés.**
+- **Logo** : `BaobabLogo.jsx` SVG (canopée 5 cercles, tronc évasé, racines en
+  tripode, fruit or) remplace l'emoji 🌳.
+- **Messagerie vivante** : pastille « en ligne » qui pulse, « écrit… » à 3 points
+  animés, fondu `bb-fade-in` sur les nouvelles bulles — coupés par `prefers-reduced-motion`.
+- **Profil** : grille « Explorer » (doublon de la barre d'onglets) supprimée ;
+  barre d'onglets rendue clairement défilable sur mobile (dégradés de bord,
+  recentrage de l'onglet actif) ; ordre revu (Communautés/Événements remontés).
+- **Onglet Abonnement** : avantages réels + 2 prix visibles + CTA vers la page
+  complète (au lieu de « Tu es sur le plan gratuit » seul).
+- **Accueil** : carte unique → 2 cartes Communautés / Événements.
+- **Bouton « Inviter ma communauté »** (Rencontres) : donnait l'impression de ne
+  rien faire → partage natif / copie du lien avec confirmation visible.
+
+Reste optionnel : l'illustration `baobab-canada-bg.svg` garde un `#C1613D` dans
+son dégradé de coucher de soleil (décor, pas du chrome d'interface).
+
+
 ## Session du 9–10 septembre 2026 — diagnostic complet, perf, accessibilité, tests
 
 Travail autonome. ~40 commits sur `main` (Vercel redéploie automatiquement).
