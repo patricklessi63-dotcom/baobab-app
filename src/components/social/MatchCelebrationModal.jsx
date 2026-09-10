@@ -27,7 +27,7 @@ export default function MatchCelebrationModal({ match, currentUser, onStartChat,
 
         <div className="flex items-center justify-center gap-3 mt-5">
           <Avatar name={currentUser?.name} url={currentUser?.avatar_url} size={64} />
-          <Heart size={22} color={C.gold} fill={C.gold} aria-hidden="true" />
+          <Heart size={22} color={C.leaf} fill={C.leaf} aria-hidden="true" />
           <Avatar name={match.name} url={match.avatar_url} size={64} />
         </div>
 

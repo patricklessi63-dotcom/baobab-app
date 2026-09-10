@@ -126,7 +126,7 @@ export default function AppModals({
 
             <div className="text-[11px] font-black uppercase tracking-wider mt-2" style={{ color: "rgba(var(--bb-ink-rgb),0.4)" }}>Rencontres</div>
             <label className="flex items-center justify-between py-2.5" style={{ borderTop: "1px solid rgba(var(--bb-ink-rgb),0.08)", minHeight: 44 }}>
-              <div className="flex items-center gap-2 text-sm"><Heart size={14} color={C.gold} /> Activer les Rencontres</div>
+              <div className="flex items-center gap-2 text-sm"><Heart size={14} color={C.leaf} /> Activer les Rencontres</div>
               <input
                 type="checkbox"
                 checked={currentUser?.dating_enabled !== false}
