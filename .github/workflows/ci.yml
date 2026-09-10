@@ -9,6 +9,14 @@ on:
 jobs:
   test-build:
     runs-on: ubuntu-latest
+    # Valeurs bidon : la CI ne parle jamais à un vrai backend (les tests
+    # moquent Supabase, le build n'embarque que la chaîne). Elles évitent
+    # que createClient() dans src/supabaseClient.js lève « supabaseUrl is
+    # required » dès qu'un test importe la chaîne (ex. via errorReporter.js).
+    env:
+      VITE_SUPABASE_URL: https://placeholder.supabase.co
+      VITE_SUPABASE_ANON_KEY: placeholder-anon-key
+      VITE_VAPID_PUBLIC_KEY: placeholder-vapid-key
     steps:
       - uses: actions/checkout@v4
 
