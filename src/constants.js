@@ -40,6 +40,14 @@ export const C = {
   // "green" : vert secondaire (turquoise) — accent lumineux, distinct du vert
   // profond primaire ci-dessus.
   green: "#2DBF9E",
+  // "leaf" : vert d'action réservé aux boutons d'ENVOI (messagerie), distinct
+  // des CTA or (bb-btn-gold) et des alertes corail. Assombri à dessein pour
+  // passer le contraste AA avec du texte blanc : #1F7A5A donne ~5.3:1 sur
+  // blanc (le turquoise "green" ci-dessus échouerait). "leafDeep" = état
+  // survol, ~7.9:1 sur blanc. Couleurs de marque : mêmes valeurs dans les
+  // deux thèmes (voir --bb-leaf / --bb-leaf-deep dans index.html).
+  leaf: "var(--bb-leaf)",
+  leafDeep: "var(--bb-leaf-deep)",
   coral: "#E56B5D",
   // "coralText" : corail réactif au thème, réservé au CORAIL UTILISÉ COMME
   // COULEUR DE TEXTE (messages d'erreur, libellés de badges, item Déconnexion,

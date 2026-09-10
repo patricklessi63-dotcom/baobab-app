@@ -122,6 +122,14 @@
       Les usages APLAT/DÉGRADÉ/BORDURE/ICÔNE du corail gardent #E56B5D
       (C.coral) : ils ne sont pas concernés par le contraste texte. */
       --bb-coral-text: #C0392B;
+      /* "leaf" : vert d'action réservé aux boutons d'ENVOI de la messagerie
+      (.bb-btn-leaf ci-dessous), à ne PAS confondre avec les CTA or
+      (bb-btn-gold) ni les alertes corail. Couleur de marque : mêmes valeurs
+      dans les trois blocs de thème. Assombri pour le contraste texte blanc :
+      #1F7A5A = ~5.3:1 sur blanc (AA texte normal OK) ; le turquoise C.green
+      échouerait. --bb-leaf-deep (#185C43, ~7.9:1 sur blanc) = état survol. */
+      --bb-leaf: #1F7A5A;
+      --bb-leaf-deep: #185C43;
     }
     /* Identité or/noir (Baobab 3.0, refonte visuelle août 2026) — mode
     sombre uniquement, à partir des maquettes fournies par l'utilisateur
@@ -152,6 +160,9 @@
         /* En thème sombre, le corail vif #E56B5D passe déjà (5.5-5.9:1 sur
         les surfaces sombres) : on garde la teinte d'identité pour le texte. */
         --bb-coral-text: #E56B5D;
+        /* Couleur de marque : mêmes valeurs qu'en clair (voir bloc :root). */
+        --bb-leaf: #1F7A5A;
+        --bb-leaf-deep: #185C43;
       }
     }
     :root[data-theme="dark"] {
@@ -172,6 +183,9 @@
       --bb-text-faint: #948A6E;
       /* Voir la note du bloc @media (prefers-color-scheme: dark) ci-dessus. */
       --bb-coral-text: #E56B5D;
+      /* Couleur de marque : mêmes valeurs qu'en clair (voir bloc :root). */
+      --bb-leaf: #1F7A5A;
+      --bb-leaf-deep: #185C43;
     }
     * { box-sizing: border-box; }
     html { -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
@@ -216,6 +230,15 @@
     très sombre dessus (contraste), peu importe le thème. */
     .bb-btn-gold { background: linear-gradient(180deg, var(--bb-gold-1), var(--bb-gold-2)); color: #1C1608; box-shadow: 0 8px 20px rgba(201,150,47,0.3); }
     .bb-btn-gold:hover:not(:disabled) { box-shadow: 0 10px 24px rgba(201,150,47,0.4); transform: translateY(-1px); }
+
+    /* Bouton d'ENVOI de la messagerie — vert "leaf", volontairement distinct
+    des CTA or (bb-btn-gold) et des alertes corail (bb-btn-danger). Aplat
+    #1F7A5A + texte blanc = ~5.3:1 (WCAG AA texte normal OK) ; survol
+    #185C43 = ~7.9:1. Valeur FIXE dans les deux thèmes (couleur de marque). */
+    .bb-btn-leaf { background: var(--bb-leaf); color: #fff; box-shadow: 0 8px 20px rgba(31,122,90,0.3); transition: transform .12s var(--bb-ease), box-shadow .18s var(--bb-ease), background .15s var(--bb-ease), opacity .15s var(--bb-ease); }
+    .bb-btn-leaf:hover:not(:disabled) { background: var(--bb-leaf-deep); box-shadow: 0 10px 24px rgba(31,122,90,0.4); transform: translateY(-1px); }
+    .bb-btn-leaf:active:not(:disabled) { transform: scale(0.96); }
+    .bb-btn-leaf:disabled { opacity: .55; cursor: not-allowed; }
 
     /* Bouton d'action à fond corail plein + libellé texte (Confirmer, Traiter,
     Bloquer, Envoyer un signalement, Aperçu d'une story...). L'aplat d'identité
