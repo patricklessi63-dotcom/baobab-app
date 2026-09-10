@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Send, CheckCheck, Star, Target, ChevronRight, Users2, MapPin, PartyPopper, Heart, FileText, Info, Sparkles } from "lucide-react";
+import { Send, CheckCheck, Star, Target, ChevronRight, Users2, MapPin, PartyPopper, Heart } from "lucide-react";
 import Avatar from "../Avatar";
 import StatusBadge from "../StatusBadge";
 import EmptyState from "../home/EmptyState";
@@ -13,7 +13,60 @@ import { formatEventWhen, visibleAge } from "../../utils/format";
 import { usePremiumStatus } from "../../lib/premium/usePremiumStatus";
 import { PREMIUM_FEATURES, PREMIUM_PLANS } from "../../lib/premium/premiumConfig";
 import { openBillingPortal } from "../../lib/premium/checkout";
-import { primary, navy, green, coral, coralText, gold, bg, muted, online, verified, primaryRgb } from "./theme";
+import { primary, navy, green, coral, coralText, gold, bg, muted, online, verified, primaryRgb, leaf } from "./theme";
+
+// Barre de sections du profil. Défile horizontalement sur mobile ; affiche un
+// dégradé sur les bords quand il reste des onglets hors écran (repère standard
+// iOS/Material) et recentre l'onglet actif à chaque changement.
+const ProfileSectionTabs = React.forwardRef(function ProfileSectionTabs({ items, active, onSelect }, forwardedRef) {
+  const scrollerRef = useRef(null);
+  const [edges, setEdges] = useState({ left: false, right: false });
+
+  const refreshEdges = () => {
+    const el = scrollerRef.current;
+    if (!el) return;
+    const maxScroll = el.scrollWidth - el.clientWidth;
+    setEdges({ left: el.scrollLeft > 4, right: el.scrollLeft < maxScroll - 4 });
+  };
+
+  useEffect(() => {
+    refreshEdges();
+    const el = scrollerRef.current;
+    if (!el) return;
+    el.addEventListener("scroll", refreshEdges, { passive: true });
+    window.addEventListener("resize", refreshEdges);
+    return () => { el.removeEventListener("scroll", refreshEdges); window.removeEventListener("resize", refreshEdges); };
+  }, [items.length]);
+
+  useEffect(() => {
+    const el = scrollerRef.current;
+    const btn = el?.querySelector(`[data-tab="${active}"]`);
+    btn?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+  }, [active]);
+
+  return (
+    <div ref={forwardedRef} className="relative border-t" style={{ borderColor: `rgba(${primaryRgb},.08)` }}>
+      {edges.left && <span aria-hidden="true" className="pointer-events-none absolute left-0 top-0 bottom-0 w-8 z-10" style={{ background: "linear-gradient(90deg, var(--bb-surface), transparent)" }} />}
+      {edges.right && <span aria-hidden="true" className="pointer-events-none absolute right-0 top-0 bottom-0 w-10 z-10" style={{ background: "linear-gradient(270deg, var(--bb-surface), transparent)" }} />}
+      <div ref={scrollerRef} className="bb-scroll-x flex" role="tablist" aria-label="Sections du profil">
+        {items.map(([key, label]) => (
+          <button
+            key={key}
+            data-tab={key}
+            role="tab"
+            aria-selected={active === key}
+            onClick={() => onSelect(key)}
+            className="shrink-0 px-5 py-3.5 text-sm font-bold whitespace-nowrap relative focus-visible:outline focus-visible:outline-2"
+            style={{ color: active === key ? primary : muted }}
+          >
+            {label}
+            {active === key && <span className="absolute bottom-0 left-1/2 -translate-x-1/2 h-[3px] w-10 rounded-full" style={{ background: leaf }} />}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+});
 
 export default function ProfileTab({
   currentUser,
@@ -56,19 +109,7 @@ export default function ProfileTab({
           // navigation (z-40, fixed) : la nav restait cliquable par-dessus.
           const { openLightbox } = useImageLightbox();
           const [networkView, setNetworkView] = useState("following");
-          // Raccourcis « Explorer » : sur mobile, Communautés / Événements ne
-          // sont plus dans la barre de nav du bas — un compte n'a plus aucun
-          // point d'entrée visible vers ces sections en dehors du menu profil.
-          // On les remet en avant ici. Pour les sous-onglets internes au profil
-          // (publications / à propos / abonnement) on fait défiler jusqu'à la
-          // barre d'onglets pour que le changement soit perceptible.
           const tabsRef = useRef(null);
-          const openProfileSection = (key) => {
-            setProfileTab(key);
-            requestAnimationFrame(() => {
-              tabsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-            });
-          };
           const handleManageSubscription = async () => {
             if (managingSubscriptionRef.current) return;
             managingSubscriptionRef.current = true;
@@ -233,35 +274,26 @@ export default function ProfileTab({
                   <ChevronRight size={16} color={muted} />
                 </button>
 
-                <div className="rounded-2xl p-4 mt-4" style={{ background: bg }}>
-                  <div className="text-xs font-black uppercase tracking-wider mb-3" style={{ color: primary }}>Explorer</div>
-                  <nav aria-label="Explorer Baobab" className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-                    {[
-                      { key: "communities", label: "Mes communautés", Icon: Users2, count: myCommunities.length, onClick: () => onOpenCommunities() },
-                      { key: "events", label: "Mes événements", Icon: PartyPopper, count: myUpcomingEvents.length, onClick: () => onOpenEvents() },
-                      { key: "posts", label: "Mes publications", Icon: FileText, count: myPostsCount, onClick: () => openProfileSection("posts") },
-                      { key: "premium", label: "Abonnement", Icon: Sparkles, onClick: () => openProfileSection("premium") },
-                      { key: "about", label: "À propos", Icon: Info, onClick: () => openProfileSection("about") },
-                    ].map(({ key, label, Icon, count, onClick }) => (
-                      <button key={key} onClick={onClick} className="flex flex-col items-start gap-2 rounded-xl p-3 text-left focus-visible:outline focus-visible:outline-2" style={{ background: "var(--bb-surface)", border: "1px solid var(--bb-border)" }}>
-                        <Icon size={18} color={primary} aria-hidden="true" />
-                        <span className="text-xs font-bold leading-tight" style={{ color: primary }}>
-                          {label}{typeof count === "number" && count > 0 && <span style={{ color: muted }}> ({count})</span>}
-                        </span>
-                      </button>
-                    ))}
-                  </nav>
-                </div>
               </div>
 
-              <div ref={tabsRef} className="bb-scroll-x flex border-t" style={{ borderColor: `rgba(${primaryRgb},.08)` }}>
-                {[["posts", "Publications"], ["about", "À propos"], ["network", "Mon réseau"], ["communities", "Mes communautés"], ["events", "Événements"], ["premium", "Abonnement"]].map(([key, label]) => (
-                  <button key={key} onClick={() => setProfileTab(key)} className="shrink-0 px-5 py-3.5 text-sm font-bold whitespace-nowrap relative focus-visible:outline focus-visible:outline-2" style={{ color: profileTab === key ? primary : muted }}>
-                    {label}
-                    {profileTab === key && <span className="absolute bottom-0 left-1/2 -translate-x-1/2 h-[3px] w-10 rounded-full" style={{ background: coral }} />}
-                  </button>
-                ))}
-              </div>
+              {/* Barre de sections du profil — unique navigation (l'ancienne
+                  grille « Explorer » faisait doublon avec ces onglets). Sur
+                  mobile, elle défile horizontalement : un dégradé sur le bord
+                  droit signale qu'il reste des sections à droite, et l'onglet
+                  actif est automatiquement ramené dans le champ de vision. */}
+              <ProfileSectionTabs
+                ref={tabsRef}
+                items={[
+                  ["posts", "Publications"],
+                  ["communities", "Mes communautés"],
+                  ["events", "Événements"],
+                  ["network", "Mon réseau"],
+                  ["premium", "Abonnement"],
+                  ["about", "À propos"],
+                ]}
+                active={profileTab}
+                onSelect={setProfileTab}
+              />
 
               {profileTab === "network" ? (
                 <div className="p-4">
