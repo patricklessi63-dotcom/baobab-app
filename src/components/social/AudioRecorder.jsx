@@ -48,6 +48,12 @@ export default function AudioRecorder({ hasDraft, onSendText, onSendAudio, onAct
   const [elapsed, setElapsed] = useState(0);
   const [errorMsg, setErrorMsg] = useState("");
   const [playing, setPlaying] = useState(false);
+  // Micro-animation « décollage » du bouton d'envoi (Messages 4.0). Purement
+  // visuel : l'envoi (onSendText/onSendAudio) part tout de suite, ce drapeau
+  // garde juste le bouton monté ~200ms le temps que l'animation se joue,
+  // même quand le brouillon vient d'être vidé (hasDraft repasse à false).
+  const [sendPop, setSendPop] = useState(false);
+  const sendPopTimerRef = useRef(null);
 
   // Popup d'accès micro — voir MicPermissionModal.jsx. "ask" = petite
   // confirmation avant le premier essai, "blocked" = le navigateur a déjà
@@ -101,6 +107,19 @@ export default function AudioRecorder({ hasDraft, onSendText, onSendAudio, onAct
   };
 
   useEffect(() => () => cleanup(), []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => () => clearTimeout(sendPopTimerRef.current), []);
+
+  // Déclenche l'animation de décollage puis la laisse retomber toute seule.
+  const triggerSendPop = () => {
+    setSendPop(true);
+    clearTimeout(sendPopTimerRef.current);
+    sendPopTimerRef.current = setTimeout(() => setSendPop(false), 200);
+  };
+
+  const handleSendTextClick = () => {
+    triggerSendPop();
+    onSendText();
+  };
 
   // Coupe proprement un enregistrement en cours suite à un problème externe
   // (micro révoqué/débranché pendant l'enregistrement, erreur du
@@ -286,6 +305,7 @@ export default function AudioRecorder({ hasDraft, onSendText, onSendAudio, onAct
     onSendAudio(file);
     cleanup();
     setState("idle");
+    triggerSendPop();
   };
 
   const permissionModal = (
@@ -336,7 +356,7 @@ export default function AudioRecorder({ hasDraft, onSendText, onSendAudio, onAct
           <button type="button" onClick={discardPreview} aria-label="Supprimer l'enregistrement" className="h-9 w-9 rounded-full flex items-center justify-center flex-shrink-0" style={{ color: muted }}>
             <Trash2 size={16} />
           </button>
-          <button type="button" onClick={confirmSend} aria-label="Envoyer le message vocal" className="bb-btn-leaf h-9 w-9 rounded-full flex items-center justify-center flex-shrink-0">
+          <button type="button" onClick={confirmSend} aria-label="Envoyer le message vocal" className={`bb-btn-leaf h-9 w-9 rounded-full flex items-center justify-center flex-shrink-0${sendPop ? " bb-send-pop" : ""}`}>
             <Send size={14} />
           </button>
         </div>
@@ -349,14 +369,17 @@ export default function AudioRecorder({ hasDraft, onSendText, onSendAudio, onAct
     return <p className="text-xs px-2" style={{ color: coralText }}>{errorMsg}</p>;
   }
 
-  // idle — occupe le même emplacement que le bouton "Envoyer"
-  return hasDraft ? (
+  // idle — occupe le même emplacement que le bouton "Envoyer".
+  // (hasDraft || sendPop) : après un envoi, hasDraft repasse à false quasi
+  // instantanément (le parent vide le brouillon), mais on garde le bouton
+  // monté quelques ms de plus pour laisser l'animation bb-send-pop se jouer.
+  return (hasDraft || sendPop) ? (
     <button
       type="button"
-      onClick={onSendText}
-      disabled={!hasDraft}
+      onClick={handleSendTextClick}
+      disabled={!hasDraft && !sendPop}
       aria-label="Envoyer le message"
-      className="bb-btn-leaf w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 disabled:opacity-40 focus-visible:outline focus-visible:outline-2"
+      className={`bb-btn-leaf w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 disabled:opacity-40 focus-visible:outline focus-visible:outline-2${sendPop ? " bb-send-pop" : ""}`}
     >
       <Send size={16} />
     </button>

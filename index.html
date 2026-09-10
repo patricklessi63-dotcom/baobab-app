@@ -252,6 +252,16 @@
     .bb-btn-leaf:active:not(:disabled) { transform: scale(0.96); }
     .bb-btn-leaf:disabled { opacity: .55; cursor: not-allowed; }
 
+    /* Envoi d'un message (Messages 4.0) — micro-décollage au clic : le bouton
+    pulse brièvement pendant que l'icône glisse/grossit vers la droite, comme
+    un avion en papier qui part. Purement visuel (~180ms) : l'appel réseau
+    part immédiatement, la classe est retirée juste après. prefers-reduced-motion
+    est couvert par la règle globale en bas de ce fichier. */
+    .bb-send-pop { animation: bbSendPop .18s var(--bb-ease); }
+    @keyframes bbSendPop { 0% { transform: scale(1); } 45% { transform: scale(1.12); } 100% { transform: scale(1); } }
+    .bb-send-pop svg { animation: bbSendLift .18s var(--bb-ease); }
+    @keyframes bbSendLift { 0% { transform: translateX(0) scale(1); } 55% { transform: translateX(3px) scale(1.08); } 100% { transform: translateX(0) scale(1); } }
+
     /* Bouton d'action à fond corail plein + libellé texte (Confirmer, Traiter,
     Bloquer, Envoyer un signalement, Aperçu d'une story...). L'aplat d'identité
     #E56B5D ne donne que 3.19:1 avec du texte blanc — échec WCAG AA pour du
