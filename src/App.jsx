@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef, Suspense, lazy } from "react";
 import { Loader2 } from "lucide-react";
 import { supabase } from "./supabaseClient";
-import Auth from "./Auth.jsx";
+import ChunkErrorBoundary from "./components/ChunkErrorBoundary";
 import { C, EDUCATION_LEVELS, HAS_CHILDREN_OPTIONS, MAX_PHOTOS } from "./constants";
 import { matchKey, formatLongDate } from "./utils/format";
 import SocialShell from "./components/SocialShell";
@@ -10,9 +10,6 @@ import ConnectivityBanner from "./components/ConnectivityBanner";
 import AccountDeletionBanner from "./components/AccountDeletionBanner";
 import UpdateNotice from "./components/UpdateNotice";
 import { checkForUpdate, wasRecentlyDismissed, dismissUpdate, CHECK_INTERVAL_MS } from "./lib/version";
-import EditProfileForm from "./screens/EditProfileForm";
-import UpdatePasswordScreen from "./screens/UpdatePasswordScreen";
-import OnboardingWizard from "./screens/onboarding/OnboardingWizard";
 import { computeAge } from "./screens/onboarding/steps/Step1Identity";
 import MatchCelebrationModal from "./components/social/MatchCelebrationModal";
 import { filterCandidatesByPreferences } from "./lib/matching/matchingService";
@@ -29,14 +26,45 @@ import { friendlyDbError } from "./lib/friendlyDbError";
 import { usePathname } from "./hooks/usePathname";
 import { useEscapeKey } from "./hooks/useEscapeKey";
 import LandingPage from "./screens/public/LandingPage";
-import AboutPage from "./screens/public/AboutPage";
-import PrivacyPage from "./screens/public/PrivacyPage";
-import TermsPage from "./screens/public/TermsPage";
 import LocationRequiredGate from "./components/LocationRequiredGate";
 import { useOnlineStatus } from "./hooks/useOnlineStatus";
 import { OTHER_PROFILE_COLUMNS } from "./lib/otherProfileColumns";
 
 const PUBLIC_ONLY_PATHS = new Set(["/connexion", "/inscription", "/a-propos", "/confidentialite", "/conditions"]);
+
+// Vues plein écran chargées à la demande (item 2c de l'allègement du bundle) :
+// aucune n'est nécessaire au premier rendu de la session courante. Auth n'est
+// atteinte que via "Se connecter"/"Créer un compte" (la landing reste en
+// import direct pour un premier paint immédiat) ; l'onboarding ne concerne
+// qu'un compte tout juste créé ; l'édition de profil, la maj de mot de passe
+// et les pages légales sont des détours ponctuels. Chacune derrière Suspense +
+// ChunkErrorBoundary (voir <FullScreenFallback> et lazyScreen ci-dessous).
+const Auth = lazy(() => import("./Auth.jsx"));
+const EditProfileForm = lazy(() => import("./screens/EditProfileForm"));
+const UpdatePasswordScreen = lazy(() => import("./screens/UpdatePasswordScreen"));
+const OnboardingWizard = lazy(() => import("./screens/onboarding/OnboardingWizard"));
+const AboutPage = lazy(() => import("./screens/public/AboutPage"));
+const PrivacyPage = lazy(() => import("./screens/public/PrivacyPage"));
+const TermsPage = lazy(() => import("./screens/public/TermsPage"));
+
+function FullScreenFallback() {
+  return (
+    <div className="min-h-screen flex items-center justify-center" style={{ background: C.sand }}>
+      <Loader2 className="animate-spin" color={C.indigo} size={32} />
+    </div>
+  );
+}
+
+// Enrobe une vue lazy : même filet (ChunkErrorBoundary) que les onglets de
+// SocialShell — un JS hashé disparu après déploiement recharge proprement au
+// lieu de vider l'arbre React.
+function lazyScreen(node) {
+  return (
+    <ChunkErrorBoundary>
+      <Suspense fallback={<FullScreenFallback />}>{node}</Suspense>
+    </ChunkErrorBoundary>
+  );
+}
 
 // OTHER_PROFILE_COLUMNS déplacée dans lib/otherProfileColumns.js (audit du 8
 // septembre) : SocialShell.jsx avait le même bug de select("*") sur un profil
@@ -2710,12 +2738,12 @@ export default function App() {
   if (view === "auth") {
     const showAuthForm = justVerified || authLinkError || pathname === "/connexion" || pathname === "/inscription";
     if (!showAuthForm) {
-      if (pathname === "/a-propos") return <AboutPage navigate={navigate} />;
-      if (pathname === "/confidentialite") return <PrivacyPage navigate={navigate} />;
-      if (pathname === "/conditions") return <TermsPage navigate={navigate} />;
+      if (pathname === "/a-propos") return lazyScreen(<AboutPage navigate={navigate} />);
+      if (pathname === "/confidentialite") return lazyScreen(<PrivacyPage navigate={navigate} />);
+      if (pathname === "/conditions") return lazyScreen(<TermsPage navigate={navigate} />);
       return <LandingPage onLogin={() => navigate("/connexion")} onSignup={() => navigate("/inscription")} navigate={navigate} />;
     }
-    return (
+    return lazyScreen(
       <Auth
         initialMode={pathname === "/inscription" ? "signup" : "signin"}
         onGoHome={() => navigate("/")}
@@ -2728,7 +2756,7 @@ export default function App() {
   }
 
   if (view === "update-password") {
-    return <UpdatePasswordScreen onDone={() => setView("checking-profile")} />;
+    return lazyScreen(<UpdatePasswordScreen onDone={() => setView("checking-profile")} />);
   }
 
   if (view === "banned" || view === "suspended") {
@@ -2928,7 +2956,7 @@ export default function App() {
 
       <div className="relative z-10 flex-1 flex flex-col">
         {/* ---------- ONBOARDING (Phase 3) — remplace l'ancien formulaire unique ---------- */}
-        {view === "onboarding" && (
+        {view === "onboarding" && lazyScreen(
           <OnboardingWizard
             session={session}
             currentUser={currentUser}
@@ -2947,7 +2975,7 @@ export default function App() {
         )}
 
         {/* ---------- ÉDITION DE PROFIL ---------- */}
-        {view === "editProfile" && editForm && (
+        {view === "editProfile" && editForm && lazyScreen(
           <EditProfileForm
             setView={setView}
             editForm={editForm}
