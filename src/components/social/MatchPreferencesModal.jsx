@@ -4,7 +4,7 @@ import ChipSelect from "../ChipSelect";
 import { MATCH_DISTANCE_OPTIONS, LOOKING_FOR_OPTIONS } from "../../constants";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
-import { primary, coral, coralText, bg, muted, card, primaryRgb } from "./theme";
+import { primary, coralText, bg, muted, card, primaryRgb } from "./theme";
 
 export default function MatchPreferencesModal({ open, onClose, currentUser, onSave }) {
   const panelRef = useRef(null);

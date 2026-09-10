@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Sparkles, Loader2 } from "lucide-react";
 import { invokeAI } from "../../lib/ai/aiClient";
-import { primary, coral, coralText, bg, goldText, body } from "../social/theme";
+import { primary, coralText, bg, goldText, body } from "../social/theme";
 
 // Bouton réutilisable "✨ Améliorer avec l'IA" pour un champ texte unique
 // (bio/publication/description d'événement) — n'écrit JAMAIS

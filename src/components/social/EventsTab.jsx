@@ -21,7 +21,7 @@ import { trackActivation } from "../../lib/trackActivation";
 import { escapeLikePattern, escapeOrFilterValue } from "../../lib/searchQuery";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
-import { primary, coral, coralText, muted, bg, card, primaryRgb, navy } from "./theme";
+import { primary, coralText, muted, bg, card, primaryRgb, navy } from "./theme";
 
 const PAGE_SIZE = 20;
 const PHOTO_URL_EXPIRY = 60 * 60 * 24 * 30; // 30 jours — assez pour une galerie, régénéré à chaque chargement

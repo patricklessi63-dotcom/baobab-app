@@ -1,6 +1,6 @@
 import React from "react";
 import { Reply, Copy, Trash2 } from "lucide-react";
-import { primary, coral, coralText, muted, card, primaryRgb } from "./theme";
+import { primary, coralText, muted, card, primaryRgb } from "./theme";
 
 const QUICK_REACTIONS = ["❤️", "😂", "👍", "😮", "😢", "🎉"];
 

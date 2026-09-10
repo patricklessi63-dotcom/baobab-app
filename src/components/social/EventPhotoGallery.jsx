@@ -9,7 +9,7 @@ import { compressImageIfNeeded } from "../../lib/imageCompression";
 import { extFromMime } from "../../lib/mediaConstants";
 import { uploadWithProgress } from "../../lib/uploadWithProgress";
 import ConfirmModal from "./ConfirmModal";
-import { muted, bg, coral, coralText, primaryRgb } from "./theme";
+import { muted, bg, coralText, primaryRgb } from "./theme";
 
 const BUCKET = "event-media";
 

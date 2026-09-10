@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Sparkles, Users } from "lucide-react";
 import { supabase } from "../../supabaseClient";
-import { primary, coral, coralText, muted } from "../social/theme";
+import { primary, coralText, muted } from "../social/theme";
 
 export default function HomeHeader({ currentUser }) {
   // Le champ "name" ne contient déjà que le prénom (voir Step1Identity.jsx —

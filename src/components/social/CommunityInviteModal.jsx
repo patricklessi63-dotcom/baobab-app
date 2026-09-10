@@ -6,7 +6,7 @@ import { supabase } from "../../supabaseClient";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { escapeLikePattern } from "../../lib/searchQuery";
-import { primary, coral, coralText, muted, card, primaryRgb } from "./theme";
+import { primary, coralText, muted, card, primaryRgb } from "./theme";
 
 // Recherche par nom dans profiles (déjà en lecture publique pour la
 // découverte) — exclut les membres déjà présents et soi-même. La

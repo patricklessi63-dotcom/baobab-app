@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { X, Send, Volume2, VolumeX, Eye, Trash2, MoreVertical, Flag, Ban } from "lucide-react";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
-import { navy, coral, coralText } from "./theme";
+import { navy, coralText } from "./theme";
 import Avatar from "../Avatar";
 import StatusBadge from "../StatusBadge";
 

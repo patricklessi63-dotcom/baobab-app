@@ -1,6 +1,6 @@
 import React, { useRef } from "react";
 import { X } from "lucide-react";
-import { primary, coral, coralText, muted, card, bg, body, primaryRgb } from "./theme";
+import { primary, coralText, muted, card, bg, body, primaryRgb } from "./theme";
 import { MATCH_WEIGHTS } from "../../lib/matching/matchingConfig";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
