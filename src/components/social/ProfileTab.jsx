@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Send, CheckCheck, Star, Target, ChevronRight, Users2, MapPin, PartyPopper, Heart } from "lucide-react";
+import { Send, CheckCheck, Star, Target, ChevronRight, Users2, MapPin, PartyPopper, Heart, FileText, Info, Sparkles } from "lucide-react";
 import Avatar from "../Avatar";
 import StatusBadge from "../StatusBadge";
 import EmptyState from "../home/EmptyState";
@@ -11,6 +11,7 @@ import { categoryIcon, categoryLabel } from "../../lib/communities/communityConf
 import { categoryIcon as eventCategoryIcon, categoryLabel as eventCategoryLabel } from "../../lib/events/eventConfig";
 import { formatEventWhen, visibleAge } from "../../utils/format";
 import { usePremiumStatus } from "../../lib/premium/usePremiumStatus";
+import { PREMIUM_FEATURES, PREMIUM_PLANS } from "../../lib/premium/premiumConfig";
 import { openBillingPortal } from "../../lib/premium/checkout";
 import { primary, navy, green, coral, coralText, gold, bg, muted, online, verified, primaryRgb } from "./theme";
 
@@ -55,6 +56,19 @@ export default function ProfileTab({
           // navigation (z-40, fixed) : la nav restait cliquable par-dessus.
           const { openLightbox } = useImageLightbox();
           const [networkView, setNetworkView] = useState("following");
+          // Raccourcis « Explorer » : sur mobile, Communautés / Événements ne
+          // sont plus dans la barre de nav du bas — un compte n'a plus aucun
+          // point d'entrée visible vers ces sections en dehors du menu profil.
+          // On les remet en avant ici. Pour les sous-onglets internes au profil
+          // (publications / à propos / abonnement) on fait défiler jusqu'à la
+          // barre d'onglets pour que le changement soit perceptible.
+          const tabsRef = useRef(null);
+          const openProfileSection = (key) => {
+            setProfileTab(key);
+            requestAnimationFrame(() => {
+              tabsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+            });
+          };
           const handleManageSubscription = async () => {
             if (managingSubscriptionRef.current) return;
             managingSubscriptionRef.current = true;
@@ -218,9 +232,29 @@ export default function ProfileTab({
                   <span className="flex items-center gap-2 text-sm font-bold" style={{ color: primary }}><Heart size={16} color={coral} /> Qui m'a aimé {admirersCount > 0 && `(${admirersCount})`}</span>
                   <ChevronRight size={16} color={muted} />
                 </button>
+
+                <div className="rounded-2xl p-4 mt-4" style={{ background: bg }}>
+                  <div className="text-xs font-black uppercase tracking-wider mb-3" style={{ color: primary }}>Explorer</div>
+                  <nav aria-label="Explorer Baobab" className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                    {[
+                      { key: "communities", label: "Mes communautés", Icon: Users2, count: myCommunities.length, onClick: () => onOpenCommunities() },
+                      { key: "events", label: "Mes événements", Icon: PartyPopper, count: myUpcomingEvents.length, onClick: () => onOpenEvents() },
+                      { key: "posts", label: "Mes publications", Icon: FileText, count: myPostsCount, onClick: () => openProfileSection("posts") },
+                      { key: "premium", label: "Abonnement", Icon: Sparkles, onClick: () => openProfileSection("premium") },
+                      { key: "about", label: "À propos", Icon: Info, onClick: () => openProfileSection("about") },
+                    ].map(({ key, label, Icon, count, onClick }) => (
+                      <button key={key} onClick={onClick} className="flex flex-col items-start gap-2 rounded-xl p-3 text-left focus-visible:outline focus-visible:outline-2" style={{ background: "var(--bb-surface)", border: "1px solid var(--bb-border)" }}>
+                        <Icon size={18} color={primary} aria-hidden="true" />
+                        <span className="text-xs font-bold leading-tight" style={{ color: primary }}>
+                          {label}{typeof count === "number" && count > 0 && <span style={{ color: muted }}> ({count})</span>}
+                        </span>
+                      </button>
+                    ))}
+                  </nav>
+                </div>
               </div>
 
-              <div className="bb-scroll-x flex border-t" style={{ borderColor: `rgba(${primaryRgb},.08)` }}>
+              <div ref={tabsRef} className="bb-scroll-x flex border-t" style={{ borderColor: `rgba(${primaryRgb},.08)` }}>
                 {[["posts", "Publications"], ["about", "À propos"], ["network", "Mon réseau"], ["communities", "Mes communautés"], ["events", "Événements"], ["premium", "Abonnement"]].map(([key, label]) => (
                   <button key={key} onClick={() => setProfileTab(key)} className="shrink-0 px-5 py-3.5 text-sm font-bold whitespace-nowrap relative focus-visible:outline focus-visible:outline-2" style={{ color: profileTab === key ? primary : muted }}>
                     {label}
@@ -364,10 +398,43 @@ export default function ProfileTab({
                       </button>
                     </div>
                   ) : (
-                    <div className="text-center py-6">
-                      <span style={{ fontSize: 28 }}>💎</span>
-                      <p className="text-sm mt-2" style={{ color: muted }}>Tu es sur le plan gratuit.</p>
-                      <button onClick={() => goTab("premium")} className="bb-btn-gold mt-3 px-4 py-2.5 rounded-xl font-bold text-sm focus-visible:outline focus-visible:outline-2">Découvrir Premium</button>
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-2">
+                        <span style={{ fontSize: 20 }}>💎</span>
+                        <span className="text-sm font-black" style={{ color: primary }}>Tu es sur le plan gratuit</span>
+                      </div>
+                      <p className="text-sm" style={{ color: muted }}>
+                        Baobab reste entièrement utilisable gratuitement. Premium ajoute quelques outils en plus :
+                      </p>
+                      <ul className="space-y-2">
+                        {PREMIUM_FEATURES.map((f) => (
+                          <li key={f.label} className="flex items-center gap-2.5 text-sm" style={{ color: primary }}>
+                            <span aria-hidden="true">{f.icon}</span>
+                            <span className="font-bold">{f.label}</span>
+                          </li>
+                        ))}
+                      </ul>
+                      <div className="grid grid-cols-2 gap-3">
+                        {PREMIUM_PLANS.map((plan) => (
+                          <div key={plan.id} className="rounded-2xl p-3 relative" style={{ background: bg, border: "1px solid var(--bb-border)" }}>
+                            {plan.badge && (
+                              <span className="absolute -top-2 right-3 text-[10px] font-black px-2 py-0.5 rounded-full text-white" style={{ background: green }}>{plan.badge}</span>
+                            )}
+                            <div className="text-xs font-bold" style={{ color: muted }}>{plan.label}</div>
+                            <div className="mt-0.5">
+                              <span className="text-lg font-black" style={{ color: primary }}>{plan.priceLabel}</span>
+                              <span className="text-xs" style={{ color: muted }}> {plan.currency}{plan.period}</span>
+                            </div>
+                            {plan.subLabel && <div className="text-[11px] mt-0.5" style={{ color: muted }}>{plan.subLabel}</div>}
+                          </div>
+                        ))}
+                      </div>
+                      <button onClick={() => goTab("premium")} className="bb-btn-gold w-full px-4 py-2.5 rounded-xl font-bold text-sm focus-visible:outline focus-visible:outline-2">
+                        Voir tous les détails
+                      </button>
+                      <p className="text-[11px]" style={{ color: muted }}>
+                        Paiement sécurisé par Stripe, sans engagement, annulable à tout moment. Aucune donnée bancaire n'est stockée par Baobab.
+                      </p>
                     </div>
                   )}
                 </div>
