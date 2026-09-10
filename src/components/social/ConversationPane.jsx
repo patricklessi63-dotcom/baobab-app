@@ -573,7 +573,7 @@ export default function ConversationPane({
           />
         </div>
       )}
-      <div className="p-4 flex gap-2 items-end shrink-0 sticky bottom-0 bg-[var(--bb-surface)]" style={{ borderTop: replyingTo ? "none" : `1px solid rgba(${primaryRgb},.08)`, paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}>
+      <div className="bb-composer-bar p-4 flex gap-2 items-end shrink-0 sticky bottom-0 bg-[var(--bb-surface)]" style={{ borderTop: replyingTo ? "none" : `1px solid rgba(${primaryRgb},.08)`, paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}>
         {/* truncateUnicodeSafe(…, 4000) : comme pour la reformulation IA et les suggestions IA
             ci-dessus, l'ajout d'un emoji passe par setMessageDraft() en dehors de l'événement
             onChange du textarea, donc l'attribut maxLength du textarea (saisie clavier) ne
@@ -606,7 +606,7 @@ export default function ConversationPane({
             aria-label="Écrire un message"
             rows={1}
             maxLength={4000}
-            className="flex-1 text-sm rounded-2xl px-4 py-3 outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--bb-leaf)] resize-none"
+            className="bb-composer-input flex-1 text-sm rounded-2xl px-4 py-3 outline-none resize-none"
             style={{ background: bg, fontSize: 16, maxHeight: 120 }}
           />
         )}

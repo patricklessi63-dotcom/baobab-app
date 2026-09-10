@@ -262,6 +262,17 @@
     .bb-send-pop svg { animation: bbSendLift .18s var(--bb-ease); }
     @keyframes bbSendLift { 0% { transform: translateX(0) scale(1); } 55% { transform: translateX(3px) scale(1.08); } 100% { transform: translateX(0) scale(1); } }
 
+    /* Barre de saisie de la messagerie (Messages 4.0) — « barre flottante »
+    détachée du fil : fond surface (déjà posé en classe Tailwind) + fine
+    ombre portée vers le haut. */
+    .bb-composer-bar { box-shadow: 0 -8px 24px -12px rgba(var(--bb-text-rgb), .22); }
+
+    /* Textarea du compositeur — anneau vert doux qui apparaît en transition
+    au focus, au lieu d'un outline brut. Sert aussi d'indicateur de focus
+    clavier (bordure + halo bien visibles). */
+    .bb-composer-input { border: 1px solid transparent; transition: border-color .16s var(--bb-ease), box-shadow .16s var(--bb-ease); }
+    .bb-composer-input:focus, .bb-composer-input:focus-visible { outline: none; border-color: var(--bb-leaf); box-shadow: 0 0 0 3px rgba(31,122,90,0.16); }
+
     /* Bouton d'action à fond corail plein + libellé texte (Confirmer, Traiter,
     Bloquer, Envoyer un signalement, Aperçu d'une story...). L'aplat d'identité
     #E56B5D ne donne que 3.19:1 avec du texte blanc — échec WCAG AA pour du
