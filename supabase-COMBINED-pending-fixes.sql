@@ -589,185 +589,67 @@ grant execute on function reject_join_request(uuid) to authenticated;
 -- (convention officielle Supabase pour les Auth Hooks), en retirant
 -- explicitement tout accès à "anon"/"authenticated"/public.
 -- ----------------------------------------------------------------------------
-revoke all on function check_beta_whitelist(jsonb) from public;
-revoke all on function check_beta_whitelist(jsonb) from anon, authenticated;
-grant execute on function check_beta_whitelist(jsonb) to supabase_auth_admin;
-
--- ----------------------------------------------------------------------------
--- 2. Fonction appelable "system-only" sans AUCUNE garde d'auth interne —
--- send_event_reminders() [supabase-events-v2.sql, section "Rappels
--- 24h/1h"]. Le fichier d'origine dit explicitement "fonction appelable, PAS
--- un trigger" et prévue pour tourner via pg_cron/le propriétaire de la
--- base — jamais un appel client. Sans revoke, PUBLIC (anon compris) peut la
--- déclencher à volonté via supabase.rpc('send_event_reminders'), ce qui
--- exécute des INSERT/UPDATE réels sur les notifications et jeux
--- d'inscription (event_attendees) d'autres utilisateurs sans aucune
--- vérification d'identité de l'appelant. Impact pratique limité par le
--- garde-fou reminder_24h_sent_at/reminder_1h_sent_at (idempotent, ne double
--- jamais un envoi), mais reste un appel non authentifié à une fonction à
--- effet de bord qui ne devrait être déclenchable que par une tâche
--- planifiée/le propriétaire — même défaut de conception que join_event()
--- avant son correctif. Aucun grant ajouté : ni "anon" ni "authenticated"
--- n'ont de raison légitime de l'appeler ; seul le propriétaire de la
--- fonction (rôle d'exécution de pg_cron, non soumis aux grants) doit
--- pouvoir la déclencher.
--- ----------------------------------------------------------------------------
-revoke all on function send_event_reminders() from public;
-revoke all on function send_event_reminders() from anon, authenticated;
-
--- ----------------------------------------------------------------------------
--- 3. "grant" ajouté sans jamais avoir fait le "revoke" correspondant — le
--- droit hérité de PUBLIC (donc "anon", visiteur SANS compte) n'a jamais été
--- retiré, malgré l'intention affichée dans les fichiers d'origine. Impact
--- réel limité (les deux fonctions renvoient un résultat vide/null pour un
--- appelant non connecté, current_profile_id()/auth.uid() étant alors NULL
--- et vérifié en premier dans chaque corps de fonction — pas de fuite de
--- données ni d'effet de bord confirmé pour "anon"), mais c'est exactement
--- la même case "convention non appliquée" que le reste de cette passe :
---   - get_my_likers() / get_liker_profile_reveal(uuid)
---     [supabase-likers-profile-overexposure-fix.sql /
---      supabase-premium-admirers-reveal-fix.sql /
---      supabase-schema-cache-404-400-fix.sql — 3 fichiers ont réécrit ces
---      fonctions et ajouté le grant, aucun n'a ajouté le revoke]
---   - nearby_profiles(text, numeric)
---     [supabase-geolocation.sql / supabase-geolocation-privacy-fix.sql —
---      même oubli]
--- ----------------------------------------------------------------------------
-revoke all on function get_my_likers() from public;
-grant execute on function get_my_likers() to authenticated;
-
-revoke all on function get_liker_profile_reveal(uuid) from public;
-grant execute on function get_liker_profile_reveal(uuid) to authenticated;
-
-revoke all on function public.nearby_profiles(text, numeric) from public;
-grant execute on function public.nearby_profiles(text, numeric) to authenticated;
-
--- ----------------------------------------------------------------------------
--- 4. Fonctions à EFFET DE BORD (INSERT/UPDATE/DELETE) déjà protégées par une
--- garde interne explicite (raise exception si non authentifié / non
--- autorisé) — donc non exploitables aujourd'hui même sans revoke/grant,
--- contrairement à join_event()/accept_join_request()/reject_join_request()
--- avant leur correctif (qui laissaient l'INSERT/UPDATE s'exécuter avant ou
--- sans jamais vérifier l'identité de l'appelant). Ajout du revoke/grant ici
--- par pure défense en profondeur et cohérence avec le reste du projet
--- (decline_invite()/unmatch_profile() ont déjà ce traitement pour la même
--- famille de fonctions) — AUCUN changement de comportement attendu pour un
--- appelant légitime déjà authentifié.
+-- Toutes les fonctions listées ci-dessus sont regroupées dans un seul bloc
+-- DO tolérant : chaque revoke/grant est tenté indépendamment et, si la
+-- fonction n'existe pas encore dans cette base (signature différente, fichier
+-- source jamais appliqué, ordre de déploiement), l'entrée est simplement
+-- ignorée avec un NOTICE au lieu de faire échouer tout le script. Idempotent.
 --
--- accept_invite(uuid) [supabase-communities.sql] : filtre déjà
--- "invited_profile_id = current_profile_id()" dans la clause WHERE de
--- lecture -> un appelant anonyme ou tiers tombe sur "introuvable", jamais
--- d'accès à l'invitation d'autrui (contrairement au bug corrigé sur
--- accept_join_request(), où la vérification de droit arrivait dans un IF
--- séparé APRÈS confirmation d'existence, créant l'oracle).
+-- (get_my_likers() / get_liker_profile_reveal(uuid) NE sont volontairement
+-- PAS dans cette liste : elles sont (re)créées plus bas dans ce script et
+-- leur revoke est fait juste après leur définition — voir section
+-- supabase-likers-profile-overexposure-fix.sql.)
 -- ----------------------------------------------------------------------------
-revoke all on function accept_invite(uuid) from public;
-grant execute on function accept_invite(uuid) to authenticated;
+do $$
+declare
+  r record;
+begin
+  for r in
+    select * from (values
+      ('check_beta_whitelist(jsonb)',                                                                                              'public, anon, authenticated', 'supabase_auth_admin'),
+      ('send_event_reminders()',                                                                                                   'public, anon, authenticated', null),
+      ('public.nearby_profiles(text, numeric)',                                                                                    'public',                       'authenticated'),
+      ('accept_invite(uuid)',                                                                                                       'public',                       'authenticated'),
+      ('accept_event_invitation(uuid)',                                                                                             'public',                       'authenticated'),
+      ('decline_event_invitation(uuid)',                                                                                            'public',                       'authenticated'),
+      ('create_community(text, text, text, text, text, text, text)',                                                                'public',                       'authenticated'),
+      ('create_event(text, text, text, text, timestamptz, integer, text, text, integer, text, uuid, text)',                         'public',                       'authenticated'),
+      ('grant_platform_role(uuid, text)',                                                                                           'public',                       'authenticated'),
+      ('revoke_platform_role(uuid)',                                                                                                'public',                       'authenticated'),
+      ('suspend_user(uuid, timestamptz, text)',                                                                                     'public',                       'authenticated'),
+      ('unsuspend_user(uuid)',                                                                                                      'public',                       'authenticated'),
+      ('ban_user(uuid, text)',                                                                                                      'public',                       'authenticated'),
+      ('unban_user(uuid)',                                                                                                          'public',                       'authenticated'),
+      ('admin_resolve_report(text, uuid, boolean)',                                                                                 'public',                       'authenticated'),
+      ('admin_set_monetization(boolean)',                                                                                           'public',                       'authenticated'),
+      ('admin_update_feedback(uuid, text, text, text)',                                                                             'public',                       'authenticated'),
+      ('create_info_article(text, text, text, text, text, text, text, boolean, boolean, text, text, text, text, timestamptz)',      'public',                       'authenticated'),
+      ('update_info_article(uuid, text, text, text, text, text, text, text, text, text, text, timestamptz)',                        'public',                       'authenticated'),
+      ('submit_info_article_for_review(uuid)',                                                                                      'public',                       'authenticated'),
+      ('approve_info_article(uuid)',                                                                                                'public',                       'authenticated'),
+      ('publish_info_article(uuid)',                                                                                                'public',                       'authenticated'),
+      ('archive_info_article(uuid)',                                                                                                'public',                       'authenticated'),
+      ('revert_info_article_to_draft(uuid)',                                                                                        'public',                       'authenticated'),
+      ('admin_dashboard_stats()',                                                                                                   'public',                       'authenticated'),
+      ('admin_search_users(text)',                                                                                                  'public',                       'authenticated'),
+      ('admin_list_reports(text)',                                                                                                  'public',                       'authenticated'),
+      ('admin_list_feedback(text)',                                                                                                 'public',                       'authenticated'),
+      ('user_risk_level(uuid)',                                                                                                     'public',                       'authenticated'),
+      ('get_message_quota(text)',                                                                                                   'public',                       'authenticated')
+    ) as t(sig, rev_from, grant_to)
+  loop
+    begin
+      execute format('revoke all on function %s from %s', r.sig, r.rev_from);
+      if r.grant_to is not null then
+        execute format('grant execute on function %s to %s', r.sig, r.grant_to);
+      end if;
+    exception
+      when undefined_function then raise notice 'revoke/grant ignoré (fonction absente) : %', r.sig;
+      when undefined_object   then raise notice 'revoke/grant ignoré (rôle ou objet absent) : %', r.sig;
+    end;
+  end loop;
+end $$;
 
--- accept_event_invitation(uuid) / decline_event_invitation(uuid)
--- [supabase-events-v2.sql] : même motif qu'accept_invite() ci-dessus
--- (filtre invited_profile_id = current_profile_id() dans le SELECT/UPDATE).
-revoke all on function accept_event_invitation(uuid) from public;
-grant execute on function accept_event_invitation(uuid) to authenticated;
-
-revoke all on function decline_event_invitation(uuid) from public;
-grant execute on function decline_event_invitation(uuid) to authenticated;
-
--- create_community(...) / create_event(...)
--- [supabase-create-community-event-authz-fix.sql, versions les plus
--- récentes] : commencent explicitement par
--- "if current_profile_id() is null then raise exception 'Non authentifie'".
-revoke all on function create_community(text, text, text, text, text, text, text) from public;
-grant execute on function create_community(text, text, text, text, text, text, text) to authenticated;
-
-revoke all on function create_event(text, text, text, text, timestamptz, integer, text, text, integer, text, uuid, text) from public;
-grant execute on function create_event(text, text, text, text, timestamptz, integer, text, text, integer, text, uuid, text) to authenticated;
-
--- Rôles/modération plateforme [supabase-admin.sql] : chacune commence par
--- "if not is_moderator_or_above()/is_admin_or_above() then raise exception"
--- (ou une vérification de rang équivalente). Note d'honnêteté : cette garde
--- dépend elle-même du correctif NULL-bypass
--- (supabase-authz-null-bypass-CRITIQUE-fix.sql, "coalesce(..., false)") pour
--- être fiable côté "authenticated" sans rôle — s'il n'est pas encore
--- appliqué en prod, ces fonctions restent vulnérables à un contournement
--- PAR UN COMPTE AUTHENTIFIÉ (pas par "anon", que ce fichier bloque bien).
--- Le revoke/grant ci-dessous ferme au moins la voie "anon" dans tous les cas.
-revoke all on function grant_platform_role(uuid, text) from public;
-grant execute on function grant_platform_role(uuid, text) to authenticated;
-
-revoke all on function revoke_platform_role(uuid) from public;
-grant execute on function revoke_platform_role(uuid) to authenticated;
-
-revoke all on function suspend_user(uuid, timestamptz, text) from public;
-grant execute on function suspend_user(uuid, timestamptz, text) to authenticated;
-
-revoke all on function unsuspend_user(uuid) from public;
-grant execute on function unsuspend_user(uuid) to authenticated;
-
-revoke all on function ban_user(uuid, text) from public;
-grant execute on function ban_user(uuid, text) to authenticated;
-
-revoke all on function unban_user(uuid) from public;
-grant execute on function unban_user(uuid) to authenticated;
-
-revoke all on function admin_resolve_report(text, uuid, boolean) from public;
-grant execute on function admin_resolve_report(text, uuid, boolean) to authenticated;
-
-revoke all on function admin_set_monetization(boolean) from public;
-grant execute on function admin_set_monetization(boolean) to authenticated;
-
-revoke all on function admin_update_feedback(uuid, text, text, text) from public;
-grant execute on function admin_update_feedback(uuid, text, text, text) to authenticated;
-
--- Cycle éditorial Baobab Info [supabase-info.sql] : chacune commence par
--- "if not is_info_editor()/is_info_admin() then raise exception".
-revoke all on function create_info_article(text, text, text, text, text, text, text, boolean, boolean, text, text, text, text, timestamptz) from public;
-grant execute on function create_info_article(text, text, text, text, text, text, text, boolean, boolean, text, text, text, text, timestamptz) to authenticated;
-
-revoke all on function update_info_article(uuid, text, text, text, text, text, text, text, text, text, text, timestamptz) from public;
-grant execute on function update_info_article(uuid, text, text, text, text, text, text, text, text, text, text, timestamptz) to authenticated;
-
-revoke all on function submit_info_article_for_review(uuid) from public;
-grant execute on function submit_info_article_for_review(uuid) to authenticated;
-
-revoke all on function approve_info_article(uuid) from public;
-grant execute on function approve_info_article(uuid) to authenticated;
-
-revoke all on function publish_info_article(uuid) from public;
-grant execute on function publish_info_article(uuid) to authenticated;
-
-revoke all on function archive_info_article(uuid) from public;
-grant execute on function archive_info_article(uuid) to authenticated;
-
-revoke all on function revert_info_article_to_draft(uuid) from public;
-grant execute on function revert_info_article_to_draft(uuid) to authenticated;
-
--- ----------------------------------------------------------------------------
--- 5. Fonctions EN LECTURE SEULE (aucun INSERT/UPDATE/DELETE dans leur corps)
--- déjà protégées par une garde interne (is_moderator_or_above() ou
--- vérification équivalente basée sur current_profile_id()) — donc sans
--- fuite de données confirmée aujourd'hui, mais listées ici pour la même
--- raison de cohérence/défense en profondeur que la section 4 (même remarque
--- sur la dépendance au correctif NULL-bypass pour un appelant "authenticated"
--- sans rôle).
--- ----------------------------------------------------------------------------
-revoke all on function admin_dashboard_stats() from public;
-grant execute on function admin_dashboard_stats() to authenticated;
-
-revoke all on function admin_search_users(text) from public;
-grant execute on function admin_search_users(text) to authenticated;
-
-revoke all on function admin_list_reports(text) from public;
-grant execute on function admin_list_reports(text) to authenticated;
-
-revoke all on function admin_list_feedback(text) from public;
-grant execute on function admin_list_feedback(text) to authenticated;
-
-revoke all on function user_risk_level(uuid) from public;
-grant execute on function user_risk_level(uuid) to authenticated;
-
-revoke all on function get_message_quota(text) from public;
-grant execute on function get_message_quota(text) to authenticated;
 
 -- ----------------------------------------------------------------------------
 -- Vérification (facultatif, à exécuter séparément après) :
@@ -1332,6 +1214,18 @@ end;
 $$;
 
 grant execute on function get_liker_profile_reveal(uuid) to authenticated;
+
+-- ----------------------------------------------------------------------------
+-- revoke PUBLIC déplacé ici depuis la section
+-- supabase-security-definer-revoke-grant-audit-fix.sql : ces deux fonctions
+-- viennent seulement d'être (re)créées ci-dessus et peuvent ne pas avoir
+-- existé en prod avant ce script — le revoke doit donc suivre leur
+-- définition, pas la précéder. (Le "grant ... to authenticated" est déjà
+-- présent juste au-dessus pour chacune ; PostgreSQL accorde EXECUTE à PUBLIC
+-- par défaut à la création, seul ce revoke explicite retire l'accès "anon".)
+-- ----------------------------------------------------------------------------
+revoke all on function get_my_likers() from public;
+revoke all on function get_liker_profile_reveal(uuid) from public;
 
 -- ----------------------------------------------------------------------------
 -- Vérification (facultatif, à exécuter séparément après) :
