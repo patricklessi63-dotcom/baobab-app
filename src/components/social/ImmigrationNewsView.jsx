@@ -9,8 +9,9 @@ import { supabase } from "../../supabaseClient";
 import { primary, coral, gold, muted, card, bg, surface } from "./theme";
 import {
   ESSENTIAL_DOCUMENTS, BORDER_NOTE, PRIORITY_STEPS, EXTRA_TIPS,
-  PROVINCE_DIRECTORY, GENERALIST_DIRECTORY, FEDERAL_RESOURCES, GUIDE_LIMITS,
+  FEDERAL_RESOURCES, GUIDE_LIMITS,
 } from "../../lib/newcomerGuideData";
+import { PROVINCE_DIRECTORY, GENERALIST_DIRECTORY } from "../../lib/newcomerDirectoryData";
 
 const STEP_ICONS = { CreditCard, Stethoscope, Wallet, Car, Receipt, Home, Phone, GraduationCap, PhoneCall, BadgeCheck };
 
