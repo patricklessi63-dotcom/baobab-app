@@ -1091,7 +1091,15 @@ export default function EventsTab({ currentUser, onError, initialEventId, onCons
         renderGrid(events)
       )}
 
-      {!listLoading && hasMore && !isNeutralHome && (
+      {/* Bug corrigé à l'audit (angle "pagination cassée") : la condition
+          !isNeutralHome masquait le bouton "Charger plus" sur l'accueil
+          neutre — alors que la section "Tous les événements" y affiche une
+          grille complète censée tous les lister. Dès que Baobab dépasse
+          PAGE_SIZE événements à venir, un visiteur sans recherche ni filtre
+          ne pouvait jamais voir au-delà des 20 premiers. loadMore()
+          (pagination par curseur event_date+id) enrichit aussi les rangées
+          dérivées sans doublon. Même correctif jumeau dans CommunitiesTab.jsx. */}
+      {!listLoading && hasMore && (
         <button onClick={loadMore} disabled={loadingMore} className="w-full mt-5 py-3 rounded-full text-sm font-bold disabled:opacity-50" style={{ background: bg, color: primary }}>
           {loadingMore ? "Chargement…" : "Charger plus"}
         </button>

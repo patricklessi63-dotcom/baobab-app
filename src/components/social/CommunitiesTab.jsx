@@ -1289,7 +1289,18 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
         renderGrid(communities)
       )}
 
-      {!listLoading && hasMore && !isNeutralHome && (
+      {/* Bug corrigé à l'audit (angle "pagination cassée") : la condition
+          !isNeutralHome masquait le bouton "Charger plus" sur l'accueil
+          neutre — alors que la section "Toutes les communautés" y affiche
+          une grille complète censée toutes les lister. Résultat : dès que
+          Baobab dépasse PAGE_SIZE communautés, un visiteur sans recherche
+          ni filtre ne pouvait jamais voir au-delà des 20 premières (le
+          curseur et hasMore étaient pourtant déjà calculés au chargement
+          initial, quel que soit le mode). loadMore() fonctionne à
+          l'identique ici : il enrichit aussi les rangées dérivées
+          (Populaires, Pour toi…) sans risque de doublon (pagination par
+          curseur). Même correctif jumeau dans EventsTab.jsx. */}
+      {!listLoading && hasMore && (
         <button onClick={loadMore} disabled={loadingMore} className="w-full mt-5 py-3 rounded-full text-sm font-bold disabled:opacity-50" style={{ background: bg, color: primary }}>
           {loadingMore ? "Chargement…" : "Charger plus"}
         </button>
