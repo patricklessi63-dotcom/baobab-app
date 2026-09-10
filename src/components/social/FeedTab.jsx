@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Luggage, ThumbsUp, ThumbsDown, Users, X, Landmark, Bell, Play, Plus, CheckCircle2, ChevronRight } from "lucide-react";
+import { Luggage, ThumbsUp, ThumbsDown, Users, X, Bell, Play, Plus, CheckCircle2, ChevronRight } from "lucide-react";
 import Avatar from "../Avatar";
 import HomeHeader from "../home/HomeHeader";
 import BaobabHero from "../home/BaobabHero";
@@ -468,15 +468,15 @@ export default function FeedTab({
         onCompleteProfile={openEditProfile}
       />
 
-      <button onClick={() => goTab("news")} className={`${card} w-full text-left p-4 mb-6 flex items-center gap-3 hover:-translate-y-0.5 transition-transform duration-200`}>
+      <button onClick={() => goTab("communities")} className={`${card} w-full text-left p-4 mb-6 flex items-center gap-3 hover:-translate-y-0.5 transition-transform duration-200`}>
         <div className="h-11 w-11 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: `rgba(${primaryRgb},.08)` }}>
-          <Landmark size={20} style={{ color: primary }} />
+          <Users size={20} style={{ color: primary }} />
         </div>
         <div className="flex-1 min-w-0">
-          <div className="text-sm font-black" style={{ color: primary }}>Immigration & Intégration</div>
-          <p className="text-xs mt-0.5" style={{ color: muted }}>Actualités officielles IRCC et ASFC — sources gouvernementales uniquement.</p>
+          <div className="text-sm font-black" style={{ color: primary }}>Communautés & Événements</div>
+          <p className="text-xs mt-0.5" style={{ color: muted }}>Rejoins des groupes et participe à des rencontres près de chez toi.</p>
         </div>
-        <span className="text-xs font-bold flex-shrink-0" style={{ color: coralText }}>Consulter →</span>
+        <span className="text-xs font-bold flex-shrink-0" style={{ color: coralText }}>Découvrir →</span>
       </button>
 
       <NotificationsPanel
