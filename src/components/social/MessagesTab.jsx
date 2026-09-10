@@ -7,7 +7,7 @@ import ConversationPane from "./ConversationPane";
 import { useClickOutside } from "../../hooks/useClickOutside";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
 import { matchKey, formatMessageTime, messagePreviewLabel } from "../../utils/format";
-import { primary, navy, green, coral, coralText, bg, muted, card, buttonBase, online, offline, body, primaryRgb } from "./theme";
+import { primary, navy, green, coral, coralText, bg, muted, card, buttonBase, leafLight, offline, body, primaryRgb } from "./theme";
 
 export default function MessagesTab({
   matches,
@@ -153,7 +153,7 @@ export default function MessagesTab({
                 <div className="relative flex-shrink-0">
                   <Avatar name={m.name} url={m.avatar_url} size={50} />
                   {!unavailable && (
-                    <span className={`absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white${m.is_online ? " bb-online-pulse" : ""}`} style={{ background: m.is_online ? online : offline }} />
+                    <span className={`absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white${m.is_online ? " bb-online-pulse" : ""}`} style={{ background: m.is_online ? leafLight : offline }} />
                   )}
                 </div>
                 <div className="min-w-0 flex-1">

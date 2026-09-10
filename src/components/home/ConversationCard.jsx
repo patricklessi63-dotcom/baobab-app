@@ -2,7 +2,7 @@ import React from "react";
 import { MessageCircle } from "lucide-react";
 import Avatar from "../Avatar";
 import StatusBadge from "../StatusBadge";
-import { coral, muted, online, offline } from "../social/theme";
+import { coral, muted, leafLight, offline } from "../social/theme";
 
 export default function ConversationCard({ match, onOpen }) {
   return (
@@ -15,7 +15,7 @@ export default function ConversationCard({ match, onOpen }) {
         <Avatar name={match.name} url={match.avatar_url} size={44} />
         <span
           className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-white${match.is_online ? " bb-online-pulse" : ""}`}
-          style={{ background: match.is_online ? online : offline }}
+          style={{ background: match.is_online ? leafLight : offline }}
           aria-hidden="true"
         />
       </div>

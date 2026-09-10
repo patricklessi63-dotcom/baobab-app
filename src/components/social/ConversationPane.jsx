@@ -21,7 +21,7 @@ import MessageBubbleMedia from "./MessageBubbleMedia";
 import ChatDropZone from "./ChatDropZone";
 import MessageActionsMenu from "./MessageActionsMenu";
 import ConfirmModal from "./ConfirmModal";
-import { primary, coral, coralText, bg, muted, online, offline, body, primaryRgb } from "./theme";
+import { primary, coral, coralText, bg, muted, offline, leafLight, body, primaryRgb } from "./theme";
 
 function MessageText({ text }) {
   return (
@@ -40,14 +40,15 @@ function MessageText({ text }) {
 }
 
 // Indicateur « en train d'écrire… » — le libellé suivi de trois points qui
-// respirent en décalé. Couleur héritée (currentColor) du conteneur parent.
+// respirent en décalé. Points en vert clair décoratif (--bb-leaf-light) ;
+// le libellé garde la couleur héritée du conteneur parent.
 // La règle globale prefers-reduced-motion (index.html) fige l'animation.
 function TypingIndicator() {
   const dot = {
     width: 4,
     height: 4,
     borderRadius: "50%",
-    background: "currentColor",
+    background: leafLight,
     display: "inline-block",
   };
   return (
@@ -256,7 +257,7 @@ export default function ConversationPane({
           <div style={{ position: "relative" }}>
             <Avatar name={activeMatch.name} url={activeMatch.avatar_url} size={38} />
             {!otherUnavailable && (
-              <Circle size={10} fill={activeMatch.is_online ? online : offline} color="transparent" className={activeMatch.is_online ? "bb-online-pulse" : undefined} style={{ position: "absolute", bottom: -1, right: -1, background: "#fff", borderRadius: "50%" }} />
+              <Circle size={10} fill={activeMatch.is_online ? leafLight : offline} color="transparent" className={activeMatch.is_online ? "bb-online-pulse" : undefined} style={{ position: "absolute", bottom: -1, right: -1, background: "#fff", borderRadius: "50%" }} />
             )}
           </div>
           <div className="min-w-0">
@@ -406,13 +407,13 @@ export default function ConversationPane({
                     ...(isSticker || isDeleted
                       ? {}
                       : {
-                          // Bulle envoyée en dégradé or (refonte visuelle,
-                          // maquette screen-messages.html) au lieu d'un aplat
-                          // uni — "primary" (couleur de texte réactive au
-                          // thème) servait auparavant de fond ici.
-                          background: isMine ? "linear-gradient(155deg,var(--bb-gold-1),var(--bb-gold-2))" : bg,
-                          color: isMine ? "#1C1608" : body,
-                          fontWeight: isMine ? 600 : undefined,
+                          // Bulle envoyée en vert feuille plein (retrait de
+                          // l'orange terracotta de l'interface — l'ancien
+                          // dégradé or virait à l'orange via --bb-gold-2).
+                          // Texte blanc : #fff sur #1F7A5A = 5.3:1 (AA OK).
+                          background: isMine ? "var(--bb-leaf)" : bg,
+                          color: isMine ? "#fff" : body,
+                          fontWeight: isMine ? 500 : undefined,
                           borderRadius: 16,
                           ...(isMine ? { borderBottomRightRadius: 4 } : { borderBottomLeftRadius: 4 }),
                           padding: isCompactMedia ? 4 : "10px 14px",
