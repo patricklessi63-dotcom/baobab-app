@@ -1,5 +1,5 @@
 -- ============================================================================
--- SCRIPT CONSOLIDÉ — tous les correctifs SQL en attente (37 fichiers)
+-- SCRIPT CONSOLIDÉ — tous les correctifs SQL en attente (39 fichiers)
 -- Régénéré le 2026-09-09 (fin d'après-midi) pour ajouter un fichier manquant
 -- trouvé lors d'un audit de vérification empirique (curl) : les fonctions
 -- admin_dashboard_stats()/admin_list_reports() référencent reports.status,
@@ -8,6 +8,12 @@
 -- dans les scripts consolidés précédents. Confirmé en direct contre la
 -- prod : ces deux fonctions échouent aujourd'hui même pour un vrai
 -- modérateur (erreur 42703 "column status does not exist").
+--
+-- Compteur mis à jour le 2026-09-09 (soir) : le nombre de fichiers (37 -> 39)
+-- reflète l'ajout ultérieur de supabase-post-likes-comments-block-fix.sql et
+-- supabase-content-account-state-block-guards-remaining-fix.sql (commit
+-- ae2aa66), qui avait fait passer le total à 39 sans que ce compteur soit
+-- mis à jour à ce moment-là.
 --
 -- ⚠️ ORDRE IMPORTANT ET VOLONTAIRE — ne pas réordonner les sections
 -- manuellement :
