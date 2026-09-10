@@ -116,9 +116,12 @@ export async function reportError({ message, stack, kind = "error" } = {}) {
       profile_id: profileId || null,
       message: message ? String(message).slice(0, 2000) : null,
       stack: stack ? String(stack).slice(0, 8000) : null,
-      url: typeof location !== "undefined" ? location.href : null,
-      user_agent: typeof navigator !== "undefined" ? navigator.userAgent : null,
-      app_version: CURRENT_VERSION,
+      // Bornes alignées sur les contraintes CHECK de la table
+      // (supabase-client-errors.sql) pour qu'un rapport légitime ne soit
+      // jamais rejeté silencieusement.
+      url: typeof location !== "undefined" ? String(location.href).slice(0, 2000) : null,
+      user_agent: typeof navigator !== "undefined" ? String(navigator.userAgent).slice(0, 500) : null,
+      app_version: CURRENT_VERSION ? String(CURRENT_VERSION).slice(0, 40) : null,
       kind,
     });
   } catch (_) {

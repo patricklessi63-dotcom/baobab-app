@@ -27,12 +27,16 @@ create table if not exists client_errors (
   id          uuid primary key default gen_random_uuid(),
   created_at  timestamptz not null default now(),
   profile_id  uuid references profiles(id) on delete set null,
-  message     text,
-  stack       text,
-  url         text,
-  user_agent  text,
-  app_version text,
-  kind        text -- 'error' | 'unhandledrejection' | 'react'
+  -- Bornes de longueur : la policy INSERT est ouverte à "anon" (voir plus
+  -- bas), donc un appelant direct malveillant pourrait tenter d'insérer des
+  -- charges utiles énormes. Ces bornes plafonnent chaque champ à une taille
+  -- largement suffisante pour un vrai rapport d'erreur.
+  message     text check (message is null or length(message) <= 2000),
+  stack       text check (stack is null or length(stack) <= 8000),
+  url         text check (url is null or length(url) <= 2000),
+  user_agent  text check (user_agent is null or length(user_agent) <= 500),
+  app_version text check (app_version is null or length(app_version) <= 40),
+  kind        text check (kind is null or kind in ('error', 'unhandledrejection', 'react'))
 );
 
 -- Purge et tri chronologique (consultation "dernières erreurs" + cron ci-dessous).
