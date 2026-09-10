@@ -1,15 +1,24 @@
 # Déploiement en attente — Baobab
 
-État au 2026-09-09. Tout le code est poussé sur `main` (commit `58ce1de` et suivants).
-Rien de ce qui suit ne s'exécute automatiquement : ce sont les **actions manuelles**
-qui restent, dans l'ordre.
+Mise à jour 2026-09-10.
+
+**FAIT :**
+- ✅ `supabase-COMBINED-pending-fixes.sql` exécuté en prod (vérifié : RLS/RPC OK).
+- ✅ `supabase-combined-supersede-order-regression-fix.sql` exécuté en prod.
+- ✅ Icône PWA maskable ajoutée (`public/icon-512-maskable.png` + manifest).
+
+**RESTE (2 déploiements d'edge functions — terminal, pas Supabase SQL Editor) :**
+- ⬜ `cleanup-expired-stories` — voir §2b.
+- ⬜ `stripe-webhook` — voir §2a (nécessite les clés Stripe).
+
+Le §1 ci-dessous est conservé pour référence mais **n'est plus à faire**.
 
 ---
 
-## 1. SQL — `supabase-COMBINED-pending-fixes.sql` (le plus urgent)
+## 1. SQL — `supabase-COMBINED-pending-fixes.sql` — ✅ DÉJÀ EXÉCUTÉ
 
 **Quoi :** 44 correctifs SQL regroupés en un seul fichier (sécurité RLS, autorisations,
-gardes de longueur, tâches planifiées). Aucun n'est encore actif en production.
+gardes de longueur, tâches planifiées).
 
 **Comment :**
 1. Ouvre le **SQL Editor** de Supabase (projet `vozehymbihnckzklxesw`).

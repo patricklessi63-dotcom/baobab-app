@@ -13,7 +13,7 @@ Build vert, CI verte, chaque lot ré-audité pour régression.
 | `supabase-combined-supersede-order-regression-fix.sql` | **Exécuté en prod.** Rattrape 3 régressions laissées par le script consolidé (sections SUPERSEDED dont le DDL écrasait en dernier des correctifs plus récents). |
 | `DEPLOIEMENT.md` | Runbook des actions manuelles restantes. |
 
-**Reste à faire (côté Patrick) :** déployer les edge functions `stripe-webhook` et `cleanup-expired-stories` (toujours en 404). Sans `stripe-webhook`, la synchro Premium/abonnements ne se fait pas automatiquement après paiement.
+**Reste à faire (côté Patrick, terminal + CLI Supabase) :** déployer les edge functions `cleanup-expired-stories` (simple, sans secret) et `stripe-webhook` (nécessite les clés Stripe). Toujours en 404. Sans `stripe-webhook`, la synchro Premium/abonnements ne se fait pas automatiquement après paiement. Voir `DEPLOIEMENT.md`.
 
 ### Bugs corrigés
 
@@ -43,7 +43,7 @@ Chunk principal **911 kB → 404 kB** (−55 %, 251 → 115 kB gzip). L'avertiss
 - Contraste WCAG AA : 8 paires texte/fond estompé en mode sombre (`bc7866f`) ; jeton réactif `--bb-coral-text` (#C0392B clair / #E56B5D sombre) pour le corail utilisé comme couleur de texte, 35 fichiers migrés (`f75efc8`, `cf424e7`, `df18009`) ; classe `.bb-btn-danger` pour les boutons « texte blanc sur fond corail » (`9c48fe5`, `58dd991`).
 - Focus trap / Échap / `role="dialog"` : déjà en place partout (hooks `useFocusTrap` / `useEscapeKey`), vérifié.
 
-**Reste à faire (côté Patrick) :** une icône PWA 512×512 « maskable » (logo centré dans les 80 % centraux) pour l'affichage adaptatif Android.
+- Icône PWA « maskable » : `public/icon-512-maskable.png` (logo réduit à 78 %, centré sur fond #14432A) généré par `scripts/generate-maskable-icon.mjs` (codec PNG maison, zéro dépendance — `npm run icons:maskable`), ajouté au manifest. (`5eb2e35`)
 
 ### Tests (nouveau — le projet n'en avait aucun)
 
