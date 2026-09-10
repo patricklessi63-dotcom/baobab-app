@@ -448,7 +448,10 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
       const { ok, error } = await validateMediaFile(file, kind === "video" ? "video" : "image");
       if (session !== composerSessionRef.current) return; // composeur fermé entre-temps
       if (!ok) { onError(error); continue; }
-      const finalFile = kind === "photo" ? await compressImageIfNeeded(file) : file;
+      // 1920 px conservé volontairement : une photo de fil s'ouvre en plein
+      // écran (visionneuse), c'est le contenu qu'on regarde le plus en grand
+      // de l'app — voir le paramètre maxDimension de imageCompression.js.
+      const finalFile = kind === "photo" ? await compressImageIfNeeded(file, 1920) : file;
       if (session !== composerSessionRef.current) return; // composeur fermé entre-temps
       const item = { id: `${Date.now()}-${Math.random().toString(36).slice(2)}`, file: finalFile, kind, previewUrl: URL.createObjectURL(finalFile) };
       setMediaItems((prev) => [...prev, item]);
@@ -803,7 +806,7 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
                       mediaKind === "video" ? (
                         <video src={mediaUrl} preload="metadata" className="w-full h-full object-cover" />
                       ) : (
-                        <img src={mediaUrl} alt="" className="w-full h-full object-cover" />
+                        <img src={mediaUrl} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" />
                       )
                     ) : (
                       <div className="w-full h-full flex items-center justify-center p-3 text-center" style={{ background: `linear-gradient(150deg,${navy},${coral})` }}>

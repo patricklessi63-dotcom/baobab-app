@@ -171,7 +171,9 @@ export default function EventEditForm({ event, onSaved, onCancel, onError, onDir
         // compressImageIfNeeded, déjà utilisé par PostsFeed.jsx) : la
         // couverture d'événement partait toujours en taille originale,
         // jamais compressée comme les autres images de l'app.
-        const finalCoverFile = await compressImageIfNeeded(coverFile);
+        // 1280 px suffit pour une couverture affichée en bandeau — voir
+        // imageCompression.js.
+        const finalCoverFile = await compressImageIfNeeded(coverFile, 1280);
         const path = `${event.id}/${Date.now()}-cover.${extFromMime(finalCoverFile.type)}`;
         await uploadWithProgress({ bucket: "event-covers", path, file: finalCoverFile });
         uploadedPath = path;

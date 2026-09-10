@@ -674,7 +674,9 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
         // de publication de communauté partait toujours en taille originale,
         // jamais compressée — les vidéos ne sont volontairement jamais
         // touchées (voir imageCompression.js).
-        if (mediaKind === "image") mediaFile = await compressImageIfNeeded(mediaFile);
+        // 1600 px : média de publication de communauté, consultable en grand
+        // mais pas au point d'exiger 1920 — voir imageCompression.js.
+        if (mediaKind === "image") mediaFile = await compressImageIfNeeded(mediaFile, 1600);
         const path = `${community.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.${extFromMime(mediaFile.type)}`;
         await uploadWithProgress({ bucket: COMMUNITY_MEDIA_BUCKET, path, file: mediaFile });
         uploadedPath = path;

@@ -183,7 +183,9 @@ export default function EventCreateForm({ currentUser, initialCommunityId = null
           // compressImageIfNeeded, déjà utilisé par PostsFeed.jsx) : la
           // couverture d'événement partait toujours en taille originale,
           // jamais compressée comme les autres images de l'app.
-          const finalCoverFile = await compressImageIfNeeded(coverFile);
+          // 1280 px suffit pour une couverture affichée en bandeau — voir
+          // imageCompression.js.
+          const finalCoverFile = await compressImageIfNeeded(coverFile, 1280);
           // La couverture ne peut être téléversée qu'APRÈS la création : le
           // chemin Storage est {event_id}/... (supabase-events-v2.sql).
           const path = `${data.id}/${Date.now()}-cover.${extFromMime(finalCoverFile.type)}`;

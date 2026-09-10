@@ -112,7 +112,9 @@ export default function CommunityCreateForm({ currentUser, onCreated, onCancel, 
         // compressImageIfNeeded, déjà utilisé par PostsFeed.jsx) : la
         // couverture de communauté partait toujours en taille originale,
         // jamais compressée comme les autres images de l'app.
-        const finalCoverFile = await compressImageIfNeeded(coverFile);
+        // 1280 px suffit largement pour une couverture affichée en bandeau
+        // (jamais ouverte en plein écran) — voir imageCompression.js.
+        const finalCoverFile = await compressImageIfNeeded(coverFile, 1280);
         const ext = extFromMime(finalCoverFile.type);
         const path = `${currentUser.user_id}/community-${Date.now()}.${ext}`;
         const { error: uploadError } = await supabase.storage.from("avatars").upload(path, finalCoverFile, { upsert: true });

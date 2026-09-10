@@ -4,22 +4,36 @@
 // ré-encodage vidéo côté navigateur, hors de portée). Se dégrade
 // silencieusement vers le fichier original si le canvas échoue pour
 // n'importe quelle raison (jamais bloquant pour la publication).
+//
+// `maxDimension` (2e paramètre, optionnel) : borne du plus grand côté après
+// redimensionnement. Par défaut 1920 (rétrocompatibilité — les appels
+// existants sans 2e argument ne changent pas). À adapter au contexte
+// d'affichage réel de l'image : une couverture de communauté/événement
+// (~bandeau) n'a pas besoin d'autant de pixels qu'une photo de fil qu'on
+// ouvre en plein écran. Exemples d'appels :
+//   compressImageIfNeeded(coverFile, 1280)   // couvertures
+//   compressImageIfNeeded(photoFile, 1600)   // médias de communauté/galerie
+//   compressImageIfNeeded(photoFile)         // fil social, plein écran (1920)
+// Astuce plan Pro Supabase : les transformations d'image à la volée
+// (`getPublicUrl(..., { transform: { width } })`) permettraient de servir
+// plusieurs tailles depuis un seul original — non disponible en plan gratuit,
+// d'où cette réduction à l'upload.
 
 const MAX_DIMENSION = 1920;
 const JPEG_QUALITY = 0.85;
 
-export async function compressImageIfNeeded(file) {
+export async function compressImageIfNeeded(file, maxDimension = MAX_DIMENSION) {
   if (!file.type.startsWith("image/") || file.type === "image/gif") return file;
 
   try {
     const bitmap = await createImageBitmap(file);
     const { width, height } = bitmap;
-    if (width <= MAX_DIMENSION && height <= MAX_DIMENSION) {
+    if (width <= maxDimension && height <= maxDimension) {
       bitmap.close();
       return file;
     }
 
-    const scale = MAX_DIMENSION / Math.max(width, height);
+    const scale = maxDimension / Math.max(width, height);
     const targetW = Math.round(width * scale);
     const targetH = Math.round(height * scale);
 

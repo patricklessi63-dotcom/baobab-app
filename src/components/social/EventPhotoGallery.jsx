@@ -39,7 +39,10 @@ export default function EventPhotoGallery({ photos = [], loading, canUpload, cur
       // compressImageIfNeeded, déjà utilisé par PostsFeed.jsx) : une photo
       // ajoutée à la galerie d'un événement partait toujours en taille
       // originale, jamais compressée comme les autres images de l'app.
-      const finalFile = await compressImageIfNeeded(file);
+      // 1600 px : ces photos de galerie s'ouvrent en plein écran, mais pas
+      // besoin d'aller jusqu'à 1920 pour un souvenir d'événement — voir
+      // imageCompression.js.
+      const finalFile = await compressImageIfNeeded(file, 1600);
       const path = `${onUpload.eventId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${extFromMime(finalFile.type)}`;
       await uploadWithProgress({ bucket: BUCKET, path, file: finalFile });
       await onUpload.save(path);
@@ -89,6 +92,8 @@ export default function EventPhotoGallery({ photos = [], loading, canUpload, cur
                 <img
                   src={p.url}
                   alt=""
+                  loading="lazy"
+                  decoding="async"
                   onClick={() => openLightbox(gallery, gallery.findIndex((g) => g.url === p.url))}
                   onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openLightbox(gallery, gallery.findIndex((g) => g.url === p.url)); } }}
                   tabIndex={0}
