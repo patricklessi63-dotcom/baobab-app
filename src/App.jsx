@@ -45,6 +45,45 @@ const PUBLIC_ONLY_PATHS = new Set(["/connexion", "/inscription", "/a-propos", "/
 // réutiliser exactement la même liste — voir ce fichier pour le détail du bug
 // et la provenance de la liste.
 
+// Requêtes du "graphe social" du compte courant : likes (reçus ET envoyés, pour
+// recalculer matches + admirersCount), passes, blocages, plus le profil complet
+// des comptes bloqués et la RPC get_my_likers(). Extrait de loadAll() (qui les
+// enchaînait inline) pour que resyncSocialGraph() puisse les REJOUER À
+// L'IDENTIQUE après une reconnexion réseau, sans retoucher aux ~500 profils /
+// ~3200 photos que loadAll() recharge par ailleurs. Ne fait aucun setState ni
+// throw : l'appelant décide quoi faire des résultats.
+async function fetchSocialGraph(myProfileId) {
+  const relFilter = myProfileId ? `from_id.eq.${myProfileId},to_id.eq.${myProfileId}` : null;
+  let likeQuery = supabase.from("likes").select("from_id,to_id");
+  let passQuery = supabase.from("passes").select("from_id,to_id");
+  let blockQuery = supabase.from("blocks").select("from_id,to_id");
+  if (relFilter) {
+    likeQuery = likeQuery.or(relFilter);
+    passQuery = passQuery.or(relFilter);
+    blockQuery = blockQuery.or(relFilter);
+  }
+  // RPC get_my_likers() plutôt qu'une jointure PostgREST directe sur "likes"
+  // (voir supabase-premium-admirers-reveal-fix.sql) : is_premium() appliqué
+  // côté serveur, profil complet seulement pour un match mutuel ou un compte
+  // Premium, sinon un simple compteur sans identité.
+  const likerQuery = myProfileId ? supabase.rpc("get_my_likers") : null;
+  // Même correctif que likerQuery, appliqué à la modale "Comptes bloqués" :
+  // jointure directe sur "blocks" (from_id = moi) et non un filtre du cache
+  // "profiles" plafonné à 500 lignes.
+  const blockedQuery = myProfileId
+    ? supabase.from("blocks").select(`to_id, profile:to_id(${OTHER_PROFILE_COLUMNS})`).eq("from_id", myProfileId)
+    : null;
+
+  const [likeRes, passRes, blockRes, likerRes, blockedProfRes] = await Promise.all([
+    likeQuery,
+    passQuery,
+    blockQuery,
+    likerQuery || Promise.resolve({ data: [], error: null }),
+    blockedQuery || Promise.resolve({ data: [], error: null }),
+  ]);
+  return { likeRes, passRes, blockRes, likerRes, blockedProfRes };
+}
+
 export default function App() {
   // Réarme le filet anti-boucle de ChunkErrorBoundary.jsx une fois l'app
   // montée avec succès, pour qu'un futur déploiement (nouveaux hashs de
@@ -97,6 +136,7 @@ export default function App() {
   const likerProfilesRawRef = useRef(likerProfilesRaw); // lu par l'abonnement realtime "likes" sans le forcer à se réabonner
   const blockPairsRef = useRef([]); // idem, pour ignorer un like venant d'une personne bloquée dans un sens ou l'autre
   const activeMatchRef = useRef(null); // lu par l'abonnement realtime "blocks-passes" sans le forcer à se réabonner à chaque changement de conversation ouverte
+  const currentUserRef = useRef(null); // lu par resyncSocialGraph() (effet de reconnexion, deps [isOnline]) sans le forcer à se relancer à chaque édition de profil
   const likesChannelRef = useRef(null);
   const [matchNotice, setMatchNotice] = useState(null);
   const [activeMatch, setActiveMatch] = useState(null);
@@ -255,45 +295,10 @@ export default function App() {
         const { data: ownProfile } = await supabase.from("profiles").select("id").eq("user_id", authUserId).maybeSingle();
         myProfileId = ownProfile?.id || null;
       }
-      const relFilter = myProfileId ? `from_id.eq.${myProfileId},to_id.eq.${myProfileId}` : null;
-      let likeQuery = supabase.from("likes").select("from_id,to_id");
-      let passQuery = supabase.from("passes").select("from_id,to_id");
-      let blockQuery = supabase.from("blocks").select("from_id,to_id");
-      if (relFilter) {
-        likeQuery = likeQuery.or(relFilter);
-        passQuery = passQuery.or(relFilter);
-        blockQuery = blockQuery.or(relFilter);
-      }
-      // RPC get_my_likers() plutôt qu'une jointure PostgREST directe sur
-      // "likes" (voir supabase-premium-admirers-reveal-fix.sql) : l'ancienne
-      // requête (.select("from_id, profile:from_id(*)")) renvoyait le
-      // profil complet de TOUT LE MONDE qui m'a liké, peu importe mon
-      // statut Premium — AdmirersModal ne faisait que masquer l'affichage,
-      // la donnée elle-même avait déjà transité en clair dans la réponse
-      // réseau. La RPC applique is_premium() côté serveur : profil complet
-      // pour un match mutuel (jamais un avantage Premium) ou si je suis
-      // Premium, sinon seulement un compteur sans identité.
-      const likerQuery = myProfileId
-        ? supabase.rpc("get_my_likers")
-        : null;
-      // Même correctif que likerQuery ci-dessus, appliqué à la modale "Comptes
-      // bloqués" (AppModals.jsx) : elle filtrait jusqu'ici le cache "profiles"
-      // plafonné à 500 lignes pour retrouver les profils bloqués, donc toute
-      // personne bloquée mais absente de ces 500 premières lignes disparaissait
-      // silencieusement de la liste — impossible de la débloquer depuis l'UI
-      // bien que le blocage existait toujours en base. Jointure directe sur
-      // "blocks" (from_id = moi) à la place.
-      const blockedQuery = myProfileId
-        ? supabase.from("blocks").select(`to_id, profile:to_id(${OTHER_PROFILE_COLUMNS})`).eq("from_id", myProfileId)
-        : null;
-
-      const [likeRes, passRes, blockRes, likerRes, blockedProfRes] = await Promise.all([
-        likeQuery,
-        passQuery,
-        blockQuery,
-        likerQuery || Promise.resolve({ data: [], error: null }),
-        blockedQuery || Promise.resolve({ data: [], error: null }),
-      ]);
+      // Requêtes likes/passes/blocages/admirateurs/bloqués extraites dans
+      // fetchSocialGraph() (module) — même lot, rejoué à l'identique par
+      // resyncSocialGraph() après une reconnexion réseau. Voir son commentaire.
+      const { likeRes, passRes, blockRes, likerRes, blockedProfRes } = await fetchSocialGraph(myProfileId);
       if (likeRes.error) throw likeRes.error;
       if (passRes.error) throw passRes.error;
       if (blockRes.error) throw blockRes.error;
@@ -323,6 +328,55 @@ export default function App() {
     } catch (e) {
       console.error(e);
       setError("Impossible de charger les données. Réessaie.");
+    }
+  }, []);
+
+  // Resync CIBLÉ du graphe social après une reconnexion réseau (branché dans
+  // l'effet [isOnline] plus bas, à côté du resync messages/notifications).
+  //
+  // Les canaux Realtime "likes-received" et "blocks-passes-own" (postgres_changes)
+  // ne rejouent PAS les événements manqués pendant que le websocket était
+  // coupé — Supabase ne garantit aucune livraison différée. Résultat avant ce
+  // correctif : après une coupure, la notification new_like/new_match
+  // s'affichait bien (le resync notifications existait déjà) mais l'état réel
+  // (liste des matches/conversations, admirersCount, masquage des profils
+  // bloqués, passes) ne se mettait à jour qu'après un rechargement complet.
+  //
+  // On rejoue donc UNIQUEMENT le lot likes/passes/blocages + get_my_likers()
+  // via fetchSocialGraph() — jamais les ~500 profils / ~3200 photos de
+  // loadAll() (trop lourd pour ce cas : écran de chargement plein écran).
+  //
+  // Ne déclenche VOLONTAIREMENT aucune modale de célébration (setMatchNotice) :
+  // un match "rattrapé" au resync doit juste apparaître dans les listes /
+  // compteurs. La modale reste réservée au canal Realtime en direct.
+  const resyncSocialGraph = useCallback(async (isAlive = () => true) => {
+    const myProfileId = currentUserRef.current?.id;
+    if (!myProfileId) return;
+    try {
+      const { likeRes, passRes, blockRes, likerRes, blockedProfRes } = await fetchSocialGraph(myProfileId);
+      if (!isAlive()) return;
+      // Échec réseau d'une des tables : on ne touche à rien plutôt que
+      // d'écraser un état partiellement correct avec du vide.
+      if (likeRes.error || passRes.error || blockRes.error || blockedProfRes.error) {
+        console.warn("resyncSocialGraph : rejeu partiel ignoré", {
+          like: likeRes.error, pass: passRes.error, block: blockRes.error, blocked: blockedProfRes.error,
+        });
+        return;
+      }
+      setLikePairs(likeRes.data || []);
+      setPassPairs(passRes.data || []);
+      setBlockPairs(blockRes.data || []);
+      setBlockedProfilesRaw((blockedProfRes.data || []).map((r) => r.profile).filter(Boolean));
+      // Même dégradation silencieuse que loadAll() si la RPC est indisponible :
+      // on garde alors la valeur courante plutôt que de remettre à 0.
+      if (likerRes.error) {
+        console.warn("resyncSocialGraph : get_my_likers indisponible", likerRes.error);
+      } else {
+        setLikerProfilesRaw(likerRes.data?.likers || []);
+        setAdmirersCount(likerRes.data?.admirers_count || 0);
+      }
+    } catch (e) {
+      console.warn("resyncSocialGraph :", e);
     }
   }, []);
 
@@ -609,6 +663,10 @@ export default function App() {
   useEffect(() => {
     blockPairsRef.current = blockPairs;
   }, [blockPairs]);
+
+  useEffect(() => {
+    currentUserRef.current = currentUser;
+  }, [currentUser]);
 
   useEffect(() => {
     activeMatchRef.current = activeMatch;
@@ -2241,6 +2299,12 @@ export default function App() {
   // pas la conversation (seul openChat() appelle refreshMessages()). On
   // rappelle donc explicitement refreshMessages() ici pour la conversation
   // ouverte au moment de la reconnexion.
+  //
+  // Même raisonnement pour resyncSocialGraph() : les canaux "likes-received" /
+  // "blocks-passes-own" ne rejouent pas non plus leurs événements manqués — un
+  // like/match/blocage/passe reçu hors ligne ne se reflétait dans les listes et
+  // compteurs qu'après un rechargement complet (la notification, elle,
+  // s'affichait déjà via le resync notifications). Voir resyncSocialGraph().
   useEffect(() => {
     if (!isOnline) {
       wasOfflineRef.current = true;
@@ -2248,9 +2312,12 @@ export default function App() {
     }
     if (!wasOfflineRef.current) return; // pas une vraie reconnexion (ex. montage initial)
     wasOfflineRef.current = false;
+    let alive = true;
     const failed = messagesRef.current.filter((msg) => msg._status === "failed");
     failed.forEach((msg) => retrySend(msg));
     if (activeMatchRef.current) refreshMessages(activeMatchRef.current);
+    resyncSocialGraph(() => alive);
+    return () => { alive = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOnline]);
 
