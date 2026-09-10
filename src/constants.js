@@ -48,6 +48,10 @@ export const C = {
   // deux thèmes (voir --bb-leaf / --bb-leaf-deep dans index.html).
   leaf: "var(--bb-leaf)",
   leafDeep: "var(--bb-leaf-deep)",
+  // "leafLight" : vert clair DÉCORATIF (pastille « en ligne », points
+  // « écrit… », halos/fonds teintés). Contraste insuffisant pour du texte
+  // ou une icône fine — ornement uniquement (voir --bb-leaf-light).
+  leafLight: "var(--bb-leaf-light)",
   coral: "#E56B5D",
   // "coralText" : corail réactif au thème, réservé au CORAIL UTILISÉ COMME
   // COULEUR DE TEXTE (messages d'erreur, libellés de badges, item Déconnexion,

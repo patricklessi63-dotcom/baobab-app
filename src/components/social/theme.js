@@ -11,6 +11,7 @@ export const surface = BASE.surface;
 export const green = BASE.green;
 export const leaf = BASE.leaf;
 export const leafDeep = BASE.leafDeep;
+export const leafLight = BASE.leafLight;
 export const coral = BASE.coral;
 export const coralText = BASE.coralText;
 export const gold = BASE.gold;

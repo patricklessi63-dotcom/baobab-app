@@ -108,7 +108,10 @@
       indéfinis. */
       --bb-surface-2: #F2EEE4;
       --bb-gold-1: var(--bb-ochre);
-      --bb-gold-2: #C1613D;
+      /* Ambré foncé (et non l'ancien #C1613D orange terracotta, retiré de
+      l'interface — voir --bb-leaf) : le 2ᵉ arrêt des dégradés or reste dans
+      la famille or/miel, jamais orange. */
+      --bb-gold-2: #C98A2E;
       /* Contraste : 0.5 donnait ~3.1:1 sur --bb-bg/--bb-surface (échec AA
       texte normal) ; 0.66 remonte à ~4.9:1 tout en restant nettement plus
       pâle que --bb-muted (hiérarchie faint < muted < text préservée). */
@@ -130,6 +133,10 @@
       échouerait. --bb-leaf-deep (#185C43, ~7.9:1 sur blanc) = état survol. */
       --bb-leaf: #1F7A5A;
       --bb-leaf-deep: #185C43;
+      /* "leaf-light" : vert clair DÉCORATIF (pastille « en ligne » qui pulse,
+      points « écrit… », halos et fonds teintés). Contraste insuffisant pour du
+      texte ou une icône fine — à n'utiliser que pour de l'ornement. */
+      --bb-leaf-light: #3FB37E;
     }
     /* Identité or/noir (Baobab 3.0, refonte visuelle août 2026) — mode
     sombre uniquement, à partir des maquettes fournies par l'utilisateur
@@ -163,6 +170,8 @@
         /* Couleur de marque : mêmes valeurs qu'en clair (voir bloc :root). */
         --bb-leaf: #1F7A5A;
         --bb-leaf-deep: #185C43;
+        /* Voir bloc :root — variante décorative, plus lumineuse en sombre. */
+        --bb-leaf-light: #6FD6A6;
       }
     }
     :root[data-theme="dark"] {
@@ -186,6 +195,8 @@
       /* Couleur de marque : mêmes valeurs qu'en clair (voir bloc :root). */
       --bb-leaf: #1F7A5A;
       --bb-leaf-deep: #185C43;
+      /* Voir bloc :root — variante décorative, plus lumineuse en sombre. */
+      --bb-leaf-light: #6FD6A6;
     }
     * { box-sizing: border-box; }
     html { -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
