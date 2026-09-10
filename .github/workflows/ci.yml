@@ -14,7 +14,9 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          # 22 minimum : jsdom 26 (tests de composant) tire undici 7, qui
+          # appelle webidl.util.markAsUncloneable — absent sous Node 20.
+          node-version: 22
           cache: npm
 
       - name: Installer les dépendances
