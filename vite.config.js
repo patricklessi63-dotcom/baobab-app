@@ -27,12 +27,23 @@ export default defineConfig({
   define: {
     __APP_VERSION__: JSON.stringify(pkg.version),
   },
-  // Tests unitaires (Vitest) — logique pure uniquement, environnement Node,
-  // pas de jsdom ni de testing-library. Ce bloc n'a aucun effet sur `vite
-  // build` / `vite dev` (lu seulement par Vitest).
+  // Tests unitaires (Vitest). Deux familles :
+  //  - logique pure (`*.test.js`) : environnement `node` par défaut, rapide,
+  //    ~293 cas — pas de jsdom ni de testing-library.
+  //  - composant (`*.dom.test.jsx`) : rendu + interaction, environnement
+  //    `jsdom` sélectionné par `environmentMatchGlobs` uniquement pour ces
+  //    fichiers pour ne pas ralentir la 1re famille.
+  // Ce bloc n'a aucun effet sur `vite build` / `vite dev` (lu seulement par
+  // Vitest).
   test: {
     environment: "node",
-    include: ["src/**/*.test.js", "src/**/__tests__/*.test.js"],
+    environmentMatchGlobs: [["src/**/*.dom.test.jsx", "jsdom"]],
+    include: [
+      "src/**/*.test.js",
+      "src/**/__tests__/*.test.js",
+      "src/**/*.dom.test.jsx",
+    ],
+    setupFiles: ["src/test/setup.js"],
   },
   build: {
     rollupOptions: {
