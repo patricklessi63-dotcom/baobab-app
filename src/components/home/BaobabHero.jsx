@@ -9,11 +9,13 @@ export default function BaobabHero({ recommendationsCount = 0, profileCompletePc
       style={{ background: `linear-gradient(145deg,${navy},#1E4632 55%,${green})` }}
     >
       <div className="absolute -right-16 -top-16 h-48 w-48 rounded-full bg-white/10" aria-hidden="true" />
-      <BaobabLogo size={180} color="#fff" className="absolute -right-6 -bottom-12 opacity-10 select-none pointer-events-none" />
+      <div className="absolute -right-8 -bottom-14 opacity-10 select-none pointer-events-none" aria-hidden="true">
+        <BaobabLogo size={220} color="#fff" accent="#fff" />
+      </div>
 
       <div className="relative max-w-2xl">
-        <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-[.22em] text-white/55 font-bold">
-          <BaobabLogo size={14} color="currentColor" /> Mon Baobab
+        <div className="text-[11px] uppercase tracking-[.22em] text-white/55 font-bold flex items-center gap-1.5">
+          <BaobabLogo size={14} color="#fff" accent="#fff" /> Mon Baobab
         </div>
         <h2 className="text-2xl md:text-3xl font-black mt-2 leading-tight">Ton cercle canadien commence ici.</h2>
         <p className="text-sm text-white/70 mt-2 leading-6 max-w-md">
