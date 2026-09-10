@@ -1,3 +1,4 @@
+/// <reference types="vitest/config" />
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { readFileSync } from "node:fs";
@@ -25,6 +26,13 @@ export default defineConfig({
   ],
   define: {
     __APP_VERSION__: JSON.stringify(pkg.version),
+  },
+  // Tests unitaires (Vitest) — logique pure uniquement, environnement Node,
+  // pas de jsdom ni de testing-library. Ce bloc n'a aucun effet sur `vite
+  // build` / `vite dev` (lu seulement par Vitest).
+  test: {
+    environment: "node",
+    include: ["src/**/*.test.js", "src/**/__tests__/*.test.js"],
   },
   build: {
     rollupOptions: {
