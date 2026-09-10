@@ -10,7 +10,7 @@ import EmptyState from "../home/EmptyState";
 import Skeleton from "../Skeleton";
 import { categoryIcon, categoryLabel } from "../../lib/communities/communityConfig";
 import { isStaff, isMod, canPost } from "../../lib/communities/permissions";
-import { primary, green, coralText, gold, muted, bg, card, body, primaryRgb, navy } from "./theme";
+import { primary, coralText, gold, muted, bg, card, body, primaryRgb, navy } from "./theme";
 
 const SUB_TABS = [["about", "À propos"], ["posts", "Publications"], ["events", "Événements"], ["members", "Membres"]];
 

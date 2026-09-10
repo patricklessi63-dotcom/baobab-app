@@ -17,7 +17,7 @@ import { rankEvents } from "../../lib/events/recommendations";
 import { getProfileCompletion } from "../../lib/profileCompletion";
 import { PRIORITY_STEPS } from "../../lib/newcomerGuideData";
 import { NOTIFICATION_LABELS, NOTIF_CATEGORIES, groupNotificationRows } from "../../lib/notificationLabels";
-import { primary, navy, green, coral, coralText, gold, bg, muted, card, body, primaryRgb } from "./theme";
+import { primary, navy, coral, coralText, gold, bg, muted, card, body, primaryRgb } from "./theme";
 
 // Panneau vertical (item demandé : notifications visibles directement dans
 // l'accueil, pas seulement via la cloche du header — masquée sur mobile

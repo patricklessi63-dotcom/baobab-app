@@ -21,7 +21,7 @@ import { compressImageIfNeeded } from "../../lib/imageCompression";
 import { extFromMime } from "../../lib/mediaConstants";
 import { uploadWithProgress } from "../../lib/uploadWithProgress";
 import { escapeLikePattern, escapeOrFilterValue } from "../../lib/searchQuery";
-import { primary, coral, muted, bg, card, navy } from "./theme";
+import { primary, muted, bg, card, navy } from "./theme";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
 
 const COMMUNITY_MEDIA_BUCKET = "community-media";
