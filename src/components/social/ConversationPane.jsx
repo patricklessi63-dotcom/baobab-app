@@ -120,7 +120,20 @@ export default function ConversationPane({
   const scrollListToBottom = (behavior) => {
     const el = listRef.current;
     if (!el) return;
-    if (typeof el.scrollTo === "function") el.scrollTo({ top: el.scrollHeight, behavior });
+    // La règle globale prefers-reduced-motion d'index.html ne fige QUE les
+    // animations/transitions CSS : un scrollTo({behavior:"smooth"}) en JS
+    // continue de défiler en fondu. On repasse donc explicitement en "auto"
+    // quand l'utilisateur a demandé moins de mouvement.
+    let b = behavior;
+    if (
+      b === "smooth" &&
+      typeof window !== "undefined" &&
+      typeof window.matchMedia === "function" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    ) {
+      b = "auto";
+    }
+    if (typeof el.scrollTo === "function") el.scrollTo({ top: el.scrollHeight, behavior: b });
     else el.scrollTop = el.scrollHeight;
   };
   const handleListScroll = () => {
