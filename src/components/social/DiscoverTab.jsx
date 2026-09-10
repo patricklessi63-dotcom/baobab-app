@@ -126,6 +126,52 @@ export default function DiscoverTab({
     setNearbyEnabled((v) => !v);
   }
 
+  // "Inviter ma communauté" : l'ancien handler faisait un
+  // navigator.clipboard.writeText() sans await ni retour visible — sur un
+  // clic l'utilisateur ne voyait rien se passer ("ça ne marche pas").
+  // Désormais : partage natif si dispo (mobile), sinon copie du lien avec une
+  // confirmation affichée sur le bouton, et un repli si le presse-papiers est
+  // indisponible.
+  const [inviteState, setInviteState] = useState("idle"); // idle | copied | shared | error
+  const inviteUrl = typeof window !== "undefined" ? window.location.origin + "/" : "https://baobab-app-zeta.vercel.app/";
+  async function handleInvite() {
+    const shareData = {
+      title: "Baobab",
+      text: "Rejoins-moi sur Baobab — la communauté des immigrants au Canada.",
+      url: inviteUrl,
+    };
+    try {
+      if (navigator.share) {
+        await navigator.share(shareData);
+        setInviteState("shared");
+      } else if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(inviteUrl);
+        setInviteState("copied");
+      } else {
+        setInviteState("error");
+      }
+    } catch (e) {
+      // AbortError = l'utilisateur a fermé la feuille de partage : pas une erreur.
+      if (e?.name === "AbortError") return;
+      try {
+        await navigator.clipboard?.writeText(inviteUrl);
+        setInviteState("copied");
+      } catch {
+        setInviteState("error");
+      }
+    }
+  }
+  useEffect(() => {
+    if (inviteState === "idle") return;
+    const t = setTimeout(() => setInviteState("idle"), 3000);
+    return () => clearTimeout(t);
+  }, [inviteState]);
+  const inviteLabel =
+    inviteState === "copied" ? "Lien copié ✓"
+    : inviteState === "shared" ? "Merci du partage ✓"
+    : inviteState === "error" ? `Copie le lien : ${inviteUrl}`
+    : "Inviter ma communauté";
+
   // p.show_city === false (bug corrigé) : ce filtre par ville listait et
   // comparait la ville RÉELLE de chaque profil sans jamais consulter
   // show_city, alors que la carte de Découverte juste plus bas (showCity,
@@ -243,7 +289,7 @@ export default function DiscoverTab({
                 <div className="text-5xl mb-4">🌍</div>
                 <h2 className="text-xl font-black" style={{ color: primary }}>Pas encore de nouveaux profils</h2>
                 <p className="text-sm mt-2" style={{ color: muted }}>Invite des amis immigrants installés au Canada à rejoindre Baobab.</p>
-                <button onClick={() => navigator.clipboard?.writeText(window.location.href)} className="bb-btn-gold mt-5 px-5 py-3 rounded-xl font-bold">Inviter ma communauté</button>
+                <button onClick={handleInvite} className="bb-btn-gold mt-5 px-5 py-3 rounded-xl font-bold" aria-live="polite">{inviteLabel}</button>
               </div>
             ) : (
               <>
