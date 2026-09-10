@@ -60,7 +60,7 @@ function TabLoadingFallback() {
   );
 }
 
-const STORY_COLORS = ["#E56B5D", "#2F8F6B", "#5667A9", "#F2B84B", "#C1613D", "#1E2A4F"];
+const STORY_COLORS = ["#E56B5D", "#2F8F6B", "#5667A9", "#F2B84B", "#7C5295", "#1E2A4F"];
 function colorForProfile(id) {
   let hash = 0;
   for (let i = 0; i < String(id).length; i++) hash = (hash * 31 + String(id).charCodeAt(i)) >>> 0;
@@ -1807,7 +1807,7 @@ export default function SocialShell({
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 onFocus={() => {}}
-                className="bg-transparent outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--bb-clay)] text-sm w-full"
+                className="bg-transparent outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--bb-leaf)] text-sm w-full"
                 placeholder="Rechercher une personne, une ville, une discussion…"
               />
               {search && <button onClick={() => setSearch("")} aria-label="Effacer la recherche"><X size={16} color={muted} /></button>}
