@@ -845,6 +845,10 @@ export default function SocialShell({
   const [communityNotifications, setCommunityNotifications] = useState([]);
   const [unreadCommunityCount, setUnreadCommunityCount] = useState(0);
   const fetchNotificationsRef = useRef(null);
+  // Miroir en ref de la liste, lu par le handler Realtime pour dédupliquer
+  // sans setState imbriqué (voir le commentaire du .on("postgres_changes")).
+  const communityNotificationsRef = useRef([]);
+  useEffect(() => { communityNotificationsRef.current = communityNotifications; }, [communityNotifications]);
   useEffect(() => {
     if (!currentUser) { setCommunityNotifications([]); setUnreadCommunityCount(0); return; }
     let alive = true;
@@ -875,14 +879,17 @@ export default function SocialShell({
         // gonfler durablement unreadCommunityCount (le badge de la cloche)
         // jusqu'au prochain refetch. On n'incrémente le compteur que si la
         // ligne n'était pas déjà connue.
-        setCommunityNotifications((prev) => {
-          if (prev.some((n) => n.id === payload.new.id)) return prev;
-          // setState imbriqué (même schéma que le canal "reactions" dans
-          // App.jsx) : n'incrémenter le badge que dans la transition où la
-          // ligne est réellement ajoutée, jamais sur une redélivrance.
-          setUnreadCommunityCount((n) => n + 1);
-          return [payload.new, ...prev].slice(0, 20);
-        });
+        //
+        // Garde via ref (idiome des handlers Realtime d'App.jsx) plutôt qu'un
+        // setUnreadCommunityCount() imbriqué dans l'updater de
+        // setCommunityNotifications : cet incrément n'est PAS idempotent, or
+        // React réexécute la fonction passée à setState (StrictMode en dev,
+        // rendu concurrent abandonné puis rejoué en prod) — le badge gagnait
+        // alors +2 par notification alors que la liste n'en recevait qu'une.
+        if (communityNotificationsRef.current.some((n) => n.id === payload.new.id)) return;
+        communityNotificationsRef.current = [payload.new, ...communityNotificationsRef.current].slice(0, 20);
+        setCommunityNotifications((prev) => (prev.some((n) => n.id === payload.new.id) ? prev : [payload.new, ...prev].slice(0, 20)));
+        setUnreadCommunityCount((n) => n + 1);
       })
       .subscribe();
     return () => { alive = false; fetchNotificationsRef.current = null; supabase.removeChannel(channel); };
