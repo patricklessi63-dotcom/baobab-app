@@ -39,6 +39,30 @@ function MessageText({ text }) {
   );
 }
 
+// Indicateur « en train d'écrire… » — le libellé suivi de trois points qui
+// respirent en décalé. Couleur héritée (currentColor) du conteneur parent.
+// La règle globale prefers-reduced-motion (index.html) fige l'animation.
+function TypingIndicator() {
+  const dot = {
+    width: 4,
+    height: 4,
+    borderRadius: "50%",
+    background: "currentColor",
+    display: "inline-block",
+  };
+  return (
+    <span className="inline-flex items-center">
+      <style>{`@keyframes bbTypingDot { 0%, 80%, 100% { opacity: .25; transform: translateY(0); } 40% { opacity: 1; transform: translateY(-2px); } }`}</style>
+      en train d'écrire
+      <span className="inline-flex items-center gap-[3px] ml-1">
+        <span style={{ ...dot, animation: "bbTypingDot 1.2s ease-in-out 0s infinite" }} />
+        <span style={{ ...dot, animation: "bbTypingDot 1.2s ease-in-out .2s infinite" }} />
+        <span style={{ ...dot, animation: "bbTypingDot 1.2s ease-in-out .4s infinite" }} />
+      </span>
+    </span>
+  );
+}
+
 export default function ConversationPane({
   activeMatch,
   currentUser,
@@ -75,6 +99,23 @@ export default function ConversationPane({
   const prevScrollHeightRef = useRef(0);
   const menuRef = useRef(null);
   const actionsMenuRef = useRef(null);
+
+  // Fondu d'apparition (bb-fade-in) réservé au DERNIER message quand la liste
+  // grandit par le bas — jamais au montage (sinon tout l'historique « pop »),
+  // jamais lors d'un « charger les messages précédents » (prepend en haut).
+  // Approche volontairement minimale : on ne suit que l'id du dernier message.
+  // Le composant est remonté à chaque changement de conversation
+  // (key={activeMatch.id} dans MessagesTab), donc la ref repart de zéro.
+  const lastMsgIdRef = useRef(null);
+  const lastMsg = messages[messages.length - 1];
+  const animateLast =
+    lastMsgIdRef.current !== null &&
+    Boolean(lastMsg) &&
+    lastMsg.id !== lastMsgIdRef.current &&
+    !loadingOlder;
+  useEffect(() => {
+    lastMsgIdRef.current = messages.length ? messages[messages.length - 1].id : null;
+  }, [messages]);
 
   useClickOutside(menuRef, menuOpen, () => setMenuOpen(false));
   useEscapeKey(menuOpen, () => setMenuOpen(false));
@@ -215,7 +256,7 @@ export default function ConversationPane({
           <div style={{ position: "relative" }}>
             <Avatar name={activeMatch.name} url={activeMatch.avatar_url} size={38} />
             {!otherUnavailable && (
-              <Circle size={10} fill={activeMatch.is_online ? online : offline} color="transparent" style={{ position: "absolute", bottom: -1, right: -1, background: "#fff", borderRadius: "50%" }} />
+              <Circle size={10} fill={activeMatch.is_online ? online : offline} color="transparent" className={activeMatch.is_online ? "bb-online-pulse" : undefined} style={{ position: "absolute", bottom: -1, right: -1, background: "#fff", borderRadius: "50%" }} />
             )}
           </div>
           <div className="min-w-0">
@@ -233,7 +274,7 @@ export default function ConversationPane({
               {otherUnavailable
                 ? "Ce compte n'est plus disponible"
                 : otherTyping && currentUser.show_read_receipts !== false
-                ? "en train d'écrire…"
+                ? <TypingIndicator />
                 : activeMatch.is_online
                 ? "En ligne"
                 : activeMatch.show_online_status === false
@@ -349,7 +390,7 @@ export default function ConversationPane({
                   </span>
                 </div>
               )}
-              <div className="relative max-w-[75%]" style={{ alignSelf: isMine ? "flex-end" : "flex-start", marginTop: groupedWithPrev ? 2 : 10 }}>
+              <div className={`relative max-w-[75%]${animateLast && i === visibleMessages.length - 1 ? " bb-fade-in" : ""}`} style={{ alignSelf: isMine ? "flex-end" : "flex-start", marginTop: groupedWithPrev ? 2 : 10 }}>
                 {repliedMessage && !isDeleted && (
                   <div className="text-xs px-3 py-1.5 rounded-xl mb-1 truncate" style={{ background: `rgba(${primaryRgb},.05)`, color: muted, maxWidth: "100%" }}>
                     {/* Le message cité peut avoir été supprimé (pour tout le

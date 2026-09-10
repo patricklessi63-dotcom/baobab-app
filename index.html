@@ -280,6 +280,12 @@
     .bb-fade-in { animation: bbFadeIn .28s var(--bb-ease); }
     @keyframes bbFadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
 
+    /* Pastille « en ligne » des avatars (messagerie, cartes de conversation) —
+    respiration douce pour signaler la présence en direct. prefers-reduced-motion
+    est couvert par la règle globale en bas de ce fichier. */
+    .bb-online-pulse { animation: bbOnlinePulse 2s ease-in-out infinite; }
+    @keyframes bbOnlinePulse { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.15); opacity: .82; } }
+
     /* --- Prompt bonus "Verre dépoli, animations et onglets" ---
     Cascade fondu-décalé pour titres/sous-titres d'un écran qui s'ouvre :
     chaque enfant direct de .bb-stagger apparaît avec un léger décalage

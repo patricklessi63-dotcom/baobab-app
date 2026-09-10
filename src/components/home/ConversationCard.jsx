@@ -14,7 +14,7 @@ export default function ConversationCard({ match, onOpen }) {
       <div style={{ position: "relative" }}>
         <Avatar name={match.name} url={match.avatar_url} size={44} />
         <span
-          className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-white"
+          className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-white${match.is_online ? " bb-online-pulse" : ""}`}
           style={{ background: match.is_online ? online : offline }}
           aria-hidden="true"
         />
