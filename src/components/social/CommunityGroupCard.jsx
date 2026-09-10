@@ -29,7 +29,22 @@ export default function CommunityGroupCard({ community, memberCount = 0, joined,
   }
 
   return (
-    <button onClick={() => onView(community)} className={`${card} overflow-hidden text-left w-full focus-visible:outline focus-visible:outline-2`}>
+    // <div role="button"> plutôt que <button> : la carte contient elle-même un
+    // bouton d'action (« Rejoindre »/« Demander à rejoindre ») dans certains
+    // états — un <button> imbriqué dans un <button> est du DOM invalide
+    // (warning React validateDOMNesting, comportement clavier indéfini).
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={() => onView(community)}
+      onKeyDown={(e) => {
+        if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) {
+          e.preventDefault();
+          onView(community);
+        }
+      }}
+      className={`${card} overflow-hidden text-left w-full cursor-pointer focus-visible:outline focus-visible:outline-2`}
+    >
       <div className="h-28 relative" style={{ background: community.cover_url ? `url(${community.cover_url}) center/cover` : `linear-gradient(150deg,${gold},${coral})` }}>
         {isPrivate && (
           <span className="absolute top-2 right-2 h-7 w-7 rounded-full flex items-center justify-center" style={{ background: `rgba(${primaryRgb},.55)` }} aria-label="Communauté privée">
@@ -53,6 +68,6 @@ export default function CommunityGroupCard({ community, memberCount = 0, joined,
         </div>
         <div className="mt-3">{cta}</div>
       </div>
-    </button>
+    </div>
   );
 }
