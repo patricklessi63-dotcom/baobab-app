@@ -93,7 +93,7 @@ export default function UpdatePasswordScreen({ onDone }) {
         ) : (
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             {error && (
-              <div role="alert" className="text-sm rounded-2xl px-4 py-3" style={{ background: "rgba(193,97,61,0.15)", color: "#F4A48C", border: "1px solid rgba(193,97,61,0.28)" }}>
+              <div role="alert" className="text-sm rounded-2xl px-4 py-3" style={{ background: "rgba(229,107,93,0.15)", color: "#F4A48C", border: "1px solid rgba(229,107,93,0.30)" }}>
                 {error}
               </div>
             )}

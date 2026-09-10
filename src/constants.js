@@ -13,6 +13,9 @@ export const C = {
   // --- Chrome applicatif / onboarding / édition de profil ---
   indigo: "#14432A",
   indigoDeep: "#0D2E1C",
+  // DÉPRÉCIÉ — orange terracotta retiré de l'interface (direction validée).
+  // Ne plus utiliser : préférer "leaf" (action) ou "coralText" (alerte).
+  // Encore référencé par App.jsx (bandeaux d'alerte) en attendant sa migration.
   clay: "#C1613D",
   ochre: "#D9A441",
   sand: "#F2E9DC",
