@@ -492,7 +492,33 @@ export default function ConversationPane({
                   {!isSticker && !isDeleted && (
                     <span className="text-[10px] flex-shrink-0 flex items-center gap-0.5" style={{ opacity: 0.7, whiteSpace: "nowrap" }}>
                       {formatMessageTime(m.created_at)}
-                      {isMine && m._status !== "failed" && (m.read_at && currentUser.show_read_receipts !== false ? <CheckCheck size={12} color="#7FC7FF" aria-label="Lu" /> : <Check size={12} aria-label="Envoyé" />)}
+                      {isMine && m._status !== "failed" && (() => {
+                        // Couleur de « lu » : bleu #7FC7FF conservé (convention
+                        // universelle des accusés de lecture — la garder évite
+                        // toute ambiguïté avec le vert d'identité des bulles).
+                        // Passage « envoyé » → « lu » : fondu croisé + léger
+                        // glissement de la 2e coche, plutôt qu'un remplacement
+                        // sec. prefers-reduced-motion couvert par la règle
+                        // globale d'index.html.
+                        const read = Boolean(m.read_at) && currentUser.show_read_receipts !== false;
+                        return (
+                          <span className="relative inline-flex flex-shrink-0" style={{ width: 12, height: 12 }}>
+                            <Check
+                              size={12}
+                              aria-label={read ? undefined : "Envoyé"}
+                              aria-hidden={read ? "true" : undefined}
+                              style={{ position: "absolute", inset: 0, opacity: read ? 0 : 1, transition: "opacity .22s var(--bb-ease)" }}
+                            />
+                            <CheckCheck
+                              size={12}
+                              color="#7FC7FF"
+                              aria-label={read ? "Lu" : undefined}
+                              aria-hidden={read ? undefined : "true"}
+                              style={{ position: "absolute", inset: 0, opacity: read ? 1 : 0, transform: read ? "translateX(0)" : "translateX(-2px)", transition: "opacity .22s var(--bb-ease), transform .22s var(--bb-ease)" }}
+                            />
+                          </span>
+                        );
+                      })()}
                     </span>
                   )}
                   {!isDeleted && typeof m.id !== "string" && (
