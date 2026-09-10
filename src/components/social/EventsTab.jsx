@@ -21,7 +21,7 @@ import { trackActivation } from "../../lib/trackActivation";
 import { escapeLikePattern, escapeOrFilterValue } from "../../lib/searchQuery";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
-import { primary, coral, muted, bg, card, primaryRgb, navy } from "./theme";
+import { primary, coral, coralText, muted, bg, card, primaryRgb, navy } from "./theme";
 
 const PAGE_SIZE = 20;
 const PHOTO_URL_EXPIRY = 60 * 60 * 24 * 30; // 30 jours — assez pour une galerie, régénéré à chaque chargement
@@ -1022,7 +1022,7 @@ export default function EventsTab({ currentUser, onError, initialEventId, onCons
   return (
     <section className="max-w-6xl mx-auto">
       <div className="mb-5">
-        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-[11px] font-black uppercase tracking-wider" style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)", color: coral }}>
+        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-[11px] font-black uppercase tracking-wider" style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)", color: coralText }}>
           <PartyPopper size={13} /> Événements Baobab
         </div>
         <div className="flex items-center justify-between gap-3 mt-3 flex-wrap">

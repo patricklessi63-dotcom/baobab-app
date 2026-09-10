@@ -7,7 +7,7 @@ import * as adminApi from "../../lib/adminApi";
 import { formatLongDate, truncateUnicodeSafe } from "../../utils/format";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
-import { primary, coral, green, gold, muted, bg, card, primaryRgb, navy } from "../social/theme";
+import { primary, coral, coralText, green, gold, muted, bg, card, primaryRgb, navy } from "../social/theme";
 
 const SUB_TABS = [["dashboard", "Tableau de bord"], ["users", "Utilisateurs"], ["reports", "Signalements"], ["feedback", "Retours"]];
 
@@ -324,7 +324,7 @@ export default function AdminDashboard({ onBack, onError, myPlatformRole }) {
                       ) : (
                         <>
                           <button onClick={() => openAction(u, "suspend")} className="text-xs font-bold px-3 py-2 rounded-full flex items-center gap-1" style={{ background: bg, color: gold }}><PauseCircle size={12} /> Suspendre</button>
-                          {isAdmin && <button onClick={() => openAction(u, "ban")} className="text-xs font-bold px-3 py-2 rounded-full flex items-center gap-1" style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)", color: coral }}><Ban size={12} /> Bannir</button>}
+                          {isAdmin && <button onClick={() => openAction(u, "ban")} className="text-xs font-bold px-3 py-2 rounded-full flex items-center gap-1" style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)", color: coralText }}><Ban size={12} /> Bannir</button>}
                         </>
                       )}
                     </div>

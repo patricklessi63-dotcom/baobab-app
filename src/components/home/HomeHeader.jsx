@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Sparkles, Users } from "lucide-react";
 import { supabase } from "../../supabaseClient";
-import { primary, coral, muted } from "../social/theme";
+import { primary, coral, coralText, muted } from "../social/theme";
 
 export default function HomeHeader({ currentUser }) {
   // Le champ "name" ne contient déjà que le prénom (voir Step1Identity.jsx —
@@ -28,7 +28,7 @@ export default function HomeHeader({ currentUser }) {
   return (
     <div className="bb-stagger mb-7">
       <div className="flex flex-wrap items-center gap-2">
-        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-[11px] font-black uppercase tracking-wider" style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)", color: coral }}>
+        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-[11px] font-black uppercase tracking-wider" style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)", color: coralText }}>
           <Sparkles size={13} aria-hidden="true" /> Communauté Baobab au Canada
         </div>
         {Boolean(userCount) && (

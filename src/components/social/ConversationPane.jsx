@@ -21,7 +21,7 @@ import MessageBubbleMedia from "./MessageBubbleMedia";
 import ChatDropZone from "./ChatDropZone";
 import MessageActionsMenu from "./MessageActionsMenu";
 import ConfirmModal from "./ConfirmModal";
-import { primary, coral, bg, muted, online, offline, body, primaryRgb } from "./theme";
+import { primary, coral, coralText, bg, muted, online, offline, body, primaryRgb } from "./theme";
 
 function MessageText({ text }) {
   return (
@@ -223,7 +223,7 @@ export default function ConversationPane({
               {activeMatch.name}
               <StatusBadge emailVerified={activeMatch.email_verified} phoneVerified={activeMatch.phone_verified} isFounder={activeMatch.is_founder} isPremium={activeMatch.is_premium} size={13} />
             </div>
-            <div className="text-xs truncate" style={{ color: otherUnavailable ? coral : otherTyping && currentUser.show_read_receipts !== false ? coral : muted }}>
+            <div className="text-xs truncate" style={{ color: otherUnavailable ? coralText : otherTyping && currentUser.show_read_receipts !== false ? coralText : muted }}>
               {/* show_online_status vérifié (bug corrigé à l'audit) : is_online est
                   déjà forcé à false côté écriture (App.jsx) quand ce réglage est
                   désactivé, mais last_seen, lui, reste figé à l'instant de la
@@ -270,10 +270,10 @@ export default function ConversationPane({
             <button role="menuitem" onClick={() => { onOpenReport(activeMatch); setMenuOpen(false); }} className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-left focus-visible:outline focus-visible:outline-2" style={{ borderTop: `1px solid rgba(${primaryRgb},.08)` }}>
               <Flag size={14} /> Signaler
             </button>
-            <button role="menuitem" onClick={() => { onUnmatch(activeMatch); setMenuOpen(false); }} className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-left focus-visible:outline focus-visible:outline-2" style={{ color: coral, borderTop: `1px solid rgba(${primaryRgb},.08)` }}>
+            <button role="menuitem" onClick={() => { onUnmatch(activeMatch); setMenuOpen(false); }} className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-left focus-visible:outline focus-visible:outline-2" style={{ color: coralText, borderTop: `1px solid rgba(${primaryRgb},.08)` }}>
               <HeartCrack size={14} /> Supprimer le match
             </button>
-            <button role="menuitem" onClick={() => { onOpenBlockConfirm(activeMatch); setMenuOpen(false); }} className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-left focus-visible:outline focus-visible:outline-2" style={{ color: coral, borderTop: `1px solid rgba(${primaryRgb},.08)` }}>
+            <button role="menuitem" onClick={() => { onOpenBlockConfirm(activeMatch); setMenuOpen(false); }} className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-left focus-visible:outline focus-visible:outline-2" style={{ color: coralText, borderTop: `1px solid rgba(${primaryRgb},.08)` }}>
               <Ban size={14} /> Bloquer
             </button>
           </div>
@@ -424,7 +424,7 @@ export default function ConversationPane({
                         <Loader2 size={11} className="animate-spin" /> Traduction…
                       </p>
                     ) : translations[m.id].error ? (
-                      <p className="text-xs mt-1 flex items-center gap-1.5 flex-wrap" style={{ color: coral }}>
+                      <p className="text-xs mt-1 flex items-center gap-1.5 flex-wrap" style={{ color: coralText }}>
                         {translations[m.id].error}
                         <button onClick={() => handleTranslate(m)} className="font-bold underline">
                           Réessayer
@@ -459,7 +459,7 @@ export default function ConversationPane({
                 )}
               </div>
               {isMine && m._status === "failed" && (
-                <button onClick={() => retrySend(m)} className="self-end text-xs font-bold flex items-center gap-1 mt-0.5 text-right" style={{ color: coral }}>
+                <button onClick={() => retrySend(m)} className="self-end text-xs font-bold flex items-center gap-1 mt-0.5 text-right" style={{ color: coralText }}>
                   <RotateCcw size={12} className="flex-shrink-0" /> {m._error || "Impossible d'envoyer le message."} Réessayer
                 </button>
               )}
@@ -469,7 +469,7 @@ export default function ConversationPane({
                 // les jetons réactifs au thème (comme .system-note de la
                 // maquette screen-messages.html), la couleur d'alerte reste
                 // sur l'icône et le texte pour rester visible dans les deux.
-                <div className="max-w-[85%] text-xs px-3.5 py-2.5 rounded-2xl flex items-start gap-2" style={{ alignSelf: "flex-start", background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)", color: coral, marginTop: 4 }}>
+                <div className="max-w-[85%] text-xs px-3.5 py-2.5 rounded-2xl flex items-start gap-2" style={{ alignSelf: "flex-start", background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)", color: coralText, marginTop: 4 }}>
                   <ShieldAlert size={15} className="flex-shrink-0 mt-0.5" />
                   <span>{moneyCheck.message}</span>
                 </div>
@@ -487,7 +487,7 @@ export default function ConversationPane({
       )}
 
       {rateLimited && (
-        <p className="px-4 pb-1 text-xs shrink-0" style={{ color: coral }}>
+        <p className="px-4 pb-1 text-xs shrink-0" style={{ color: coralText }}>
           Tu envoies des messages très rapidement, patiente quelques secondes.
         </p>
       )}
@@ -495,7 +495,7 @@ export default function ConversationPane({
       {showCoordsNudge && (
         <div className="px-4 pt-2 flex items-start gap-2 shrink-0 bg-[var(--bb-surface)]" style={{ borderTop: `1px solid rgba(${primaryRgb},.08)` }}>
           <MapPin size={13} className="flex-shrink-0 mt-0.5" color={coral} />
-          <span className="text-xs flex-1" style={{ color: coral }}>Sur le point de partager tes coordonnées ? Pour une première rencontre, privilégie un lieu public.</span>
+          <span className="text-xs flex-1" style={{ color: coralText }}>Sur le point de partager tes coordonnées ? Pour une première rencontre, privilégie un lieu public.</span>
           <button onClick={() => setCoordsNudgeDismissed(true)} aria-label="Ignorer ce rappel" className="flex-shrink-0"><X size={13} color={muted} /></button>
         </div>
       )}

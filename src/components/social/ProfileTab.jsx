@@ -12,7 +12,7 @@ import { categoryIcon as eventCategoryIcon, categoryLabel as eventCategoryLabel 
 import { formatEventWhen, visibleAge } from "../../utils/format";
 import { usePremiumStatus } from "../../lib/premium/usePremiumStatus";
 import { openBillingPortal } from "../../lib/premium/checkout";
-import { primary, navy, green, coral, gold, bg, muted, online, verified, primaryRgb } from "./theme";
+import { primary, navy, green, coral, coralText, gold, bg, muted, online, verified, primaryRgb } from "./theme";
 
 export default function ProfileTab({
   currentUser,
@@ -150,7 +150,7 @@ export default function ProfileTab({
                     </div>
                     <p className="text-sm mt-1" style={{ color: muted }}>🟢 En ligne · {[currentUser?.city, currentUser?.country].filter(Boolean).join(" · ") || "Canada"}</p>
                   </div>
-                  <button onClick={() => goTab("discover")} className="px-4 py-2.5 rounded-xl font-bold text-sm focus-visible:outline focus-visible:outline-2" style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)", color: coral }}>Trouver des personnes</button>
+                  <button onClick={() => goTab("discover")} className="px-4 py-2.5 rounded-xl font-bold text-sm focus-visible:outline focus-visible:outline-2" style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)", color: coralText }}>Trouver des personnes</button>
                 </div>
                 {currentUser?.bio && <p dir="auto" className="text-sm leading-6 mt-5 max-w-2xl">{currentUser.bio}</p>}
 
@@ -171,7 +171,7 @@ export default function ProfileTab({
                         ))}
                       </ul>
                     )}
-                    <button onClick={openEditProfile} className="mt-1 text-xs font-bold focus-visible:outline focus-visible:outline-2" style={{ color: coral }}>
+                    <button onClick={openEditProfile} className="mt-1 text-xs font-bold focus-visible:outline focus-visible:outline-2" style={{ color: coralText }}>
                       Compléter mon profil →
                     </button>
                   </div>

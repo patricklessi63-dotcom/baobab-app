@@ -3,7 +3,7 @@ import { Heart, X, MessageCircle, Star, Flag, Ban, EyeOff, HeartCrack } from "lu
 import Avatar from "../Avatar";
 import StatusBadge from "../StatusBadge";
 import { visibleAge } from "../../utils/format";
-import { primary, green, coral, gold, bg, muted, card, body, primaryRgb } from "./theme";
+import { primary, green, coral, coralText, gold, bg, muted, card, body, primaryRgb } from "./theme";
 
 export default function MatchCard({
   profile,
@@ -78,7 +78,7 @@ export default function MatchCard({
 
         <div className="flex items-center justify-between mt-2">
           {profile.looking_for && (
-            <span className="text-[11px] font-bold truncate" style={{ color: coral }}>❤️ {profile.looking_for.split(",")[0].trim()}</span>
+            <span className="text-[11px] font-bold truncate" style={{ color: coralText }}>❤️ {profile.looking_for.split(",")[0].trim()}</span>
           )}
           <span className="text-[11px] font-bold shrink-0" style={{ color: compatColor }}>Compatibilité estimée</span>
         </div>
@@ -126,7 +126,7 @@ export default function MatchCard({
         </div>
         <div className="flex items-center gap-3 mt-2">
           {isMatch && onUnmatch && (
-            <button onClick={() => onUnmatch(profile)} className="text-[11px] font-semibold flex items-center gap-1 focus-visible:outline focus-visible:outline-2" style={{ color: coral }}>
+            <button onClick={() => onUnmatch(profile)} className="text-[11px] font-semibold flex items-center gap-1 focus-visible:outline focus-visible:outline-2" style={{ color: coralText }}>
               <HeartCrack size={12} /> Supprimer le match
             </button>
           )}

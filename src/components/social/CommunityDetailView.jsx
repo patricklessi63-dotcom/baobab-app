@@ -10,7 +10,7 @@ import EmptyState from "../home/EmptyState";
 import Skeleton from "../Skeleton";
 import { categoryIcon, categoryLabel } from "../../lib/communities/communityConfig";
 import { isStaff, isMod, canPost } from "../../lib/communities/permissions";
-import { primary, green, coral, gold, muted, bg, card, body, primaryRgb, navy } from "./theme";
+import { primary, green, coral, coralText, gold, muted, bg, card, body, primaryRgb, navy } from "./theme";
 
 const SUB_TABS = [["about", "À propos"], ["posts", "Publications"], ["events", "Événements"], ["members", "Membres"]];
 
@@ -154,7 +154,7 @@ export default function CommunityDetailView({
               <button
                 onClick={() => setPendingAction({ type: "delete" })}
                 className="px-4 py-2.5 rounded-full text-sm font-bold flex items-center gap-1.5"
-                style={{ border: `1px solid rgba(${primaryRgb},.15)`, color: coral }}
+                style={{ border: `1px solid rgba(${primaryRgb},.15)`, color: coralText }}
               >
                 <Trash2 size={14} /> Supprimer la communauté{viewerRole !== "owner" ? " (admin)" : ""}
               </button>

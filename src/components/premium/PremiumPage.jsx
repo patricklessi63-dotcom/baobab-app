@@ -3,7 +3,7 @@ import { ArrowLeft, Check } from "lucide-react";
 import { PREMIUM_PLANS, PREMIUM_FEATURES } from "../../lib/premium/premiumConfig";
 import { startCheckout, openBillingPortal } from "../../lib/premium/checkout";
 import { usePremiumStatus } from "../../lib/premium/usePremiumStatus";
-import { primary, coral, gold, green, muted, bg, card, goldText } from "../social/theme";
+import { primary, coral, coralText, gold, green, muted, bg, card, goldText } from "../social/theme";
 
 // Page complète (pas une modale), montée comme un onglet sans icône de
 // nav dédiée — cohérente avec l'identité visuelle Baobab existante
@@ -179,7 +179,7 @@ export default function PremiumPage({ currentUser, onBack, onError, justSubscrib
                 </div>
                 {plan.subLabel && <div className="text-xs mt-0.5" style={{ color: muted }}>{plan.subLabel}</div>}
                 {selectedPlan === plan.id && (
-                  <div className="mt-3 flex items-center gap-1.5 text-xs font-bold" style={{ color: coral }}>
+                  <div className="mt-3 flex items-center gap-1.5 text-xs font-bold" style={{ color: coralText }}>
                     <Check size={14} /> Sélectionné
                   </div>
                 )}

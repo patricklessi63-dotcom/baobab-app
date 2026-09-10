@@ -9,7 +9,7 @@ import { validateMediaFile } from "../../lib/mediaValidation";
 import { compressImageIfNeeded } from "../../lib/imageCompression";
 import { extFromMime } from "../../lib/mediaConstants";
 import { friendlyDbError } from "../../lib/friendlyDbError";
-import { primary, coral, muted, bg, goldText, primaryRgb } from "./theme";
+import { primary, coral, coralText, muted, bg, goldText, primaryRgb } from "./theme";
 
 const NAME_MAX = 80;
 const DESCRIPTION_MAX = 300;
@@ -187,7 +187,7 @@ export default function CommunityCreateForm({ currentUser, onCreated, onCancel, 
                   {aiLoading ? <Loader2 size={12} className="animate-spin" /> : "Suggérer"}
                 </button>
               </div>
-              {aiError && <p className="text-[11px] mt-1.5" style={{ color: coral }}>{aiError}</p>}
+              {aiError && <p className="text-[11px] mt-1.5" style={{ color: coralText }}>{aiError}</p>}
             </>
           )}
         </div>
@@ -249,7 +249,7 @@ export default function CommunityCreateForm({ currentUser, onCreated, onCancel, 
               className="text-left p-3 rounded-xl"
               style={{ background: visibility === v.value ? "var(--bb-surface-2)" : bg, border: visibility === v.value ? `1px solid ${coral}` : "1px solid transparent" }}
             >
-              <div className="text-sm font-bold" style={{ color: visibility === v.value ? coral : primary }}>{v.label}</div>
+              <div className="text-sm font-bold" style={{ color: visibility === v.value ? coralText : primary }}>{v.label}</div>
               <div className="text-xs mt-0.5" style={{ color: muted }}>{v.description}</div>
             </button>
           ))}

@@ -9,7 +9,7 @@ import { compressImageIfNeeded } from "../../lib/imageCompression";
 import { extFromMime } from "../../lib/mediaConstants";
 import { uploadWithProgress } from "../../lib/uploadWithProgress";
 import ConfirmModal from "./ConfirmModal";
-import { muted, bg, coral, primaryRgb } from "./theme";
+import { muted, bg, coral, coralText, primaryRgb } from "./theme";
 
 const BUCKET = "event-media";
 
@@ -67,10 +67,10 @@ export default function EventPhotoGallery({ photos = [], loading, canUpload, cur
         </div>
       )}
       {/* Couleur d'erreur en dur (bug corrigé à l'audit) alors qu'elle existe
-          déjà comme jeton nommé ("coral", voir theme.js) importé partout
+          déjà comme jeton nommé ("coralText", voir theme.js) importé partout
           ailleurs dans ce même dossier pour le même usage — risque de
-          dérive silencieuse si "coral" était un jour retouché. */}
-      {error && <p role="alert" className="text-xs mb-3" style={{ color: coral }}>{error}</p>}
+          dérive silencieuse si le corail était un jour retouché. */}
+      {error && <p role="alert" className="text-xs mb-3" style={{ color: coralText }}>{error}</p>}
 
       {loading ? (
         <Skeleton rows={2} height={80} />

@@ -6,7 +6,7 @@ import {
   CheckCircle2, MapPin, Mail, Clock, Building2, Globe2,
 } from "lucide-react";
 import { supabase } from "../../supabaseClient";
-import { primary, coral, gold, muted, card, bg, surface } from "./theme";
+import { primary, coral, coralText, gold, muted, card, bg, surface } from "./theme";
 import {
   ESSENTIAL_DOCUMENTS, BORDER_NOTE, PRIORITY_STEPS, EXTRA_TIPS,
   FEDERAL_RESOURCES, GUIDE_LIMITS,
@@ -28,7 +28,7 @@ const CATEGORY_ORDER = ["procedures", "frontiere", "emploi", "installation", "sa
 
 const SOURCE_META = {
   ircc: { label: "IRCC", full: "Immigration, Réfugiés et Citoyenneté Canada", icon: ShieldCheck, color: primary },
-  asfc: { label: "ASFC", full: "Agence des services frontaliers du Canada", icon: Landmark, color: coral },
+  asfc: { label: "ASFC", full: "Agence des services frontaliers du Canada", icon: Landmark, color: coralText },
 };
 
 function timeAgo(iso) {
@@ -91,7 +91,7 @@ function NewsCard({ item, featured, isFavorite, onToggleFavorite }) {
           )}
           <div className="flex items-center justify-between mt-3">
             <span className="text-[11px]" style={{ color: muted }}>{new Date(item.published_at).toLocaleDateString("fr-CA", { year: "numeric", month: "long", day: "numeric" })}</span>
-            <span className="text-[11px] font-bold flex items-center gap-1" style={{ color: coral }}>
+            <span className="text-[11px] font-bold flex items-center gap-1" style={{ color: coralText }}>
               Source officielle <ExternalLink size={11} />
             </span>
           </div>
@@ -118,7 +118,7 @@ function GuideCard({ section, step }) {
           <h3 className="text-sm font-black leading-snug" style={{ color: primary }}>{section.title}</h3>
           <p className="text-xs leading-5 mt-1.5" style={{ color: muted }}>{section.body}</p>
           {section.href && (
-            <a href={section.href} target="_blank" rel="noopener noreferrer" className="text-[11px] font-bold flex items-center gap-1 mt-2" style={{ color: coral }}>
+            <a href={section.href} target="_blank" rel="noopener noreferrer" className="text-[11px] font-bold flex items-center gap-1 mt-2" style={{ color: coralText }}>
               {section.linkLabel} <ExternalLink size={11} />
             </a>
           )}
@@ -413,7 +413,7 @@ export default function ImmigrationNewsView({ onBack, onError, currentUser }) {
             <div className="space-y-2.5">
               {FEDERAL_RESOURCES.map((r) => (
                 <a key={r.label} href={r.href} target="_blank" rel="noopener noreferrer" className="block">
-                  <p className="text-xs font-bold flex items-center gap-1.5" style={{ color: coral }}>{r.label} <ExternalLink size={11} /></p>
+                  <p className="text-xs font-bold flex items-center gap-1.5" style={{ color: coralText }}>{r.label} <ExternalLink size={11} /></p>
                   <p className="text-[11px] mt-0.5" style={{ color: muted }}>{r.detail}</p>
                 </a>
               ))}

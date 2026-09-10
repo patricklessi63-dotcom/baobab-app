@@ -8,7 +8,7 @@ import { compressImageIfNeeded } from "../../lib/imageCompression";
 import { extFromMime } from "../../lib/mediaConstants";
 import { uploadWithProgress } from "../../lib/uploadWithProgress";
 import AiSuggestButton from "../ai/AiSuggestButton";
-import { primary, coral, muted, bg, primaryRgb } from "./theme";
+import { primary, coral, coralText, muted, bg, primaryRgb } from "./theme";
 
 const TITLE_MAX = 80;
 const DESCRIPTION_MAX = 500;
@@ -307,7 +307,7 @@ export default function EventCreateForm({ currentUser, initialCommunityId = null
               className="text-left p-3 rounded-xl disabled:opacity-40"
               style={{ background: visibility === v.value ? "var(--bb-surface-2)" : bg, border: visibility === v.value ? `1px solid ${coral}` : "1px solid transparent" }}
             >
-              <div className="text-sm font-bold" style={{ color: visibility === v.value ? coral : primary }}>{v.label}</div>
+              <div className="text-sm font-bold" style={{ color: visibility === v.value ? coralText : primary }}>{v.label}</div>
               <div className="text-xs mt-0.5" style={{ color: muted }}>{v.description}</div>
             </button>
           ))}
@@ -324,7 +324,7 @@ export default function EventCreateForm({ currentUser, initialCommunityId = null
         </label>
       )}
 
-      {error && <p role="alert" className="text-xs" style={{ color: coral }}>{error}</p>}
+      {error && <p role="alert" className="text-xs" style={{ color: coralText }}>{error}</p>}
 
       <div className="flex gap-2 mt-2">
         <button onClick={onCancel} disabled={submitting} className="flex-1 py-3 rounded-full text-sm font-semibold disabled:opacity-40" style={{ border: `1px solid rgba(${primaryRgb},.12)`, color: primary }}>

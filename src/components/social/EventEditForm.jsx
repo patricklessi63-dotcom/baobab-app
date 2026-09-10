@@ -7,7 +7,7 @@ import { validateMediaFile } from "../../lib/mediaValidation";
 import { compressImageIfNeeded } from "../../lib/imageCompression";
 import { extFromMime } from "../../lib/mediaConstants";
 import { uploadWithProgress } from "../../lib/uploadWithProgress";
-import { primary, coral, muted, bg, primaryRgb } from "./theme";
+import { primary, coral, coralText, muted, bg, primaryRgb } from "./theme";
 
 const TITLE_MAX = 80;
 const DESCRIPTION_MAX = 500;
@@ -301,7 +301,7 @@ export default function EventEditForm({ event, onSaved, onCancel, onError, onDir
         <input type="number" min="1" value={maxParticipants} onChange={(e) => setMaxParticipants(e.target.value)} className="mt-1.5 w-full rounded-xl px-3.5 py-2.5 text-sm outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--bb-clay)]" style={{ background: bg }} />
       </label>
 
-      {error && <p role="alert" className="text-xs" style={{ color: coral }}>{error}</p>}
+      {error && <p role="alert" className="text-xs" style={{ color: coralText }}>{error}</p>}
 
       <div className="flex gap-2 mt-2">
         <button onClick={onCancel} disabled={submitting} className="flex-1 py-3 rounded-full text-sm font-semibold disabled:opacity-40" style={{ border: `1px solid rgba(${primaryRgb},.12)`, color: primary }}>

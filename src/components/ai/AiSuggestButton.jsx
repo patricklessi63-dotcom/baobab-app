@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Sparkles, Loader2 } from "lucide-react";
 import { invokeAI } from "../../lib/ai/aiClient";
-import { primary, coral, bg, goldText, body } from "../social/theme";
+import { primary, coral, coralText, bg, goldText, body } from "../social/theme";
 
 // Bouton réutilisable "✨ Améliorer avec l'IA" pour un champ texte unique
 // (bio/publication/description d'événement) — n'écrit JAMAIS
@@ -43,11 +43,11 @@ export default function AiSuggestButton({ action, buildPayload, onApply, label =
 
   return (
     <div className="mt-1.5">
-      <button type="button" onClick={handleClick} disabled={disabled || loading} className="flex items-center gap-1.5 text-xs font-bold disabled:opacity-50" style={{ color: coral }}>
+      <button type="button" onClick={handleClick} disabled={disabled || loading} className="flex items-center gap-1.5 text-xs font-bold disabled:opacity-50" style={{ color: coralText }}>
         {loading ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
         {loading ? "Génération..." : label}
       </button>
-      {error && <p role="alert" className="text-[11px] mt-1" style={{ color: coral }}>{error}</p>}
+      {error && <p role="alert" className="text-[11px] mt-1" style={{ color: coralText }}>{error}</p>}
     </div>
   );
 }

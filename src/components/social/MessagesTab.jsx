@@ -7,7 +7,7 @@ import ConversationPane from "./ConversationPane";
 import { useClickOutside } from "../../hooks/useClickOutside";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
 import { matchKey, formatMessageTime, messagePreviewLabel } from "../../utils/format";
-import { primary, navy, green, coral, bg, muted, card, buttonBase, online, offline, body, primaryRgb } from "./theme";
+import { primary, navy, green, coral, coralText, bg, muted, card, buttonBase, online, offline, body, primaryRgb } from "./theme";
 
 export default function MessagesTab({
   matches,
@@ -162,7 +162,7 @@ export default function MessagesTab({
                     {last && <span className="text-[10px] shrink-0" style={{ color: muted }}>{formatMessageTime(last.created_at)}</span>}
                   </div>
                   <div className="flex items-center justify-between gap-2 mt-0.5">
-                    <span className="text-xs truncate" style={{ color: unavailable ? coral : unread > 0 ? body : muted, fontWeight: unread > 0 ? 700 : 400 }}>{unavailable ? "Ce compte n'est plus disponible" : preview}</span>
+                    <span className="text-xs truncate" style={{ color: unavailable ? coralText : unread > 0 ? body : muted, fontWeight: unread > 0 ? 700 : 400 }}>{unavailable ? "Ce compte n'est plus disponible" : preview}</span>
                     {unread > 0 && (
                       <span className="text-[10px] font-black text-white rounded-full h-5 min-w-5 px-1.5 flex items-center justify-center shrink-0" style={{ background: coral }}>
                         {unread}
@@ -190,7 +190,7 @@ export default function MessagesTab({
                     <button role="menuitem" onClick={() => { onOpenReport?.(m); setOpenRowMenu(null); }} className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-left" style={{ color: primary, borderTop: `1px solid rgba(${primaryRgb},.08)` }}>
                       <Flag size={14} /> Signaler
                     </button>
-                    <button role="menuitem" onClick={() => { onOpenBlockConfirm?.(m); setOpenRowMenu(null); }} className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-left" style={{ color: coral, borderTop: `1px solid rgba(${primaryRgb},.08)` }}>
+                    <button role="menuitem" onClick={() => { onOpenBlockConfirm?.(m); setOpenRowMenu(null); }} className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-left" style={{ color: coralText, borderTop: `1px solid rgba(${primaryRgb},.08)` }}>
                       <Ban size={14} /> Bloquer
                     </button>
                   </div>

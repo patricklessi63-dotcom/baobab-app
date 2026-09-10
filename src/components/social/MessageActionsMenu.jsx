@@ -1,6 +1,6 @@
 import React from "react";
 import { Reply, Copy, Trash2 } from "lucide-react";
-import { primary, coral, muted, card, primaryRgb } from "./theme";
+import { primary, coral, coralText, muted, card, primaryRgb } from "./theme";
 
 const QUICK_REACTIONS = ["❤️", "😂", "👍", "😮", "😢", "🎉"];
 
@@ -30,7 +30,7 @@ export default function MessageActionsMenu({ message, isMine, align, onReact, on
         <Trash2 size={14} /> Supprimer pour moi
       </button>
       {isMine && (
-        <button role="menuitem" onClick={() => { onDeleteForEveryone(); onClose(); }} className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-left" style={{ color: coral, borderTop: `1px solid rgba(${primaryRgb},.08)` }}>
+        <button role="menuitem" onClick={() => { onDeleteForEveryone(); onClose(); }} className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-left" style={{ color: coralText, borderTop: `1px solid rgba(${primaryRgb},.08)` }}>
           <Trash2 size={14} /> Supprimer pour tout le monde
         </button>
       )}

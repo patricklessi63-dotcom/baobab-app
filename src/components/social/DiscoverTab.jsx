@@ -11,7 +11,7 @@ import { computeMatch, rankCandidates } from "../../lib/matching/matchingService
 import { usePremiumStatus } from "../../lib/premium/usePremiumStatus";
 import { fetchNearbyProfiles } from "../../lib/locationApi";
 import { LOOKING_FOR_OPTIONS, INTERESTS_OPTIONS, LANGUAGES_OPTIONS } from "../../constants";
-import { primary, navy, navyRgb, green, coral, gold, gold1, surface2, bg, muted, card, buttonBase, online, body, primaryRgb } from "./theme";
+import { primary, navy, navyRgb, green, coral, coralText, gold, gold1, surface2, bg, muted, card, buttonBase, online, body, primaryRgb } from "./theme";
 import { ARRIVAL_STAGE_OPTIONS, matchesArrivalStage } from "../../lib/arrivalStage";
 
 const ACTIVE_RECENTLY_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
@@ -217,7 +217,7 @@ export default function DiscoverTab({
     <>
           <section className="max-w-2xl mx-auto">
             <div className="text-center mb-4 bb-stagger">
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-[11px] font-black uppercase tracking-wider" style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)", color: coral }}><Heart size={13} fill={coral} /> Connexions qui ont du sens</div>
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-[11px] font-black uppercase tracking-wider" style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)", color: coralText }}><Heart size={13} fill={coral} /> Connexions qui ont du sens</div>
               <h1 className="text-3xl md:text-4xl font-black tracking-tight mt-3" style={{ color: primary }}>Découvrir</h1>
               <p className="text-sm mt-1" style={{ color: muted }}>{mode === "pile" ? "Glisse à droite pour aimer, à gauche pour passer." : "Des profils classés selon ta compatibilité estimée."}</p>
             </div>
@@ -376,7 +376,7 @@ export default function DiscoverTab({
                           <span className="text-lg font-black tracking-widest" style={{ color: online }}>OUI</span>
                         </div>
                         <div className="absolute top-16 right-6 border-4 rounded-2xl px-3 py-1 z-10 pointer-events-none" style={{ borderColor: coral, transform: `rotate(14deg)`, opacity: passOpacity }}>
-                          <span className="text-lg font-black tracking-widest" style={{ color: coral }}>PASSER</span>
+                          <span className="text-lg font-black tracking-widest" style={{ color: coralText }}>PASSER</span>
                         </div>
 
                         <div className="absolute bottom-0 left-0 right-0 p-6 text-white">
@@ -424,7 +424,7 @@ export default function DiscoverTab({
                               {compat.commonInterests.length > 0 && (
                                 <div className="flex flex-wrap gap-1.5 mt-3">
                                   {compat.commonInterests.map((t) => (
-                                    <span key={t} className="px-2 py-0.5 rounded-full text-[10px] font-semibold capitalize" style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)", color: coral }}>{t}</span>
+                                    <span key={t} className="px-2 py-0.5 rounded-full text-[10px] font-semibold capitalize" style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)", color: coralText }}>{t}</span>
                                   ))}
                                 </div>
                               )}
@@ -495,7 +495,7 @@ export default function DiscoverTab({
                           />
                         </div>
                       )}
-                      {nearbyError && <p className="text-xs mt-2" style={{ color: coral }}>{nearbyError}</p>}
+                      {nearbyError && <p className="text-xs mt-2" style={{ color: coralText }}>{nearbyError}</p>}
                     </div>
 
                     {isPremium ? (

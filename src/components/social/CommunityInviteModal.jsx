@@ -6,7 +6,7 @@ import { supabase } from "../../supabaseClient";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { escapeLikePattern } from "../../lib/searchQuery";
-import { primary, coral, muted, card, primaryRgb } from "./theme";
+import { primary, coral, coralText, muted, card, primaryRgb } from "./theme";
 
 // Recherche par nom dans profiles (déjà en lecture publique pour la
 // découverte) — exclut les membres déjà présents et soi-même. La
@@ -146,7 +146,7 @@ export default function CommunityInviteModal({ community, currentUser, memberIds
                     disabled={invited || sendingId === p.id}
                     aria-label={`Inviter ${p.name}`}
                     className="h-9 px-3 rounded-full flex items-center gap-1.5 text-xs font-bold flex-shrink-0 disabled:opacity-60"
-                    style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)", color: invited ? "#1F9D6E" : coral }}
+                    style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)", color: invited ? "#1F9D6E" : coralText }}
                   >
                     {invited ? <><Check size={13} /> Invité·e</> : <><UserPlus size={13} /> Inviter</>}
                   </button>

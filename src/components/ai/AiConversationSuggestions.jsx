@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Sparkles, Loader2 } from "lucide-react";
-import { coral, muted, bg, goldText, primary } from "../social/theme";
+import { coral, coralText, muted, bg, goldText, primary } from "../social/theme";
 import { useClickOutside } from "../../hooks/useClickOutside";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
 import { invokeAI } from "../../lib/ai/aiClient";
@@ -85,7 +85,7 @@ export default function AiConversationSuggestions({ currentUser, match, onPick }
 
           {error && (
             <div role="alert">
-              <p className="text-xs" style={{ color: coral }}>{error}</p>
+              <p className="text-xs" style={{ color: coralText }}>{error}</p>
               <button type="button" onClick={generate} className="text-xs font-bold underline mt-1" style={{ color: primary }}>Réessayer</button>
             </div>
           )}

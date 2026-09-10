@@ -17,7 +17,7 @@ import { rankEvents } from "../../lib/events/recommendations";
 import { getProfileCompletion } from "../../lib/profileCompletion";
 import { PRIORITY_STEPS } from "../../lib/newcomerGuideData";
 import { NOTIFICATION_LABELS, NOTIF_CATEGORIES, groupNotificationRows } from "../../lib/notificationLabels";
-import { primary, navy, green, coral, gold, bg, muted, card, body, primaryRgb } from "./theme";
+import { primary, navy, green, coral, coralText, gold, bg, muted, card, body, primaryRgb } from "./theme";
 
 // Panneau vertical (item demandé : notifications visibles directement dans
 // l'accueil, pas seulement via la cloche du header — masquée sur mobile
@@ -138,7 +138,7 @@ function NotificationsPanel({
           <b className="text-sm">Notifications</b>
         </div>
         {unreadCommunityCount > 0 && (
-          <button onClick={markCommunityNotificationsRead} className="text-xs font-bold focus-visible:outline focus-visible:outline-2" style={{ color: coral }}>
+          <button onClick={markCommunityNotificationsRead} className="text-xs font-bold focus-visible:outline focus-visible:outline-2" style={{ color: coralText }}>
             Tout marquer comme lu
           </button>
         )}
@@ -476,7 +476,7 @@ export default function FeedTab({
           <div className="text-sm font-black" style={{ color: primary }}>Immigration & Intégration</div>
           <p className="text-xs mt-0.5" style={{ color: muted }}>Actualités officielles IRCC et ASFC — sources gouvernementales uniquement.</p>
         </div>
-        <span className="text-xs font-bold flex-shrink-0" style={{ color: coral }}>Consulter →</span>
+        <span className="text-xs font-bold flex-shrink-0" style={{ color: coralText }}>Consulter →</span>
       </button>
 
       <NotificationsPanel
@@ -516,7 +516,7 @@ export default function FeedTab({
           <div className={`${card} p-5 mb-5`}>
             <div className="flex items-center justify-between mb-4">
               <div><b className="text-sm">Recommandations</b><div className="text-xs mt-0.5" style={{ color: muted }}>De nouveaux membres de la communauté</div></div>
-              <button onClick={() => goTab("discover")} className="text-xs font-bold focus-visible:outline focus-visible:outline-2" style={{ color: coral }}>Tout voir</button>
+              <button onClick={() => goTab("discover")} className="text-xs font-bold focus-visible:outline focus-visible:outline-2" style={{ color: coralText }}>Tout voir</button>
             </div>
             {rankedForYou.length === 0 ? (
               <EmptyState
@@ -750,7 +750,7 @@ export default function FeedTab({
         <aside className="space-y-5">
           {/* ---------- Conversations ---------- */}
           <div className={`${card} p-5`}>
-            <div className="flex items-center justify-between mb-4"><b className="text-sm">💬 Tes conversations</b><button onClick={() => goTab("matches")} className="text-xs font-bold focus-visible:outline focus-visible:outline-2" style={{ color: coral }}>Tout voir</button></div>
+            <div className="flex items-center justify-between mb-4"><b className="text-sm">💬 Tes conversations</b><button onClick={() => goTab("matches")} className="text-xs font-bold focus-visible:outline focus-visible:outline-2" style={{ color: coralText }}>Tout voir</button></div>
             {matches.length === 0 ? (
               <EmptyState
                 title="Tes conversations apparaîtront ici."

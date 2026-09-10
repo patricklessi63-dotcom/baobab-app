@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { Mic, MicOff, Copy, Check } from "lucide-react";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
-import { primary, coral, muted, bg, card, body, primaryRgb, navy } from "./theme";
+import { primary, coral, coralText, muted, bg, card, body, primaryRgb, navy } from "./theme";
 
 // Détecte le navigateur pour adapter les 4 lignes d'aide "Comment
 // autoriser" — jamais de faux bouton qui prétendrait ouvrir les réglages
@@ -142,7 +142,7 @@ export default function MicPermissionModal({ open, phase, requesting, onAllow, o
             </button>
 
             {!showHelp ? (
-              <button onClick={() => setShowHelp(true)} className="w-full mt-1.5 py-2 rounded-full text-xs font-bold" style={{ color: coral }}>
+              <button onClick={() => setShowHelp(true)} className="w-full mt-1.5 py-2 rounded-full text-xs font-bold" style={{ color: coralText }}>
                 Comment autoriser ?
               </button>
             ) : (
@@ -169,7 +169,7 @@ export default function MicPermissionModal({ open, phase, requesting, onAllow, o
                   : GENERIC_STEPS
                 ).map((step, i) => (
                   <div key={i} className="flex gap-1.5 text-xs">
-                    <span className="font-black flex-shrink-0" style={{ color: coral }}>{i + 1}.</span>
+                    <span className="font-black flex-shrink-0" style={{ color: coralText }}>{i + 1}.</span>
                     <span>{step}</span>
                   </div>
                 ))}

@@ -5,7 +5,7 @@ import StatusBadge from "../StatusBadge";
 import ClickableImage from "../ClickableImage";
 import ConfirmModal from "./ConfirmModal";
 import { formatMessageTime, formatDayLabel, truncateUnicodeSafe } from "../../utils/format";
-import { primary, coral, muted, bg, primaryRgb, navy } from "./theme";
+import { primary, coral, coralText, muted, bg, primaryRgb, navy } from "./theme";
 import { useClickOutside } from "../../hooks/useClickOutside";
 
 const QUICK_REACTIONS = ["❤️", "😂", "👍", "😮", "😢", "🎉"];
@@ -103,7 +103,7 @@ export default function CommunityPostCard({
               aria-label={myReaction ? `Réaction : ${myReaction}` : "Réagir"}
               aria-pressed={Boolean(myReaction)}
               className="flex items-center gap-1.5 text-xs font-semibold focus-visible:outline focus-visible:outline-2"
-              style={{ color: myReaction ? coral : muted }}
+              style={{ color: myReaction ? coralText : muted }}
             >
               <span style={{ fontSize: 15, lineHeight: 1 }}>{myReaction || "🤍"}</span> {totalReactions > 0 ? totalReactions : "Réagir"}
             </button>
@@ -221,7 +221,7 @@ export default function CommunityPostCard({
                   className="flex-1 text-xs rounded-full px-3.5 py-2 outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--bb-clay)]"
                   style={{ background: bg }}
                 />
-                <button onClick={submitComment} disabled={!commentDraft.trim()} className="text-xs font-bold px-3 py-2 rounded-full disabled:opacity-40" style={{ color: coral }}>
+                <button onClick={submitComment} disabled={!commentDraft.trim()} className="text-xs font-bold px-3 py-2 rounded-full disabled:opacity-40" style={{ color: coralText }}>
                   Envoyer
                 </button>
               </div>

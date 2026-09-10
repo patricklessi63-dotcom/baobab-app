@@ -10,7 +10,7 @@ import { categoryIcon, categoryLabel, reportCategoryLabel, timezoneLabel } from 
 import { isEventStaff, isEventMod } from "../../lib/events/permissions";
 import { downloadIcs, googleCalendarUrl } from "../../lib/events/calendarExport";
 import { formatEventWhen } from "../../utils/format";
-import { primary, green, coral, gold, muted, bg, card, body, primaryRgb, navy } from "./theme";
+import { primary, green, coral, coralText, gold, muted, bg, card, body, primaryRgb, navy } from "./theme";
 import { useImageLightbox } from "../../lib/ImageLightboxContext";
 
 const SUB_TABS = [["about", "À propos"], ["discussion", "Discussion"], ["participants", "Participants"], ["photos", "Photos"]];
@@ -129,7 +129,7 @@ export default function EventDetailView({
                 <span className="flex items-center gap-1"><Users size={11} /> {participantCount.toLocaleString("fr-CA")} participant{participantCount > 1 ? "s" : ""}{event.max_participants ? ` / ${event.max_participants}` : ""}</span>
               </div>
               {communityName && (
-                <button onClick={onOpenCommunity} className="text-xs font-bold mt-2" style={{ color: coral }}>
+                <button onClick={onOpenCommunity} className="text-xs font-bold mt-2" style={{ color: coralText }}>
                   🌍 Organisé par {communityName} →
                 </button>
               )}
@@ -197,7 +197,7 @@ export default function EventDetailView({
                 </button>
               )}
               {staff && !canceled && (
-                <button onClick={() => onCancel(event)} className="px-4 py-2.5 rounded-full text-sm font-bold flex items-center gap-1.5" style={{ border: "1px solid rgba(225,107,93,.3)", color: coral }}>
+                <button onClick={() => onCancel(event)} className="px-4 py-2.5 rounded-full text-sm font-bold flex items-center gap-1.5" style={{ border: "1px solid rgba(225,107,93,.3)", color: coralText }}>
                   <Ban size={14} /> Annuler l'événement
                 </button>
               )}
@@ -205,7 +205,7 @@ export default function EventDetailView({
                 <button
                   onClick={() => setConfirmingDelete(true)}
                   className="px-4 py-2.5 rounded-full text-sm font-bold flex items-center gap-1.5"
-                  style={{ border: "1px solid rgba(225,107,93,.3)", color: coral }}
+                  style={{ border: "1px solid rgba(225,107,93,.3)", color: coralText }}
                 >
                   <Trash2 size={14} /> Supprimer l'événement{event.created_by !== currentUser?.id ? " (admin)" : ""}
                 </button>

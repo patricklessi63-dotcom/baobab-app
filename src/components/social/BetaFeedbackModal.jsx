@@ -2,7 +2,7 @@ import React, { useRef, useState } from "react";
 import { supabase } from "../../supabaseClient";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
-import { primary, navy, coral, muted, card, primaryRgb } from "./theme";
+import { primary, navy, coral, coralText, muted, card, primaryRgb } from "./theme";
 import { APP_VERSION, detectDevice, detectBrowser, detectCategories, detectPriority } from "../../lib/feedbackTriage";
 
 // Auto-contenu (contrairement à ReportModal) : pas de state à faire
@@ -99,7 +99,7 @@ export default function BetaFeedbackModal({ open, onClose, currentUser, screen }
             <p className="text-sm mt-1 mb-3" style={{ color: muted }}>
               Baobab est en beta privée — ton retour va directement à l'équipe.
             </p>
-            {error && <p role="alert" className="text-sm mb-2" style={{ color: coral }}>{error}</p>}
+            {error && <p role="alert" className="text-sm mb-2" style={{ color: coralText }}>{error}</p>}
             <div className="flex gap-2 mb-3" role="radiogroup" aria-label="Type de retour">
               {REACTIONS.map(([value, emoji, label]) => (
                 <button

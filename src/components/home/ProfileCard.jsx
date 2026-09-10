@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Heart, X, MessageCircle } from "lucide-react";
 import StatusBadge from "../StatusBadge";
 import { visibleAge } from "../../utils/format";
-import { coral, gold, green, muted, bg, primaryRgb } from "../social/theme";
+import { coral, coralText, gold, green, muted, bg, primaryRgb } from "../social/theme";
 
 export default function ProfileCard({
   profile,
@@ -82,7 +82,7 @@ export default function ProfileCard({
             consulter show_city, alors que MatchCard/PublicProfileModal le
             respectent déjà. */}
         {profile.show_city !== false && profile.city && <div className="text-[11px] truncate mt-0.5" style={{ color: muted }}>{profile.city}</div>}
-        {highlightText && <div className="text-[11px] mt-1 truncate" style={{ color: coral }}>{highlightText}</div>}
+        {highlightText && <div className="text-[11px] mt-1 truncate" style={{ color: coralText }}>{highlightText}</div>}
         {commonInterestsCount > 0 && (
           <div className="text-[10px] mt-1 truncate font-semibold" style={{ color: green }}>
             {commonInterestsCount} centre{commonInterestsCount > 1 ? "s" : ""} d'intérêt en commun
@@ -111,7 +111,7 @@ export default function ProfileCard({
                 onClick={() => onLike(profile)}
                 aria-label={`Aimer le profil de ${profile.name}`}
                 className="flex-1 rounded-lg py-2.5 text-[11px] font-bold flex items-center justify-center gap-1 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1"
-                style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)", color: coral }}
+                style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)", color: coralText }}
               >
                 <Heart size={12} aria-hidden="true" /> J'aime
               </button>

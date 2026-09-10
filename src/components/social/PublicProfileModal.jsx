@@ -6,7 +6,7 @@ import StatusBadge from "../StatusBadge";
 import { visibleAge } from "../../utils/format";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
-import { primary, green, coral, gold, bg, muted, card, body, primaryRgb } from "./theme";
+import { primary, green, coral, coralText, gold, bg, muted, card, body, primaryRgb } from "./theme";
 
 // Allow-list explicite des champs affichés — jamais de spread {...profile},
 // jamais d'email/user_id/id bruts rendus.
@@ -170,7 +170,7 @@ export default function PublicProfileModal({
               </button>
             )}
             {onUnlike && isLiked && (
-              <button onClick={() => onUnlike(profile)} className="flex-1 min-w-[100px] rounded-full py-2.5 text-sm font-bold flex items-center justify-center gap-1.5 focus-visible:outline focus-visible:outline-2" style={{ background: bg, color: coral }}>
+              <button onClick={() => onUnlike(profile)} className="flex-1 min-w-[100px] rounded-full py-2.5 text-sm font-bold flex items-center justify-center gap-1.5 focus-visible:outline focus-visible:outline-2" style={{ background: bg, color: coralText }}>
                 <Heart size={15} fill={coral} /> Je ne l'aime plus
               </button>
             )}

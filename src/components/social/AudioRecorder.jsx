@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { Mic, Send, Square, Trash2, Play, Pause } from "lucide-react";
 import { AUDIO_MAX_DURATION_MS } from "../../lib/mediaConstants";
 import MicPermissionModal from "./MicPermissionModal";
-import { primary, navy, coral, muted, bg } from "./theme";
+import { primary, navy, coral, coralText, muted, bg } from "./theme";
 
 function pickMimeType() {
   // "audio/mp4" (AAC) en premier : c'est le seul format que Safari (macOS
@@ -346,7 +346,7 @@ export default function AudioRecorder({ hasDraft, onSendText, onSendAudio, onAct
   }
 
   if (state === "error") {
-    return <p className="text-xs px-2" style={{ color: coral }}>{errorMsg}</p>;
+    return <p className="text-xs px-2" style={{ color: coralText }}>{errorMsg}</p>;
   }
 
   // idle — occupe le même emplacement que le bouton "Envoyer"

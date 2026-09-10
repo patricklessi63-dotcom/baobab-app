@@ -4,7 +4,7 @@ import { X, Image as ImageIcon, Camera, ArrowLeft } from "lucide-react";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { C } from "../../constants";
-import { primary, navy, green, coral, gold, bg, primaryRgb } from "./theme";
+import { primary, navy, green, coral, coralText, gold, bg, primaryRgb } from "./theme";
 
 // Fonds proposés pour un statut texte — palette Baobab (pas de bleu
 // Facebook), cohérente avec STORY_COLORS de SocialShell.jsx. Dernière
@@ -110,10 +110,10 @@ export default function StoryComposerModal({
                       </div>
                     </div>
                   )}
-                  {storyMediaError && <p className="text-xs mt-2" style={{ color: coral }}>{storyMediaError}</p>}
+                  {storyMediaError && <p className="text-xs mt-2" style={{ color: coralText }}>{storyMediaError}</p>}
                   {!storyMediaError && storyMediaWarning && <p className="text-xs mt-2" style={{ color: "#A5761F" }}>⚠️ {storyMediaWarning}</p>}
                   <div className="grid grid-cols-2 gap-2 mt-4">
-                    <button onClick={() => pickStoryMedia("photo")} className="rounded-xl py-3 font-bold" style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)", color: coral }}><ImageIcon size={17} className="inline mr-1" />Photo</button>
+                    <button onClick={() => pickStoryMedia("photo")} className="rounded-xl py-3 font-bold" style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)", color: coralText }}><ImageIcon size={17} className="inline mr-1" />Photo</button>
                     <button onClick={() => pickStoryMedia("video")} className="rounded-xl py-3 font-bold" style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)", color: green }}><Camera size={17} className="inline mr-1" />Vidéo</button>
                   </div>
                 </div>
@@ -155,7 +155,7 @@ export default function StoryComposerModal({
                     )}
                   </div>
                 </div>
-                {storyMediaError && <p className="text-xs px-6" style={{ color: coral }}>{storyMediaError}</p>}
+                {storyMediaError && <p className="text-xs px-6" style={{ color: coralText }}>{storyMediaError}</p>}
                 {!storyMediaError && storyMediaWarning && <p className="text-xs px-6" style={{ color: "#A5761F" }}>⚠️ {storyMediaWarning}</p>}
                 <div className="p-6 pt-2 shrink-0 flex flex-col gap-2">
                   <button onClick={addStory} disabled={storyUploading} className="bb-btn-gold w-full rounded-xl py-3 font-bold disabled:opacity-40">
