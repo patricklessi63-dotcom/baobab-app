@@ -45,6 +45,11 @@ export default function ClickableImage({ src, alt = "", gallery, galleryIndex = 
       tabIndex={0}
       role="button"
       aria-label={ariaLabel || "Agrandir l'image"}
+      // Ces images sont du contenu de liste défilante (publications, galerie
+      // de profil) : chargement paresseux par défaut. Un appelant qui en a
+      // besoin plus tôt peut passer loading="eager" via ...rest.
+      loading="lazy"
+      decoding="async"
       className={`${className || ""} cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2`}
       style={style}
       {...rest}

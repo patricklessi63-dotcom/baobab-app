@@ -51,7 +51,7 @@ export default function MatchCard({
     <div className={`${card} overflow-hidden flex flex-col`}>
       <button onClick={() => onViewProfile?.(profile)} className="relative h-48 w-full text-left focus-visible:outline focus-visible:outline-2">
         {profile.avatar_url && !imgError ? (
-          <img src={profile.avatar_url} alt={profile.name ? `Photo de ${profile.name}` : "Photo de profil"} loading="lazy" onError={() => setImgError(true)} className="absolute inset-0 w-full h-full object-cover" />
+          <img src={profile.avatar_url} alt={profile.name ? `Photo de ${profile.name}` : "Photo de profil"} loading="lazy" decoding="async" onError={() => setImgError(true)} className="absolute inset-0 w-full h-full object-cover" />
         ) : (
           <div className="absolute inset-0 flex items-center justify-center" style={{ background: `linear-gradient(150deg,${gold},var(--bb-leaf))` }}>
             <Avatar name={profile.name} url={null} size={72} />

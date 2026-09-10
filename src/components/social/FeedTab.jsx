@@ -425,7 +425,7 @@ export default function FeedTab({
               style={{ width: 104, height: 160, ...ringStyle }}
             >
               {hasContent && s.media_kind === "photo" && s.media_url ? (
-                <img src={s.media_url} alt="" className="absolute inset-0 w-full h-full object-cover" />
+                <img src={s.media_url} alt="" decoding="async" className="absolute inset-0 w-full h-full object-cover" />
               ) : (
                 <div className="absolute inset-0" style={{ background: `linear-gradient(160deg,${s.bg_color || s.color},${navy})` }} />
               )}

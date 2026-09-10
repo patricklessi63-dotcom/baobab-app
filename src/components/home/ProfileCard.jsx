@@ -53,6 +53,7 @@ export default function ProfileCard({
             src={profile.avatar_url}
             alt={profile.name ? `Photo de ${profile.name}` : "Photo de profil"}
             loading="lazy"
+            decoding="async"
             onError={() => setImgError(true)}
             className="absolute inset-0 w-full h-full object-cover"
           />

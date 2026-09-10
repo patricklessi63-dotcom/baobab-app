@@ -52,7 +52,7 @@ export default function PostMediaGrid({ items, className = "", itemClassName = "
                 </span>
               </>
             ) : (
-              <img src={item.url || item.previewUrl} alt="" className="w-full h-full object-cover" />
+              <img src={item.url || item.previewUrl} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" />
             )}
             {isLastVisible && (
               <span className="absolute inset-0 flex items-center justify-center bg-black/55 text-white text-lg font-black">

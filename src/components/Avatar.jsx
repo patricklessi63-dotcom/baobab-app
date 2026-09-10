@@ -1,6 +1,10 @@
 import React, { useEffect, useState } from "react";
 
-export default function Avatar({ name, size = 44, url }) {
+// `eager` : à ne passer que pour un avatar du tout premier écran (en-tête,
+// carte LCP) — par défaut l'image est en chargement paresseux, ce qui est le
+// bon choix pour l'écrasante majorité des usages (listes de conversations,
+// membres, commentaires, admirateurs…).
+export default function Avatar({ name, size = 44, url, eager = false }) {
   const initial = (name || "?").trim().charAt(0).toUpperCase();
   const [loaded, setLoaded] = useState(false);
   // Repli sur l'avatar-initiale si l'image échoue à charger (fichier
@@ -29,7 +33,8 @@ export default function Avatar({ name, size = 44, url }) {
         <img
           src={url}
           alt={name}
-          loading="lazy"
+          loading={eager ? "eager" : "lazy"}
+          decoding="async"
           onLoad={() => setLoaded(true)}
           onError={() => setErrored(true)}
           className={`bb-img-fade ${loaded ? "bb-loaded" : ""}`}

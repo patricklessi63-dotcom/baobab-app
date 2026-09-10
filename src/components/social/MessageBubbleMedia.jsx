@@ -185,6 +185,7 @@ export default function MessageBubbleMedia({ m, isMine }) {
             className="block w-full object-cover cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
             style={{ maxHeight: 260 }}
             loading="lazy"
+            decoding="async"
           />
         ) : (
           <div className="flex items-center justify-center" style={{ width: 200, height: 150, background: bg }} />
