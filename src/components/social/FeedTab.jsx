@@ -403,11 +403,25 @@ export default function FeedTab({
             ? { boxShadow: "inset 0 0 0 2px #D9DCE4" }
             : { boxShadow: `inset 0 0 0 2.5px ${coral}` };
           return (
-            <button
+            // <div role="button"> plutôt que <button> : la tuile de ton propre
+            // statut contient elle-même un bouton d'action (« Ajouter un
+            // statut ») — un élément focusable/activable imbriqué dans un
+            // <button> est du HTML invalide (modèle de contenu de <button> :
+            // aucun descendant interactif ni avec tabindex). Clavier limité à
+            // la cible directe pour ne pas capturer l'activation du « + ».
+            <div
               key={`${s.name}-${i}`}
+              role="button"
+              tabIndex={0}
               onClick={() => openStory(i)}
+              onKeyDown={(e) => {
+                if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) {
+                  e.preventDefault();
+                  openStory(i);
+                }
+              }}
               aria-label={s.own ? "Ton statut" : `Voir le statut de ${s.name}`}
-              className="shrink-0 relative rounded-2xl overflow-hidden text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+              className="shrink-0 relative rounded-2xl overflow-hidden text-left cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
               style={{ width: 104, height: 160, ...ringStyle }}
             >
               {hasContent && s.media_kind === "photo" && s.media_url ? (
@@ -433,18 +447,16 @@ export default function FeedTab({
               </div>
               <span className="absolute bottom-2 left-2 right-2 text-[11px] font-bold text-white truncate">{s.own ? "Ton statut" : s.name}</span>
               {s.own && (
-                <span
+                <button
+                  type="button"
                   onClick={(e) => { e.stopPropagation(); setStoryComposer(true); }}
-                  role="button"
-                  tabIndex={0}
-                  onKeyDown={(e) => { if (e.key === "Enter") { e.stopPropagation(); setStoryComposer(true); } }}
                   aria-label="Ajouter un statut"
-                  className="bb-btn-gold absolute top-2 right-2 h-6 w-6 rounded-full flex items-center justify-center border-2 border-white"
+                  className="bb-btn-gold absolute top-2 right-2 h-6 w-6 rounded-full flex items-center justify-center border-2 border-white focus-visible:outline focus-visible:outline-2"
                 >
                   <Plus size={14} />
-                </span>
+                </button>
               )}
-            </button>
+            </div>
           );
         })}
       </div>
