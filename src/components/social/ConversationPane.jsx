@@ -289,6 +289,7 @@ export default function ConversationPane({
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Rechercher dans cette conversation..."
+            aria-label="Rechercher dans cette conversation"
             className="flex-1 bg-transparent outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--bb-clay)] text-sm"
             style={{ color: primary }}
           />
