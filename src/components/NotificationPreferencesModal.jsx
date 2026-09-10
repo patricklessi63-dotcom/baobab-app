@@ -124,7 +124,7 @@ export default function NotificationPreferencesModal({ open, onClose, onBack, cu
               <div className="flex items-center justify-between" style={{ minHeight: 44 }}>
                 <div className="flex items-center gap-2 text-sm"><Bell size={14} color="var(--bb-text)" /> Notifications push sur cet appareil</div>
                 {pushStatus.subscribed ? (
-                  <button onClick={handleDisablePush} className="text-xs font-semibold" style={{ color: C.clay }}>Désactiver</button>
+                  <button onClick={handleDisablePush} className="text-xs font-semibold" style={{ color: C.coralText }}>Désactiver</button>
                 ) : pushStatus.permission === "denied" ? (
                   <span className="text-xs text-right" style={{ color: "rgba(var(--bb-ink-rgb),0.5)", maxWidth: 140 }}>Bloquées (réglages du navigateur)</span>
                 ) : (

@@ -1,7 +1,6 @@
 import React, { useState } from "react";
 import { AlertTriangle } from "lucide-react";
 import { cancelAccountDeletion } from "../lib/deleteAccount";
-import { C } from "../constants";
 
 const GRACE_HOURS = 24;
 
@@ -43,7 +42,7 @@ export default function AccountDeletionBanner({ currentUser, onCancelled = () =>
       role="status"
       aria-live="polite"
       className="flex flex-wrap items-center justify-center gap-2 py-2 px-3 text-sm font-semibold text-white text-center"
-      style={{ background: C.clay }}
+      style={{ background: "#C0392B" }}
     >
       <AlertTriangle size={15} className="shrink-0" />
       <span>Ton compte sera définitivement supprimé le {formattedDate} à {formattedTime} ({hoursLeft} heure{hoursLeft > 1 ? "s" : ""} restante{hoursLeft > 1 ? "s" : ""}).</span>

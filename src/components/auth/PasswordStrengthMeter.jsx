@@ -8,7 +8,7 @@ import { C } from "./authTheme";
 // C.acacia, eux-mêmes réexportés de constants.js, source unique de
 // vérité) — un risque de dérive silencieuse si l'un de ces jetons était un
 // jour retouché sans que quiconque pense à répercuter le changement ici.
-const BAR_COLORS = [C.clay, C.clay, C.ochre, C.acacia, C.acacia];
+const BAR_COLORS = [C.coralText, C.coralText, C.ochre, C.acacia, C.acacia];
 
 // Jauge de force réelle (voir src/lib/passwordStrength.js) + checklist des
 // règles qui se coche en temps réel — le caractère spécial reste marqué

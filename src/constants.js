@@ -61,6 +61,12 @@ export const C = {
   // reste le corail vif (déjà conforme). Les usages FOND/DÉGRADÉ/BORDURE/
   // ICÔNE gardent "coral" ci-dessus (non concernés par le contraste texte).
   coralText: "var(--bb-coral-text)",
+  // "coralTextStatic" : rouge chaud FIXE (#C0392B, ~5:1 sur blanc/crème),
+  // pour le corail-texte des écrans à fond volontairement TOUJOURS clair
+  // (onboarding, édition de profil) où coralText — réactif au thème —
+  // repasserait au corail vif #E56B5D en sombre, illisible sur crème fixe.
+  // Même valeur que --bb-coral-text en clair et que le fond .bb-btn-danger.
+  coralTextStatic: "#C0392B",
   gold: "#F2B84B",
 
   // --- Jetons de surface, réactifs au thème (clair/sombre, voir index.html) ---

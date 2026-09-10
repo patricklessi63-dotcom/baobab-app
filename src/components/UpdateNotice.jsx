@@ -22,8 +22,8 @@ export default function UpdateNotice({ mandatory, recommended, info, onReload, o
     return (
       <div className="fixed inset-0 z-[100] flex items-center justify-center p-5" style={{ background: "rgba(13,25,20,0.82)", backdropFilter: "blur(4px)" }} role="alertdialog" aria-modal="true" aria-label="Mise à jour nécessaire">
         <div ref={panelRef} tabIndex={-1} className="w-full max-w-sm rounded-[24px] p-6 text-center" style={{ background: C.sand }}>
-          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full" style={{ background: "rgba(193,97,61,0.14)" }}>
-            <AlertTriangle size={26} color={C.clay} />
+          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full" style={{ background: "rgba(192,57,43,0.12)" }}>
+            <AlertTriangle size={26} color={C.coralTextStatic} />
           </div>
           {/* Cette carte a un fond FIXE (C.sand, jamais réactif — voir ligne
           ci-dessus), contrairement à .bb-card. Un commit antérieur avait
@@ -69,7 +69,7 @@ export default function UpdateNotice({ mandatory, recommended, info, onReload, o
               </ul>
             )}
             <div className="flex items-center gap-2 mt-3">
-              <button onClick={onReload} className="flex-1 py-2 rounded-full text-xs font-bold text-white" style={{ background: `linear-gradient(135deg, ${C.clay}, #A94F30)` }}>
+              <button onClick={onReload} className="flex-1 py-2 rounded-full text-xs font-bold text-white" style={{ background: "var(--bb-leaf)" }}>
                 Mettre à jour
               </button>
               <button onClick={onDismiss} className="px-3 py-2 rounded-full text-xs font-semibold" style={{ color: C.sandDim }}>

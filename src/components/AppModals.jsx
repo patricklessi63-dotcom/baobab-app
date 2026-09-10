@@ -126,7 +126,7 @@ export default function AppModals({
 
             <div className="text-[11px] font-black uppercase tracking-wider mt-2" style={{ color: "rgba(var(--bb-ink-rgb),0.4)" }}>Rencontres</div>
             <label className="flex items-center justify-between py-2.5" style={{ borderTop: "1px solid rgba(var(--bb-ink-rgb),0.08)", minHeight: 44 }}>
-              <div className="flex items-center gap-2 text-sm"><Heart size={14} color={C.clay} /> Activer les Rencontres</div>
+              <div className="flex items-center gap-2 text-sm"><Heart size={14} color={C.gold} /> Activer les Rencontres</div>
               <input
                 type="checkbox"
                 checked={currentUser?.dating_enabled !== false}
@@ -260,8 +260,8 @@ export default function AppModals({
               <ArrowLeft size={14} style={{ transform: "rotate(180deg)", color: "rgba(var(--bb-ink-rgb),0.35)" }} />
             </button>
 
-            <div className="text-[11px] font-black uppercase tracking-wider mt-4" style={{ color: C.clay }}>Zone de danger</div>
-            <button onClick={() => { setSettingsOpen(false); setDeleteAccountOpen(true); }} className="w-full flex items-center gap-2 py-3" style={{ borderTop: "1px solid rgba(var(--bb-ink-rgb),0.08)", minHeight: 44, color: C.clay }}>
+            <div className="text-[11px] font-black uppercase tracking-wider mt-4" style={{ color: C.coralText }}>Zone de danger</div>
+            <button onClick={() => { setSettingsOpen(false); setDeleteAccountOpen(true); }} className="w-full flex items-center gap-2 py-3" style={{ borderTop: "1px solid rgba(var(--bb-ink-rgb),0.08)", minHeight: 44, color: C.coralText }}>
               <AlertTriangle size={14} /> <span className="text-sm font-semibold">Supprimer mon compte</span>
             </button>
 
@@ -331,7 +331,7 @@ export default function AppModals({
                     <button
                       onClick={() => onUnblock?.(p)}
                       className="text-xs font-bold px-3 py-2 rounded-full"
-                      style={{ border: "1px solid rgba(var(--bb-ink-rgb),0.15)", color: C.clay, minHeight: 36 }}
+                      style={{ border: "1px solid rgba(var(--bb-ink-rgb),0.15)", color: C.leaf, minHeight: 36 }}
                     >
                       Débloquer
                     </button>
@@ -416,7 +416,7 @@ export default function AppModals({
               )}
               {updateCheck.status === "available" && (
                 <div className="mt-1.5">
-                  <p className="text-xs font-semibold" style={{ color: C.clay }}>
+                  <p className="text-xs font-semibold" style={{ color: C.leaf }}>
                     Baobab {updateCheck.info.latestVersion} est disponible
                   </p>
                   {updateCheck.info.releaseNotes?.length > 0 && (

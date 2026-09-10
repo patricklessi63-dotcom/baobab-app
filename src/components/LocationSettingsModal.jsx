@@ -111,7 +111,7 @@ export default function LocationSettingsModal({ open, onClose, onBack, location,
                     />
                   </label>
                 ))}
-                <button onClick={() => onDisable?.()} className="w-full mt-4 py-3 rounded-full text-sm font-semibold" style={{ border: "1px solid rgba(193,97,61,0.4)", color: C.clay, minHeight: 44 }}>
+                <button onClick={() => onDisable?.()} className="w-full mt-4 py-3 rounded-full text-sm font-semibold" style={{ border: "1px solid rgba(192,57,43,0.4)", color: C.coralText, minHeight: 44 }}>
                   Désactiver ma localisation
                 </button>
               </>

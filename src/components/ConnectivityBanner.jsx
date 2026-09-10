@@ -18,7 +18,7 @@ export default function ConnectivityBanner() {
       role="status"
       aria-live="polite"
       className="flex items-center justify-center gap-2 py-2 text-sm font-semibold text-white"
-      style={{ background: isOnline ? C.online : C.clay }}
+      style={{ background: isOnline ? C.online : "#C0392B" }}
     >
       {isOnline ? <Wifi size={15} /> : <WifiOff size={15} />}
       {isOnline ? "Connexion rétablie." : "Connexion interrompue."}

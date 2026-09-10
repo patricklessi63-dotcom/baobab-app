@@ -19,7 +19,7 @@ export default function LocationRequiredGate({ onRetry, retrying, error, onSignO
           L'accès au bêta privé de Baobab nécessite la localisation activée. Réactive-la dans les réglages de ton navigateur ou de ton appareil, puis réessaie.
         </p>
         {error && (
-          <p role="alert" className="text-sm mt-3 font-semibold" style={{ color: C.clay }}>{error}</p>
+          <p role="alert" className="text-sm mt-3 font-semibold" style={{ color: C.coralText }}>{error}</p>
         )}
         <button onClick={onRetry} disabled={retrying} className="w-full mt-6 py-3 rounded-full text-sm font-bold text-white disabled:opacity-60" style={{ background: C.navy }}>
           {retrying ? "Vérification..." : "J'ai réactivé la localisation"}

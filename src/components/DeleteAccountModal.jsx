@@ -51,7 +51,7 @@ export default function DeleteAccountModal({ open, onClose, currentUser, onReque
       <div ref={panelRef} tabIndex={-1} className="bb-card w-full sm:max-w-sm p-6" style={{ borderRadius: "20px 20px 0 0" }} onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-            <AlertTriangle size={18} color={C.clay} />
+            <AlertTriangle size={18} color={C.coralText} />
             <span style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 19, color: "var(--bb-text)" }}>Supprimer mon compte</span>
           </div>
           <button onClick={onClose} aria-label="Fermer"><X size={18} /></button>
@@ -63,8 +63,8 @@ export default function DeleteAccountModal({ open, onClose, currentUser, onReque
           <span className="text-xs font-bold" style={{ color: "rgba(var(--bb-ink-rgb),0.6)" }}>Tape SUPPRIMER pour confirmer</span>
           <input value={confirmText} onChange={(e) => setConfirmText(e.target.value)} className="bb-input w-full mt-1.5" placeholder="SUPPRIMER" autoComplete="off" />
         </label>
-        {error && <p role="alert" className="text-sm mb-3" style={{ color: C.clay }}>{error}</p>}
-        <button onClick={handleDelete} disabled={!ready || loading} className="w-full py-3 rounded-full text-sm font-bold text-white disabled:opacity-40" style={{ background: C.clay, minHeight: 44 }}>
+        {error && <p role="alert" className="text-sm mb-3" style={{ color: C.coralText }}>{error}</p>}
+        <button onClick={handleDelete} disabled={!ready || loading} className="bb-btn-danger w-full py-3 rounded-full text-sm font-bold text-white disabled:opacity-40" style={{ minHeight: 44 }}>
           {loading ? "Enregistrement..." : "Programmer la suppression dans 24 heures"}
         </button>
         {/* Bug corrigé (même défaut que C.navy, passage 166) : C.ink est un

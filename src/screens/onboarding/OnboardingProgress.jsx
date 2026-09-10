@@ -21,7 +21,7 @@ export default function OnboardingProgress({ step }) {
       >
         <div
           className="h-full rounded-full motion-safe:transition-[width] motion-safe:duration-300"
-          style={{ width: `${pct}%`, background: `linear-gradient(90deg, ${C.ochre}, ${C.clay})` }}
+          style={{ width: `${pct}%`, background: `linear-gradient(90deg, ${C.ochre}, var(--bb-leaf))` }}
         />
       </div>
     </div>

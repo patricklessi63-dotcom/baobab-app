@@ -94,7 +94,7 @@ export default function EditProfileForm({
               height: 120,
               background: !coverRemoved && (coverPreview || currentUser?.cover_url)
                 ? `url(${coverPreview || currentUser.cover_url}) center/cover`
-                : `linear-gradient(150deg, ${C.ochre}, ${C.clay} 55%, ${C.indigo} 130%)`,
+                : `linear-gradient(150deg, ${C.ochre}, var(--bb-leaf) 55%, ${C.indigo} 130%)`,
             }}
           >
             {coverRemoved || (!coverPreview && !currentUser?.cover_url) ? (

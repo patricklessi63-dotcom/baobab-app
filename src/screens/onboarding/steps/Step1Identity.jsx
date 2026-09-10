@@ -148,13 +148,13 @@ export default function Step1Identity({ draft, update }) {
       />
 
       {draft.birthDate && age === null && (
-        <p className="text-xs" style={{ color: C.clay }}>Choisis une date de naissance valide.</p>
+        <p className="text-xs" style={{ color: C.coralTextStatic }}>Choisis une date de naissance valide.</p>
       )}
       {draft.birthDate && age !== null && age < 18 && (
-        <p className="text-xs" style={{ color: C.clay }}>Tu dois avoir au moins 18 ans pour utiliser Baobab.</p>
+        <p className="text-xs" style={{ color: C.coralTextStatic }}>Tu dois avoir au moins 18 ans pour utiliser Baobab.</p>
       )}
       {draft.birthDate && age !== null && age > 100 && (
-        <p className="text-xs" style={{ color: C.clay }}>Vérifie ta date de naissance.</p>
+        <p className="text-xs" style={{ color: C.coralTextStatic }}>Vérifie ta date de naissance.</p>
       )}
       {draft.birthDate && age !== null && age >= 18 && age <= 100 && (
         <p className="text-xs" style={{ color: "rgba(var(--bb-ink-rgb-static),0.5)" }}>Âge affiché sur ton profil : {age} ans. Ta date de naissance complète n'est jamais visible publiquement.</p>
