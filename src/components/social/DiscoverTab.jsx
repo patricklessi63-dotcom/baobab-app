@@ -211,6 +211,14 @@ export default function DiscoverTab({
     return list;
   }, [ranked, sort]);
 
+  // Réinitialise la pagination "Afficher plus" (mode grille) dès qu'un critère
+  // de filtre ou le tri change : sinon, après avoir élargi les critères, la
+  // fenêtre visible restait aussi grande qu'avant et affichait trop de profils
+  // d'un coup au lieu de repartir d'une page.
+  useEffect(() => {
+    setVisibleCount(GRID_PAGE_SIZE);
+  }, [filteredPeople, cityFilter, intentionFilter, interestFilter, languageFilter, activeRecentlyFilter, arrivalStageFilter, verifiedOnlyFilter, nearbyEnabled, nearbyMap, sort]);
+
   const visible = sorted.slice(0, visibleCount);
 
   return (
