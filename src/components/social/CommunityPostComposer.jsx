@@ -116,7 +116,7 @@ export default function CommunityPostComposer({ currentUser, draft, setDraft, on
           placeholder="Qui va au match samedi ?"
           aria-label="Écrire une publication"
           rows={2}
-          className="w-full text-sm rounded-2xl px-4 py-3 outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--bb-clay)] resize-none"
+          className="w-full text-sm rounded-2xl px-4 py-3 outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--bb-leaf)] resize-none"
           style={{ background: bg }}
         />
 

@@ -332,7 +332,7 @@ export default function ConversationPane({
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Rechercher dans cette conversation..."
             aria-label="Rechercher dans cette conversation"
-            className="flex-1 bg-transparent outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--bb-clay)] text-sm"
+            className="flex-1 bg-transparent outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--bb-leaf)] text-sm"
             style={{ color: primary }}
           />
           {searchQuery && <span className="text-xs shrink-0" style={{ color: muted }}>{visibleMessages.length} résultat{visibleMessages.length > 1 ? "s" : ""}</span>}
@@ -606,7 +606,7 @@ export default function ConversationPane({
             aria-label="Écrire un message"
             rows={1}
             maxLength={4000}
-            className="flex-1 text-sm rounded-2xl px-4 py-3 outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--bb-clay)] resize-none"
+            className="flex-1 text-sm rounded-2xl px-4 py-3 outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--bb-leaf)] resize-none"
             style={{ background: bg, fontSize: 16, maxHeight: 120 }}
           />
         )}

@@ -25,7 +25,7 @@ export default function EventCommentsSection({ comments = [], loading, canPost, 
             value={draft}
             onChange={(e) => setDraft(truncateUnicodeSafe(e.target.value, 1000))}
             placeholder="Écris un message pour les participants…"
-            className="flex-1 rounded-full px-4 py-2.5 text-sm outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--bb-clay)]"
+            className="flex-1 rounded-full px-4 py-2.5 text-sm outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--bb-leaf)]"
             style={{ background: bg }}
             onKeyDown={(e) => { if (e.key === "Enter" && trimmed) { onSubmit(); } }}
           />

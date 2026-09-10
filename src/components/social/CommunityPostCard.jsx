@@ -163,7 +163,7 @@ export default function CommunityPostCard({
                                 onChange={(e) => setEditDraft(truncateUnicodeSafe(e.target.value, 1000))}
                                 onKeyDown={(e) => { if (e.key === "Enter") submitEdit(); }}
                                 aria-label="Modifier le commentaire"
-                                className="flex-1 text-xs rounded-full px-3 py-1.5 outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--bb-clay)]"
+                                className="flex-1 text-xs rounded-full px-3 py-1.5 outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--bb-leaf)]"
                                 style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)", color: primary }}
                                 autoFocus
                               />
@@ -218,7 +218,7 @@ export default function CommunityPostCard({
                   onKeyDown={(e) => { if (e.key === "Enter") submitComment(); }}
                   placeholder="Écrire un commentaire..."
                   aria-label="Écrire un commentaire"
-                  className="flex-1 text-xs rounded-full px-3.5 py-2 outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--bb-clay)]"
+                  className="flex-1 text-xs rounded-full px-3.5 py-2 outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--bb-leaf)]"
                   style={{ background: bg }}
                 />
                 <button onClick={submitComment} disabled={!commentDraft.trim()} className="text-xs font-bold px-3 py-2 rounded-full disabled:opacity-40" style={{ color: coralText }}>

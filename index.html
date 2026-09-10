@@ -60,6 +60,10 @@
     :root {
       --bb-indigo: #14432A;
       --bb-indigo-deep: #0D2E1C;
+      /* DÉPRÉCIÉ — orange terracotta retiré de l'interface (direction validée) ;
+      ne plus utiliser, préférer --bb-leaf (accent d'action) ou --bb-coral-text
+      (alertes). Conservé le temps de migrer le dernier usage résiduel
+      (SocialShell.jsx). */
       --bb-clay: #C1613D;
       --bb-clay-deep: #A84E30;
       --bb-ochre: #D9A441;
@@ -222,8 +226,8 @@
     .bb-input::placeholder { color: var(--bb-muted); }
     .bb-input:focus {
       outline: none;
-      border-color: var(--bb-clay);
-      box-shadow: 0 0 0 3px rgba(193,97,61,0.14);
+      border-color: var(--bb-leaf);
+      box-shadow: 0 0 0 3px rgba(31,122,90,0.14);
     }
 
     .bb-btn { transition: transform .12s var(--bb-ease), box-shadow .18s var(--bb-ease), background .15s var(--bb-ease), opacity .15s var(--bb-ease); }
@@ -233,8 +237,8 @@
     .bb-btn-primary { background: var(--bb-indigo); color: var(--bb-sand); box-shadow: var(--bb-shadow-sm); }
     .bb-btn-primary:hover:not(:disabled) { background: var(--bb-indigo-deep); box-shadow: var(--bb-shadow-md); }
 
-    .bb-btn-heart { background: var(--bb-clay); color: #fff; box-shadow: 0 8px 20px rgba(193,97,61,0.35); }
-    .bb-btn-heart:hover:not(:disabled) { background: var(--bb-clay-deep); box-shadow: 0 10px 24px rgba(193,97,61,0.45); transform: translateY(-1px); }
+    .bb-btn-heart { background: var(--bb-leaf); color: #fff; box-shadow: 0 8px 20px rgba(31,122,90,0.35); }
+    .bb-btn-heart:hover:not(:disabled) { background: var(--bb-leaf-deep); box-shadow: 0 10px 24px rgba(31,122,90,0.45); transform: translateY(-1px); }
 
     /* Refonte or/noir — bouton d'action principal (Se rencontrer, Publier,
     Envoyer...), dégradé à deux arrêts au lieu d'un aplat. Texte toujours
