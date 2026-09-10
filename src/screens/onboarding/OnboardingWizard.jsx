@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import { ArrowLeft } from "lucide-react";
 import { supabase } from "../../supabaseClient";
 import { C, EDUCATION_LEVELS } from "../../constants";
@@ -73,6 +73,16 @@ export default function OnboardingWizard({
   // dernière étape — ne fait pas partie du compteur STEP_COUNT (pas de
   // colonne onboarding_step dédiée, ni d'entrée dans OnboardingProgress).
   const [showNotifPrompt, setShowNotifPrompt] = useState(false);
+  // Garde synchrone anti-double-clic/tap : `saving` est un état React posé de
+  // façon asynchrone, et le bouton n'est donc pas encore `disabled` au moment
+  // où un second clic très rapproché (ou un double-tap tactile) est traité.
+  // Sans cette garde, deux appels concurrents à saveStep() partent en
+  // parallèle — à l'étape 3 (photo), ils relisent tous les deux les mêmes
+  // lignes profile_photos existantes, calculent la même position de départ et
+  // insèrent des lignes en double avec des positions dupliquées ; à l'étape
+  // finale, ils réécrivent deux fois onboarding_completed_at. Même pattern que
+  // les inFlightRef d'AdminDashboard / ImmigrationNewsView.
+  const submitInFlightRef = useRef(false);
 
   const update = (patch) => setDraft((d) => ({ ...d, ...patch }));
 
@@ -276,13 +286,18 @@ export default function OnboardingWizard({
   }
 
   async function goNext() {
-    if (!currentValid) return;
-    const result = await saveStep();
-    if (!result) return;
-    if (step >= STEP_COUNT) {
-      setShowNotifPrompt(true);
-    } else {
-      setStep((s) => s + 1);
+    if (!currentValid || submitInFlightRef.current) return;
+    submitInFlightRef.current = true;
+    try {
+      const result = await saveStep();
+      if (!result) return;
+      if (step >= STEP_COUNT) {
+        setShowNotifPrompt(true);
+      } else {
+        setStep((s) => s + 1);
+      }
+    } finally {
+      submitInFlightRef.current = false;
     }
   }
 
@@ -300,7 +315,8 @@ export default function OnboardingWizard({
   // complétable après coup depuis Modifier mon profil, comme n'importe quel
   // autre réglage — jamais reproposé de force au prochain lancement.
   async function finishLater() {
-    if (!currentUser || saving) return;
+    if (!currentUser || saving || submitInFlightRef.current) return;
+    submitInFlightRef.current = true;
     setSaving(true);
     setError("");
     try {
@@ -319,6 +335,7 @@ export default function OnboardingWizard({
       setError("Une erreur est survenue. Réessaie.");
     } finally {
       setSaving(false);
+      submitInFlightRef.current = false;
     }
   }
 
