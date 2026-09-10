@@ -15,12 +15,7 @@ import FeedTab from "./social/FeedTab";
 import DiscoverTab from "./social/DiscoverTab";
 import MessagesTab from "./social/MessagesTab";
 import ProfileTab from "./social/ProfileTab";
-import StoryViewerModal from "./social/StoryViewerModal";
-import StoryComposerModal from "./social/StoryComposerModal";
 import PublicProfileModal from "./social/PublicProfileModal";
-import FavoritesModal from "./social/FavoritesModal";
-import AdmirersModal from "./social/AdmirersModal";
-import MatchPreferencesModal from "./social/MatchPreferencesModal";
 import { validateMediaFile } from "../lib/mediaValidation";
 import { compressImageIfNeeded } from "../lib/imageCompression";
 import { extFromMime } from "../lib/mediaConstants";
@@ -28,7 +23,6 @@ import { uploadWithProgress } from "../lib/uploadWithProgress";
 import { beginCriticalOperation, endCriticalOperation } from "../lib/criticalOperationGuard";
 import { trackBetaEvent } from "../lib/trackBetaEvent";
 import { friendlyDbError } from "../lib/friendlyDbError";
-import BetaFeedbackModal from "./social/BetaFeedbackModal";
 import ChunkErrorBoundary from "./ChunkErrorBoundary";
 import { useHiddenRecommendations } from "../lib/useHiddenRecommendations";
 import { escapeLikePattern, escapeOrFilterValue } from "../lib/searchQuery";
@@ -44,6 +38,19 @@ const EventsTab = lazy(() => import("./social/EventsTab"));
 const AdminDashboard = lazy(() => import("./admin/AdminDashboard"));
 const PremiumPage = lazy(() => import("./premium/PremiumPage"));
 const ImmigrationNewsView = lazy(() => import("./social/ImmigrationNewsView"));
+
+// Modales secondaires chargées à la demande (item 2c de l'allègement du
+// bundle) : chacune n'est montée que lorsqu'elle s'ouvre réellement, donc son
+// chunk ne se télécharge qu'au premier usage (statuts, favoris, « qui m'a
+// aimé », préférences de match, retour beta). Suspense sans fallback visible
+// (null) — l'ouverture d'une modale tolère un micro-délai réseau — sous un
+// ChunkErrorBoundary commun (même filet que les onglets ci-dessus).
+const StoryViewerModal = lazy(() => import("./social/StoryViewerModal"));
+const StoryComposerModal = lazy(() => import("./social/StoryComposerModal"));
+const FavoritesModal = lazy(() => import("./social/FavoritesModal"));
+const AdmirersModal = lazy(() => import("./social/AdmirersModal"));
+const MatchPreferencesModal = lazy(() => import("./social/MatchPreferencesModal"));
+const BetaFeedbackModal = lazy(() => import("./social/BetaFeedbackModal"));
 
 function TabLoadingFallback() {
   return (
@@ -2266,6 +2273,9 @@ export default function SocialShell({
         </div>
       </nav>
 
+      <ChunkErrorBoundary>
+       <Suspense fallback={null}>
+      {storyViewerIndex !== null && (
       <StoryViewerModal
         storyViewerIndex={storyViewerIndex}
         stories={visibleStories}
@@ -2290,7 +2300,9 @@ export default function SocialShell({
         onReport={setReportTarget}
         onBlock={handleBlock}
       />
+      )}
 
+      {storyComposer && (
       <StoryComposerModal
         storyComposer={storyComposer}
         setStoryComposer={setStoryComposer}
@@ -2314,6 +2326,9 @@ export default function SocialShell({
         storyVideoInputRef={storyVideoInputRef}
         addStory={addStory}
       />
+      )}
+      </Suspense>
+      </ChunkErrorBoundary>
 
       {viewedProfile && (
         <PublicProfileModal
@@ -2334,6 +2349,9 @@ export default function SocialShell({
         />
       )}
 
+      <ChunkErrorBoundary>
+      <Suspense fallback={null}>
+      {favoritesOpen && (
       <FavoritesModal
         open={favoritesOpen}
         onClose={() => setFavoritesOpen(false)}
@@ -2342,7 +2360,9 @@ export default function SocialShell({
         onToggleFavorite={toggleFavorite}
         onDiscover={() => { setFavoritesOpen(false); goTab("discover"); }}
       />
+      )}
 
+      {admirersOpen && (
       <AdmirersModal
         open={admirersOpen}
         onClose={() => setAdmirersOpen(false)}
@@ -2365,20 +2385,27 @@ export default function SocialShell({
         onViewProfile={(p) => { setAdmirersOpen(false); setViewedProfileId(p.id); }}
         onUpgrade={() => { setAdmirersOpen(false); goTab("premium"); }}
       />
+      )}
 
+      {feedbackOpen && (
       <BetaFeedbackModal
         open={feedbackOpen}
         onClose={() => setFeedbackOpen(false)}
         currentUser={currentUser}
         screen={tab}
       />
+      )}
 
+      {preferencesOpen && (
       <MatchPreferencesModal
         open={preferencesOpen}
         onClose={() => setPreferencesOpen(false)}
         currentUser={currentUser}
         onSave={handleSavePreferences}
       />
+      )}
+      </Suspense>
+      </ChunkErrorBoundary>
     </div>
   );
 }
