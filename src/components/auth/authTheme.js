@@ -10,7 +10,6 @@ export const C = {
   dusk: BASE.dusk,
   dusk3: BASE.dusk3,
   bark: BASE.bark,
-  clay: BASE.clay,
   leaf: BASE.leaf,
   coralText: BASE.coralText,
   coralTextStatic: BASE.coralTextStatic,

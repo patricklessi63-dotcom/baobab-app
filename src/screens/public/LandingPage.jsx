@@ -51,7 +51,7 @@ export default function LandingPage({ onLogin, onSignup, navigate }) {
 
         <div className="mt-8 flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
           <button onClick={onSignup} className="w-full sm:w-auto px-7 py-4 rounded-2xl text-sm font-bold outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2"
-            style={{ background: `linear-gradient(135deg, ${C.clay}, #A94F30)`, color: "#FFF8EF", boxShadow: "0 14px 32px -10px rgba(193,97,61,.65)" }}>
+            style={{ background: "var(--bb-leaf)", color: "#FFF8EF", boxShadow: "0 14px 32px -10px rgba(31,122,90,.6)" }}>
             Créer mon compte
           </button>
           <button onClick={onLogin} className="w-full sm:w-auto px-7 py-4 rounded-2xl text-sm font-bold outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2"

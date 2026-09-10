@@ -392,13 +392,13 @@ export default function Auth({ justVerified = false, onAcknowledgeVerified = () 
           )}
 
           {error && <div role="alert" className="bb-alert-shake mt-5 rounded-2xl px-4 py-3 text-sm"
-            style={{ background: "rgba(193,97,61,0.15)", color: "#F4A48C", border: "1px solid rgba(193,97,61,0.28)" }}>{error}</div>}
+            style={{ background: "rgba(229,107,93,0.15)", color: "#F4A48C", border: "1px solid rgba(229,107,93,0.30)" }}>{error}</div>}
 
           {/* Email déjà utilisé à l'inscription : proposer directement les deux issues
               plutôt que de laisser l'utilisateur retaper son email lui-même. */}
           {error && mode === "signup" && signupEmailExists && (
             <div className="mt-3 flex flex-wrap gap-2">
-              <button type="button" onClick={() => switchMode("signin")} className="bb-tap rounded-xl px-3.5 py-2 text-xs font-bold text-white" style={{ background: `linear-gradient(135deg, ${C.clay}, #A94F30)` }}>
+              <button type="button" onClick={() => switchMode("signin")} className="bb-tap rounded-xl px-3.5 py-2 text-xs font-bold text-white" style={{ background: "var(--bb-leaf)" }}>
                 Se connecter
               </button>
               <button type="button" onClick={() => switchMode("reset")} className="bb-tap rounded-xl px-3.5 py-2 text-xs font-semibold" style={{ color: C.ochre, border: "1px solid rgba(217,164,65,0.35)" }}>
@@ -414,7 +414,7 @@ export default function Auth({ justVerified = false, onAcknowledgeVerified = () 
           {mode === "link-error" && (
             <div className="mt-1">
               <div className="flex items-center gap-3 mb-4">
-                <span className="flex-shrink-0 h-11 w-11 rounded-full flex items-center justify-center" style={{ background: "rgba(193,97,61,0.16)" }}>
+                <span className="flex-shrink-0 h-11 w-11 rounded-full flex items-center justify-center" style={{ background: "rgba(229,107,93,0.16)" }}>
                   <AlertTriangle size={20} color="#F4A48C" />
                 </span>
                 <div>
@@ -423,7 +423,7 @@ export default function Auth({ justVerified = false, onAcknowledgeVerified = () 
                 </div>
               </div>
               <div className="flex flex-col gap-2.5">
-                <button onClick={() => switchMode("reset")} className="bb-tap py-3.5 rounded-2xl text-sm font-bold text-white" style={{ background: `linear-gradient(135deg, ${C.clay}, #A94F30)` }}>
+                <button onClick={() => switchMode("reset")} className="bb-tap py-3.5 rounded-2xl text-sm font-bold text-white" style={{ background: "var(--bb-leaf)" }}>
                   Recevoir un nouveau lien
                 </button>
                 <button onClick={() => switchMode("signin")} className="bb-tap py-3 rounded-2xl text-sm font-semibold" style={{ color: C.sandDim }}>
@@ -462,7 +462,7 @@ export default function Auth({ justVerified = false, onAcknowledgeVerified = () 
                   className="bb-field rounded-2xl px-4 py-4 text-center text-lg tracking-[0.3em] outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--bb-leaf)]"
                   style={{ background: "rgba(26,54,38,0.78)", border: "1px solid rgba(242,233,220,0.11)", color: C.sand }}
                 />
-                <button type="submit" disabled={verifyLoading || !otpCode.trim()} className="bb-tap py-3.5 rounded-2xl text-sm font-bold text-white disabled:opacity-60 outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2" style={{ background: `linear-gradient(135deg, ${C.clay}, #A94F30)` }}>
+                <button type="submit" disabled={verifyLoading || !otpCode.trim()} className="bb-tap py-3.5 rounded-2xl text-sm font-bold text-white disabled:opacity-60 outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2" style={{ background: "var(--bb-leaf)" }}>
                   {verifyLoading ? "Vérification..." : "Vérifier le code"}
                 </button>
               </form>
@@ -498,7 +498,7 @@ export default function Auth({ justVerified = false, onAcknowledgeVerified = () 
                   className="bb-field rounded-2xl px-4 py-4 text-center text-lg tracking-[0.3em] outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--bb-leaf)]"
                   style={{ background: "rgba(26,54,38,0.78)", border: "1px solid rgba(242,233,220,0.11)", color: C.sand }}
                 />
-                <button type="submit" disabled={verifyLoading || !otpCode.trim()} className="bb-tap py-3.5 rounded-2xl text-sm font-bold text-white disabled:opacity-60 outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2" style={{ background: `linear-gradient(135deg, ${C.clay}, #A94F30)` }}>
+                <button type="submit" disabled={verifyLoading || !otpCode.trim()} className="bb-tap py-3.5 rounded-2xl text-sm font-bold text-white disabled:opacity-60 outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2" style={{ background: "var(--bb-leaf)" }}>
                   {verifyLoading ? "Vérification..." : "Vérifier le code"}
                 </button>
               </form>
@@ -568,7 +568,7 @@ export default function Auth({ justVerified = false, onAcknowledgeVerified = () 
 
               <button type="submit" disabled={loading || (mode === "signup" && !signupReady) || (mode === "reset" && resetCooldown > 0)}
                 className="bb-submit bb-tap mt-1 flex items-center justify-center gap-2 rounded-2xl py-4 text-sm font-bold transition-transform duration-200 active:scale-[0.98] hover:scale-[1.01] disabled:opacity-60 outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2"
-                style={{ background: `linear-gradient(135deg, ${C.clay}, #A94F30)`, color: "#FFF8EF", boxShadow: "0 14px 32px -10px rgba(193,97,61,.65)" }}>
+                style={{ background: "var(--bb-leaf)", color: "#FFF8EF", boxShadow: "0 14px 32px -10px rgba(31,122,90,.6)" }}>
                 {loading && <Loader2 size={17} className="animate-spin" />}
                 {loading ? (mode === "signup" ? "Création..." : mode === "reset" ? "Envoi..." : "Connexion...")
                   : mode === "signup" ? "Créer mon compte"

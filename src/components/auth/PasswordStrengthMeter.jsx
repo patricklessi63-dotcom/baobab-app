@@ -3,11 +3,9 @@ import { Check } from "lucide-react";
 import { scorePassword } from "../../lib/passwordStrength";
 import { C } from "./authTheme";
 
-// Couleurs dupliquées en dur ici (bug corrigé à l'audit) alors qu'elles
-// existaient déjà comme jetons nommés dans authTheme.js (C.clay/C.ochre/
-// C.acacia, eux-mêmes réexportés de constants.js, source unique de
-// vérité) — un risque de dérive silencieuse si l'un de ces jetons était un
-// jour retouché sans que quiconque pense à répercuter le changement ici.
+// Jetons nommés (authTheme.js → constants.js, source unique de vérité)
+// plutôt que des hex en dur : mot de passe faible en corail-texte (couleur
+// d'alerte), moyen en ocre, fort en acacia (vert).
 const BAR_COLORS = [C.coralText, C.coralText, C.ochre, C.acacia, C.acacia];
 
 // Jauge de force réelle (voir src/lib/passwordStrength.js) + checklist des
