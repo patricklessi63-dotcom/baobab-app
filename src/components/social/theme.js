@@ -10,6 +10,7 @@ export const navy = BASE.navy;
 export const surface = BASE.surface;
 export const green = BASE.green;
 export const coral = BASE.coral;
+export const coralText = BASE.coralText;
 export const gold = BASE.gold;
 export const bg = BASE.bg;
 export const muted = BASE.muted;

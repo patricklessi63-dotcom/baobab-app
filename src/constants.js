@@ -41,6 +41,14 @@ export const C = {
   // profond primaire ci-dessus.
   green: "#2DBF9E",
   coral: "#E56B5D",
+  // "coralText" : corail réactif au thème, réservé au CORAIL UTILISÉ COMME
+  // COULEUR DE TEXTE (messages d'erreur, libellés de badges, item Déconnexion,
+  // highlightText...). En clair, #E56B5D échoue au contraste WCAG AA sur fond
+  // clair (~3:1, cible 4.5:1) : le jeton pointe vers une version assombrie
+  // (#C0392B, ~5:1) — voir --bb-coral-text dans index.html. En sombre il
+  // reste le corail vif (déjà conforme). Les usages FOND/DÉGRADÉ/BORDURE/
+  // ICÔNE gardent "coral" ci-dessus (non concernés par le contraste texte).
+  coralText: "var(--bb-coral-text)",
   gold: "#F2B84B",
 
   // --- Jetons de surface, réactifs au thème (clair/sombre, voir index.html) ---
