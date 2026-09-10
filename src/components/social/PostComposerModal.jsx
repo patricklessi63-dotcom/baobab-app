@@ -10,7 +10,7 @@ import PostMediaGrid from "./PostMediaGrid";
 import PostDropZone from "./PostDropZone";
 import { truncateUnicodeSafe } from "../../utils/format";
 import { formatFileSize } from "../../lib/mediaConstants";
-import { primary, navy, green, coral, coralText, gold, bg, muted, primaryRgb } from "./theme";
+import { primary, navy, green, coralText, gold, bg, muted, primaryRgb } from "./theme";
 
 export default function PostComposerModal({
   composer,
@@ -203,7 +203,7 @@ export default function PostComposerModal({
                               {state?.status === "error" && (
                                 <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center gap-1.5 text-white text-center px-2">
                                   <span className="text-[11px] font-semibold">Échec de l'envoi</span>
-                                  <button type="button" onClick={(e) => { e.stopPropagation(); onRetryMediaItem(it.id); }} className="flex items-center gap-1 text-[11px] font-bold rounded-full px-2.5 py-1" style={{ background: coral }}>
+                                  <button type="button" onClick={(e) => { e.stopPropagation(); onRetryMediaItem(it.id); }} className="bb-btn-danger flex items-center gap-1 text-[11px] font-bold rounded-full px-2.5 py-1">
                                     <RotateCcw size={11} /> Réessayer
                                   </button>
                                 </div>

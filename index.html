@@ -217,6 +217,21 @@
     .bb-btn-gold { background: linear-gradient(180deg, var(--bb-gold-1), var(--bb-gold-2)); color: #1C1608; box-shadow: 0 8px 20px rgba(201,150,47,0.3); }
     .bb-btn-gold:hover:not(:disabled) { box-shadow: 0 10px 24px rgba(201,150,47,0.4); transform: translateY(-1px); }
 
+    /* Bouton d'action à fond corail plein + libellé texte (Confirmer, Traiter,
+    Bloquer, Envoyer un signalement, Aperçu d'une story...). L'aplat d'identité
+    #E56B5D ne donne que 3.19:1 avec du texte blanc — échec WCAG AA pour du
+    texte < 18.66px gras. On assombrit le fond à #C0392B (teinte corail
+    conservée) : #fff dessus = 5.44:1. Valeur FIXE dans les deux thèmes : un
+    bouton destructeur reste un rouge saturé, et le jeton --bb-coral-text
+    rebascule vers #E56B5D en sombre (donc inutilisable ici). Les aplats/
+    dégradés/bordures/icônes corail SANS texte dessus ne sont pas concernés et
+    gardent C.coral. */
+    .bb-btn-danger { background: #C0392B; color: #fff; box-shadow: 0 8px 20px rgba(192,57,43,0.28); transition: transform .12s var(--bb-ease), box-shadow .18s var(--bb-ease), background .15s var(--bb-ease), opacity .15s var(--bb-ease); }
+    .bb-btn-danger:hover:not(:disabled) { background: #A93226; box-shadow: 0 10px 24px rgba(192,57,43,0.38); transform: translateY(-1px); }
+    .bb-btn-danger:active:not(:disabled) { transform: scale(0.98); }
+    .bb-btn-danger:disabled { opacity: .5; cursor: not-allowed; }
+    .bb-btn-danger:focus-visible { outline: 2px solid var(--bb-text); outline-offset: 2px; }
+
     .bb-btn-pass { background: var(--bb-surface); border: 1px solid var(--bb-border); color: var(--bb-text); }
     .bb-btn-pass:hover:not(:disabled) { border-color: rgba(33,27,23,0.28); background: rgba(33,27,23,0.03); }
 

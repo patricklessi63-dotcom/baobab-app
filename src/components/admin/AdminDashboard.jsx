@@ -442,7 +442,7 @@ export default function AdminDashboard({ onBack, onError, myPlatformRole }) {
             <textarea value={actionReason} onChange={(e) => setActionReason(truncateUnicodeSafe(e.target.value, 500))} placeholder="Motif (visible par la personne concernée)" rows={3} className="w-full mt-4 rounded-xl px-3.5 py-2.5 text-sm outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--bb-clay)] resize-none" style={{ background: bg }} />
             <div className="flex gap-2 mt-4">
               <button onClick={() => setActionTarget(null)} disabled={actionSaving} className="flex-1 py-3 rounded-full text-sm font-semibold disabled:opacity-50" style={{ border: `1px solid rgba(${primaryRgb},.12)`, color: primary }}>Annuler</button>
-              <button onClick={confirmAction} disabled={actionSaving} className="flex-1 py-3 rounded-full text-sm font-bold text-white disabled:opacity-50" style={{ background: coral }}>{actionSaving ? "..." : "Confirmer"}</button>
+              <button onClick={confirmAction} disabled={actionSaving} className="bb-btn-danger flex-1 py-3 rounded-full text-sm font-bold disabled:opacity-50">{actionSaving ? "..." : "Confirmer"}</button>
             </div>
           </div>
         </div>

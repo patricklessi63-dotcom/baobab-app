@@ -64,7 +64,7 @@ export default function ConfirmModal({
           <button onClick={onCancel} disabled={confirming} className="flex-1 py-2.5 rounded-full text-sm font-semibold disabled:opacity-50" style={{ border: `1px solid rgba(${primaryRgb},.12)`, color: primary }}>
             {cancelLabel}
           </button>
-          <button onClick={handleConfirm} disabled={confirming} className="flex-1 py-2.5 rounded-full text-sm font-bold text-white disabled:opacity-50" style={{ background: danger ? coral : primary }}>
+          <button onClick={handleConfirm} disabled={confirming} className={`flex-1 py-2.5 rounded-full text-sm font-bold text-white disabled:opacity-50 ${danger ? "bb-btn-danger" : ""}`} style={danger ? undefined : { background: primary }}>
             {confirming ? "..." : confirmLabel}
           </button>
         </div>

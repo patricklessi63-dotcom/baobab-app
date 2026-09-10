@@ -309,7 +309,7 @@ export default function EventDetailView({
                     {rep.reason && <p className="text-xs mt-1" style={{ color: muted }}>{rep.reason}</p>}
                     <div className="flex gap-2 mt-2.5">
                       <button onClick={() => onDismissReport(rep)} className="flex-1 text-xs font-bold py-2 rounded-full" style={{ border: `1px solid rgba(${primaryRgb},.15)`, color: primary }}>Ignorer</button>
-                      <button onClick={() => onResolveReport(rep)} className="flex-1 text-xs font-bold py-2 rounded-full text-white" style={{ background: coral }}>Traiter</button>
+                      <button onClick={() => onResolveReport(rep)} className="bb-btn-danger flex-1 text-xs font-bold py-2 rounded-full">Traiter</button>
                     </div>
                   </div>
                 ))}

@@ -60,7 +60,7 @@ export default function CommunityAdminPanel({ joinRequests = [], reports = [], c
                   <button onClick={() => onDismissReport(rep)} className="flex-1 text-xs font-bold py-2 rounded-full" style={{ border: `1px solid rgba(${primaryRgb},.15)`, color: primary }}>
                     Ignorer
                   </button>
-                  <button onClick={() => onResolveReport(rep)} className="flex-1 text-xs font-bold py-2 rounded-full text-white" style={{ background: coral }}>
+                  <button onClick={() => onResolveReport(rep)} className="bb-btn-danger flex-1 text-xs font-bold py-2 rounded-full">
                     Traiter
                   </button>
                 </div>

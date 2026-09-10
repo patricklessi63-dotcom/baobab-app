@@ -39,7 +39,7 @@ export default function BlockConfirmModal({ target, onCancel, onConfirm }) {
           <button onClick={onCancel} disabled={confirming} className="flex-1 py-2.5 rounded-full text-sm font-semibold disabled:opacity-50" style={{ border: `1px solid rgba(${primaryRgb},.12)`, color: primary }}>
             Annuler
           </button>
-          <button onClick={handleConfirm} disabled={confirming} className="flex-1 py-2.5 rounded-full text-sm font-bold text-white disabled:opacity-50" style={{ background: coral }}>
+          <button onClick={handleConfirm} disabled={confirming} className="bb-btn-danger flex-1 py-2.5 rounded-full text-sm font-bold disabled:opacity-50">
             {confirming ? "Blocage..." : "Bloquer"}
           </button>
         </div>

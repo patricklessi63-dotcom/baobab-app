@@ -2,7 +2,7 @@ import React, { useRef } from "react";
 import ChipSelect from "../ChipSelect";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
-import { primary, navy, coral, muted, card, primaryRgb } from "./theme";
+import { primary, navy, muted, card, primaryRgb } from "./theme";
 import { truncateUnicodeSafe } from "../../utils/format";
 
 const DEFAULT_CATEGORIES = [
@@ -101,8 +101,7 @@ export default function ReportModal({
               <button
                 onClick={onSubmit}
                 disabled={sending || !canSubmit}
-                className="flex-1 py-2.5 rounded-full text-sm font-bold text-white disabled:opacity-50"
-                style={{ background: coral }}
+                className="bb-btn-danger flex-1 py-2.5 rounded-full text-sm font-bold disabled:opacity-50"
               >
                 {sending ? "Envoi..." : "Envoyer"}
               </button>
@@ -121,7 +120,7 @@ export default function ReportModal({
                   <button onClick={onDismissAfterSubmit} className="flex-1 py-2.5 rounded-full text-sm font-semibold" style={{ border: `1px solid rgba(${primaryRgb},.12)`, color: primary }}>
                     Ne pas bloquer
                   </button>
-                  <button onClick={() => onBlockAlso(target)} className="flex-1 py-2.5 rounded-full text-sm font-bold text-white" style={{ background: coral }}>
+                  <button onClick={() => onBlockAlso(target)} className="bb-btn-danger flex-1 py-2.5 rounded-full text-sm font-bold">
                     Bloquer
                   </button>
                 </div>

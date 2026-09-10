@@ -118,7 +118,7 @@ export default function StoryComposerModal({
                   </div>
                 </div>
                 <div className="p-6 pt-0 shrink-0">
-                  <button onClick={goPreview} disabled={!canContinue} className="w-full rounded-xl py-3 text-white font-bold disabled:opacity-40" style={{ background: coral }}>
+                  <button onClick={goPreview} disabled={!canContinue} className="bb-btn-gold w-full rounded-xl py-3 font-bold disabled:opacity-40">
                     Aperçu
                   </button>
                 </div>
