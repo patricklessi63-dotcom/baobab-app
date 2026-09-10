@@ -1,5 +1,6 @@
 import React from "react";
 import { navy, green, gold } from "../social/theme";
+import BaobabLogo from "../BaobabLogo";
 
 export default function BaobabHero({ recommendationsCount = 0, profileCompletePct = 100, onDiscover, onCompleteProfile }) {
   return (
@@ -8,10 +9,12 @@ export default function BaobabHero({ recommendationsCount = 0, profileCompletePc
       style={{ background: `linear-gradient(145deg,${navy},#1E4632 55%,${green})` }}
     >
       <div className="absolute -right-16 -top-16 h-48 w-48 rounded-full bg-white/10" aria-hidden="true" />
-      <div className="absolute -right-6 -bottom-12 text-[140px] leading-none opacity-10 select-none" aria-hidden="true">🌳</div>
+      <BaobabLogo size={180} color="#fff" className="absolute -right-6 -bottom-12 opacity-10 select-none pointer-events-none" />
 
       <div className="relative max-w-2xl">
-        <div className="text-[11px] uppercase tracking-[.22em] text-white/55 font-bold">🌳 Mon Baobab</div>
+        <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-[.22em] text-white/55 font-bold">
+          <BaobabLogo size={14} color="currentColor" /> Mon Baobab
+        </div>
         <h2 className="text-2xl md:text-3xl font-black mt-2 leading-tight">Ton cercle canadien commence ici.</h2>
         <p className="text-sm text-white/70 mt-2 leading-6 max-w-md">
           Découvre des personnes qui partagent tes envies, tes valeurs et ton parcours.
