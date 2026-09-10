@@ -31,16 +31,32 @@ self.addEventListener("push", (event) => {
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
   const targetUrl = event.notification.data?.url || "/";
+  const absoluteTarget = new URL(targetUrl, self.location.origin).href;
 
   event.waitUntil(
-    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientsList) => {
-      for (const client of clientsList) {
-        if ("focus" in client) {
-          client.navigate(targetUrl);
-          return client.focus();
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then(async (clientsList) => {
+      // Priorité à un onglet Baobab déjà ouvert : on le concentre, et on ne
+      // le fait naviguer que s'il n'est pas déjà sur la bonne page (éviter de
+      // couper net ce que l'utilisateur était en train de faire).
+      const sameOrigin = clientsList.filter((c) => {
+        try {
+          return new URL(c.url).origin === self.location.origin;
+        } catch (_) {
+          return false;
         }
+      });
+      const exact = sameOrigin.find((c) => c.url === absoluteTarget);
+      const client = exact || sameOrigin[0];
+      if (client) {
+        try {
+          if (!exact && "navigate" in client) await client.navigate(absoluteTarget);
+        } catch (_) {
+          // navigate() rejette si l'onglet n'est pas contrôlé par ce SW
+          // (enregistré tardivement) — on se contente alors de le concentrer.
+        }
+        if ("focus" in client) return client.focus();
       }
-      if (self.clients.openWindow) return self.clients.openWindow(targetUrl);
+      if (self.clients.openWindow) return self.clients.openWindow(absoluteTarget);
     })
   );
 });
