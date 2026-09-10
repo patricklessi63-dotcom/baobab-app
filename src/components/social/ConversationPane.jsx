@@ -1,5 +1,5 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { ArrowLeft, MoreVertical, MoreHorizontal, Reply, X, Flag, Ban, Check, CheckCheck, Circle, ShieldAlert, ShieldCheck, RotateCcw, HeartCrack, Search, MapPin, Languages, Loader2, UserRound } from "lucide-react";
+import { ArrowLeft, ArrowDown, MoreVertical, MoreHorizontal, Reply, X, Flag, Ban, Check, CheckCheck, Circle, ShieldAlert, ShieldCheck, RotateCcw, HeartCrack, Search, MapPin, Languages, Loader2, UserRound } from "lucide-react";
 import Avatar from "../Avatar";
 import StatusBadge from "../StatusBadge";
 import ConversationStarters from "./ConversationStarters";
@@ -95,11 +95,38 @@ export default function ConversationPane({
   const [rateLimited, setRateLimited] = useState(false);
   const [recorderActive, setRecorderActive] = useState(false);
   const [openActionsFor, setOpenActionsFor] = useState(null);
+  // Bouton flottant « ↓ nouveaux messages » : affiché quand un message
+  // arrive alors que l'utilisateur a fait défiler vers le haut pour relire
+  // l'historique — on ne force alors jamais le défilement.
+  const [showJumpButton, setShowJumpButton] = useState(false);
   const sendTimestampsRef = useRef([]);
   const listRef = useRef(null);
   const prevScrollHeightRef = useRef(0);
   const menuRef = useRef(null);
   const actionsMenuRef = useRef(null);
+  // Défilement du fil : instantané au premier rendu de la conversation,
+  // fluide ensuite (nouveau message reçu/envoyé) tant que l'utilisateur est
+  // déjà en bas. nearBottomRef est tenu à jour par onScroll ; forceScrollRef
+  // force un suivi fluide quand c'est l'utilisateur lui-même qui envoie.
+  const isInitialScrollRef = useRef(true);
+  const nearBottomRef = useRef(true);
+  const forceScrollRef = useRef(false);
+
+  const isNearBottom = () => {
+    const el = listRef.current;
+    if (!el) return true;
+    return el.scrollHeight - el.scrollTop - el.clientHeight < 120;
+  };
+  const scrollListToBottom = (behavior) => {
+    const el = listRef.current;
+    if (!el) return;
+    if (typeof el.scrollTo === "function") el.scrollTo({ top: el.scrollHeight, behavior });
+    else el.scrollTop = el.scrollHeight;
+  };
+  const handleListScroll = () => {
+    nearBottomRef.current = isNearBottom();
+    if (nearBottomRef.current) setShowJumpButton(false);
+  };
 
   // Fondu d'apparition (bb-fade-in) réservé au DERNIER message quand la liste
   // grandit par le bas — jamais au montage (sinon tout l'historique « pop »),
@@ -186,11 +213,31 @@ export default function ConversationPane({
   useLayoutEffect(() => {
     const el = listRef.current;
     if (!el) return;
+
+    // 1. Prepend d'historique : on conserve la position de lecture exacte,
+    //    jamais de saut vers le bas.
     if (prevScrollHeightRef.current) {
       el.scrollTop += el.scrollHeight - prevScrollHeightRef.current;
       prevScrollHeightRef.current = 0;
-    } else {
+      return;
+    }
+
+    // 2. Premier rendu de la conversation : positionnement instantané en bas.
+    if (isInitialScrollRef.current) {
       el.scrollTop = el.scrollHeight;
+      if (messages.length) isInitialScrollRef.current = false;
+      return;
+    }
+
+    // 3. Nouveau message : suivi fluide si c'est moi qui envoie ou si je suis
+    //    déjà en bas ; sinon on ne bouge pas et on propose le bouton flottant.
+    if (forceScrollRef.current || nearBottomRef.current) {
+      forceScrollRef.current = false;
+      nearBottomRef.current = true;
+      setShowJumpButton(false);
+      scrollListToBottom("smooth");
+    } else {
+      setShowJumpButton(true);
     }
   }, [messages.length]);
 
@@ -229,6 +276,7 @@ export default function ConversationPane({
       return;
     }
     sendTimestampsRef.current = [...remainingTimestamps, Date.now()];
+    forceScrollRef.current = true; // c'est moi qui envoie → suivi fluide jusqu'en bas
     fn(...args);
   };
 
@@ -341,7 +389,7 @@ export default function ConversationPane({
       )}
 
       <ChatDropZone onDropFile={(file) => guardedSend(sendMediaMessage)(file, detectKindFromMime(file.type))}>
-      <div ref={listRef} role="log" aria-live="polite" aria-atomic="false" className="flex-1 p-4 flex flex-col gap-1 overflow-y-auto">
+      <div ref={listRef} onScroll={handleListScroll} role="log" aria-live="polite" aria-atomic="false" className="flex-1 p-4 flex flex-col gap-1 overflow-y-auto">
         {hasMoreHistory && (
           <button onClick={onLoadOlder} disabled={loadingOlder} className="self-center text-xs font-bold px-3 py-2 rounded-full mb-2 disabled:opacity-50" style={{ background: bg, color: primary }}>
             {loadingOlder ? "Chargement…" : "Charger les messages précédents"}
@@ -521,6 +569,16 @@ export default function ConversationPane({
           );
         })}
       </div>
+      {showJumpButton && (
+        <button
+          type="button"
+          onClick={() => { scrollListToBottom("smooth"); nearBottomRef.current = true; setShowJumpButton(false); }}
+          className="bb-fade-in absolute left-1/2 -translate-x-1/2 bottom-3 z-10 flex items-center gap-1 text-xs font-bold px-3 py-1.5 rounded-full text-white focus-visible:outline focus-visible:outline-2"
+          style={{ background: "var(--bb-leaf)", boxShadow: "0 6px 20px rgba(31,122,90,0.4)" }}
+        >
+          <ArrowDown size={13} /> Nouveaux messages
+        </button>
+      )}
       </ChatDropZone>
 
       {messages.length === 0 && (
