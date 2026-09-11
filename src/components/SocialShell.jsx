@@ -8,7 +8,7 @@ import { matchKey, visibleAge } from "../utils/format";
 import { useClickOutside } from "../hooks/useClickOutside";
 import { useEscapeKey } from "../hooks/useEscapeKey";
 import { useOnlineStatus } from "../hooks/useOnlineStatus";
-import { primary, navy, coral, coralText, gold, bg, muted, buttonBase, body, primaryRgb } from "./social/theme";
+import { primary, navy, coral, coralText, gold, leaf, bg, muted, buttonBase, body, primaryRgb } from "./social/theme";
 import { NOTIFICATION_LABELS, NOTIF_CATEGORIES, groupNotificationRows } from "../lib/notificationLabels";
 import Skeleton from "./Skeleton";
 import FeedTab from "./social/FeedTab";
@@ -851,13 +851,31 @@ export default function SocialShell({
   // l'ouverture du menu sans faire disparaître la liste sous les yeux.
   const [communityNotifications, setCommunityNotifications] = useState([]);
   const [unreadCommunityCount, setUnreadCommunityCount] = useState(0);
+  // Pagination « charger plus » du panneau de notifications : la requête ne
+  // ramenait que les 20 non-lues les plus récentes, rendant les plus
+  // anciennes invisibles. notifLimit monte par paliers de 20 à chaque clic ;
+  // notifLimitRef permet à fetchNotifications (créé une seule fois, deps
+  // [currentUser]) de lire la limite courante sans être recréé. notifHasMore
+  // = la dernière page était pleine, donc il en reste probablement d'autres.
+  const [notifLimit, setNotifLimit] = useState(20);
+  const [notifHasMore, setNotifHasMore] = useState(false);
+  const notifLimitRef = useRef(20);
   const fetchNotificationsRef = useRef(null);
+  // Déclenche le refetch (via la fonction stable fetchNotificationsRef,
+  // sans recréer l'abonnement Realtime ci-dessous) quand l'utilisateur
+  // clique « Charger plus ». Le garde-fou sur la valeur initiale (20) évite
+  // un 2e fetch redondant juste après celui du montage.
+  useEffect(() => {
+    notifLimitRef.current = notifLimit;
+    if (notifLimit === 20) return;
+    fetchNotificationsRef.current?.();
+  }, [notifLimit]);
   // Miroir en ref de la liste, lu par le handler Realtime pour dédupliquer
   // sans setState imbriqué (voir le commentaire du .on("postgres_changes")).
   const communityNotificationsRef = useRef([]);
   useEffect(() => { communityNotificationsRef.current = communityNotifications; }, [communityNotifications]);
   useEffect(() => {
-    if (!currentUser) { setCommunityNotifications([]); setUnreadCommunityCount(0); return; }
+    if (!currentUser) { setCommunityNotifications([]); setUnreadCommunityCount(0); setNotifLimit(20); setNotifHasMore(false); return; }
     let alive = true;
     const fetchNotifications = () => supabase
       .from("notifications")
@@ -865,12 +883,13 @@ export default function SocialShell({
       .eq("recipient_id", currentUser.id)
       .is("read_at", null)
       .order("created_at", { ascending: false })
-      .limit(20)
+      .limit(notifLimitRef.current)
       .then(({ data, error }) => {
         if (!alive) return;
         if (error) { console.error(error.message, error.code, error.details, error.hint); return; }
         setCommunityNotifications(data || []);
         setUnreadCommunityCount((data || []).length);
+        setNotifHasMore((data || []).length >= notifLimitRef.current);
       });
     fetchNotificationsRef.current = fetchNotifications;
     fetchNotifications();
@@ -894,8 +913,8 @@ export default function SocialShell({
         // rendu concurrent abandonné puis rejoué en prod) — le badge gagnait
         // alors +2 par notification alors que la liste n'en recevait qu'une.
         if (communityNotificationsRef.current.some((n) => n.id === payload.new.id)) return;
-        communityNotificationsRef.current = [payload.new, ...communityNotificationsRef.current].slice(0, 20);
-        setCommunityNotifications((prev) => (prev.some((n) => n.id === payload.new.id) ? prev : [payload.new, ...prev].slice(0, 20)));
+        communityNotificationsRef.current = [payload.new, ...communityNotificationsRef.current].slice(0, notifLimitRef.current);
+        setCommunityNotifications((prev) => (prev.some((n) => n.id === payload.new.id) ? prev : [payload.new, ...prev].slice(0, notifLimitRef.current)));
         setUnreadCommunityCount((n) => n + 1);
       })
       .subscribe();
@@ -1964,6 +1983,15 @@ export default function SocialShell({
                           {row.icon} {row.label}
                         </button>
                       ))}
+                    {notifHasMore && (
+                      <button
+                        onClick={() => setNotifLimit((l) => l + 20)}
+                        className="text-center py-2 text-xs font-bold rounded-xl hover:bg-[var(--bb-bg)] focus-visible:outline focus-visible:outline-2"
+                        style={{ color: leaf }}
+                      >
+                        Charger plus
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
