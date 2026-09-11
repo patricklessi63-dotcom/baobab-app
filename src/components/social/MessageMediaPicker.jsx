@@ -64,7 +64,14 @@ export default function MessageMediaPicker({ onPickFile, onPickSticker }) {
           role="menu"
           aria-label={view === "stickers" ? "Stickers" : "Ajouter un média"}
           className={`${card} overflow-hidden p-3`}
-          style={{ position: "absolute", bottom: 48, left: 0, width: "min(300px, calc(100vw - 32px))", maxWidth: "calc(100vw - 32px)", zIndex: 20 }}
+          // Ce bouton est le 2e de la barre de saisie (après l'emoji, ~64px de
+          // décalage à gauche fixe : padding 16 + bouton emoji 40 + gap 8 — voir
+          // ConversationPane.jsx). calc(100vw - 32px) (recette d'EmojiPicker, dont
+          // le bouton est collé au bord à 16px) laissait ce popup-ci déborder de
+          // ~32px à droite sur les écrans étroits (<332px, ex. 320px) : le calcul
+          // doit soustraire ce décalage de 64px plutôt qu'un simple 16px de marge
+          // symétrique. calc(100vw - 80px) = décalage 64px + 16px de marge.
+          style={{ position: "absolute", bottom: 48, left: 0, width: "min(300px, calc(100vw - 80px))", maxWidth: "calc(100vw - 80px)", zIndex: 20 }}
         >
           {view === "menu" ? (
             <div className="grid grid-cols-4 gap-2">
