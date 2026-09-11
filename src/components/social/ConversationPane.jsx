@@ -721,7 +721,14 @@ export default function ConversationPane({
             aria-label="Écrire un message"
             rows={1}
             maxLength={4000}
-            className="bb-composer-input flex-1 text-sm rounded-2xl px-4 py-3 outline-none resize-none"
+            // min-w-0 : sans lui, le <textarea> (flex-1) garde son
+            // min-width:auto par défaut — dérivé de son attribut "cols"
+            // implicite (~20 caractères) — et refuse de rétrécir sous cette
+            // largeur. Avec emoji + pièce jointe + IA + micro/envoi à côté
+            // (~216px de boutons fixes + paddings/gaps), ça dépassait déjà la
+            // largeur d'un écran de 320-375px avant même que le texte soit
+            // pris en compte, débordant la barre de saisie hors de l'écran.
+            className="bb-composer-input flex-1 min-w-0 text-sm rounded-2xl px-4 py-3 outline-none resize-none"
             style={{ background: bg, fontSize: 16, maxHeight: 120 }}
           />
         )}

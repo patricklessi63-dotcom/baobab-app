@@ -68,11 +68,11 @@ export default function LandingPage({ onLogin, onSignup, navigate }) {
         )}
 
         <div className="mt-10 flex justify-center flex-wrap gap-x-4 gap-y-2 text-[11px]" style={{ color: "rgba(242,233,220,0.5)" }}>
-          <button type="button" onClick={() => navigate("/a-propos")} className="underline decoration-dotted underline-offset-2">À propos</button>
+          <button type="button" onClick={() => navigate("/a-propos")} className="min-h-11 inline-flex items-center underline decoration-dotted underline-offset-2">À propos</button>
           <span>•</span>
-          <button type="button" onClick={() => navigate("/confidentialite")} className="underline decoration-dotted underline-offset-2">Confidentialité</button>
+          <button type="button" onClick={() => navigate("/confidentialite")} className="min-h-11 inline-flex items-center underline decoration-dotted underline-offset-2">Confidentialité</button>
           <span>•</span>
-          <button type="button" onClick={() => navigate("/conditions")} className="underline decoration-dotted underline-offset-2">Conditions</button>
+          <button type="button" onClick={() => navigate("/conditions")} className="min-h-11 inline-flex items-center underline decoration-dotted underline-offset-2">Conditions</button>
         </div>
       </div>
     </main>

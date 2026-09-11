@@ -15,7 +15,7 @@ export default function PublicPageShell({ title, navigate, children }) {
     <main className="min-h-screen flex flex-col items-center px-4 py-8 sm:px-6"
       style={{ background: C.dusk, color: C.sand, fontFamily: "Inter, system-ui, sans-serif" }}>
       <div className="w-full max-w-2xl">
-        <button type="button" onClick={() => navigate("/")} className="inline-flex items-center gap-1 text-xs font-semibold mb-6" style={{ color: C.sandDim }}>
+        <button type="button" onClick={() => navigate("/")} className="min-h-11 inline-flex items-center gap-1 text-xs font-semibold mb-6" style={{ color: C.sandDim }}>
           <ArrowLeft size={14} /> Retour à l'accueil
         </button>
 
