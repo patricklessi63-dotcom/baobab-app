@@ -408,6 +408,17 @@
       *, *::before, *::after { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
     }
   </style>
+  <!-- ATTENTION : la Content-Security-Policy de production (vercel.json,
+  en-tête script-src) n'autorise QUE les 2 scripts inline suivants, chacun
+  identifié par son hash SHA-256 exact — pas de 'unsafe-inline'. Modifier ne
+  serait-ce qu'un espace ou un commentaire À L'INTÉRIEUR d'un de ces deux
+  blocs change son hash et le fait bloquer SILENCIEUSEMENT en production
+  (bug vécu le 2026-09-11 : la pause d'animation en arrière-plan ne
+  s'exécutait jamais en prod, seulement en dev où cet en-tête n'est pas
+  envoyé — l'erreur n'apparaît que dans la console du navigateur). Après
+  toute édition d'un de ces 2 blocs : `npm run build`, recalculer son hash
+  SHA-256/base64 depuis dist/index.html, et mettre à jour script-src dans
+  vercel.json avec la nouvelle valeur. -->
   <script>
     // Applique le thème AVANT le premier rendu (évite le flash). Par défaut
     // (aucune préférence enregistrée) : clair, même si le système est en
