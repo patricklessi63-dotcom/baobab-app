@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://baobab-app-zeta.vercel.app/sitemap.xml

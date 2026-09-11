@@ -18,12 +18,16 @@
   <meta property="og:title" content="Baobab" />
   <meta property="og:description" content="L'application de rencontres et de communauté pour les immigrants au Canada." />
   <meta property="og:type" content="website" />
-  <meta property="og:image" content="/icon-512.png" />
-  <!-- og:url et <link rel="canonical"> à ajouter une fois le domaine officiel configuré (Phase 10, section 10) -->
+  <!-- URL absolue : og:image ne se résout pas de façon fiable en relatif chez
+  tous les crawlers de partage social (Facebook/LinkedIn notamment). À mettre
+  à jour si un domaine officiel remplace l'URL Vercel. -->
+  <meta property="og:image" content="https://baobab-app-zeta.vercel.app/icon-512.png" />
+  <meta property="og:url" content="https://baobab-app-zeta.vercel.app/" />
+  <link rel="canonical" href="https://baobab-app-zeta.vercel.app/" />
   <meta name="twitter:card" content="summary" />
   <meta name="twitter:title" content="Baobab" />
   <meta name="twitter:description" content="L'application de rencontres et de communauté pour les immigrants au Canada." />
-  <meta name="twitter:image" content="/icon-512.png" />
+  <meta name="twitter:image" content="https://baobab-app-zeta.vercel.app/icon-512.png" />
   <link rel="icon" type="image/png" sizes="64x64" href="/icon-64.png" />
   <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
   <link rel="apple-touch-icon" href="/icon-192.png" />
