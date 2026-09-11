@@ -5,7 +5,7 @@ import StatusBadge from "../StatusBadge";
 import ConfirmModal from "./ConfirmModal";
 import { roleLabel } from "../../lib/communities/communityConfig";
 import { canSetRole, canRemoveMember } from "../../lib/communities/permissions";
-import { primary, coral, gold, muted } from "./theme";
+import { primary, coral, goldText, muted } from "./theme";
 
 export default function CommunityMemberRow({ member, viewerRole, currentUserId, onViewProfile, onSetRole, onRemove }) {
   // Remplace l'ancien window.confirm() de retrait — voir ConfirmModal.jsx.
@@ -45,7 +45,7 @@ export default function CommunityMemberRow({ member, viewerRole, currentUserId, 
                 sont désormais chargés dans loadMembers() (CommunitiesTab.jsx). */}
             <StatusBadge isFounder={profile.is_founder} isPremium={profile.is_premium} emailVerified={profile.email_verified} phoneVerified={profile.phone_verified} size={12} />
             {member.role !== "member" && (
-              <span className="text-[10px] font-black px-1.5 py-0.5 rounded-full" style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)", color: member.role === "owner" ? gold : primary }}>
+              <span className="text-[10px] font-black px-1.5 py-0.5 rounded-full" style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)", color: member.role === "owner" ? goldText : primary }}>
                 {roleLabel(member.role)}
               </span>
             )}
@@ -66,7 +66,7 @@ export default function CommunityMemberRow({ member, viewerRole, currentUserId, 
             </button>
           )}
           {canPromoteToAdmin && (
-            <button onClick={() => onSetRole(member, "admin")} aria-label={`Promouvoir ${firstName} administrateur`} className="h-8 w-8 rounded-full flex items-center justify-center" style={{ color: gold }}>
+            <button onClick={() => onSetRole(member, "admin")} aria-label={`Promouvoir ${firstName} administrateur`} className="h-8 w-8 rounded-full flex items-center justify-center" style={{ color: goldText }}>
               <ChevronsUp size={16} />
             </button>
           )}

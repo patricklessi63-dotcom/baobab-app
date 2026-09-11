@@ -1,6 +1,6 @@
 import React from "react";
 import { Bell } from "lucide-react";
-import { navy, coralText, gold, leaf, bg, muted } from "./theme";
+import { navy, coralText, goldText, leaf, bg, muted } from "./theme";
 import { NOTIFICATION_LABELS, NOTIF_CATEGORIES, groupNotificationRows } from "../../lib/notificationLabels";
 
 // Dropdown de la cloche du header de SocialShell.jsx (liste des notifications
@@ -63,7 +63,7 @@ export default function NotificationsDropdown({
       ) : (
         <div className="flex flex-col gap-1 max-h-72 overflow-y-auto" onTouchStart={onNotifTouchStart} onTouchEnd={onNotifTouchEnd}>
           {incomingFavoritesCount > 0 && (notifCategory === "all" || notifCategory === "dating") && (
-            <div className="px-2 py-2.5 rounded-xl text-sm" style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)", color: gold }}>
+            <div className="px-2 py-2.5 rounded-xl text-sm" style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)", color: goldText }}>
               ⭐ {incomingFavoritesCount} personne{incomingFavoritesCount > 1 ? "s" : ""} t'a{incomingFavoritesCount > 1 ? "" : ""} ajouté en favori.
             </div>
           )}

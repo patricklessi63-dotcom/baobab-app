@@ -92,7 +92,16 @@ export const C = {
   dangerBg: "#FCE8E0",
   goldTint: "#FFF9F0",
   goldTintDeep: "#FFF3E8",
-  goldText: "#A5761F",
+  // "goldText" : or utilisé comme COULEUR DE TEXTE (badges "Liste
+  // d'attente"/"Intéressé(e)", bannières favoris, libellés IA...), même
+  // pattern que "coralText" ci-dessus. Anciennement une valeur FIXE
+  // (#A5761F) qui ne donnait que ~3.5-4.3:1 selon la surface — insuffisant
+  // pour AA texte normal (4.5:1). Réactif au thème désormais (voir
+  // --bb-gold-text dans index.html) : assombri en clair (~4.9-5.7:1 sur
+  // --bb-surface-2/--bb-bg/--bb-surface), or vif d'identité en sombre (déjà
+  // ~9-10:1, comme --bb-coral-text). Les usages APLAT/DÉGRADÉ/BORDURE/
+  // ICÔNE-sans-texte du or gardent "gold" ci-dessus (non concernés).
+  goldText: "var(--bb-gold-text)",
   online: "#27C56D",
   offline: "#B9BEC9",
   // Badge "vérifié" en or (refonte visuelle) au lieu du bleu d'origine —

@@ -6,7 +6,7 @@ import {
   CheckCircle2, MapPin, Mail, Clock, Building2, Globe2,
 } from "lucide-react";
 import { supabase } from "../../supabaseClient";
-import { primary, coral, coralText, gold, muted, card, bg, surface } from "./theme";
+import { primary, coral, coralText, goldText, muted, card, bg, surface } from "./theme";
 import {
   ESSENTIAL_DOCUMENTS, BORDER_NOTE, PRIORITY_STEPS, EXTRA_TIPS,
   FEDERAL_RESOURCES, GUIDE_LIMITS,
@@ -386,7 +386,7 @@ export default function ImmigrationNewsView({ onBack, onError, currentUser }) {
       {view === "guide" ? (
         <>
           <div className="rounded-2xl p-4 mb-6 flex gap-3" style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)" }}>
-            <AlertTriangle size={18} className="flex-shrink-0 mt-0.5" style={{ color: gold }} />
+            <AlertTriangle size={18} className="flex-shrink-0 mt-0.5" style={{ color: goldText }} />
             <p className="text-xs leading-5" style={{ color: muted }}>
               Repères généraux, non exhaustifs et pas un conseil juridique — les démarches exactes varient selon ta province et ta situation. Vérifie toujours auprès des sources officielles.
             </p>
@@ -425,7 +425,7 @@ export default function ImmigrationNewsView({ onBack, onError, currentUser }) {
       ) : (
         <>
           <div className="rounded-2xl p-4 mb-6 flex gap-3" style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)" }}>
-            <AlertTriangle size={18} className="flex-shrink-0 mt-0.5" style={{ color: gold }} />
+            <AlertTriangle size={18} className="flex-shrink-0 mt-0.5" style={{ color: goldText }} />
             <p className="text-xs leading-5" style={{ color: muted }}>
               Ceci n'est pas un conseil juridique ou d'immigration. Baobab indexe uniquement les titres et résumés publiés par les sources officielles ci-dessous — vérifie toujours l'information complète sur le site officiel, ou auprès d'un consultant ou avocat en immigration agréé.
             </p>

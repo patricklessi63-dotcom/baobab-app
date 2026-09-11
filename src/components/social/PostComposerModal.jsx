@@ -10,7 +10,7 @@ import PostMediaGrid from "./PostMediaGrid";
 import PostDropZone from "./PostDropZone";
 import { truncateUnicodeSafe } from "../../utils/format";
 import { formatFileSize } from "../../lib/mediaConstants";
-import { primary, navy, green, coralText, gold, bg, muted, primaryRgb } from "./theme";
+import { primary, navy, green, coralText, goldText, bg, muted, primaryRgb } from "./theme";
 
 export default function PostComposerModal({
   composer,
@@ -127,7 +127,7 @@ export default function PostComposerModal({
                 <PostDropZone onDropFiles={onFilesSelected}>
                   <div className="overflow-y-auto p-5 md:p-6 pt-3">
                     {resumedDraft && (
-                      <div className="flex items-center justify-between gap-2 mb-3 px-3 py-2 rounded-xl text-xs" style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)", color: gold }}>
+                      <div className="flex items-center justify-between gap-2 mb-3 px-3 py-2 rounded-xl text-xs" style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)", color: goldText }}>
                         <span>Brouillon repris.</span>
                         <button onClick={onDiscardResumed} className="font-bold underline underline-offset-2">Effacer</button>
                       </div>

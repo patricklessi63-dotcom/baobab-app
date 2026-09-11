@@ -130,6 +130,15 @@
       Les usages APLAT/DÉGRADÉ/BORDURE/ICÔNE du corail gardent #E56B5D
       (C.coral) : ils ne sont pas concernés par le contraste texte. */
       --bb-coral-text: #C0392B;
+      /* Or utilisé comme COULEUR DE TEXTE (badges "Liste d'attente"/
+      "Intéressé(e)", bannières favoris, libellés IA...). Le jeton "gold"
+      d'identité #F2B84B ne donne que ~1.5-1.8:1 sur --bb-bg/--bb-surface/
+      --bb-surface-2 en thème clair (échec massif AA texte normal, cible
+      4.5:1, et même échec du seuil 3:1 réservé aux icônes). #8A5E0A (même
+      teinte or, assombrie) atteint 4.9:1 sur --bb-surface-2, 5.3:1 sur
+      --bb-bg et 5.7:1 sur --bb-surface. Les usages APLAT/DÉGRADÉ/BORDURE/
+      ICÔNE-sans-texte du or gardent "gold" ci-dessus (non concernés). */
+      --bb-gold-text: #8A5E0A;
       /* "leaf" : vert d'action réservé aux boutons d'ENVOI de la messagerie
       (.bb-btn-leaf ci-dessous), à ne PAS confondre avec les CTA or
       (bb-btn-gold) ni les alertes corail. Couleur de marque : mêmes valeurs
@@ -172,6 +181,10 @@
         /* En thème sombre, le corail vif #E56B5D passe déjà (5.5-5.9:1 sur
         les surfaces sombres) : on garde la teinte d'identité pour le texte. */
         --bb-coral-text: #E56B5D;
+        /* En thème sombre, l'or vif #F2B84B passe déjà largement (9-10:1 sur
+        les surfaces sombres) : on garde la teinte d'identité pour le texte,
+        comme --bb-coral-text ci-dessus. */
+        --bb-gold-text: #F2B84B;
         /* Couleur de marque : mêmes valeurs qu'en clair (voir bloc :root). */
         --bb-leaf: #1F7A5A;
         --bb-leaf-deep: #185C43;
@@ -197,6 +210,8 @@
       --bb-text-faint: #948A6E;
       /* Voir la note du bloc @media (prefers-color-scheme: dark) ci-dessus. */
       --bb-coral-text: #E56B5D;
+      /* Voir la note du bloc @media (prefers-color-scheme: dark) ci-dessus. */
+      --bb-gold-text: #F2B84B;
       /* Couleur de marque : mêmes valeurs qu'en clair (voir bloc :root). */
       --bb-leaf: #1F7A5A;
       --bb-leaf-deep: #185C43;

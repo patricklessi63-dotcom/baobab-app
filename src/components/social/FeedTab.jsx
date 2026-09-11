@@ -17,7 +17,7 @@ import { rankEvents } from "../../lib/events/recommendations";
 import { getProfileCompletion } from "../../lib/profileCompletion";
 import { PRIORITY_STEPS } from "../../lib/newcomerGuideData";
 import { NOTIFICATION_LABELS, NOTIF_CATEGORIES, groupNotificationRows } from "../../lib/notificationLabels";
-import { primary, navy, coral, coralText, gold, bg, muted, card, body, primaryRgb } from "./theme";
+import { primary, navy, coral, coralText, goldText, bg, muted, card, body, primaryRgb } from "./theme";
 
 // Panneau vertical (item demandé : notifications visibles directement dans
 // l'accueil, pas seulement via la cloche du header — masquée sur mobile
@@ -169,7 +169,7 @@ function NotificationsPanel({
         ) : (
           <div className="flex flex-col gap-1">
             {showFavorites && (
-              <div className="px-3 py-2.5 rounded-xl text-sm" style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)", color: gold }}>
+              <div className="px-3 py-2.5 rounded-xl text-sm" style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)", color: goldText }}>
                 ⭐ {incomingFavoritesCount} personne{incomingFavoritesCount > 1 ? "s" : ""} t'a{incomingFavoritesCount > 1 ? "" : ""} ajouté en favori.
               </div>
             )}

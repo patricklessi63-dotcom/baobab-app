@@ -2,11 +2,11 @@ import React from "react";
 import Avatar from "../Avatar";
 import StatusBadge from "../StatusBadge";
 import EmptyState from "../home/EmptyState";
-import { primary, gold, muted } from "./theme";
+import { primary, goldText, muted } from "./theme";
 
 const STATUS_BADGE = {
-  interested: { label: "Intéressé(e)", color: gold, bg: "var(--bb-surface-2)" },
-  waitlisted: { label: "Liste d'attente", color: gold, bg: "var(--bb-surface-2)" },
+  interested: { label: "Intéressé(e)", color: goldText, bg: "var(--bb-surface-2)" },
+  waitlisted: { label: "Liste d'attente", color: goldText, bg: "var(--bb-surface-2)" },
 };
 
 // Photo + prénom seulement, jamais email/téléphone/adresse — même

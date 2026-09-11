@@ -2,7 +2,7 @@ import React from "react";
 import { MapPin, Users, Lock, Users2 } from "lucide-react";
 import { categoryIcon, categoryLabel, timezoneLabel } from "../../lib/events/eventConfig";
 import { formatEventWhen } from "../../utils/format";
-import { primary, green, gold, bg, muted, card, primaryRgb } from "./theme";
+import { primary, green, gold, goldText, bg, muted, card, primaryRgb } from "./theme";
 
 // Déplacée de src/components/home/EventCard.jsx (Phase 5) vers social/ —
 // même déplacement que CommunityGroupCard en Phase 6, pour rester
@@ -17,7 +17,7 @@ export default function EventCard({ event, participantCount = 0, status, onView 
   if (status === "going") {
     badge = <span className="text-xs font-bold px-3 py-1.5 rounded-full" style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)", color: green }}>Tu participes ✓</span>;
   } else if (status === "waitlisted") {
-    badge = <span className="text-xs font-bold px-3 py-1.5 rounded-full" style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)", color: gold }}>Liste d'attente</span>;
+    badge = <span className="text-xs font-bold px-3 py-1.5 rounded-full" style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)", color: goldText }}>Liste d'attente</span>;
   } else if (full) {
     badge = <span className="text-xs font-bold px-3 py-1.5 rounded-full" style={{ background: bg, color: muted }}>Complet</span>;
   }

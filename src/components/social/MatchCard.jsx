@@ -3,7 +3,7 @@ import { Heart, X, MessageCircle, Star, Flag, Ban, EyeOff, HeartCrack } from "lu
 import Avatar from "../Avatar";
 import StatusBadge from "../StatusBadge";
 import { visibleAge } from "../../utils/format";
-import { primary, green, coralText, gold, bg, muted, card, body, primaryRgb } from "./theme";
+import { primary, green, coralText, gold, goldText, bg, muted, card, body, primaryRgb } from "./theme";
 
 export default function MatchCard({
   profile,
@@ -31,7 +31,7 @@ export default function MatchCard({
   onViewProfile,
   distanceKm,
 }) {
-  const compatColor = match.level === "high" ? green : match.level === "medium" ? gold : muted;
+  const compatColor = match.level === "high" ? green : match.level === "medium" ? goldText : muted;
   const reasons = match.reasons.slice(0, 4);
   // Confidentialité par champ (voir PrivacyFieldsModal.jsx) — cette carte
   // (mode grille "Pour toi" de Découverte) affichait la ville sans jamais

@@ -10,7 +10,7 @@ import { categoryIcon, categoryLabel, reportCategoryLabel, timezoneLabel } from 
 import { isEventStaff, isEventMod } from "../../lib/events/permissions";
 import { downloadIcs, googleCalendarUrl } from "../../lib/events/calendarExport";
 import { formatEventWhen } from "../../utils/format";
-import { primary, green, coral, coralText, gold, muted, bg, card, body, primaryRgb, navy } from "./theme";
+import { primary, green, coral, coralText, gold, goldText, muted, bg, card, body, primaryRgb, navy } from "./theme";
 import { useImageLightbox } from "../../lib/ImageLightboxContext";
 
 const SUB_TABS = [["about", "À propos"], ["discussion", "Discussion"], ["participants", "Participants"], ["photos", "Photos"]];
@@ -180,7 +180,7 @@ export default function EventDetailView({
                   Tu participes ✓ — Ne plus participer
                 </button>
               ) : viewerStatus === "waitlisted" ? (
-                <button onClick={() => onLeave(event)} className="px-4 py-2.5 rounded-full text-sm font-bold" style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)", color: gold }}>
+                <button onClick={() => onLeave(event)} className="px-4 py-2.5 rounded-full text-sm font-bold" style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)", color: goldText }}>
                   Sur liste d'attente — Quitter
                 </button>
               ) : isPast ? (

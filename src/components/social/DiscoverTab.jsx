@@ -11,7 +11,7 @@ import { computeMatch, rankCandidates } from "../../lib/matching/matchingService
 import { usePremiumStatus } from "../../lib/premium/usePremiumStatus";
 import { fetchNearbyProfiles } from "../../lib/locationApi";
 import { LOOKING_FOR_OPTIONS, INTERESTS_OPTIONS, LANGUAGES_OPTIONS } from "../../constants";
-import { primary, navy, navyRgb, green, coral, coralText, gold, gold1, surface2, bg, muted, card, buttonBase, online, body, primaryRgb } from "./theme";
+import { primary, navy, navyRgb, green, coral, coralText, gold, goldText, gold1, surface2, bg, muted, card, buttonBase, online, body, primaryRgb } from "./theme";
 import { ARRIVAL_STAGE_OPTIONS, matchesArrivalStage } from "../../lib/arrivalStage";
 
 const ACTIVE_RECENTLY_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
@@ -457,7 +457,7 @@ export default function DiscoverTab({
 
                         {(() => {
                           const compat = computeMatch(currentUser, p);
-                          const compatColor = compat.level === "high" ? green : compat.level === "medium" ? gold : muted;
+                          const compatColor = compat.level === "high" ? green : compat.level === "medium" ? goldText : muted;
                           return (
                             <div className="mb-4 rounded-2xl p-4" style={{ background: bg }}>
                               <div className="flex items-center justify-between mb-2">
