@@ -391,6 +391,19 @@
 
     ::selection { background: rgba(217,164,65,0.35); }
 
+    /* Onglet en arrière-plan : on gèle toutes les animations CSS. Le contenu
+    n'est pas visible de toute façon, et les animations de fond en boucle
+    (dérive Ken Burns .bb-app-bg / .bb-generic-bg, zoom lent .bb-kenburns,
+    décor animé de l'écran de connexion, dégradés/particules) continuaient
+    sinon à consommer du CPU et de la batterie pour rien — surtout sur mobile.
+    La classe est posée/retirée sur <html> par le script visibilitychange
+    ci-dessous. Reprise native sans saut au retour : animation-play-state
+    reprend exactement où il s'était arrêté. prefers-reduced-motion (règle
+    ci-dessous) reste prioritaire et inchangé. */
+    :root.bb-paused, :root.bb-paused *, :root.bb-paused *::before, :root.bb-paused *::after {
+      animation-play-state: paused !important;
+    }
+
     @media (prefers-reduced-motion: reduce) {
       *, *::before, *::after { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
     }
@@ -406,6 +419,18 @@
       if (t === "dark" || t === "light") document.documentElement.setAttribute("data-theme", t);
       else if (t !== "system") document.documentElement.setAttribute("data-theme", "light");
     } catch (e) {}
+  </script>
+  <script>
+    // Met en pause les animations CSS quand l'onglet passe en arrière-plan
+    // (voir la règle .bb-paused dans le <style> ci-dessus). Gain surtout
+    // mobile : le fond animé en boucle infinie ne tournait plus dans le vide.
+    (function () {
+      var syncPaused = function () {
+        document.documentElement.classList.toggle("bb-paused", document.hidden);
+      };
+      document.addEventListener("visibilitychange", syncPaused);
+      syncPaused();
+    })();
   </script>
 </head>
 <body>
