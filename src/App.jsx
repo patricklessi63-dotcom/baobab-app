@@ -1974,7 +1974,14 @@ export default function App() {
       return true;
     } catch (e) {
       console.error(e);
-      setError("Une erreur est survenue.");
+      // Bug corrigé à l'audit (clarté des messages d'erreur) : contrairement
+      // à handleLike juste au-dessus (même famille d'action, même écran),
+      // ce catch affichait un "Une erreur est survenue." totalement
+      // générique, sans même le "Réessaie." que porte tout le reste des
+      // messages d'erreur de ce fichier — et sans jamais consulter
+      // friendlyDbError() pour remonter une éventuelle raison précise
+      // (ex. limite de débit) renvoyée par le serveur.
+      setError(friendlyDbError(e) || "Impossible d'enregistrer ce choix. Réessaie.");
       return false;
     } finally {
       passInFlightRef.current.delete(target.id);
