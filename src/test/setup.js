@@ -16,4 +16,14 @@ if (typeof window !== "undefined") {
   const { cleanup } = await import("@testing-library/react");
   const { afterEach } = await import("vitest");
   afterEach(() => cleanup());
+
+  // jsdom n'implémente aucune méthode de layout/scroll (scrollIntoView,
+  // scrollTo…) — plusieurs composants (FeedTab.jsx, ProfileTab.jsx,
+  // SocialShell.jsx) l'appellent sur un ref à chaque changement de
+  // catégorie/onglet. Sans ce stub, tout montage de ces composants en test
+  // jsdom plante avec "scrollIntoView is not a function", même pour un test
+  // qui ne porte pas du tout sur le scroll.
+  if (typeof Element !== "undefined" && !Element.prototype.scrollIntoView) {
+    Element.prototype.scrollIntoView = function () {};
+  }
 }
