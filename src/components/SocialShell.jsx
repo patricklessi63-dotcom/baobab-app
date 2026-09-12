@@ -1819,7 +1819,16 @@ export default function SocialShell({
       <div aria-hidden="true" className="fixed inset-0 z-0 pointer-events-none" style={{ background: bg }} />
       <header className="sticky top-0 z-40 border-b bb-glass" style={{ borderColor: `rgba(${primaryRgb},.08)`, paddingTop: "env(safe-area-inset-top)" }}>
         <div className="max-w-7xl mx-auto px-4 lg:px-8 h-[74px] flex items-center gap-4">
-          <button onClick={() => goTab("feed")} className="flex items-center gap-3 shrink-0">
+          {/* Bug corrigé à l'audit accessibilité clavier/lecteur d'écran : le
+              nom accessible de ce bouton reposait uniquement sur le texte
+              "baobab" à droite (alt="" volontaire sur le logo, décoratif).
+              Ce texte est en `hidden sm:block` — absent de l'arbre
+              d'accessibilité sous 640px (mobile, le viewport principal de
+              l'app) — donc ce bouton "retour au fil" n'avait AUCUN nom
+              accessible sur mobile (un lecteur d'écran annonçait juste
+              "bouton"). aria-label explicite, indépendant de ce qui est
+              visible à l'écran. */}
+          <button onClick={() => goTab("feed")} aria-label="Baobab — retour au fil" className="flex items-center gap-3 shrink-0">
             <div className="h-11 w-11 rounded-[15px] overflow-hidden flex items-center justify-center shadow-lg" style={{ background: "#000" }}>
               <img src={logoIcon} alt="" className="h-full w-full object-cover" />
             </div>
