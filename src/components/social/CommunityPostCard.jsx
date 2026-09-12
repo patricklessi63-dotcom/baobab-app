@@ -7,6 +7,8 @@ import ConfirmModal from "./ConfirmModal";
 import { formatMessageTime, formatDayLabel, truncateUnicodeSafe } from "../../utils/format";
 import { primary, coral, coralText, muted, bg, primaryRgb, navy } from "./theme";
 import { useClickOutside } from "../../hooks/useClickOutside";
+import { useEscapeKey } from "../../hooks/useEscapeKey";
+import { useFocusReturn } from "../../hooks/useFocusReturn";
 
 const QUICK_REACTIONS = ["❤️", "😂", "👍", "😮", "😢", "🎉"];
 
@@ -34,6 +36,14 @@ export default function CommunityPostCard({
   const [reactionsOpen, setReactionsOpen] = useState(false);
   const reactionsRef = useRef(null);
   useClickOutside(reactionsRef, reactionsOpen, () => setReactionsOpen(false));
+  // Bug corrigé à l'audit : ce popup de réactions rapides ne se fermait
+  // qu'au clic extérieur — aucun moyen de le fermer au clavier (Échap), à la
+  // différence de tous les autres menus similaires de l'app (EmojiPicker,
+  // MessageActionsMenu...). useFocusReturn : même correctif de perte de
+  // focus qu'EmojiPicker/MessageMediaPicker (le popup démonte ses boutons de
+  // réaction à la fermeture).
+  useEscapeKey(reactionsOpen, () => setReactionsOpen(false));
+  useFocusReturn(reactionsOpen);
   const [replyingTo, setReplyingTo] = useState(null); // comment being replied to
   const [editingId, setEditingId] = useState(null);
   const [editDraft, setEditDraft] = useState("");
