@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Search, Plus, X, PartyPopper, Ticket, Coffee, Heart, CalendarDays } from "lucide-react";
+import { Search, Plus, X, PartyPopper, Ticket, Coffee, Heart, CalendarDays, ArrowLeft } from "lucide-react";
 import { supabase } from "../../supabaseClient";
 import { matchKey } from "../../utils/format";
 import EventCard from "./EventCard";
@@ -68,7 +68,7 @@ function withParticipantCount(rows) {
   return (rows || []).map((e) => ({ ...e, participantCount: e.event_participant_count || 0 }));
 }
 
-export default function EventsTab({ currentUser, onError, initialEventId, onConsumedInitial = () => {}, initialCreateCommunityId = null, onConsumedInitialCreate = () => {}, myPlatformRole = null, onReportProfile = () => {}, onBlockProfile = () => {}, blockedIds = new Set(), onOpenCommunities = () => {},
+export default function EventsTab({ currentUser, onError, onBack = () => {}, initialEventId, onConsumedInitial = () => {}, initialCreateCommunityId = null, onConsumedInitialCreate = () => {}, myPlatformRole = null, onReportProfile = () => {}, onBlockProfile = () => {}, blockedIds = new Set(), onOpenCommunities = () => {},
   // Bug identifié à l'audit (passe 94) : PublicProfileModal ouvert depuis la
   // liste des participants d'un événement n'avait ni onMessage, ni onLike/
   // onUnlike, ni onToggleFollow, ni onToggleFavorite — contrairement à la
@@ -1022,6 +1022,11 @@ export default function EventsTab({ currentUser, onError, initialEventId, onCons
   return (
     <section className="max-w-6xl mx-auto">
       <div className="mb-5">
+        {/* Demande explicite (12 sept.) : même flèche de retour que
+            CommunitiesTab.jsx — voir son commentaire pour le contexte. */}
+        <button onClick={onBack} className="flex items-center gap-1.5 text-sm font-bold mb-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1" style={{ color: primary }}>
+          <ArrowLeft size={16} /> Retour
+        </button>
         <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-[11px] font-black uppercase tracking-wider" style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)", color: coralText }}>
           <PartyPopper size={13} /> Événements Baobab
         </div>

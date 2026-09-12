@@ -60,6 +60,36 @@ function ensureListeners() {
   });
 }
 
+// Primitive bas niveau partagée par useEscapeKey() ci-dessous (modales/menus
+// liés à un booléen "ouvert") ET par la navigation par onglets de
+// SocialShell.jsx (chaque changement d'onglet pousse sa propre entrée, sans
+// notion de booléen "actif" unique — voir goTab()). Les deux usages partagent
+// la MÊME pile réelle (`stack`) : une seule pression sur "retour" ne referme
+// donc jamais deux niveaux à la fois (ex. une modale ouverte par-dessus un
+// onglet secondaire comme Communautés) — l'ordre de fermeture suit toujours
+// l'ordre réel d'empilement, peu importe qui a poussé quoi.
+export function pushBackEntry(onClose) {
+  ensureListeners();
+  const entry = { onClose, consumedByPopstate: false };
+  stack.push(entry);
+  // Marqueur d'historique sans changement d'URL (pathname/route inchangés
+  // — usePathname() ignore les popstate à valeur identique) : sert
+  // uniquement à donner au bouton "retour" quelque chose à consommer.
+  window.history.pushState({ bbOverlay: true }, "");
+  return function releaseBackEntry() {
+    const i = stack.indexOf(entry);
+    if (i !== -1) stack.splice(i, 1);
+    // Fermeture programmatique (clic sur X, clic extérieur, Échap...),
+    // pas via "retour" : on consomme nous-mêmes l'entrée d'historique
+    // poussée à l'ouverture, pour ne pas laisser une entrée fantôme qui
+    // forcerait à appuyer deux fois sur "retour" pour vraiment reculer.
+    if (!entry.consumedByPopstate) {
+      suppressPopstateCount++;
+      window.history.back();
+    }
+  };
+}
+
 // Ferme une modale/un menu quand l'utilisateur appuie sur Échap OU sur
 // "retour" (bouton navigateur, geste mobile, bouton matériel Android).
 export function useEscapeKey(active, onClose) {
@@ -68,28 +98,10 @@ export function useEscapeKey(active, onClose) {
 
   useEffect(() => {
     if (!active) return;
-    ensureListeners();
     // Objet stable poussé une seule fois par ouverture (pas à chaque
     // changement de référence de onClose) pour préserver l'ordre réel
     // d'empilement des modales.
-    const entry = { onClose: () => onCloseRef.current(), consumedByPopstate: false };
-    stack.push(entry);
-    // Marqueur d'historique sans changement d'URL (pathname/route inchangés
-    // — usePathname() ignore les popstate à valeur identique) : sert
-    // uniquement à donner au bouton "retour" quelque chose à consommer.
-    window.history.pushState({ bbOverlay: true }, "");
-    return () => {
-      const i = stack.indexOf(entry);
-      if (i !== -1) stack.splice(i, 1);
-      // Fermeture programmatique (clic sur X, clic extérieur, Échap...),
-      // pas via "retour" : on consomme nous-mêmes l'entrée d'historique
-      // poussée à l'ouverture, pour ne pas laisser une entrée fantôme qui
-      // forcerait à appuyer deux fois sur "retour" pour vraiment reculer.
-      if (!entry.consumedByPopstate) {
-        suppressPopstateCount++;
-        window.history.back();
-      }
-    };
+    return pushBackEntry(() => onCloseRef.current());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active]);
 }

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Search, Plus, X, Users2, Sparkles, Sprout, Flame, MessageCircle, Rocket, Target } from "lucide-react";
+import { Search, Plus, X, Users2, Sparkles, Sprout, Flame, MessageCircle, Rocket, Target, ArrowLeft } from "lucide-react";
 import { supabase } from "../../supabaseClient";
 import CommunityGroupCard from "./CommunityGroupCard";
 import CommunityFilters from "./CommunityFilters";
@@ -72,7 +72,7 @@ function withMemberCount(rows) {
   return (rows || []).map((c) => ({ ...c, memberCount: c.community_members?.[0]?.count || 0 }));
 }
 
-export default function CommunitiesTab({ currentUser, onError, onCommunitiesChanged, initialCommunityId, onConsumedInitial, blockedIds = new Set(), onOpenEvents = () => {}, onCreateEventInCommunity = () => {}, myPlatformRole = null, onReportProfile = () => {}, onBlockProfile = () => {},
+export default function CommunitiesTab({ currentUser, onError, onBack = () => {}, onCommunitiesChanged, initialCommunityId, onConsumedInitial, blockedIds = new Set(), onOpenEvents = () => {}, onCreateEventInCommunity = () => {}, myPlatformRole = null, onReportProfile = () => {}, onBlockProfile = () => {},
   // Bug identifié à l'audit (passe 94) : PublicProfileModal ouvert depuis la
   // liste des membres d'une communauté n'avait ni onMessage, ni onLike/
   // onUnlike, ni onToggleFollow, ni onToggleFavorite — contrairement à la
@@ -1203,6 +1203,15 @@ export default function CommunitiesTab({ currentUser, onError, onCommunitiesChan
   return (
     <section className="max-w-6xl mx-auto">
       <div className="mb-5">
+        {/* Demande explicite (12 sept.) : Communautés/Événements ne sont plus
+            des onglets de la barre principale (voir commentaire de goTab()
+            dans SocialShell.jsx) — sans flèche de retour, rien n'indiquait
+            visuellement comment revenir à l'écran d'où l'utilisateur vient.
+            onBack = goBack (SocialShell.jsx) : consomme la vraie entrée
+            d'historique, identique au bouton/geste "retour" mobile. */}
+        <button onClick={onBack} className="flex items-center gap-1.5 text-sm font-bold mb-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1" style={{ color: primary }}>
+          <ArrowLeft size={16} /> Retour
+        </button>
         <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-[11px] font-black uppercase tracking-wider" style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)", color: primary }}>
           <Users2 size={13} /> Communautés Baobab
         </div>

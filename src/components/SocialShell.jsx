@@ -4,7 +4,7 @@ import logoIcon from "../assets/logo-baobab-icon.png";
 import { supabase } from "../supabaseClient";
 import { matchKey } from "../utils/format";
 import { useClickOutside } from "../hooks/useClickOutside";
-import { useEscapeKey } from "../hooks/useEscapeKey";
+import { useEscapeKey, pushBackEntry } from "../hooks/useEscapeKey";
 import { useFocusReturn } from "../hooks/useFocusReturn";
 import { useOnlineStatus } from "../hooks/useOnlineStatus";
 import { primary, navy, coral, bg, muted, buttonBase, body, primaryRgb } from "./social/theme";
@@ -1799,11 +1799,58 @@ export default function SocialShell({
     ["profile", UserRound, "Profil", null],
   ];
 
+  // Demande explicite (12 sept.) : le bouton/geste "retour" du mobile doit
+  // permettre de remonter d'un onglet à la fois (jusqu'à l'accueil, puis
+  // fermer l'app), pas quitter directement l'application dès le premier
+  // appui — jusqu'ici aucune navigation entre onglets ne pousse d'entrée
+  // d'historique, seules les modales (useEscapeKey) le font. Chaque
+  // changement d'onglet pousse donc désormais sa propre entrée sur la MÊME
+  // pile que les modales (pushBackEntry, voir useEscapeKey.js) : une modale
+  // ouverte par-dessus un onglet secondaire (ex. Communautés) se referme
+  // toujours en premier, exactement dans l'ordre réel d'ouverture. tabBackDepthRef
+  // compte les entrées pas encore consommées, pour que goBack() (bouton
+  // flèche visible dans Communautés/Événements/Premium/Admin) sache s'il
+  // peut sans risque déclencher un vrai retour navigateur ou doit se rabattre
+  // sur un retour direct au fil.
+  const tabBackDepthRef = useRef(0);
+
   const goTab = (next) => {
+    if (next !== tab) {
+      const prevTab = tab;
+      tabBackDepthRef.current += 1;
+      // `release` doit être appelé DANS le onClose déclenché par le retour —
+      // sinon l'entrée resterait indéfiniment en haut de la pile partagée
+      // (jamais retirée de `stack`) et un 2e appui sur "retour" redéclencherait
+      // le même onClose au lieu de révéler l'écran encore avant. Même
+      // exigence que useEscapeKey (qui la satisfait via le nettoyage de son
+      // useEffect) — ici il n'y a pas de cycle de vie de composant à observer,
+      // donc l'entrée doit se libérer elle-même dès sa propre consommation.
+      let release;
+      release = pushBackEntry(() => {
+        release();
+        tabBackDepthRef.current = Math.max(0, tabBackDepthRef.current - 1);
+        setTab(prevTab);
+        setSearch("");
+        setMenu(false);
+        setNotificationsOpen(false);
+      });
+    }
     setTab(next);
     setSearch("");
     setMenu(false);
     setNotificationsOpen(false);
+  };
+
+  // Retour "logique" (bouton flèche affiché en haut des écrans secondaires) :
+  // identique au bouton retour matériel/geste mobile — consomme la VRAIE
+  // entrée d'historique pour restaurer exactement l'écran d'où l'utilisateur
+  // vient (pas toujours le fil), au lieu d'empiler une nouvelle navigation
+  // par-dessus qui ferait grossir la pile sans jamais la vider. Filet de
+  // sécurité si jamais rien n'a été poussé (ne devrait pas arriver en usage
+  // normal, goTab pousse systématiquement) : retour direct au fil.
+  const goBack = () => {
+    if (tabBackDepthRef.current > 0) window.history.back();
+    else goTab("feed");
   };
 
   return (
@@ -2092,6 +2139,7 @@ export default function SocialShell({
               <CommunitiesTab
                 currentUser={currentUser}
                 onError={onError}
+                onBack={goBack}
                 initialCommunityId={openCommunityId}
                 onConsumedInitial={() => setOpenCommunityId(null)}
                 blockedIds={blockedIds}
@@ -2121,6 +2169,7 @@ export default function SocialShell({
               <EventsTab
                 currentUser={currentUser}
                 onError={onError}
+                onBack={goBack}
                 initialEventId={openEventId}
                 onConsumedInitial={() => setOpenEventId(null)}
                 initialCreateCommunityId={createEventCommunityId}
@@ -2148,7 +2197,7 @@ export default function SocialShell({
         {tab === "premium" && (
           <ChunkErrorBoundary>
             <Suspense fallback={<TabLoadingFallback />}>
-              <PremiumPage currentUser={currentUser} onBack={() => goTab("feed")} onError={onError} justSubscribed={justSubscribed} onJustSubscribedHandled={onJustSubscribedHandled} />
+              <PremiumPage currentUser={currentUser} onBack={goBack} onError={onError} justSubscribed={justSubscribed} onJustSubscribedHandled={onJustSubscribedHandled} />
             </Suspense>
           </ChunkErrorBoundary>
         )}
@@ -2156,7 +2205,7 @@ export default function SocialShell({
         {tab === "admin" && myPlatformRole && (
           <ChunkErrorBoundary>
             <Suspense fallback={<TabLoadingFallback />}>
-              <AdminDashboard onBack={() => goTab("feed")} onError={onError} myPlatformRole={myPlatformRole} />
+              <AdminDashboard onBack={goBack} onError={onError} myPlatformRole={myPlatformRole} />
             </Suspense>
           </ChunkErrorBoundary>
         )}
