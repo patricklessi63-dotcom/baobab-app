@@ -154,6 +154,92 @@ describe("computeMatch", () => {
     expect(withPref.reasons).toContain("Son âge correspond à tes préférences");
     expect(noPref.reasons).not.toContain("Son âge correspond à tes préférences");
   });
+
+  it("respecte la confidentialité : projet de vie masqué (show_life_project:false) ne rapporte aucun point ni raison, même si tous les champs correspondent", () => {
+    const a = {
+      id: "a",
+      wants_children: "Oui",
+      family_importance: "Élevée",
+      career_goal: "Stable",
+      geographic_openness: "Ouvert",
+    };
+    const richB = { ...a, id: "b" };
+    const visible = computeMatch(a, richB);
+    const hidden = computeMatch(a, { ...richB, show_life_project: false });
+    expect(visible.breakdown.lifeProject).toBeGreaterThan(0);
+    expect(visible.reasons).toContain("Vous avez une vision similaire de votre projet de vie");
+    expect(hidden.breakdown.lifeProject).toBe(0);
+    expect(hidden.reasons).not.toContain("Vous avez une vision similaire de votre projet de vie");
+  });
+
+  it("deux non-réponses identiques ('Je préfère ne pas répondre' / 'Autre') ne comptent jamais comme point commun de projet de vie", () => {
+    // wants_children et career_goal sont des non-réponses des deux côtés :
+    // aucun des deux ne doit rapporter de points, seul family_importance
+    // (une vraie valeur partagée) doit compter.
+    const a = {
+      id: "a",
+      wants_children: "Je préfère ne pas répondre",
+      career_goal: "Autre",
+      family_importance: "Élevée",
+    };
+    const b = { ...a, id: "b" };
+    const r = computeMatch(a, b);
+    expect(r.breakdown.lifeProject).toBe(4); // poids de family_importance seul
+  });
+
+  it("respecte la confidentialité : année de naissance masquée (show_birth_year:false) ne rapporte aucun point d'âge ni raison, même si les âges sont proches", () => {
+    const a = { id: "a", age: 30, pref_age_min: 28 };
+    const visible = computeMatch(a, { id: "b", age: 31 });
+    const hidden = computeMatch(a, { id: "b", age: 31, show_birth_year: false });
+    expect(visible.breakdown.preferences).toBeGreaterThan(0);
+    expect(visible.reasons).toContain("Son âge correspond à tes préférences");
+    expect(hidden.breakdown.preferences).toBe(0);
+    expect(hidden.reasons).not.toContain("Son âge correspond à tes préférences");
+  });
+
+  it("respecte la confidentialité : ville/pays masqués (show_city/show_country:false) ne rapportent aucun point de localisation ni libellé", () => {
+    const a = { id: "a", city: "Montréal", country: "Canada" };
+    const sameCityVisible = computeMatch(a, { id: "b", city: "montréal", country: "Canada" });
+    const sameCityHidden = computeMatch(a, { id: "b", city: "montréal", country: "Canada", show_city: false, show_country: false });
+    expect(sameCityVisible.breakdown.location).toBeGreaterThan(0);
+    expect(sameCityVisible.locationLabel).toMatch(/Même ville/);
+    expect(sameCityHidden.breakdown.location).toBe(0);
+    expect(sameCityHidden.locationLabel).toBeNull();
+
+    // Même pays uniquement (pas la même ville) : même garde attendue.
+    const sameCountryHidden = computeMatch(
+      { id: "a", country: "Canada" },
+      { id: "b", country: "canada", show_country: false }
+    );
+    expect(sameCountryHidden.breakdown.location).toBe(0);
+    expect(sameCountryHidden.locationLabel).toBeNull();
+  });
+
+  it("préférence de distance 'Ma ville ou mon pays' : un pays commun SEUL (villes différentes) rapporte déjà les points pleins", () => {
+    const a = { id: "a", city: "Montréal", country: "Canada", pref_distance: "Ma ville ou mon pays" };
+    const b = { id: "b", city: "Québec", country: "canada" };
+    const r = computeMatch(a, b);
+    expect(r.breakdown.preferences).toBe(7);
+  });
+
+  it("bonus 'valeurs relationnelles partagées' : ne s'applique que si les DEUX profils ont une intention romantique ET une valeur en commun", () => {
+    const bothRomanticShared = computeMatch(
+      { id: "a", looking_for: "Amour", relationship_values: "Honnêteté, Patience" },
+      { id: "b", looking_for: "Relation sérieuse", relationship_values: "Respect, Honnêteté" }
+    );
+    // shared intentions: aucune intention littéralement identique ("Amour" vs
+    // "Relation sérieuse") -> 0 pt d'intentions communes, mais le bonus valeurs
+    // (+6) s'applique bien car les deux sont romantiques et partagent "Honnêteté".
+    expect(bothRomanticShared.breakdown.intentions).toBe(6);
+
+    // Un seul romantique ("Amour" pour a, "Amitié" pour b) : pas de bonus même
+    // si relationship_values coïncident.
+    const onlyOneRomantic = computeMatch(
+      { id: "a", looking_for: "Amour", relationship_values: "Honnêteté" },
+      { id: "b", looking_for: "Amitié", relationship_values: "Honnêteté" }
+    );
+    expect(onlyOneRomantic.breakdown.intentions).toBe(0);
+  });
 });
 
 // ---------------------------------------------------------------------------
