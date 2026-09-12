@@ -50,7 +50,13 @@ export default function MessagesTab({
   const rowMenuRef = useRef(null);
   useClickOutside(rowMenuRef, Boolean(openRowMenu), () => setOpenRowMenu(null));
   useEscapeKey(Boolean(openRowMenu), () => setOpenRowMenu(null));
-  useFocusReturn(Boolean(openRowMenu));
+  // openRowMenu est l'id de la conversation (pas un booléen) : useFocusReturn
+  // a besoin de l'id BRUT, pas Boolean(openRowMenu), sinon basculer
+  // directement du menu de la ligne A à celui de la ligne B (deux valeurs
+  // "truthy" successives, sans repasser par null) ne redéclenche jamais son
+  // effet — le bouton ⋮ de A resterait capturé comme cible à restaurer, et
+  // fermer le menu de B renverrait le focus sur le ⋮ de A au lieu de B.
+  useFocusReturn(openRowMenu);
 
   const sorted = [...matches].sort((a, b) => {
     const ka = matchKey(currentUser.id, a.id);

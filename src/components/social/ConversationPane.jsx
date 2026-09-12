@@ -170,7 +170,16 @@ export default function ConversationPane({
   // puis Échap perdait le focus sur <body> au lieu de revenir sur le bouton
   // ⋮ qui a ouvert le menu.
   useFocusReturn(menuOpen);
-  useFocusReturn(Boolean(openActionsFor));
+  // openActionsFor est l'id du message (pas un booléen) : passer l'id BRUT,
+  // pas Boolean(openActionsFor), sinon useFocusReturn ne redéclenche jamais
+  // son effet quand on bascule directement du menu du message A vers celui
+  // du message B (deux valeurs "truthy" successives, le hook dépend de
+  // [active] et ne voit aucun changement) — le bouton ⋮ de A resterait capturé
+  // comme cible, et fermer le menu de B renverrait alors le focus sur le ⋮
+  // de A au lieu de B. Vérifié par un test isolé du hook avant correctif :
+  // reproductible dès qu'on change de message sans repasser par un clic
+  // souris (qui, lui, referme d'abord via useClickOutside/pointerdown).
+  useFocusReturn(openActionsFor);
 
   // Recherche dans l'historique (item audit — jusqu'ici aucun moyen de
   // retrouver un message sans faire défiler toute la conversation à la
