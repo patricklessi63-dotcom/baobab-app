@@ -3,6 +3,7 @@ import { Sparkles, Loader2 } from "lucide-react";
 import { coral, coralText, muted, bg, goldText, primary } from "../social/theme";
 import { useClickOutside } from "../../hooks/useClickOutside";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
+import { useFocusReturn } from "../../hooks/useFocusReturn";
 import { invokeAI } from "../../lib/ai/aiClient";
 
 // "name" est déjà le prénom seul (Step1Identity.jsx sépare "Nom" de famille
@@ -28,6 +29,7 @@ export default function AiConversationSuggestions({ currentUser, match, onPick }
   const mountedRef = useRef(true);
   useClickOutside(ref, open, () => setOpen(false));
   useEscapeKey(open, () => setOpen(false));
+  useFocusReturn(open);
   useEffect(() => () => { mountedRef.current = false; }, []);
 
   const generate = async () => {

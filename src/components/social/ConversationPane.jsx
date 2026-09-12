@@ -11,6 +11,7 @@ import { checkRateLimit } from "../../lib/messageRateLimit";
 import { detectKindFromMime } from "../../lib/mediaValidation";
 import { useClickOutside } from "../../hooks/useClickOutside";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
+import { useFocusReturn } from "../../hooks/useFocusReturn";
 import EmojiPicker from "./EmojiPicker";
 import MessageMediaPicker from "./MessageMediaPicker";
 import AiConversationSuggestions from "../ai/AiConversationSuggestions";
@@ -162,6 +163,14 @@ export default function ConversationPane({
   useEscapeKey(menuOpen, () => setMenuOpen(false));
   useClickOutside(actionsMenuRef, Boolean(openActionsFor), () => setOpenActionsFor(null));
   useEscapeKey(Boolean(openActionsFor), () => setOpenActionsFor(null));
+  // Même bug de perte de focus qu'EmojiPicker/MessageMediaPicker (voir
+  // useFocusReturn) : ces deux menus (« Options de la conversation »,
+  // MessageActionsMenu par message) démontent tout leur contenu à la
+  // fermeture. Tabuler jusqu'à un item (ex. « Copier », une réaction rapide)
+  // puis Échap perdait le focus sur <body> au lieu de revenir sur le bouton
+  // ⋮ qui a ouvert le menu.
+  useFocusReturn(menuOpen);
+  useFocusReturn(Boolean(openActionsFor));
 
   // Recherche dans l'historique (item audit — jusqu'ici aucun moyen de
   // retrouver un message sans faire défiler toute la conversation à la

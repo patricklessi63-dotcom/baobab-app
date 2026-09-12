@@ -6,6 +6,7 @@ import EmptyState from "../home/EmptyState";
 import ConversationPane from "./ConversationPane";
 import { useClickOutside } from "../../hooks/useClickOutside";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
+import { useFocusReturn } from "../../hooks/useFocusReturn";
 import { matchKey, formatMessageTime, messagePreviewLabel } from "../../utils/format";
 import { primary, navy, green, coral, coralText, bg, muted, card, buttonBase, leafLight, offline, body, primaryRgb } from "./theme";
 
@@ -49,6 +50,7 @@ export default function MessagesTab({
   const rowMenuRef = useRef(null);
   useClickOutside(rowMenuRef, Boolean(openRowMenu), () => setOpenRowMenu(null));
   useEscapeKey(Boolean(openRowMenu), () => setOpenRowMenu(null));
+  useFocusReturn(Boolean(openRowMenu));
 
   const sorted = [...matches].sort((a, b) => {
     const ka = matchKey(currentUser.id, a.id);
