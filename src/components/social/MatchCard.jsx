@@ -120,7 +120,10 @@ export default function MatchCard({
           )}
           {onToggleFavorite && (
             <button onClick={() => onToggleFavorite(profile)} aria-label={`Ajouter ${profile.name} aux favoris`} aria-pressed={isFavorite} className="h-10 w-10 rounded-full flex items-center justify-center shrink-0 focus-visible:outline focus-visible:outline-2" style={{ background: isFavorite ? "var(--bb-surface-2)" : bg }}>
-              <Star size={15} color={isFavorite ? gold : muted} fill={isFavorite ? gold : "none"} />
+              {/* Icône seule (pas de texte adjacent) : "goldText" au lieu du or
+                  fixe "gold", qui ne donnait que ~1.5:1 sur --bb-surface-2 en
+                  thème clair (échec AA graphique 3:1). goldText ~4.9:1. */}
+              <Star size={15} color={isFavorite ? goldText : muted} fill={isFavorite ? goldText : "none"} />
             </button>
           )}
         </div>

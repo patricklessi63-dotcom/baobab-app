@@ -6,7 +6,7 @@ import StatusBadge from "../StatusBadge";
 import { visibleAge } from "../../utils/format";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
-import { primary, green, coral, coralText, gold, bg, muted, card, body, primaryRgb } from "./theme";
+import { primary, green, coral, coralText, gold, goldText, bg, muted, card, body, primaryRgb } from "./theme";
 
 // Allow-list explicite des champs affichés — jamais de spread {...profile},
 // jamais d'email/user_id/id bruts rendus.
@@ -191,7 +191,11 @@ export default function PublicProfileModal({
             )}
             {onToggleFavorite && (
               <button onClick={() => onToggleFavorite(profile)} aria-pressed={isFavorite} aria-label={isFavorite ? `Retirer ${profile.name} des favoris` : `Ajouter ${profile.name} aux favoris`} className="h-10 w-10 rounded-full flex items-center justify-center shrink-0 focus-visible:outline focus-visible:outline-2" style={{ background: isFavorite ? "var(--bb-surface-2)" : bg }}>
-                <Star size={16} color={isFavorite ? gold : muted} fill={isFavorite ? gold : "none"} />
+                {/* Icône seule (pas de texte adjacent) : "goldText" au lieu du
+                    or fixe "gold", qui ne donnait que ~1.5:1 sur
+                    --bb-surface-2 en thème clair (échec AA graphique 3:1).
+                    goldText ~4.9:1. */}
+                <Star size={16} color={isFavorite ? goldText : muted} fill={isFavorite ? goldText : "none"} />
               </button>
             )}
             {onReport && (

@@ -6,7 +6,7 @@ import EmptyState from "../home/EmptyState";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { visibleAge } from "../../utils/format";
-import { primary, coral, gold, muted, card, primaryRgb } from "./theme";
+import { primary, coral, goldText, muted, card, primaryRgb } from "./theme";
 
 export default function FavoritesModal({ open, onClose, favoriteProfiles = [], onViewProfile, onToggleFavorite, onDiscover }) {
   useEscapeKey(open, onClose);
@@ -68,7 +68,11 @@ export default function FavoritesModal({ open, onClose, favoriteProfiles = [], o
                   className="h-9 w-9 rounded-full flex items-center justify-center shrink-0 focus-visible:outline focus-visible:outline-2"
                   style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)" }}
                 >
-                  <Star size={15} color={gold} fill={gold} />
+                  {/* Icône seule (pas de texte visible à côté, aria-label
+                      seulement) : "goldText" au lieu du or fixe "gold", qui ne
+                      donnait que ~1.5:1 sur --bb-surface-2 en thème clair
+                      (échec du seuil AA graphique 3:1). goldText ~4.9:1. */}
+                  <Star size={15} color={goldText} fill={goldText} />
                 </button>
               </div>
             ))}
