@@ -38,36 +38,18 @@ export default function NotificationsDropdown({
   setNotifLimit,
   setNotificationsOpen,
 }) {
-  return (
-    <div className="absolute right-12 top-14 w-96 bg-[var(--bb-surface)] rounded-2xl border border-[var(--bb-border)] shadow-2xl p-3 z-50">
-      <div className="flex items-center justify-between px-2 pb-2">
-        <b>Notifications</b>
-        {unreadCommunityCount > 0 && (
-          <button onClick={markCommunityNotificationsRead} className="text-xs font-bold focus-visible:outline focus-visible:outline-2" style={{ color: coralText }}>
-            Tout marquer comme lu
-          </button>
-        )}
-      </div>
-      <div className="flex gap-1 overflow-x-auto pb-2 px-2 -mx-2" style={{ scrollbarWidth: "none" }}>
-        {NOTIF_CATEGORIES.map(([key, label]) => (
-          <button key={key} ref={(el) => { notifPillRefs.current[key] = el; }} onClick={() => setNotifCategory(key)} aria-pressed={notifCategory === key} className="shrink-0 px-3 py-1.5 rounded-full text-xs font-bold focus-visible:outline focus-visible:outline-2" style={{ background: notifCategory === key ? navy : bg, color: notifCategory === key ? "#fff" : muted }}>
-            {label}
-          </button>
-        ))}
-      </div>
-      {incomingFavoritesCount === 0 && visibleCommunityNotifications.length === 0 ? (
-        <div className="p-6 text-center" onTouchStart={onNotifTouchStart} onTouchEnd={onNotifTouchEnd}>
-          <Bell size={22} className="mx-auto mb-2" color={muted} />
-          <p className="text-xs" style={{ color: muted }}>Aucune notification pour l'instant.</p>
-        </div>
-      ) : (
-        <div className="flex flex-col gap-1 max-h-72 overflow-y-auto" onTouchStart={onNotifTouchStart} onTouchEnd={onNotifTouchEnd}>
-          {incomingFavoritesCount > 0 && (notifCategory === "all" || notifCategory === "dating") && (
-            <div className="px-2 py-2.5 rounded-xl text-sm" style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)", color: goldText }}>
-              ⭐ {incomingFavoritesCount} personne{incomingFavoritesCount > 1 ? "s" : ""} t'a{incomingFavoritesCount > 1 ? "" : ""} ajouté en favori.
-            </div>
-          )}
-          {groupNotificationRows([
+  // Bug corrigé à l'audit : l'état vide ("Aucune notification pour
+  // l'instant.") n'était calculé qu'à partir de la liste GLOBALE
+  // (visibleCommunityNotifications, toutes catégories confondues). En
+  // sélectionnant une pastille de catégorie (ex. "Abonnés") sans aucune
+  // notification de ce type — alors que d'autres catégories, elles, en ont
+  // — la condition globale restait fausse : le panneau rendait alors une
+  // liste vide sans aucun message, juste les pastilles au-dessus d'un
+  // espace blanc. FeedTab.jsx (NotificationsPanel, même source de données)
+  // gère déjà ce cas correctement via son "empty" par catégorie ; on
+  // reprend ici exactement le même calcul.
+  const showFavorites = incomingFavoritesCount > 0 && (notifCategory === "all" || notifCategory === "dating");
+  const filteredRows = groupNotificationRows([
             ...unreadDatingNotifications.map((n) => ({
               n, category: "dating", icon: n.type === "new_match" ? "💞" : "❤️",
               label: n.actor?.name ? `${n.actor.name} — ${n.type === "new_match" ? NOTIFICATION_LABELS.new_match : NOTIFICATION_LABELS.new_like}` : (NOTIFICATION_LABELS[n.type] || "Nouvelle activité"),
@@ -127,17 +109,61 @@ export default function NotificationsDropdown({
               label: n.actor?.name ? `${n.actor.name} ${n.type === "post_commented" ? "a commenté ta publication" : "a aimé ta publication"}` : (NOTIFICATION_LABELS[n.type] || "Nouvelle activité"),
               onClick: () => { markOneNotificationRead(n.id); goTab("feed"); },
             })),
-          ])
-            .filter((row) => notifCategory === "all" || row.category === notifCategory)
-            .map((row) => (
-              <button
-                key={row.n.id}
-                onClick={() => { setNotificationsOpen(false); if (row.groupIds) row.groupIds.forEach(markOneNotificationRead); row.onClick(); }}
-                className="text-left px-2 py-2.5 rounded-xl text-sm hover:bg-[var(--bb-bg)] focus-visible:outline focus-visible:outline-2"
-              >
-                {row.icon} {row.label}
-              </button>
-            ))}
+          ]).filter((row) => notifCategory === "all" || row.category === notifCategory);
+  const categoryEmpty = !showFavorites && filteredRows.length === 0;
+
+  return (
+    <div className="absolute right-12 top-14 w-96 bg-[var(--bb-surface)] rounded-2xl border border-[var(--bb-border)] shadow-2xl p-3 z-50">
+      <div className="flex items-center justify-between px-2 pb-2">
+        <b>Notifications</b>
+        {unreadCommunityCount > 0 && (
+          <button onClick={markCommunityNotificationsRead} className="text-xs font-bold focus-visible:outline focus-visible:outline-2" style={{ color: coralText }}>
+            Tout marquer comme lu
+          </button>
+        )}
+      </div>
+      <div className="flex gap-1 overflow-x-auto pb-2 px-2 -mx-2" style={{ scrollbarWidth: "none" }}>
+        {NOTIF_CATEGORIES.map(([key, label]) => (
+          <button key={key} ref={(el) => { notifPillRefs.current[key] = el; }} onClick={() => setNotifCategory(key)} aria-pressed={notifCategory === key} className="shrink-0 px-3 py-1.5 rounded-full text-xs font-bold focus-visible:outline focus-visible:outline-2" style={{ background: notifCategory === key ? navy : bg, color: notifCategory === key ? "#fff" : muted }}>
+            {label}
+          </button>
+        ))}
+      </div>
+      {incomingFavoritesCount === 0 && visibleCommunityNotifications.length === 0 ? (
+        <div className="p-6 text-center" onTouchStart={onNotifTouchStart} onTouchEnd={onNotifTouchEnd}>
+          <Bell size={22} className="mx-auto mb-2" color={muted} />
+          <p className="text-xs" style={{ color: muted }}>Aucune notification pour l'instant.</p>
+        </div>
+      ) : categoryEmpty ? (
+        <div className="p-6 text-center" onTouchStart={onNotifTouchStart} onTouchEnd={onNotifTouchEnd}>
+          <Bell size={22} className="mx-auto mb-2" color={muted} />
+          <p className="text-xs" style={{ color: muted }}>Aucune notification dans cette catégorie.</p>
+          {notifHasMore && (
+            <button
+              onClick={() => setNotifLimit((l) => l + 20)}
+              className="mt-2 text-center py-2 text-xs font-bold rounded-xl hover:bg-[var(--bb-bg)] focus-visible:outline focus-visible:outline-2"
+              style={{ color: leaf }}
+            >
+              Charger plus
+            </button>
+          )}
+        </div>
+      ) : (
+        <div className="flex flex-col gap-1 max-h-72 overflow-y-auto" onTouchStart={onNotifTouchStart} onTouchEnd={onNotifTouchEnd}>
+          {showFavorites && (
+            <div className="px-2 py-2.5 rounded-xl text-sm" style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)", color: goldText }}>
+              ⭐ {incomingFavoritesCount} personne{incomingFavoritesCount > 1 ? "s" : ""} t'a{incomingFavoritesCount > 1 ? "" : ""} ajouté en favori.
+            </div>
+          )}
+          {filteredRows.map((row) => (
+            <button
+              key={row.n.id}
+              onClick={() => { setNotificationsOpen(false); if (row.groupIds) row.groupIds.forEach(markOneNotificationRead); row.onClick(); }}
+              className="text-left px-2 py-2.5 rounded-xl text-sm hover:bg-[var(--bb-bg)] focus-visible:outline focus-visible:outline-2"
+            >
+              {row.icon} {row.label}
+            </button>
+          ))}
           {notifHasMore && (
             <button
               onClick={() => setNotifLimit((l) => l + 20)}

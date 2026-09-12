@@ -126,4 +126,46 @@ describe("NotificationsDropdown", () => {
     await user.click(loadMore);
     expect(props.setNotifLimit).toHaveBeenCalledTimes(1);
   });
+
+  // Bug corrigé à l'audit (états vides) : sélectionner une catégorie sans
+  // aucune notification de ce type, alors que d'autres catégories en ont,
+  // rendait un panneau totalement vide (juste les pastilles au-dessus d'un
+  // espace blanc) au lieu d'un message clair — l'état vide n'était calculé
+  // qu'à partir de la liste globale, jamais par catégorie sélectionnée.
+  it("catégorie sélectionnée sans notification : message dédié, pas un panneau vide", () => {
+    const message = {
+      id: "n1",
+      type: "new_message",
+      target_id: "profile-1",
+      actor: { name: "Awa" },
+      created_at: "2024-01-01T00:00:00Z",
+    };
+    setup({
+      notifCategory: "follows",
+      unreadMessageNotifications: [message],
+      visibleCommunityNotifications: [message],
+    });
+    expect(screen.getByText("Aucune notification dans cette catégorie.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Nouveau message de Awa/ })).toBeNull();
+  });
+
+  it("« Charger plus » reste disponible sur une catégorie vide s'il peut encore y avoir des résultats", async () => {
+    const user = userEvent.setup();
+    const message = {
+      id: "n1",
+      type: "new_message",
+      target_id: "profile-1",
+      actor: { name: "Awa" },
+      created_at: "2024-01-01T00:00:00Z",
+    };
+    const { props } = setup({
+      notifCategory: "follows",
+      unreadMessageNotifications: [message],
+      visibleCommunityNotifications: [message],
+      notifHasMore: true,
+    });
+    expect(screen.getByText("Aucune notification dans cette catégorie.")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Charger plus" }));
+    expect(props.setNotifLimit).toHaveBeenCalledTimes(1);
+  });
 });
