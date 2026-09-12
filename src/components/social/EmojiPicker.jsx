@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { Smile, Search, X } from "lucide-react";
 import { useClickOutside } from "../../hooks/useClickOutside";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
+import { useFocusReturn } from "../../hooks/useFocusReturn";
 import { EMOJI_CATEGORIES, searchEmojis } from "../../lib/emojiData";
 import { primary, bg, muted, card, primaryRgb } from "./theme";
 
@@ -48,6 +49,7 @@ export default function EmojiPicker({ onPick, currentUserId }) {
 
   useClickOutside(wrapRef, open, () => setOpen(false));
   useEscapeKey(open, () => setOpen(false));
+  useFocusReturn(open);
 
   useEffect(() => {
     if (open) setRecents(loadRecents(currentUserId));

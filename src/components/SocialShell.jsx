@@ -5,6 +5,7 @@ import { supabase } from "../supabaseClient";
 import { matchKey } from "../utils/format";
 import { useClickOutside } from "../hooks/useClickOutside";
 import { useEscapeKey } from "../hooks/useEscapeKey";
+import { useFocusReturn } from "../hooks/useFocusReturn";
 import { useOnlineStatus } from "../hooks/useOnlineStatus";
 import { primary, navy, coral, bg, muted, buttonBase, body, primaryRgb } from "./social/theme";
 import { NOTIF_CATEGORIES } from "../lib/notificationLabels";
@@ -276,6 +277,14 @@ export default function SocialShell({
   useEscapeKey(notificationsOpen, () => setNotificationsOpen(false));
   useEscapeKey(menu, () => setMenu(false));
   useEscapeKey(Boolean(search), () => setSearch(""));
+  // Ces deux menus (cloche de notifications, menu profil) démontent tout
+  // leur contenu à la fermeture — même bug de perte de focus qu'EmojiPicker/
+  // MessageMediaPicker (voir useFocusReturn). La recherche n'est pas
+  // concernée : son champ <input> reste monté (il ne disparaît jamais, seul
+  // le dropdown de résultats sous lui se démonte), donc le focus n'y est
+  // jamais perdu vers <body>.
+  useFocusReturn(notificationsOpen);
+  useFocusReturn(menu);
 
   useEffect(() => {
     if (!currentUser) return;

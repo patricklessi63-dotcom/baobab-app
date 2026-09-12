@@ -2,6 +2,7 @@ import React, { useRef, useState } from "react";
 import { Paperclip, Camera, Image as ImageIcon, Video, FileText, Smile as StickerIcon, ArrowLeft } from "lucide-react";
 import { useClickOutside } from "../../hooks/useClickOutside";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
+import { useFocusReturn } from "../../hooks/useFocusReturn";
 import StickerPicker from "./StickerPicker";
 import { primary, bg, muted, card } from "./theme";
 
@@ -21,6 +22,7 @@ export default function MessageMediaPicker({ onPickFile, onPickSticker }) {
   const close = () => { setOpen(false); setView("menu"); };
   useClickOutside(wrapRef, open, close);
   useEscapeKey(open, close);
+  useFocusReturn(open);
 
   const handleFileChange = (e, kind) => {
     const file = e.target.files?.[0];
