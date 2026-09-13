@@ -411,7 +411,7 @@ export default function AppModals({
               <p className="text-xs font-bold" style={{ color: "var(--bb-text)" }}>Version {CURRENT_VERSION}</p>
               {updateCheck.status === "up-to-date" && (
                 <p className="text-xs mt-1.5 flex items-center gap-1.5" style={{ color: "var(--bb-text)" }}>
-                  <CheckCircle2 size={13} /> Vous utilisez la dernière version.
+                  <CheckCircle2 size={13} /> Tu utilises la dernière version.
                 </p>
               )}
               {updateCheck.status === "available" && (

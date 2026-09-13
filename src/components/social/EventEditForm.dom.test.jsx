@@ -78,7 +78,7 @@ describe("EventEditForm — onDirtyChange", () => {
   it("durée modifiée → true (durationMinutes comparé à l'origine)", async () => {
     const user = userEvent.setup();
     const { onDirtyChange } = setup();
-    const duration = screen.getByLabelText("Durée (minutes, optionnel)");
+    const duration = screen.getByLabelText("Durée (minutes, facultatif)");
     await user.clear(duration);
     await user.type(duration, "120");
     expect(dirtyValues(onDirtyChange).at(-1)).toBe(true);
@@ -87,7 +87,7 @@ describe("EventEditForm — onDirtyChange", () => {
   it("nombre max de participants modifié → true", async () => {
     const user = userEvent.setup();
     const { onDirtyChange } = setup();
-    const max = screen.getByLabelText("Nombre maximum de participants (optionnel)");
+    const max = screen.getByLabelText("Nombre maximum de participants (facultatif)");
     await user.clear(max);
     await user.type(max, "5");
     expect(dirtyValues(onDirtyChange).at(-1)).toBe(true);
@@ -96,8 +96,8 @@ describe("EventEditForm — onDirtyChange", () => {
   it("rétablir durée + max à leur valeur d'origine → onDirtyChange(false)", async () => {
     const user = userEvent.setup();
     const { onDirtyChange } = setup();
-    const duration = screen.getByLabelText("Durée (minutes, optionnel)");
-    const max = screen.getByLabelText("Nombre maximum de participants (optionnel)");
+    const duration = screen.getByLabelText("Durée (minutes, facultatif)");
+    const max = screen.getByLabelText("Nombre maximum de participants (facultatif)");
     await user.clear(duration);
     await user.type(duration, "45");
     await user.clear(max);

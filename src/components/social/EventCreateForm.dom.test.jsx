@@ -86,14 +86,14 @@ describe("EventCreateForm — onDirtyChange", () => {
   it("durée saisie → onDirtyChange(true) [régression a91b48a]", async () => {
     const user = userEvent.setup();
     const { onDirtyChange } = setup();
-    await user.type(screen.getByLabelText("Durée (minutes, optionnel)"), "90");
+    await user.type(screen.getByLabelText("Durée (minutes, facultatif)"), "90");
     expect(dirtyValues(onDirtyChange)).toContain(true);
   });
 
   it("nombre max de participants saisi → onDirtyChange(true) [régression a91b48a]", async () => {
     const user = userEvent.setup();
     const { onDirtyChange } = setup();
-    await user.type(screen.getByLabelText("Nombre maximum de participants (optionnel)"), "20");
+    await user.type(screen.getByLabelText("Nombre maximum de participants (facultatif)"), "20");
     expect(dirtyValues(onDirtyChange)).toContain(true);
   });
 

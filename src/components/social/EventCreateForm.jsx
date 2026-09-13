@@ -278,7 +278,7 @@ export default function EventCreateForm({ currentUser, initialCommunityId = null
       </label>
 
       <label className="block">
-        <span className="text-xs font-bold" style={{ color: muted }}>Durée (minutes, optionnel)</span>
+        <span className="text-xs font-bold" style={{ color: muted }}>Durée (minutes, facultatif)</span>
         <input type="number" min="1" value={durationMinutes} onChange={(e) => setDurationMinutes(e.target.value)} placeholder="90" className="mt-1.5 w-full rounded-xl px-3.5 py-2.5 text-sm outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--bb-leaf)]" style={{ background: bg }} />
       </label>
 
@@ -288,13 +288,13 @@ export default function EventCreateForm({ currentUser, initialCommunityId = null
       </label>
 
       <label className="block">
-        <span className="text-xs font-bold" style={{ color: muted }}>Lieu public (optionnel)</span>
+        <span className="text-xs font-bold" style={{ color: muted }}>Lieu public (facultatif)</span>
         <input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Café Aunja, Plateau-Mont-Royal" className="mt-1.5 w-full rounded-xl px-3.5 py-2.5 text-sm outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--bb-leaf)]" style={{ background: bg }} />
         <p className="text-[11px] mt-1" style={{ color: muted }}>Un lieu public ou un quartier — jamais une adresse exacte.</p>
       </label>
 
       <label className="block">
-        <span className="text-xs font-bold" style={{ color: muted }}>Nombre maximum de participants (optionnel)</span>
+        <span className="text-xs font-bold" style={{ color: muted }}>Nombre maximum de participants (facultatif)</span>
         <input type="number" min="1" value={maxParticipants} onChange={(e) => setMaxParticipants(e.target.value)} placeholder="Illimité" className="mt-1.5 w-full rounded-xl px-3.5 py-2.5 text-sm outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--bb-leaf)]" style={{ background: bg }} />
       </label>
 
