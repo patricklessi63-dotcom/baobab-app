@@ -10,6 +10,7 @@ import ChipSelect from "../components/ChipSelect";
 import AiSuggestButton from "../components/ai/AiSuggestButton";
 import { validateMediaFile } from "../lib/mediaValidation";
 import { parseArrivedSince, formatArrivedSince } from "./onboarding/steps/Step4CanadaJourney";
+import { computeAge } from "./onboarding/steps/Step1Identity";
 import { useImageLightbox } from "../lib/ImageLightboxContext";
 import { truncateUnicodeSafe } from "../utils/format";
 
@@ -40,6 +41,16 @@ export default function EditProfileForm({
 }) {
   const set = (patch) => setEditForm({ ...editForm, ...patch });
   const { openLightbox } = useImageLightbox();
+
+  // Mêmes règles que handleSaveProfile (App.jsx) — reproduites ici pour
+  // désactiver visuellement "Enregistrer" tant que le prénom ou l'âge ne
+  // sont pas valides, plutôt que de laisser l'utilisateur soumettre et
+  // découvrir l'erreur ("Le nom est requis.") dans un bandeau générique en
+  // haut d'écran, sans aucun lien visuel avec le champ Prénom réellement en
+  // cause (même pattern de bouton désactivé que OnboardingWizard/
+  // EventCreateForm — canSubmit/currentValid).
+  const editAge = editForm.birthDate ? computeAge(editForm.birthDate) : Number(editForm.age);
+  const profileValid = Boolean(editForm.name?.trim()) && editAge !== null && !Number.isNaN(editAge) && editAge >= 18 && editAge <= 100;
 
   // Un profil doit toujours garder au moins une photo — l'onboarding l'impose
   // (Step2Photo.jsx : photoPreviews.length >= 1 obligatoire). removeExistingPhoto
@@ -215,11 +226,12 @@ export default function EditProfileForm({
         </div>
 
         <p className="text-xs font-semibold" style={{ color: "rgba(var(--bb-ink-rgb-static),0.55)" }}>Identité</p>
-        <input placeholder="Prénom" value={editForm.name} onChange={(e) => set({ name: e.target.value })}
+        <label htmlFor="edit-name" className="text-xs" style={{ color: "rgba(var(--bb-ink-rgb-static),0.5)" }}>Prénom *</label>
+        <input id="edit-name" placeholder="Prénom" value={editForm.name} onChange={(e) => set({ name: e.target.value })}
           maxLength={80} className="bb-input w-full text-sm" />
         <input placeholder="Nom (facultatif)" value={editForm.lastName || ""} onChange={(e) => set({ lastName: e.target.value })}
           maxLength={80} className="bb-input w-full text-sm" />
-        <label htmlFor="edit-birth-date" className="text-xs" style={{ color: "rgba(var(--bb-ink-rgb-static),0.5)" }}>Date de naissance (jamais affichée publiquement)</label>
+        <label htmlFor="edit-birth-date" className="text-xs" style={{ color: "rgba(var(--bb-ink-rgb-static),0.5)" }}>Date de naissance * (jamais affichée publiquement)</label>
         <input id="edit-birth-date" type="date" value={editForm.birthDate} onChange={(e) => set({ birthDate: e.target.value })}
           min={`${new Date().getFullYear() - 100}-01-01`} max={`${new Date().getFullYear() - 18}-12-31`}
           className="bb-input w-full text-sm" />
@@ -363,7 +375,7 @@ export default function EditProfileForm({
           />
         )}
 
-        <button type="submit" disabled={savingProfile} className="bb-btn bb-btn-primary mt-2 py-3 rounded-full font-semibold text-sm">
+        <button type="submit" disabled={savingProfile || !profileValid} className="bb-btn bb-btn-primary mt-2 py-3 rounded-full font-semibold text-sm">
           {savingProfile ? "Enregistrement..." : "Enregistrer les modifications"}
         </button>
       </form>
