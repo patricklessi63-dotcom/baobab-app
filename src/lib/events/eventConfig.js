@@ -68,6 +68,23 @@ export function closestCanadaTimezone(detected) {
   return "America/Toronto";
 }
 
+// Décalage (en ms) entre l'heure murale du fuseau `timeZone` à l'instant
+// `instantMs` et cet instant lui-même (ex. -4h pour America/Toronto en été,
+// EDT = UTC-4). Utilisé par zonedInputsToUtc pour situer un instant UTC par
+// rapport à une heure locale saisie.
+function wallClockOffsetMs(instantMs, timeZone) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone, hourCycle: "h23",
+    year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", second: "2-digit",
+  }).formatToParts(new Date(instantMs)).reduce((acc, p) => {
+    if (p.type !== "literal") acc[p.type] = Number(p.value);
+    return acc;
+  }, {});
+  const asUtcIfSameWallClock = Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour === 24 ? 0 : parts.hour, parts.minute, parts.second);
+  return asUtcIfSameWallClock - instantMs;
+}
+
 // Convertit une date/heure de formulaire (valeurs d'<input type="date"> et
 // <input type="time">, sans fuseau) en instant UTC réel, en les interprétant
 // dans le fuseau CHOISI par l'utilisateur (champ "Fuseau horaire" du
@@ -79,26 +96,39 @@ export function closestCanadaTimezone(detected) {
 // HNP comme sélectionné — décalage silencieux de plusieurs heures, visible
 // par tous les participants (formatEventWhen affiche bien dans le fuseau de
 // l'événement, donc l'erreur de fond se voit).
-// Algorithme classique (une itération suffit hors instant de bascule DST) :
-// on suppose d'abord que les composants saisis sont en UTC, on regarde à
-// quelle heure locale cet instant correspond dans le fuseau cible, puis on
-// corrige par l'écart constaté.
+//
+// Algorithme : on suppose d'abord que les composants saisis sont en UTC
+// ("guess"), on regarde à quelle heure locale cet instant correspond dans le
+// fuseau cible, puis on corrige par l'écart constaté — MAIS un seul passage
+// ne suffit pas les jours de bascule DST. Pour un fuseau canadien (UTC-3h30
+// à -8h), "guess" (juste les chiffres saisis interprétés comme UTC) tombe
+// presque toujours AVANT l'instant de bascule du jour visé (qui a lieu à 2h
+// heure locale = 2h+|décalage| UTC), même quand l'heure saisie est après 2h
+// locale : le décalage lu à "guess" était alors celui d'AVANT la bascule
+// (ex. HNE au lieu de HNA), et toute heure pourtant parfaitement valide de
+// 2h à ~7h-8h locale ce jour-là se retrouvait décalée d'une heure entière.
+// Repéré concrètement : zonedInputsToUtc("2025-03-09", "03:30",
+// "America/Toronto") — 9 mars 2025, jour du passage à l'heure d'été au
+// Canada — renvoyait 2025-03-09T08:30:00.000Z (= 4h30 HAE) au lieu de
+// 2025-03-09T07:30:00.000Z (3h30 HAE, l'heure réellement choisie), alors que
+// 3h30 HAE ce jour-là est une heure on ne peut plus valide (la bascule a eu
+// lieu à 2h, une heure plus tôt). Corrigé en relisant le décalage une
+// seconde fois, cette fois à proximité de l'instant candidat (donc du bon
+// côté de la bascule) plutôt qu'à "guess" qui peut en être à des heures.
+// Seule l'heure murale réellement inexistante (ex. 2h00-2h59 le jour du
+// passage à l'heure d'été) reste, par nature, sans réponse unique : le
+// résultat est alors déterministe (jamais d'exception, jamais aléatoire)
+// mais correspond à une convention arbitraire parmi d'autres.
 export function zonedInputsToUtc(dateStr, timeStr, timeZone) {
   if (!dateStr || !timeStr) return new Date(NaN);
   const [y, mo, d] = dateStr.split("-").map(Number);
   const [h, mi] = timeStr.split(":").map(Number);
   const guess = Date.UTC(y, mo - 1, d, h, mi);
   if (!timeZone) return new Date(guess);
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone, hourCycle: "h23",
-    year: "numeric", month: "2-digit", day: "2-digit",
-    hour: "2-digit", minute: "2-digit", second: "2-digit",
-  }).formatToParts(new Date(guess)).reduce((acc, p) => {
-    if (p.type !== "literal") acc[p.type] = Number(p.value);
-    return acc;
-  }, {});
-  const asUtcIfSameWallClock = Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour === 24 ? 0 : parts.hour, parts.minute, parts.second);
-  return new Date(guess - (asUtcIfSameWallClock - guess));
+  const firstPassOffset = wallClockOffsetMs(guess, timeZone);
+  const candidate = guess - firstPassOffset;
+  const secondPassOffset = wallClockOffsetMs(candidate, timeZone);
+  return new Date(guess - secondPassOffset);
 }
 
 // Opération inverse : décompose un instant UTC stocké (event.event_date) en

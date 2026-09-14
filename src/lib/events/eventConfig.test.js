@@ -108,3 +108,50 @@ describe("eventConfig — conversion date/heure zonée <-> UTC", () => {
     expect(utcToZonedInputs("pas-une-date", "America/Toronto")).toEqual({ date: "", time: "" });
   });
 });
+
+describe("eventConfig — zonedInputsToUtc les jours de bascule DST", () => {
+  // Bug réel repéré par audit (voir commentaire de zonedInputsToUtc) : un seul
+  // passage de correction du décalage lisait le fuseau à un instant ("guess")
+  // qui tombe presque toujours AVANT la bascule DST du jour choisi, même pour
+  // une heure saisie APRÈS la bascule (2h locale). Résultat : toute heure
+  // pourtant valide entre 2h et ~7h-8h locale le jour de la bascule se
+  // retrouvait décalée d'une heure entière (ex. HNE utilisée au lieu de HNA).
+  it("9 mars 2025 (passage à l'heure d'été à Toronto) : 3h30 valide n'est PAS décalée d'une heure", () => {
+    // Avant le correctif, ceci renvoyait 2025-03-09T08:30:00.000Z (4h30 HAE)
+    // au lieu de l'heure réellement choisie.
+    const utc = zonedInputsToUtc("2025-03-09", "03:30", "America/Toronto");
+    expect(utc.toISOString()).toBe("2025-03-09T07:30:00.000Z");
+    expect(utcToZonedInputs(utc.toISOString(), "America/Toronto")).toEqual({ date: "2025-03-09", time: "03:30" });
+  });
+
+  it("même bascule à Vancouver (fuseau à -8h/-7h, donc guess encore plus loin de la bascule)", () => {
+    const utc = zonedInputsToUtc("2025-03-09", "03:30", "America/Vancouver");
+    expect(utc.toISOString()).toBe("2025-03-09T10:30:00.000Z");
+    expect(utcToZonedInputs(utc.toISOString(), "America/Vancouver")).toEqual({ date: "2025-03-09", time: "03:30" });
+  });
+
+  it("heure juste avant la bascule (1h30, non ambiguë) reste correcte", () => {
+    const utc = zonedInputsToUtc("2025-03-09", "01:30", "America/Toronto");
+    expect(utc.toISOString()).toBe("2025-03-09T06:30:00.000Z");
+  });
+
+  it("heure bien après la bascule (midi) reste correcte", () => {
+    const utc = zonedInputsToUtc("2025-03-09", "12:00", "America/Toronto");
+    expect(utc.toISOString()).toBe("2025-03-09T16:00:00.000Z");
+  });
+
+  it("heure murale INEXISTANTE (2h00-2h59 le jour du passage à l'été) : jamais de crash, résultat déterministe", () => {
+    const utc = zonedInputsToUtc("2025-03-09", "02:30", "America/Toronto");
+    expect(Number.isNaN(utc.getTime())).toBe(false);
+    // Convention retenue : traitée comme juste avant la bascule (HNE), donc
+    // même instant que 1h30 — pas de règle "vraie" possible pour une heure
+    // qui n'a jamais existé, mais le comportement doit rester stable.
+    expect(utc.toISOString()).toBe("2025-03-09T06:30:00.000Z");
+  });
+
+  it("2 novembre 2025 (retour à l'heure normale) : heure AMBIGUË résolue sans crash, aller-retour cohérent", () => {
+    const utc = zonedInputsToUtc("2025-11-02", "01:30", "America/Toronto");
+    expect(Number.isNaN(utc.getTime())).toBe(false);
+    expect(utcToZonedInputs(utc.toISOString(), "America/Toronto")).toEqual({ date: "2025-11-02", time: "01:30" });
+  });
+});
