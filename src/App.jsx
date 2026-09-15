@@ -29,6 +29,7 @@ import LandingPage from "./screens/public/LandingPage";
 import LocationRequiredGate from "./components/LocationRequiredGate";
 import { useOnlineStatus } from "./hooks/useOnlineStatus";
 import { OTHER_PROFILE_COLUMNS } from "./lib/otherProfileColumns";
+import { buildOlderMessagesFilter } from "./lib/messagesPagination";
 
 const PUBLIC_ONLY_PATHS = new Set(["/connexion", "/inscription", "/a-propos", "/confidentialite", "/conditions"]);
 
@@ -2050,11 +2051,22 @@ export default function App() {
     if (!currentUser || !match) return;
     const token = ++chatLoadTokenRef.current;
     try {
+      // Tri secondaire sur "id" (bug corrigé à l'audit pagination — même
+      // correctif que PostsFeed.jsx/CommunitiesTab.jsx/EventsTab.jsx) : deux
+      // messages envoyés dans la même conversation au même created_at exact
+      // (ex. l'un envoyé pile au moment où l'autre participant en envoie un,
+      // horloge/colonne peu précise) n'avaient sinon aucun ordre garanti d'un
+      // appel à l'autre. Comme "id" est une identity croissante (voir
+      // supabase-schema.sql), trier dessus en second donne un ordre total
+      // déterministe cohérent avec l'ordre d'insertion réel, indispensable
+      // pour que loadOlderMessages() ci-dessous ne saute ni ne double aucun
+      // message à la frontière de page.
       const { data, error: msgError } = await supabase
         .from("messages")
         .select("*")
         .eq("match_key", matchKey(currentUser.id, match.id))
         .order("created_at", { ascending: false })
+        .order("id", { ascending: false })
         .limit(MESSAGES_PAGE_SIZE);
       if (msgError) throw msgError;
       // Une conversation plus récemment ouverte a déjà émis un jeton plus
@@ -2089,13 +2101,25 @@ export default function App() {
     const token = chatLoadTokenRef.current;
     setLoadingOlder(true);
     try {
-      const oldest = messages[0]?.created_at;
+      // Curseur composé (created_at, id) plutôt qu'un simple ".lt(created_at)"
+      // (bug corrigé à l'audit pagination, même famille que PostsFeed.jsx/
+      // CommunitiesTab.jsx/EventsTab.jsx) : si plusieurs messages de cette
+      // conversation partagent EXACTEMENT le même created_at que le plus
+      // ancien déjà affiché, un ".lt" strict sur created_at seul les excluait
+      // TOUS définitivement dès qu'un seul d'entre eux avait déjà été chargé
+      // — ils n'étaient jamais rechargés (message manquant en permanence,
+      // pas juste dupliqué). "id" (identity strictement croissante à
+      // l'insertion, voir supabase-schema.sql) lève l'ambiguïté sans risque
+      // de saut ni de doublon, quel que soit le nombre de messages partageant
+      // le même created_at.
+      const oldest = messages[0];
       const { data, error: olderError } = await supabase
         .from("messages")
         .select("*")
         .eq("match_key", matchKey(currentUser.id, activeMatch.id))
-        .lt("created_at", oldest)
+        .or(buildOlderMessagesFilter(oldest))
         .order("created_at", { ascending: false })
+        .order("id", { ascending: false })
         .limit(MESSAGES_PAGE_SIZE);
       if (olderError) throw olderError;
       if (chatLoadTokenRef.current !== token) return;
