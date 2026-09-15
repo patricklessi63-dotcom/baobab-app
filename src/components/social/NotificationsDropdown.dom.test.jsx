@@ -35,6 +35,7 @@ function baseProps(overrides) {
     goTab: vi.fn(),
     notifHasMore: false,
     setNotifLimit: vi.fn(),
+    notifLoadingMore: false,
     setNotificationsOpen: vi.fn(),
     ...overrides,
   };
@@ -147,6 +148,13 @@ describe("NotificationsDropdown", () => {
     });
     expect(screen.getByText("Aucune notification dans cette catégorie.")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Nouveau message de Awa/ })).toBeNull();
+  });
+
+  it("« Charger plus » désactivé et affiché « Chargement... » pendant notifLoadingMore (garde anti-double-clic)", () => {
+    setup({ notifHasMore: true, incomingFavoritesCount: 1, notifLoadingMore: true });
+    const btn = screen.getByRole("button", { name: "Chargement..." });
+    expect(btn).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "Charger plus" })).toBeNull();
   });
 
   it("« Charger plus » reste disponible sur une catégorie vide s'il peut encore y avoir des résultats", async () => {

@@ -871,6 +871,22 @@ export default function SocialShell({
   const [notifHasMore, setNotifHasMore] = useState(false);
   const notifLimitRef = useRef(20);
   const fetchNotificationsRef = useRef(null);
+  // Garde anti-double-clic + jeton de requête pour « Charger plus » (bug
+  // corrigé à l'audit pagination — même famille que loadingMoreRef déjà
+  // présent sur PostsFeed.jsx/CommunitiesTab.jsx/EventsTab.jsx, absent ici) :
+  // rien n'empêchait un double-clic/tap rapide sur le bouton de déclencher
+  // deux fetchNotifications() concurrents à des limites différentes (20->40
+  // puis 40->60 par ex.). Sans jeton, si la réponse à la PLUS PETITE limite
+  // arrivait après celle de la plus grande (ordre réseau non garanti), elle
+  // écrasait la liste affichée et notifHasMore avec des données plus
+  // courtes/anciennes — des notifications déjà visibles disparaissaient
+  // jusqu'au prochain clic. notifLoadingMoreRef bloque le second clic tant
+  // que le premier fetch n'a pas abouti ; notifFetchSeqRef protège aussi
+  // contre la resynchronisation de reconnexion ci-dessous (fetchNotificationsRef
+  // partagé), qui peut se déclencher pendant qu'un "Charger plus" est en vol.
+  const notifLoadingMoreRef = useRef(false);
+  const [notifLoadingMore, setNotifLoadingMore] = useState(false);
+  const notifFetchSeqRef = useRef(0);
   // Déclenche le refetch (via la fonction stable fetchNotificationsRef,
   // sans recréer l'abonnement Realtime ci-dessous) quand l'utilisateur
   // clique « Charger plus ». Le garde-fou sur la valeur initiale (20) évite
@@ -880,27 +896,46 @@ export default function SocialShell({
     if (notifLimit === 20) return;
     fetchNotificationsRef.current?.();
   }, [notifLimit]);
+  const handleLoadMoreNotifications = () => {
+    if (notifLoadingMoreRef.current) return;
+    notifLoadingMoreRef.current = true;
+    setNotifLoadingMore(true);
+    setNotifLimit((l) => l + 20);
+  };
   // Miroir en ref de la liste, lu par le handler Realtime pour dédupliquer
   // sans setState imbriqué (voir le commentaire du .on("postgres_changes")).
   const communityNotificationsRef = useRef([]);
   useEffect(() => { communityNotificationsRef.current = communityNotifications; }, [communityNotifications]);
   useEffect(() => {
-    if (!currentUser) { setCommunityNotifications([]); setUnreadCommunityCount(0); setNotifLimit(20); setNotifHasMore(false); return; }
+    if (!currentUser) {
+      setCommunityNotifications([]); setUnreadCommunityCount(0); setNotifLimit(20); setNotifHasMore(false);
+      notifLoadingMoreRef.current = false; setNotifLoadingMore(false);
+      return;
+    }
     let alive = true;
-    const fetchNotifications = () => supabase
-      .from("notifications")
-      .select("id, type, community_id, target_type, target_id, actor_id, read_at, created_at, actor:actor_id(name, avatar_url)")
-      .eq("recipient_id", currentUser.id)
-      .is("read_at", null)
-      .order("created_at", { ascending: false })
-      .limit(notifLimitRef.current)
-      .then(({ data, error }) => {
-        if (!alive) return;
-        if (error) { console.error(error.message, error.code, error.details, error.hint); return; }
-        setCommunityNotifications(data || []);
-        setUnreadCommunityCount((data || []).length);
-        setNotifHasMore((data || []).length >= notifLimitRef.current);
-      });
+    const fetchNotifications = () => {
+      const seq = ++notifFetchSeqRef.current;
+      return supabase
+        .from("notifications")
+        .select("id, type, community_id, target_type, target_id, actor_id, read_at, created_at, actor:actor_id(name, avatar_url)")
+        .eq("recipient_id", currentUser.id)
+        .is("read_at", null)
+        .order("created_at", { ascending: false })
+        .limit(notifLimitRef.current)
+        .then(({ data, error }) => {
+          // Jeton de requête : une réponse plus ancienne (double-clic sur
+          // "Charger plus", ou resynchronisation de reconnexion ci-dessous
+          // arrivée en même temps) ne doit jamais écraser le résultat d'une
+          // requête plus récente déjà appliquée.
+          if (!alive || seq !== notifFetchSeqRef.current) return;
+          notifLoadingMoreRef.current = false;
+          setNotifLoadingMore(false);
+          if (error) { console.error(error.message, error.code, error.details, error.hint); return; }
+          setCommunityNotifications(data || []);
+          setUnreadCommunityCount((data || []).length);
+          setNotifHasMore((data || []).length >= notifLimitRef.current);
+        });
+    };
     fetchNotificationsRef.current = fetchNotifications;
     fetchNotifications();
     const channel = supabase
@@ -1942,7 +1977,8 @@ export default function SocialShell({
                 setOpenEventId={setOpenEventId}
                 goTab={goTab}
                 notifHasMore={notifHasMore}
-                setNotifLimit={setNotifLimit}
+                setNotifLimit={handleLoadMoreNotifications}
+                notifLoadingMore={notifLoadingMore}
                 setNotificationsOpen={setNotificationsOpen}
               />
             )}

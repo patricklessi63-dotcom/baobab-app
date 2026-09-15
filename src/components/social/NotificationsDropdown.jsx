@@ -35,7 +35,13 @@ export default function NotificationsDropdown({
   setOpenEventId,
   goTab,
   notifHasMore,
+  // Malgré son nom, appelle désormais handleLoadMoreNotifications côté
+  // SocialShell (garde anti-double-clic + jeton de requête), pas
+  // directement le setState — voir le commentaire sur notifLoadingMoreRef
+  // dans SocialShell.jsx pour le bug corrigé (double-clic sur "Charger
+  // plus" pouvait faire disparaître des notifications déjà affichées).
   setNotifLimit,
+  notifLoadingMore = false,
   setNotificationsOpen,
 }) {
   // Bug corrigé à l'audit : l'état vide ("Aucune notification pour
@@ -140,11 +146,12 @@ export default function NotificationsDropdown({
           <p className="text-xs" style={{ color: muted }}>Aucune notification dans cette catégorie.</p>
           {notifHasMore && (
             <button
-              onClick={() => setNotifLimit((l) => l + 20)}
-              className="mt-2 text-center py-2 text-xs font-bold rounded-xl hover:bg-[var(--bb-bg)] focus-visible:outline focus-visible:outline-2"
+              onClick={() => setNotifLimit()}
+              disabled={notifLoadingMore}
+              className="mt-2 text-center py-2 text-xs font-bold rounded-xl hover:bg-[var(--bb-bg)] focus-visible:outline focus-visible:outline-2 disabled:opacity-50"
               style={{ color: leaf }}
             >
-              Charger plus
+              {notifLoadingMore ? "Chargement..." : "Charger plus"}
             </button>
           )}
         </div>
@@ -166,11 +173,12 @@ export default function NotificationsDropdown({
           ))}
           {notifHasMore && (
             <button
-              onClick={() => setNotifLimit((l) => l + 20)}
-              className="text-center py-2 text-xs font-bold rounded-xl hover:bg-[var(--bb-bg)] focus-visible:outline focus-visible:outline-2"
+              onClick={() => setNotifLimit()}
+              disabled={notifLoadingMore}
+              className="text-center py-2 text-xs font-bold rounded-xl hover:bg-[var(--bb-bg)] focus-visible:outline focus-visible:outline-2 disabled:opacity-50"
               style={{ color: leaf }}
             >
-              Charger plus
+              {notifLoadingMore ? "Chargement..." : "Charger plus"}
             </button>
           )}
         </div>
