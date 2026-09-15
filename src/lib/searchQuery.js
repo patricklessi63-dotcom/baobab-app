@@ -26,3 +26,18 @@ export function escapeLikePattern(value) {
 export function escapeOrFilterValue(value) {
   return String(value).replace(/\\/g, "\\\\").replace(/"/g, '\\"');
 }
+
+// Normalise un texte pour une comparaison de recherche insensible à la fois
+// aux accents/diacritiques ET à la casse — ex. "Montreal" (tapé sans accent,
+// clavier anglais ou saisie rapide) doit retrouver "Montréal", et "MARIE"
+// doit retrouver "marie". Originellement écrite dans SocialShell.jsx pour la
+// recherche globale du header (candidats/profils), puis centralisée ici pour
+// être réutilisée par toute recherche texte purement client (liste de
+// conversations, messages d'une conversation, actualités immigration...) —
+// elle ne remplace PAS escapeLikePattern/escapeOrFilterValue ci-dessus, qui
+// servent à construire un filtre ILIKE côté serveur (Postgres), insensible à
+// la casse mais PAS aux accents en l'absence de l'extension unaccent.
+const DIACRITICS_RE = /\p{Diacritic}/gu;
+export function normalizeForSearch(text) {
+  return (text || "").normalize("NFD").replace(DIACRITICS_RE, "").toLowerCase();
+}

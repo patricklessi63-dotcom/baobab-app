@@ -9,6 +9,7 @@ import { detectMoneyRequest } from "../../lib/moneyGuard";
 import { detectPersonalCoordinates } from "../../lib/coordinatesGuard";
 import { checkRateLimit } from "../../lib/messageRateLimit";
 import { detectKindFromMime } from "../../lib/mediaValidation";
+import { normalizeForSearch } from "../../lib/searchQuery";
 import { useClickOutside } from "../../hooks/useClickOutside";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
 import { useFocusReturn } from "../../hooks/useFocusReturn";
@@ -329,10 +330,14 @@ export default function ConversationPane({
     guardedSend(sendMessage)();
   };
 
-  const q = searchQuery.trim().toLowerCase();
+  // Bug corrigé à l'audit : seule la casse était normalisée ici — chercher
+  // "cafe" (sans accent) dans l'historique d'une conversation ne retrouvait
+  // jamais un message contenant "café". Même correctif que matchesSearch
+  // dans SocialShell.jsx, via lib/searchQuery.js.
+  const q = normalizeForSearch(searchQuery.trim());
   const visibleMessages = messages
     .filter((m) => !(m.deleted_for || []).includes(currentUser.id))
-    .filter((m) => !q || (m.text || "").toLowerCase().includes(q));
+    .filter((m) => !q || normalizeForSearch(m.text).includes(q));
 
   return (
     <div className="flex flex-col h-full w-full min-w-0">

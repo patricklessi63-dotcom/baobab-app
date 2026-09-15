@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { escapeLikePattern, escapeOrFilterValue } from "./searchQuery.js";
+import { escapeLikePattern, escapeOrFilterValue, normalizeForSearch } from "./searchQuery.js";
 
 // Ces deux fonctions échappent une saisie utilisateur libre AVANT de la
 // concaténer dans un filtre PostgREST `ilike` / `or`. Un défaut ici = requête
@@ -122,5 +122,56 @@ describe("escapeOrFilterValue", () => {
     // échappement le "dé-échappe". Backslash traité en premier -> le sien est
     // doublé, le nôtre s'ajoute : le guillemet reste inerte.
     expect(escapeOrFilterValue('a\\"b')).toBe('a\\\\\\"b');
+  });
+});
+
+// normalizeForSearch sert aux recherches purement client (liste de
+// conversations, messages d'une conversation, actualités immigration, header
+// SocialShell...) : contrairement à escapeLikePattern/escapeOrFilterValue
+// ci-dessus (qui sécurisent un filtre ILIKE côté serveur, insensible à la
+// casse mais PAS aux accents), celle-ci doit rendre la comparaison
+// insensible À LA FOIS aux accents et à la casse, des deux côtés (saisie ET
+// donnée), pour une app 100% francophone où beaucoup de noms/villes portent
+// des accents (Montréal, René, Éducation...).
+describe("normalizeForSearch", () => {
+  it("retire les accents/diacritiques (clavier anglais, saisie sans accent)", () => {
+    expect(normalizeForSearch("Montréal")).toBe("montreal");
+    expect(normalizeForSearch("Montreal")).toBe("montreal");
+    expect(normalizeForSearch("Éducation")).toBe("education");
+    expect(normalizeForSearch("René")).toBe("rene");
+    expect(normalizeForSearch("Québec, ça va bien !")).toBe("quebec, ca va bien !");
+  });
+
+  it("est insensible à la casse", () => {
+    expect(normalizeForSearch("MARIE")).toBe("marie");
+    expect(normalizeForSearch("marie")).toBe("marie");
+    expect(normalizeForSearch("MaRiE")).toBe("marie");
+  });
+
+  it("normalise accents et casse ensemble, dans les deux sens de comparaison", () => {
+    // Le point exact du bug corrigé : "Montreal" (saisie) doit matcher
+    // "MONTRÉAL" (donnée), peu importe lequel des deux porte les accents/la
+    // casse d'origine.
+    expect(normalizeForSearch("Montreal")).toBe(normalizeForSearch("MONTRÉAL"));
+    expect(normalizeForSearch("marie")).toBe(normalizeForSearch("MARIE"));
+  });
+
+  it("laisse les espaces internes et la ponctuation intacts (pas un trim)", () => {
+    // normalizeForSearch ne fait QUE accents+casse — retirer les espaces en
+    // trop (début/fin de saisie) reste la responsabilité de l'appelant
+    // (.trim() avant d'appeler cette fonction), comme le fait déjà
+    // matchesSearch dans SocialShell.jsx.
+    expect(normalizeForSearch("  Marie  ")).toBe("  marie  ");
+  });
+
+  it("gère null/undefined/chaîne vide sans lever d'exception", () => {
+    expect(normalizeForSearch(null)).toBe("");
+    expect(normalizeForSearch(undefined)).toBe("");
+    expect(normalizeForSearch("")).toBe("");
+  });
+
+  it("préserve les caractères non-latins (pas de perte sur du texte déjà sans diacritique)", () => {
+    expect(normalizeForSearch("日本語")).toBe("日本語");
+    expect(normalizeForSearch("☕")).toBe("☕");
   });
 });

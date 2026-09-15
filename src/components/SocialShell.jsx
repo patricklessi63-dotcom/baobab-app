@@ -27,7 +27,7 @@ import { trackBetaEvent } from "../lib/trackBetaEvent";
 import { friendlyDbError } from "../lib/friendlyDbError";
 import ChunkErrorBoundary from "./ChunkErrorBoundary";
 import { useHiddenRecommendations } from "../lib/useHiddenRecommendations";
-import { escapeLikePattern, escapeOrFilterValue } from "../lib/searchQuery";
+import { escapeLikePattern, escapeOrFilterValue, normalizeForSearch } from "../lib/searchQuery";
 import { isRecentArrival } from "../lib/arrivalStage";
 import { OTHER_PROFILE_COLUMNS } from "../lib/otherProfileColumns";
 
@@ -73,11 +73,10 @@ function colorForProfile(id) {
 // doit apparaître quelque part, dans n'importe quel ordre) — corrige un
 // bug identifié à l'audit (l'ancienne comparaison .includes() ratait
 // "patrick" pour "Patrick" accentué ailleurs, et ne trouvait jamais deux
-// mots dans le désordre).
-const DIACRITICS_RE = /\p{Diacritic}/gu;
-function normalizeForSearch(text) {
-  return (text || "").normalize("NFD").replace(DIACRITICS_RE, "").toLowerCase();
-}
+// mots dans le désordre). normalizeForSearch vit désormais dans
+// lib/searchQuery.js (importé ci-dessus) pour être réutilisée par les autres
+// recherches texte purement client du produit (MessagesTab, ConversationPane,
+// ImmigrationNewsView...), qui ne normalisaient pas les accents avant.
 function matchesSearch(profile, query) {
   const words = normalizeForSearch(query).split(/\s+/).filter(Boolean);
   if (words.length === 0) return true;
@@ -414,12 +413,18 @@ export default function SocialShell({
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "favorites", filter: `to_id=eq.${currentUser.id}` },
-        () => setIncomingFavoritesCount((n) => n + 1)
+        (payload) => {
+          const fromId = payload.new.from_id;
+          setIncomingFavoriteFromIds((prev) => (prev.includes(fromId) ? prev : [...prev, fromId]));
+        }
       )
       .on(
         "postgres_changes",
         { event: "DELETE", schema: "public", table: "favorites", filter: `to_id=eq.${currentUser.id}` },
-        () => setIncomingFavoritesCount((n) => Math.max(0, n - 1))
+        (payload) => {
+          const fromId = payload.old.from_id;
+          setIncomingFavoriteFromIds((prev) => prev.filter((id) => id !== fromId));
+        }
       )
       .subscribe();
     return () => { supabase.removeChannel(channel); };
@@ -835,21 +840,32 @@ export default function SocialShell({
     if (activeMatch) setTab("matches");
   }, [activeMatch]);
 
-  const [incomingFavoritesCount, setIncomingFavoritesCount] = useState(0);
+  // Bug corrigé à l'audit blocage : incomingFavoriteFromIds garde la liste
+  // des from_id (pas juste un compteur, contrairement à l'ancien
+  // incomingFavoritesCount) pour pouvoir en exclure les personnes bloquées
+  // de façon réactive ci-dessous — sans ça, la bannière "⭐ N personne(s)
+  // t'a ajouté en favori" du menu de notifications continuait de compter
+  // une personne qu'on vient de bloquer (la ligne "favorites" n'est pas
+  // supprimée par un blocage), et ce même après un rechargement complet
+  // puisque la requête initiale ne filtrait pas non plus sur les blocages —
+  // contrairement à getAdmirers()/favoriteProfiles, qui excluent déjà les
+  // deux sens du blocage.
+  const [incomingFavoriteFromIds, setIncomingFavoriteFromIds] = useState([]);
   useEffect(() => {
     if (!currentUser) return;
     let alive = true;
     supabase
       .from("favorites")
-      .select("from_id", { count: "exact", head: true })
+      .select("from_id")
       .eq("to_id", currentUser.id)
-      .then(({ count, error }) => {
+      .then(({ data, error }) => {
         if (!alive) return;
         if (error) { console.error(error.message, error.code, error.details, error.hint); return; }
-        setIncomingFavoritesCount(count || 0);
+        setIncomingFavoriteFromIds((data || []).map((r) => r.from_id));
       });
     return () => { alive = false; };
   }, [currentUser]);
+  const incomingFavoritesCount = incomingFavoriteFromIds.filter((id) => !blockedIds.has(id)).length;
 
   // Notifications — table réelle et persistée (voir supabase-communities.sql,
   // supabase-notifications-persistence.sql), couvre désormais aussi

@@ -12,6 +12,7 @@ import {
   FEDERAL_RESOURCES, GUIDE_LIMITS,
 } from "../../lib/newcomerGuideData";
 import { PROVINCE_DIRECTORY, GENERALIST_DIRECTORY } from "../../lib/newcomerDirectoryData";
+import { normalizeForSearch } from "../../lib/searchQuery";
 
 const STEP_ICONS = { CreditCard, Stethoscope, Wallet, Car, Receipt, Home, Phone, GraduationCap, PhoneCall, BadgeCheck };
 
@@ -333,12 +334,16 @@ export default function ImmigrationNewsView({ onBack, onError, currentUser }) {
   const searchedItems = useMemo(() => {
     let list = items;
     if (favoritesOnly) list = list.filter((i) => favoriteIds.has(i.id));
-    const q = search.trim().toLowerCase();
+    // Bug corrigé à l'audit : seule la casse était normalisée ici — chercher
+    // "sante" (sans accent) ne retrouvait jamais les actualités de la
+    // catégorie "Santé", ni un titre/résumé contenant un mot accentué. Même
+    // correctif que matchesSearch dans SocialShell.jsx, via lib/searchQuery.js.
+    const q = normalizeForSearch(search.trim());
     if (!q) return list;
     return list.filter((i) =>
-      i.title?.toLowerCase().includes(q) ||
-      i.summary?.toLowerCase().includes(q) ||
-      (CATEGORY_LABELS[i.category] || "").toLowerCase().includes(q)
+      normalizeForSearch(i.title).includes(q) ||
+      normalizeForSearch(i.summary).includes(q) ||
+      normalizeForSearch(CATEGORY_LABELS[i.category]).includes(q)
     );
   }, [items, search, favoritesOnly, favoriteIds]);
 

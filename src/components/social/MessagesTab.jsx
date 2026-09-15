@@ -8,6 +8,7 @@ import { useClickOutside } from "../../hooks/useClickOutside";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
 import { useFocusReturn } from "../../hooks/useFocusReturn";
 import { matchKey, formatMessageTime, messagePreviewLabel } from "../../utils/format";
+import { normalizeForSearch } from "../../lib/searchQuery";
 import { primary, navy, green, coral, coralText, bg, muted, card, buttonBase, leafLight, offline, body, primaryRgb } from "./theme";
 
 export default function MessagesTab({
@@ -67,10 +68,15 @@ export default function MessagesTab({
   });
 
   const totalUnread = Object.values(unreadByKey).reduce((sum, n) => sum + n, 0);
-  const normalizedQuery = query.trim().toLowerCase();
+  // Bug corrigé à l'audit : la recherche ne normalisait que la casse
+  // (.toLowerCase()), pas les accents — chercher "Rene" (sans accent, clavier
+  // anglais ou saisie rapide) ne retrouvait jamais une conversation avec
+  // "René". Même correctif que matchesSearch dans SocialShell.jsx, via
+  // l'utilitaire désormais partagé lib/searchQuery.js.
+  const normalizedQuery = normalizeForSearch(query.trim());
   const visible = sorted.filter((m) => {
     if (filter === "unread" && !((unreadByKey[matchKey(currentUser.id, m.id)] || 0) > 0)) return false;
-    if (normalizedQuery && !m.name?.toLowerCase().includes(normalizedQuery)) return false;
+    if (normalizedQuery && !normalizeForSearch(m.name).includes(normalizedQuery)) return false;
     return true;
   });
 
