@@ -2,6 +2,7 @@ import React from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { pushBackEntry } from "../../hooks/useEscapeKey";
 
 // On isole le wizard de Supabase : chaque étape enregistre via
 // supabase.from("profiles").update(...).eq(...).select().single().
@@ -41,6 +42,12 @@ function renderWizard(overrides = {}) {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // Repart d'un historique propre à chaque test — pushBackEntry (module-scope,
+  // voir useEscapeKey.js, déjà utilisé par SocialShell.jsx pour goTab/goBack)
+  // pousse de vraies entrées d'historique ; sans ce nettoyage, les entrées
+  // poussées par un test précédent resteraient dans l'historique jsdom réel
+  // et pourraient décaler les popstate simulés suivants.
+  window.history.replaceState(null, "");
 });
 
 describe("OnboardingWizard — garde anti-double-submit", () => {
@@ -81,5 +88,83 @@ describe("OnboardingWizard — garde anti-double-submit", () => {
     // n'est vrai que si draft.usageGoals a été préservé (isStep0Valid).
     const next = screen.getByRole("button", { name: "Continuer" });
     expect(next).toBeEnabled();
+  });
+});
+
+describe("OnboardingWizard — navigation par historique (retour navigateur/mobile)", () => {
+  it("un popstate simulé (bouton/geste retour) après avoir avancé à l'étape 2 restaure l'étape 1 avec le brouillon intact", async () => {
+    // Bug corrigé à l'audit résilience onboarding : avant le correctif,
+    // goNext()/goBack() ne manipulaient qu'un état React local (`step`),
+    // sans jamais pousser d'entrée d'historique (contrairement à
+    // SocialShell.jsx/goTab qui traite déjà ce cas pour les onglets). Un
+    // popstate (bouton retour matériel Android, geste retour iOS/Android, ou
+    // bouton retour du navigateur desktop) n'avait donc RIEN à consommer ici
+    // et remontait directement à l'écran réellement précédent dans
+    // l'historique du navigateur — souvent l'écran de connexion — au lieu de
+    // revenir à l'étape précédente de l'assistant.
+    const user = userEvent.setup();
+    single.mockResolvedValue({ data: { id: "u1", onboarding_step: 1 }, error: null });
+
+    renderWizard();
+    await user.click(screen.getByRole("button", { name: "Continuer" }));
+
+    // étape 2 (Identité)
+    await screen.findByRole("button", { name: /Retour/ });
+
+    // Bouton/geste "retour" mobile : popstate simulé (sans cliquer sur le
+    // bouton "Retour" affiché à l'écran, déjà couvert par le test
+    // précédent).
+    window.dispatchEvent(new PopStateEvent("popstate"));
+
+    // De retour à l'étape 1 (le bouton "Retour" n'est affiché qu'à partir de
+    // l'étape 2) avec le brouillon préservé (usageGoals coché -> Continuer
+    // actif).
+    await waitFor(() => {
+      expect(screen.queryByRole("button", { name: /Retour/ })).not.toBeInTheDocument();
+    });
+    const next = screen.getByRole("button", { name: "Continuer" });
+    expect(next).toBeEnabled();
+  });
+
+  it("le démontage du wizard (ex. compte banni détecté en cours d'onboarding) purge les entrées en attente, pour ne pas avaler un futur retour ailleurs dans l'app", async () => {
+    // Bug qu'aurait introduit un correctif incomplet du point précédent :
+    // goNext() pousse une entrée d'historique à CHAQUE étape franchie sans
+    // jamais revenir en arrière — si OnboardingWizard disparaît (compte
+    // banni/suspendu détecté par App.jsx, ou tout autre démontage qui ne
+    // passe pas par "Terminer"/"Terminer plus tard") avant que l'utilisateur
+    // ait consommé ces entrées, elles resteraient fantômes sur la pile
+    // PARTAGÉE (useEscapeKey.js) avec SocialShell/les modales. Le tout
+    // premier retour navigateur/mobile une fois ailleurs dans l'app serait
+    // alors avalé silencieusement par cette entrée d'un composant déjà
+    // démonté (setStep sur un wizard qui n'existe plus, aucun effet visible)
+    // au lieu de fermer ce qui est réellement ouvert.
+    const user = userEvent.setup();
+    single.mockResolvedValue({ data: { id: "u1", onboarding_step: 1 }, error: null });
+
+    const { unmount } = renderWizard();
+    await user.click(screen.getByRole("button", { name: "Continuer" })); // pousse une entrée (étape 1 -> 2)
+    await screen.findByRole("button", { name: /Retour/ });
+
+    // La purge à l'unmount appelle release() -> window.history.back(), une
+    // VRAIE navigation asynchrone (comme dans un vrai navigateur). On
+    // attend qu'elle aboutisse réellement avant de continuer — sans quoi ce
+    // popstate en attente pourrait se déclencher plus tard, PENDANT un autre
+    // test/fichier (même pile module-scope, voir useEscapeKey.js), et y
+    // fausser un popstate qui ne le concerne pas.
+    const realBackSettled = new Promise((resolve) => {
+      window.addEventListener("popstate", resolve, { once: true });
+    });
+    unmount();
+    await realBackSettled;
+
+    // Écran réellement affiché ensuite (ex. SocialShell) : pousse sa propre
+    // entrée sur la même pile partagée.
+    const onCloseAfter = vi.fn();
+    let release;
+    release = pushBackEntry(() => { release(); onCloseAfter(); });
+
+    window.dispatchEvent(new PopStateEvent("popstate"));
+
+    expect(onCloseAfter).toHaveBeenCalledTimes(1);
   });
 });

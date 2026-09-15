@@ -1,6 +1,7 @@
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { ArrowLeft } from "lucide-react";
 import { supabase } from "../../supabaseClient";
+import { pushBackEntry } from "../../hooks/useEscapeKey";
 import { C, EDUCATION_LEVELS } from "../../constants";
 import OnboardingProgress from "./OnboardingProgress";
 import Step0Welcome, { isStep0Valid } from "./steps/Step0Welcome";
@@ -83,6 +84,52 @@ export default function OnboardingWizard({
   // finale, ils réécrivent deux fois onboarding_completed_at. Même pattern que
   // les inFlightRef d'AdminDashboard / ImmigrationNewsView.
   const submitInFlightRef = useRef(false);
+  // Bug corrigé à l'audit résilience onboarding : goNext()/goBack() ne
+  // touchaient qu'un état React local (`step`), sans jamais pousser
+  // d'entrée d'historique — contrairement à SocialShell.jsx (goTab, même
+  // pile pushBackEntry) qui traite déjà exactement ce cas pour la
+  // navigation par onglets. Résultat concret : au clavier physique Android
+  // ou au geste "retour" iOS/Android pendant l'onboarding (ex. étape 5/10),
+  // il n'y avait AUCUNE entrée d'historique à consommer pour cette page —
+  // le retour remontait donc directement à l'écran réellement précédent
+  // dans l'historique du navigateur (souvent l'écran de connexion/
+  // inscription), faisant croire à une sortie complète de l'inscription
+  // alors que la progression (déjà enregistrée en base étape par étape)
+  // était en réalité intacte. stepBackReleasesRef empile les fonctions
+  // `release` (une par étape franchie, pas encore consommée par un retour)
+  // pour que le bouton "Retour" affiché sache s'il peut déclencher un vrai
+  // retour navigateur (répercuté par popstate) ou doit se rabattre sur un
+  // retour direct d'étape (ne devrait pas arriver en usage normal, goNext
+  // pousse systématiquement une entrée) — ET pour pouvoir purger la pile
+  // proprement (voir releaseAllStepBackEntries) quand l'onboarding se
+  // termine : `stack`/`pushBackEntry` (useEscapeKey.js) est une pile
+  // PARTAGÉE avec SocialShell (goTab) et toutes les modales de l'app. Sans
+  // cette purge, chaque étape franchie sans jamais revenir en arrière (ex.
+  // 10/10 d'affilée) laisserait une entrée fantôme sur cette pile après la
+  // fin de l'onboarding — le premier retour navigateur/mobile une fois sur
+  // le fil d'actualité serait alors avalé silencieusement par cette entrée
+  // d'un composant déjà démonté (aucun effet visible) au lieu de fermer ce
+  // qui est réellement ouvert (menu, modale, onglet).
+  const stepBackReleasesRef = useRef([]);
+
+  // Dépile et libère toutes les entrées d'historique encore en attente
+  // (ordre LIFO, symétrique de leur empilement). `release()` (retourné par
+  // pushBackEntry) consomme réellement l'entrée poussée à l'ouverture — même
+  // mécanisme que la fermeture programmatique d'une modale — sans jamais
+  // appeler le onClose associé : on ne veut pas revenir à une étape, juste
+  // nettoyer avant de quitter l'assistant pour de bon.
+  function releaseAllStepBackEntries() {
+    while (stepBackReleasesRef.current.length > 0) {
+      const release = stepBackReleasesRef.current.pop();
+      release();
+    }
+  }
+
+  // Filet de sécurité si OnboardingWizard disparaît d'une façon qui ne passe
+  // pas par goNext (dernière étape)/finishLater ci-dessous — ex. le compte
+  // est banni/suspendu en cours d'onboarding (App.jsx bascule alors vers
+  // setView("banned"/"suspended") directement).
+  useEffect(() => releaseAllStepBackEntries, []);
 
   const update = (patch) => setDraft((d) => ({ ...d, ...patch }));
 
@@ -292,8 +339,26 @@ export default function OnboardingWizard({
       const result = await saveStep();
       if (!result) return;
       if (step >= STEP_COUNT) {
+        // Onboarding terminé : purge les entrées d'historique accumulées par
+        // les étapes franchies (voir commentaire de stepBackReleasesRef) —
+        // sinon elles restent fantômes sur la pile partagée une fois sur le
+        // fil d'actualité.
+        releaseAllStepBackEntries();
         setShowNotifPrompt(true);
       } else {
+        // Pousse une entrée d'historique AVANT d'avancer, pour que le
+        // bouton/geste "retour" ait quelque chose à consommer et revienne à
+        // l'étape qu'on quitte (voir commentaire de stepBackReleasesRef).
+        const prevStep = step;
+        let release;
+        release = pushBackEntry(() => {
+          release();
+          const i = stepBackReleasesRef.current.indexOf(release);
+          if (i !== -1) stepBackReleasesRef.current.splice(i, 1);
+          setError("");
+          setStep(prevStep);
+        });
+        stepBackReleasesRef.current.push(release);
         setStep((s) => s + 1);
       }
     } finally {
@@ -301,10 +366,17 @@ export default function OnboardingWizard({
     }
   }
 
+  // Retour "logique" (bouton flèche affiché en haut du formulaire) :
+  // identique au bouton retour matériel/geste mobile — consomme la VRAIE
+  // entrée d'historique poussée par goNext ci-dessus, au lieu de se
+  // contenter de décrémenter `step` en local sans jamais vider la pile.
+  // Filet de sécurité si jamais rien n'a été poussé (ne devrait pas arriver
+  // en usage normal) : retour direct d'étape.
   function goBack() {
     if (step <= 1) return;
     setError("");
-    setStep((s) => s - 1);
+    if (stepBackReleasesRef.current.length > 0) window.history.back();
+    else setStep((s) => s - 1);
   }
 
   // "Profil complétable plus tard sans bloquer l'accès" (item audit
@@ -329,6 +401,9 @@ export default function OnboardingWizard({
       if (updateError) throw updateError;
       setCurrentUser(data);
       setProfiles((prev) => prev.map((p) => (p.id === data.id ? data : p)));
+      // Voir commentaire de stepBackReleasesRef : "Terminer plus tard" quitte
+      // aussi l'assistant pour de bon, mêmes entrées fantômes à purger.
+      releaseAllStepBackEntries();
       setShowNotifPrompt(true);
     } catch (e) {
       console.error("onboarding finishLater error:", e?.message, "| code:", e?.code, "| details:", e?.details, "| hint:", e?.hint);
