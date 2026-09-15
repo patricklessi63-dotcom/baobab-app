@@ -145,20 +145,19 @@ describe("OnboardingWizard — navigation par historique (retour navigateur/mobi
     await user.click(screen.getByRole("button", { name: "Continuer" })); // pousse une entrée (étape 1 -> 2)
     await screen.findByRole("button", { name: /Retour/ });
 
-    // La purge à l'unmount appelle release() -> window.history.back(), une
-    // VRAIE navigation asynchrone (comme dans un vrai navigateur). On
-    // attend qu'elle aboutisse réellement avant de continuer — sans quoi ce
-    // popstate en attente pourrait se déclencher plus tard, PENDANT un autre
-    // test/fichier (même pile module-scope, voir useEscapeKey.js), et y
-    // fausser un popstate qui ne le concerne pas.
-    const realBackSettled = new Promise((resolve) => {
-      window.addEventListener("popstate", resolve, { once: true });
-    });
+    // La purge à l'unmount retire l'entrée de la pile via discard() —
+    // PAS release() (voir useEscapeKey.js) : contrairement à release(),
+    // discard() ne déclenche AUCUNE vraie navigation, donc rien à attendre
+    // ici (bug corrigé en review : release() en boucle sur N entrées
+    // aurait fait naviguer le navigateur en arrière N fois pour de vrai
+    // d'un coup en fin d'inscription).
     unmount();
-    await realBackSettled;
 
     // Écran réellement affiché ensuite (ex. SocialShell) : pousse sa propre
-    // entrée sur la même pile partagée.
+    // entrée sur la même pile partagée. Un seul popstate doit suffire à la
+    // consommer — si l'entrée du wizard démonté n'avait pas été purgée
+    // correctement, elle serait encore au-dessus et avalerait ce popstate
+    // sans jamais appeler onCloseAfter.
     const onCloseAfter = vi.fn();
     let release;
     release = pushBackEntry(() => { release(); onCloseAfter(); });

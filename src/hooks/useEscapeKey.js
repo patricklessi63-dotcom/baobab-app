@@ -76,7 +76,7 @@ export function pushBackEntry(onClose) {
   // — usePathname() ignore les popstate à valeur identique) : sert
   // uniquement à donner au bouton "retour" quelque chose à consommer.
   window.history.pushState({ bbOverlay: true }, "");
-  return function releaseBackEntry() {
+  function releaseBackEntry() {
     const i = stack.indexOf(entry);
     if (i !== -1) stack.splice(i, 1);
     // Fermeture programmatique (clic sur X, clic extérieur, Échap...),
@@ -87,7 +87,28 @@ export function pushBackEntry(onClose) {
       suppressPopstateCount++;
       window.history.back();
     }
+  }
+  // Bug identifié à l'audit résilience onboarding (OnboardingWizard.jsx) :
+  // purger PLUSIEURS entrées d'un coup (ex. 9 étapes franchies sans jamais
+  // revenir en arrière) en appelant releaseBackEntry() pour chacune
+  // déclencherait AUTANT de vrais window.history.back() synchrones — les
+  // navigateurs ne les fusionnent pas en un seul saut, ils naviguent
+  // réellement en arrière plusieurs fois de suite. Juste après avoir terminé
+  // une inscription, ça pourrait faire ressortir l'utilisateur de
+  // l'application (ou atterrir sur un écran antérieur inattendu) au lieu de
+  // rester simplement sur l'écran de fin. discardBackEntry() retire donc
+  // l'entrée de la pile SANS déclencher de vraie navigation — à réserver aux
+  // purges groupées où l'appelant assume qu'un petit nombre de pressions
+  // "retour" ultérieures sans effet visible (jusqu'à épuiser les entrées
+  // fantômes laissées dans l'historique réel) est un compromis largement
+  // préférable à une cascade de vraies navigations immédiate. Pour une seule
+  // entrée (cas normal, modales/onglets), releaseBackEntry() reste le bon
+  // choix : une seule vraie navigation, correcte et sans risque.
+  releaseBackEntry.discard = function discardBackEntry() {
+    const i = stack.indexOf(entry);
+    if (i !== -1) stack.splice(i, 1);
   };
+  return releaseBackEntry;
 }
 
 // Ferme une modale/un menu quand l'utilisateur appuie sur Échap OU sur

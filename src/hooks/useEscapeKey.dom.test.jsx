@@ -75,4 +75,37 @@ describe("pushBackEntry (pile de retour partagée)", () => {
     release();
     expect(onClose).not.toHaveBeenCalled();
   });
+
+  it("release.discard() retire l'entrée SANS déclencher de vraie navigation (purge groupée, ex. OnboardingWizard)", () => {
+    // Bug corrigé en review sur le correctif de navigation de
+    // OnboardingWizard.jsx : purger PLUSIEURS entrées d'un coup en appelant
+    // release() pour chacune aurait déclenché AUTANT de vrais
+    // window.history.back() synchrones (les navigateurs ne les fusionnent
+    // pas) — un risque réel de faire ressortir l'utilisateur de
+    // l'application juste après avoir terminé une inscription à 10 étapes.
+    // discard() doit exister précisément pour éviter ça : aucun appel à
+    // history.back(), quel que soit le nombre d'entrées purgées.
+    const backSpy = vi.spyOn(window.history, "back");
+    const onClose1 = vi.fn();
+    const onClose2 = vi.fn();
+    const onClose3 = vi.fn();
+    const release1 = pushBackEntry(onClose1);
+    const release2 = pushBackEntry(onClose2);
+    const release3 = pushBackEntry(onClose3);
+
+    release3.discard();
+    release2.discard();
+    release1.discard();
+
+    expect(backSpy).not.toHaveBeenCalled();
+
+    // Les 3 entrées sont bien retirées : un retour qui suit ne trouve plus
+    // rien de CE lot à fermer (aucun des 3 onClose n'est jamais rappelé).
+    window.dispatchEvent(new PopStateEvent("popstate"));
+    expect(onClose1).not.toHaveBeenCalled();
+    expect(onClose2).not.toHaveBeenCalled();
+    expect(onClose3).not.toHaveBeenCalled();
+
+    backSpy.mockRestore();
+  });
 });

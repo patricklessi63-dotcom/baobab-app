@@ -112,16 +112,22 @@ export default function OnboardingWizard({
   // qui est réellement ouvert (menu, modale, onglet).
   const stepBackReleasesRef = useRef([]);
 
-  // Dépile et libère toutes les entrées d'historique encore en attente
-  // (ordre LIFO, symétrique de leur empilement). `release()` (retourné par
-  // pushBackEntry) consomme réellement l'entrée poussée à l'ouverture — même
-  // mécanisme que la fermeture programmatique d'une modale — sans jamais
-  // appeler le onClose associé : on ne veut pas revenir à une étape, juste
-  // nettoyer avant de quitter l'assistant pour de bon.
+  // Dépile et libère toutes les entrées d'historique encore en attente.
+  // Bug corrigé en review : release() (retourné par pushBackEntry) déclenche
+  // un VRAI window.history.back() quand l'entrée n'a pas été consommée par un
+  // retour (le cas ici) — correct pour UNE entrée, mais en enchaîner N ici
+  // (ex. 9 étapes franchies d'affilée sans jamais reculer) aurait fait
+  // naviguer le navigateur en arrière N fois pour de vrai d'un coup, juste
+  // après avoir terminé l'inscription (risque réel de sortir de l'app ou
+  // d'atterrir sur un écran antérieur inattendu). release.discard() retire
+  // l'entrée de la pile SANS déclencher de vraie navigation (voir
+  // useEscapeKey.js) — le compromis (quelques pressions "retour" sans effet
+  // visible plus tard, le temps d'épuiser les entrées fantômes restées dans
+  // l'historique réel) est largement préférable à une cascade immédiate.
   function releaseAllStepBackEntries() {
     while (stepBackReleasesRef.current.length > 0) {
       const release = stepBackReleasesRef.current.pop();
-      release();
+      release.discard();
     }
   }
 
