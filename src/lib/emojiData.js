@@ -1,5 +1,7 @@
 // Dataset d'emojis pour EmojiPicker — caractères Unicode natifs, aucune
 // dépendance npm, aucun asset. Mots-clés en français pour la recherche.
+import { normalizeForSearch } from "./searchQuery";
+
 export const EMOJI_CATEGORIES = [
   {
     id: "smileys",
@@ -355,13 +357,20 @@ export const EMOJI_CATEGORIES = [
   },
 ];
 
+// Bug corrigé à l'audit : seule la casse était normalisée ici
+// (.toLowerCase()) alors que les mots-clés sont en français et souvent
+// accentués ("gêné", "étoiles", "haïti", "arrivée"...) — chercher "gene",
+// "etoiles" ou "haiti" (sans accent, clavier anglais ou saisie rapide) ne
+// retrouvait jamais l'emoji correspondant. Même correctif que
+// matchesSearch dans SocialShell.jsx, via l'utilitaire partagé
+// lib/searchQuery.js.
 export function searchEmojis(query) {
-  const q = query.trim().toLowerCase();
+  const q = normalizeForSearch(query.trim());
   if (!q) return [];
   const results = [];
   for (const cat of EMOJI_CATEGORIES) {
     for (const item of cat.emojis) {
-      if (item.k.some((kw) => kw.includes(q))) results.push(item);
+      if (item.k.some((kw) => normalizeForSearch(kw).includes(q))) results.push(item);
     }
   }
   return results;

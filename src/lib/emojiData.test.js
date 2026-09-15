@@ -47,4 +47,17 @@ describe("searchEmojis", () => {
   it("rogne les espaces autour de la requête", () => {
     expect(searchEmojis("  chat  ").some((r) => r.e === "🐱")).toBe(true);
   });
+
+  // Bug corrigé à l'audit : searchEmojis ne normalisait que la casse, pas
+  // les accents, alors que les mots-clés sont en français et souvent
+  // accentués ("gêné", "étoiles", "haïti", "arrivée"...).
+  it("trouve un mot-clé accentué même en tapant sans accent", () => {
+    expect(searchEmojis("gene").some((r) => r.e === "😅")).toBe(true); // k: ["rire", "gêné", "sueur"]
+    expect(searchEmojis("etoiles").some((r) => r.e === "🤩")).toBe(true); // k: ["étoiles", "impressionné"]
+    expect(searchEmojis("haiti").some((r) => r.e === "🇭🇹")).toBe(true); // k: ["haïti"]
+  });
+
+  it("trouve un mot-clé accentué en tapant la requête aussi accentuée", () => {
+    expect(searchEmojis("gêné").some((r) => r.e === "😅")).toBe(true);
+  });
 });
