@@ -11,6 +11,13 @@ Mise à jour 2026-09-10.
 - ⬜ `cleanup-expired-stories` — voir §2b.
 - ⬜ `stripe-webhook` — voir §2a (nécessite les clés Stripe).
 
+**RESTE (SQL, écrit mais jamais exécuté — voir §1b) :**
+- ⬜ `supabase-unaccent-search.sql` — recherche insensible aux accents
+  (extension `unaccent` + index trigram) pour les communautés, événements et
+  la recherche de profils à inviter. Additif et idempotent, mais livré
+  sans branchement côté client (voir en-tête du fichier pour le pourquoi et
+  la suite).
+
 Le §1 ci-dessous est conservé pour référence mais **n'est plus à faire**.
 
 ---
@@ -39,6 +46,32 @@ gardes de longueur, tâches planifiées).
 > idempotentes. Celle des statuts expirés (`cleanup-expired-stories`) suppose que
 > l'Edge Function du même nom est déjà déployée (étape 2) — si elle est planifiée
 > avant, sa 1re exécution échoue sans dommage et la suivante réussit.
+
+---
+
+## 1b. SQL — `supabase-unaccent-search.sql` — ⬜ JAMAIS EXÉCUTÉ
+
+**Quoi :** corrige un bug trouvé à l'audit — la recherche texte de
+communautés, d'événements et de profils (à inviter dans une communauté)
+utilise `ILIKE`, insensible à la casse mais pas aux accents (chercher
+"Montreal" ne trouve pas "Montréal"). Le script installe l'extension
+`unaccent` (+ `pg_trgm` pour des index performants), une fonction wrapper
+`unaccent_immutable()` et 7 index trigram (`communities.name/description/city`,
+`events.title/description/city`, `profiles.name`).
+
+**Comment :**
+1. Ouvre le **SQL Editor** de Supabase (projet `vozehymbihnckzklxesw`).
+2. Colle tout le contenu de `supabase-unaccent-search.sql`.
+3. Exécute en une fois (additif et idempotent — rejouable sans erreur).
+
+**Important :** ce script prépare seulement le terrain côté base. Le code
+JS (`CommunitiesTab.jsx`, `EventsTab.jsx`, `CommunityInviteModal.jsx`)
+continue d'utiliser `ILIKE` sur la colonne brute après cette exécution — le
+bug d'accents n'est donc pas encore visible côté utilisateur. Le
+branchement du code client sur `unaccent_immutable()` est une tâche
+séparée, volontairement pas faite ici (voir l'en-tête du fichier SQL pour
+le détail des options envisagées et pourquoi elle nécessite une session
+capable de tester contre la vraie base).
 
 ---
 
