@@ -1394,7 +1394,16 @@ export default function App() {
       setReportSubmitted(true);
     } catch (e) {
       console.error(e);
-      setError("Échec de l'envoi du signalement.");
+      // Bug corrigé à l'audit (angle "abus/spam client") : contrairement à
+      // handleLike/handlePass/toggleFollow (même famille d'action dirigée
+      // vers un profil), ce catch n'appelait jamais friendlyDbError() alors
+      // que check_report_rate_limit() (supabase-report-rate-limit-fix.sql,
+      // 20 signalements/24h) et la limite globale toutes actions confondues
+      // (supabase-global-action-rate-limit-fix.sql) lèvent déjà un message
+      // clair côté serveur — un signalement bloqué par l'une de ces limites
+      // affichait un "Échec de l'envoi du signalement." générique au lieu de
+      // la vraie raison ("Trop de signalements envoyes recemment...").
+      setError(friendlyDbError(e) || "Échec de l'envoi du signalement.");
     } finally {
       setReportSending(false);
     }
