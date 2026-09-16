@@ -9,6 +9,7 @@ import { useEscapeKey } from "../../hooks/useEscapeKey";
 import { useFocusReturn } from "../../hooks/useFocusReturn";
 import { matchKey, formatMessageTime, messagePreviewLabel } from "../../utils/format";
 import { normalizeForSearch } from "../../lib/searchQuery";
+import { isUserOnline } from "../../lib/presence";
 import { primary, navy, green, coral, coralText, bg, muted, card, buttonBase, leafLight, offline, body, primaryRgb } from "./theme";
 
 export default function MessagesTab({
@@ -166,9 +167,14 @@ export default function MessagesTab({
               >
                 <div className="relative flex-shrink-0">
                   <Avatar name={m.name} url={m.avatar_url} size={50} />
-                  {!unavailable && (
-                    <span className={`absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white${m.is_online ? " bb-online-pulse" : ""}`} style={{ background: m.is_online ? leafLight : offline }} />
-                  )}
+                  {!unavailable && (() => {
+                    // isUserOnline (pas m.is_online brut) : demande explicite du
+                    // 15 sept. — is_online peut rester bloqué à true en base
+                    // après une session terminée brutalement (crash, coupure
+                    // réseau), voir lib/presence.js.
+                    const online = isUserOnline(m);
+                    return <span className={`absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white${online ? " bb-online-pulse" : ""}`} style={{ background: online ? leafLight : offline }} />;
+                  })()}
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between gap-2">

@@ -10,6 +10,8 @@ import { detectPersonalCoordinates } from "../../lib/coordinatesGuard";
 import { checkRateLimit } from "../../lib/messageRateLimit";
 import { detectKindFromMime } from "../../lib/mediaValidation";
 import { normalizeForSearch } from "../../lib/searchQuery";
+import { isUserOnline } from "../../lib/presence";
+import { getMessageCheckState } from "../../lib/messageDeliveryState";
 import { useClickOutside } from "../../hooks/useClickOutside";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
 import { useFocusReturn } from "../../hooks/useFocusReturn";
@@ -210,6 +212,13 @@ export default function ConversationPane({
     Boolean(activeMatch.banned_at) ||
     Boolean(activeMatch.suspended_until && new Date(activeMatch.suspended_until) > new Date());
 
+  // isUserOnline (pas activeMatch.is_online brut) : demande explicite du 15
+  // sept. — is_online peut rester bloqué à true en base après une session
+  // terminée brutalement (crash, coupure réseau), voir lib/presence.js.
+  // Réutilisé pour le point vert de l'en-tête ET pour la 2e coche "distribué"
+  // ci-dessous (mission messagerie temps réel, même 15 sept.).
+  const otherOnline = isUserOnline(activeMatch);
+
   // Traduction à la demande, message par message — jamais automatique,
   // toujours étiquetée comme générée pour ne jamais faire croire que
   // l'autre personne a écrit dans cette langue.
@@ -354,7 +363,7 @@ export default function ConversationPane({
           <div style={{ position: "relative" }}>
             <Avatar name={activeMatch.name} url={activeMatch.avatar_url} size={38} />
             {!otherUnavailable && (
-              <Circle size={10} fill={activeMatch.is_online ? leafLight : offline} color="transparent" className={activeMatch.is_online ? "bb-online-pulse" : undefined} style={{ position: "absolute", bottom: -1, right: -1, background: "#fff", borderRadius: "50%" }} />
+              <Circle size={10} fill={otherOnline ? leafLight : offline} color="transparent" className={otherOnline ? "bb-online-pulse" : undefined} style={{ position: "absolute", bottom: -1, right: -1, background: "#fff", borderRadius: "50%" }} />
             )}
           </div>
           <div className="min-w-0">
@@ -373,7 +382,7 @@ export default function ConversationPane({
                 ? "Ce compte n'est plus disponible"
                 : otherTyping && currentUser.show_read_receipts !== false
                 ? <TypingIndicator />
-                : activeMatch.is_online
+                : otherOnline
                 ? "En ligne"
                 : activeMatch.show_online_status === false
                 ? "Statut non disponible"
@@ -536,21 +545,27 @@ export default function ConversationPane({
                         // glissement de la 2e coche, plutôt qu'un remplacement
                         // sec. prefers-reduced-motion couvert par la règle
                         // globale d'index.html.
-                        const read = Boolean(m.read_at) && currentUser.show_read_receipts !== false;
+                        // Logique extraite dans lib/messageDeliveryState.js (pure,
+                        // testée en isolation) — voir son en-tête pour le détail
+                        // des 3 états et de la réciprocité de confidentialité.
+                        const checkState = getMessageCheckState({ readAt: m.read_at, showReadReceipts: currentUser.show_read_receipts, otherOnline });
+                        const read = checkState === "read";
+                        const delivered = checkState === "delivered";
+                        const showDouble = read || delivered;
                         return (
                           <span className="relative inline-flex flex-shrink-0" style={{ width: 12, height: 12 }}>
                             <Check
                               size={12}
-                              aria-label={read ? undefined : "Envoyé"}
-                              aria-hidden={read ? "true" : undefined}
-                              style={{ position: "absolute", inset: 0, opacity: read ? 0 : 1, transition: "opacity .22s var(--bb-ease)" }}
+                              aria-label={showDouble ? undefined : "Envoyé"}
+                              aria-hidden={showDouble ? "true" : undefined}
+                              style={{ position: "absolute", inset: 0, opacity: showDouble ? 0 : 1, transition: "opacity .22s var(--bb-ease)" }}
                             />
                             <CheckCheck
                               size={12}
-                              color="#7FC7FF"
-                              aria-label={read ? "Lu" : undefined}
-                              aria-hidden={read ? undefined : "true"}
-                              style={{ position: "absolute", inset: 0, opacity: read ? 1 : 0, transform: read ? "translateX(0)" : "translateX(-2px)", transition: "opacity .22s var(--bb-ease), transform .22s var(--bb-ease)" }}
+                              color={read ? "#7FC7FF" : undefined}
+                              aria-label={read ? "Lu" : delivered ? "Distribué" : undefined}
+                              aria-hidden={showDouble ? undefined : "true"}
+                              style={{ position: "absolute", inset: 0, opacity: showDouble ? 1 : 0, transform: showDouble ? "translateX(0)" : "translateX(-2px)", transition: "opacity .22s var(--bb-ease), transform .22s var(--bb-ease), color .22s var(--bb-ease)" }}
                             />
                           </span>
                         );
