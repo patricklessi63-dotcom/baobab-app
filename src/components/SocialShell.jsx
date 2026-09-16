@@ -1409,8 +1409,17 @@ export default function SocialShell({
   const growthPct = Math.round((completedSteps / totalSteps) * 100);
   const growthStageIndex = Math.min(growthStages.length - 1, Math.floor((completedSteps / totalSteps) * growthStages.length));
 
+  // Confidentialité par champ (voir PrivacyFieldsModal.jsx) — même famille
+  // que matchesSearch() plus haut dans ce fichier et que newArrivals
+  // (show_canada_journey) juste en dessous : ce filtre comparait p.city à
+  // currentUser.city sans jamais consulter p.show_city. Un profil ayant
+  // masqué sa ville n'affiche certes plus le texte de sa ville nulle part
+  // (ProfileCard le respecte déjà), mais sa seule présence dans la section
+  // "📍 Autour de toi" — titrée "Membres de ta ville" — révélait déjà qu'il
+  // habite la même ville que l'utilisateur, confirmant la donnée qu'il avait
+  // pourtant choisi de cacher.
   const nearbyMembers = currentUser?.city
-    ? candidates.filter((p) => p.city && p.city.trim().toLowerCase() === currentUser.city.trim().toLowerCase())
+    ? candidates.filter((p) => p.show_city !== false && p.city && p.city.trim().toLowerCase() === currentUser.city.trim().toLowerCase())
     : [];
 
   // show_canada_journey vérifié (bug corrigé à l'audit) : la section "Nouveaux
