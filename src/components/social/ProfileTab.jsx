@@ -96,7 +96,7 @@ export default function ProfileTab({
   onError = () => {},
   blockedIds,
 }) {
-          const { isPremium, subscription } = usePremiumStatus(currentUser);
+          const { isPremium, subscription, loading: premiumLoading } = usePremiumStatus(currentUser);
           const [managingSubscription, setManagingSubscription] = useState(false);
           // Garde anti-double-clic par ref, même motif que PremiumPage.jsx
           // (handleSubscribe) — `disabled={managingSubscription}` seul ne
@@ -196,7 +196,23 @@ export default function ProfileTab({
                     <div className="flex items-center gap-2">
                       <h1 className="text-2xl font-black" style={{ color: primary }}>{currentUser?.name || "Ton profil"}</h1>
                       <span className="h-3 w-3 rounded-full" style={{ background: online }} />
-                      <StatusBadge emailVerified={currentUser?.email_verified} phoneVerified={currentUser?.phone_verified} isFounder={currentUser?.is_founder} isPremium={currentUser?.is_premium} size={16} />
+                      {/* isPremium (usePremiumStatus, déjà chargé plus haut dans ce
+                          composant pour l'onglet "Abonnement") plutôt que
+                          currentUser?.is_premium : cette dernière est une colonne
+                          "profiles" mise en cache par trigger SQL depuis
+                          "subscriptions" (voir supabase-premium-badge.sql), mais
+                          currentUser vient de applyOwnProfile() dans App.jsx, appelé
+                          une seule fois à l'ouverture de session — jamais rafraîchi
+                          ensuite. Bug concret : un·e utilisateur·ice qui s'abonnait à
+                          Premium PENDANT la session voyait l'onglet "Abonnement"
+                          passer immédiatement à "Tu es déjà Premium" (isPremium se
+                          recalcule en direct depuis "subscriptions") mais gardait un
+                          en-tête de profil SANS le badge Premium jusqu'à recharger
+                          l'app. Pendant le chargement initial du hook (avant la
+                          première réponse Supabase), on retombe sur la valeur mise en
+                          cache pour éviter un badge qui clignote/disparaît un instant
+                          chez un·e abonné·e de longue date. */}
+                      <StatusBadge emailVerified={currentUser?.email_verified} phoneVerified={currentUser?.phone_verified} isFounder={currentUser?.is_founder} isPremium={premiumLoading ? currentUser?.is_premium : isPremium} size={16} />
                       {isComplete && (
                         <span className="h-5 w-5 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: verified }} title="Profil complet">
                           <CheckCheck size={12} color="#fff" />
