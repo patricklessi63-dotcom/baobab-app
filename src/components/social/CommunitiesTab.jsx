@@ -16,6 +16,7 @@ import { SkeletonCard } from "../Skeleton";
 import { rankCommunities } from "../../lib/communities/recommendations";
 import { COMMUNITY_REPORT_CATEGORIES } from "../../lib/communities/communityConfig";
 import { trackActivation } from "../../lib/trackActivation";
+import { friendlyDbError } from "../../lib/friendlyDbError";
 import { validateMediaFile } from "../../lib/mediaValidation";
 import { compressImageIfNeeded } from "../../lib/imageCompression";
 import { extFromMime } from "../../lib/mediaConstants";
@@ -570,7 +571,16 @@ export default function CommunitiesTab({ currentUser, onError, onBack = () => {}
       }
     } catch (e) {
       console.error(e);
-      onError("Impossible de rejoindre cette communauté.");
+      // Bug corrigé à l'audit (angle "abus/spam client") : la demande
+      // d'adhésion à une communauté privée (community_join_requests) a déjà
+      // sa propre limite serveur (check_join_request_creation_rate_limit,
+      // supabase-content-creation-limits-fix.sql, 30 demandes/24h), mais ce
+      // catch affichait un "Impossible de rejoindre cette communauté."
+      // générique au lieu du message clair renvoyé par cette limite — même
+      // pattern que friendlyDbError() déjà utilisé par handleLike/handlePass
+      // (App.jsx) et toggleFollow (SocialShell.jsx) pour la même famille de
+      // limites serveur.
+      onError(friendlyDbError(e) || "Impossible de rejoindre cette communauté.");
     } finally {
       joinInFlightRef.current.delete(comm.id);
     }
