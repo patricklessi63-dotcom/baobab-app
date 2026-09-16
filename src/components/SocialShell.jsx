@@ -207,6 +207,24 @@ export default function SocialShell({
   const [storyViewersOpen, setStoryViewersOpen] = useState(false);
   const [storyViewCount, setStoryViewCount] = useState(0);
   const [myStoryReaction, setMyStoryReaction] = useState(null);
+  // Horloge locale pour ré-évaluer périodiquement l'expiration des statuts
+  // (24h absolues, voir supabase-stories-expiration.sql : expires_at =
+  // created_at + interval '24 hours') sans dépendre d'un nouveau fetch. Le
+  // chargement initial de "stories" (.gt("expires_at", now())) ne filtre
+  // qu'AU MOMENT du fetch, sur [currentUser] — une fois en mémoire, un
+  // statut n'était plus jamais réévalué. Un statut chargé à 23h50 restait
+  // donc affiché dans le bandeau et ouvrable dans le visualiseur bien après
+  // ses 24h (jusqu'au prochain remount), alors que la policy RLS interdit
+  // déjà tout NOUVEAU chargement de la ligne côté serveur — et que la seule
+  // suppression réelle (edge function cleanup-expired-stories) n'est, elle,
+  // jamais déployée (voir DEPLOIEMENT.md). setStoryClockTick force un
+  // nouveau rendu toutes les minutes ; visibleStories (plus bas) n'étant pas
+  // mémoïsé, il recalcule alors l'expiration avec l'heure courante.
+  const [, setStoryClockTick] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => setStoryClockTick((n) => n + 1), 60000);
+    return () => clearInterval(t);
+  }, []);
   // Id de la story actuellement affichée, tenu à jour de façon synchrone
   // (contrairement à storyViewerIndex, dont la mise à jour via un swipe
   // rapide peut arriver après la résolution d'une requête réseau lancée pour
@@ -1282,7 +1300,34 @@ export default function SocialShell({
   // et n'est jamais réinterrogé quand blockPairs change en cours de session
   // — un statut déjà en cache reste donc affiché juste après avoir bloqué
   // son auteur, même si la policy RLS l'exclurait d'un prochain fetch.
-  const visibleStories = stories.filter((s) => s.own || !s.profile_id || !blockedIds.has(s.profile_id));
+  //
+  // Expiration (24h absolues) réévaluée ici à chaque rendu — voir
+  // storyClockTick ci-dessus — plutôt qu'une seule fois au fetch : `s.id`
+  // exclut la tuile "Ton statut" vide (placeholder sans statut publié, id
+  // undefined, voir useState(stories) plus haut) qui doit rester affichée
+  // indéfiniment pour proposer d'en créer un.
+  const STORY_LIFETIME_MS = 24 * 60 * 60 * 1000;
+  const visibleStories = stories.filter((s) => {
+    if (s.id && s.created_at && Date.now() - new Date(s.created_at).getTime() >= STORY_LIFETIME_MS) return false;
+    return s.own || !s.profile_id || !blockedIds.has(s.profile_id);
+  });
+  // Ferme le visualiseur si le statut affiché disparaît de visibleStories
+  // pendant qu'il est ouvert (expiration détectée par le tick ci-dessus, ou
+  // blocage de l'auteur en cours de session) — sans ce garde, le filtrage
+  // change la longueur du tableau et storyViewerIndex (un simple index)
+  // pointe alors vers un AUTRE statut (décalage), au lieu de fermer proprement
+  // sur celui qui vient de disparaître.
+  useEffect(() => {
+    if (storyViewerIndex === null) return;
+    const activeId = activeStoryIdRef.current;
+    if (activeId && !visibleStories.some((s) => s.id === activeId)) {
+      setStoryViewerIndex(null);
+      setStoryViewersOpen(false);
+      setStoryViewers([]);
+      activeStoryIdRef.current = null;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visibleStories, storyViewerIndex]);
 
   // ---------- Page d'accueil : données dérivées du profil réel, sans appel Supabase additionnel ----------
   const growthStages = ["Graine", "Pousse", "Jeune baobab", "Baobab en croissance", "Baobab épanoui"];

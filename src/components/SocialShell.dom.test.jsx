@@ -1,6 +1,6 @@
 import React from "react";
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { render, screen, waitFor, within, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 // Test d'intégration réelle (12 sept.) de la navigation par historique ajoutée
@@ -49,6 +49,7 @@ vi.mock("../supabaseClient", () => ({
 }));
 
 import SocialShell from "./SocialShell";
+import { supabase } from "../supabaseClient";
 
 function setup() {
   const props = {
@@ -170,5 +171,64 @@ describe("SocialShell — navigation par historique (goTab/goBack réels)", () =
     // d'une autre modale/onglet et changerait l'écran de façon inattendue.
     window.dispatchEvent(new PopStateEvent("popstate"));
     expect(bottomNavButton("Découverte")).toBeInTheDocument();
+  });
+});
+
+// Audit des statuts (24h) — masquage côté client d'un statut expiré. Le
+// fetch initial (.gt("expires_at", now()), SocialShell.jsx) ne filtre qu'AU
+// MOMENT du chargement ; sans le tick périodique ajouté ici (storyClockTick),
+// un statut déjà en cache restait affiché dans le bandeau et ouvrable dans le
+// visualiseur bien après ses 24h, la seule suppression réelle en base (edge
+// function cleanup-expired-stories) n'étant elle-même jamais déployée (voir
+// DEPLOIEMENT.md). currentUser doit être non-null ici (contrairement au reste
+// de ce fichier) pour déclencher l'effet de chargement des statuts.
+describe("SocialShell — masquage côté client d'un statut expiré (24h)", () => {
+  afterEach(() => {
+    supabase.from.mockImplementation(() => makeQueryBuilder());
+    vi.useRealTimers();
+  });
+
+  it("un statut chargé 30s avant ses 24h disparaît du bandeau une fois ce délai écoulé, sans nouveau fetch", async () => {
+    vi.useFakeTimers();
+    const baseTime = new Date("2026-09-15T10:00:00.000Z");
+    vi.setSystemTime(baseTime);
+    // Créé il y a tout juste un peu moins de 24h : encore valide au montage
+    // (expires_at = created_at + 24h, supabase-stories-expiration.sql), mais
+    // expire dans 30s de temps réel.
+    const createdAt = new Date(baseTime.getTime() - (24 * 60 * 60 * 1000 - 30000)).toISOString();
+    const storiesRow = [
+      {
+        id: "story-1",
+        profile_id: "p2",
+        text: "Salut !",
+        media_url: null,
+        media_kind: null,
+        bg_color: null,
+        created_at: createdAt,
+        profile: { name: "Amie" },
+      },
+    ];
+    supabase.from.mockImplementation((table) =>
+      table === "stories" ? makeQueryBuilder({ data: storiesRow, error: null }) : makeQueryBuilder()
+    );
+
+    const props = { currentUser: { id: "u1", name: "Moi" }, setView: vi.fn(), handleSignOut: vi.fn() };
+    await act(async () => {
+      render(<SocialShell {...props} />);
+    });
+
+    expect(screen.getByRole("button", { name: "Voir le statut de Amie" })).toBeInTheDocument();
+
+    // Avance de 2 minutes : franchit les 24h absolues ET le tick d'une minute
+    // (storyClockTick) qui force SocialShell à réévaluer l'expiration.
+    await act(async () => {
+      vi.setSystemTime(new Date(baseTime.getTime() + 2 * 60000));
+      await vi.advanceTimersByTimeAsync(2 * 60000);
+    });
+
+    expect(screen.queryByRole("button", { name: "Voir le statut de Amie" })).not.toBeInTheDocument();
+    // La tuile "Ton statut" (placeholder sans id, jamais soumis à
+    // l'expiration) doit elle rester affichée.
+    expect(screen.getByRole("button", { name: "Ton statut" })).toBeInTheDocument();
   });
 });
