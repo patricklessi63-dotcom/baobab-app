@@ -1,9 +1,13 @@
 // BAOBAB — Envoi de notifications push (Web Push / VAPID)
-// Deux origines possibles :
+// Origines possibles :
 // - Déclenché par le trigger pg_net sur "messages" INSERT (payload
 //   { record: { match_key, from_id, ... } }, forme historique).
 // - Déclenché par le trigger pg_net sur "likes" INSERT quand un match se
 //   forme (payload { type: "match", record: { recipient_id, actor_id } }).
+// - Déclenché par le trigger pg_net sur "likes" INSERT pour CHAQUE like,
+//   mutuel ou non (payload { type: "like", record: { recipient_id, actor_id } }).
+// - Déclenché par le trigger pg_net sur "follows" INSERT (payload
+//   { type: "follow", record: { recipient_id, actor_id } }).
 // Authentifié par un secret partagé dans l'en-tête x-webhook-secret (le
 // trigger n'a pas de JWT utilisateur) plutôt qu'un endpoint ouvert.
 import webpush from "npm:web-push@3.6.7";
@@ -75,6 +79,36 @@ Deno.serve(async (req) => {
         url: "/",
       });
       await sendToRecipient(supabase, recipientId, "match", notifPayload);
+      return new Response("ok", { status: 200 });
+    }
+
+    if (payload.type === "like") {
+      const recipientId = payload.record?.recipient_id;
+      const actorId = payload.record?.actor_id;
+      if (!recipientId || !actorId) return new Response("ok", { status: 200 });
+
+      const { data: actor } = await supabase.from("profiles").select("name").eq("id", actorId).maybeSingle();
+      const notifPayload = JSON.stringify({
+        title: "❤️ Nouveau like",
+        body: `${actor?.name || "Quelqu'un"} a aimé ton profil !`,
+        url: "/",
+      });
+      await sendToRecipient(supabase, recipientId, "likes", notifPayload);
+      return new Response("ok", { status: 200 });
+    }
+
+    if (payload.type === "follow") {
+      const recipientId = payload.record?.recipient_id;
+      const actorId = payload.record?.actor_id;
+      if (!recipientId || !actorId) return new Response("ok", { status: 200 });
+
+      const { data: actor } = await supabase.from("profiles").select("name").eq("id", actorId).maybeSingle();
+      const notifPayload = JSON.stringify({
+        title: "👋 Nouvel abonné",
+        body: `${actor?.name || "Quelqu'un"} s'est abonné·e à toi !`,
+        url: "/",
+      });
+      await sendToRecipient(supabase, recipientId, "follows", notifPayload);
       return new Response("ok", { status: 200 });
     }
 

@@ -1,22 +1,34 @@
 # Déploiement en attente — Baobab
 
-Mise à jour 2026-09-10.
+Mise à jour 2026-09-15.
 
 **FAIT :**
 - ✅ `supabase-COMBINED-pending-fixes.sql` exécuté en prod (vérifié : RLS/RPC OK).
 - ✅ `supabase-combined-supersede-order-regression-fix.sql` exécuté en prod.
 - ✅ Icône PWA maskable ajoutée (`public/icon-512-maskable.png` + manifest).
 
-**RESTE (2 déploiements d'edge functions — terminal, pas Supabase SQL Editor) :**
+**RESTE (3 déploiements d'edge functions — terminal, pas Supabase SQL Editor) :**
 - ⬜ `cleanup-expired-stories` — voir §2b.
 - ⬜ `stripe-webhook` — voir §2a (nécessite les clés Stripe).
+- ⬜ `send-push` — voir §2c. **Re**-déploiement (la fonction est déjà en ligne)
+  pour que le code gère les nouveaux types "like"/"follow" (voir §1c) — sans
+  ça les nouveaux triggers SQL appelleront une fonction qui ignore
+  silencieusement ces payloads.
 
-**RESTE (SQL, écrit mais jamais exécuté — voir §1b) :**
+**RESTE (SQL, écrit mais jamais exécuté — voir §1b et §1c) :**
 - ⬜ `supabase-unaccent-search.sql` — recherche insensible aux accents
   (extension `unaccent` + index trigram) pour les communautés, événements et
   la recherche de profils à inviter. Additif et idempotent, mais livré
   sans branchement côté client (voir en-tête du fichier pour le pourquoi et
   la suite).
+- ⬜ `supabase-push-notifications-triggers.sql` — **oubli corrigé le
+  2026-09-15** : ce fichier existait déjà dans le dépôt mais n'était listé
+  nulle part dans ce document et n'apparaît pas dans
+  `supabase-COMBINED-pending-fixes.sql` — tout indique qu'il n'a jamais été
+  exécuté en prod. Sans lui, aucune notification push ne part jamais (ni
+  message, ni match, ni comme, ni abonnement), même si le client s'abonne
+  correctement et que l'Edge Function `send-push` sait générer l'envoi :
+  aucun trigger SQL ne l'appelle. Voir §1c.
 
 Le §1 ci-dessous est conservé pour référence mais **n'est plus à faire**.
 
@@ -75,7 +87,47 @@ capable de tester contre la vraie base).
 
 ---
 
-## 2. Edge Functions — 2 fonctions jamais déployées
+## 1c. SQL — `supabase-push-notifications-triggers.sql` — ⬜ JAMAIS EXÉCUTÉ
+
+**Quoi :** branche enfin les triggers SQL qui manquaient pour que les
+notifications push partent réellement. Le fichier contient 4 triggers
+`pg_net` (tous après INSERT, tous idempotents via `create or replace
+function` / `drop trigger if exists`) :
+1. `trg_push_notify_message` sur `messages` — déjà présent avant le
+   2026-09-15, jamais exécuté.
+2. `trg_push_notify_match` sur `likes` (cas mutuel uniquement) — déjà
+   présent avant le 2026-09-15, jamais exécuté.
+3. `trg_push_notify_like` sur `likes` (**nouveau**, ajouté le 2026-09-15) —
+   envoie un push pour CHAQUE like, mutuel ou non (coexiste avec le
+   trigger 2 : un like qui forme un match déclenche les deux pushes).
+4. `trg_push_notify_follow` sur `follows` (**nouveau**, ajouté le
+   2026-09-15) — envoie un push à chaque nouvel abonnement.
+
+Les triggers 3 et 4 nécessitent que `supabase/functions/send-push/index.ts`
+gère déjà les types `"like"` (`prefKey = "likes"`) et `"follow"`
+(`prefKey = "follows"`) — code ajouté le 2026-09-15, voir §2c pour le
+déploiement.
+
+**Comment :**
+1. Ouvre le **SQL Editor** de Supabase (projet `vozehymbihnckzklxesw`).
+2. Étape manuelle préalable (une seule fois, si pas déjà fait pour les
+   triggers 1/2) : crée le secret Vault partagé avec l'Edge Function —
+   voir le bloc « ÉTAPE MANUELLE OBLIGATOIRE » dans le fichier SQL lui-même
+   (je ne dois jamais voir ni écrire la valeur de ce secret).
+3. Colle tout le contenu de `supabase-push-notifications-triggers.sql` et
+   exécute en une fois (additif et idempotent — rejouable sans erreur, y
+   compris si les triggers 1/2 avaient déjà été exécutés séparément un
+   jour).
+4. Redéploie `send-push` avec le nouveau code — voir §2c — **avant ou
+   juste après**, mais indispensable pour que les pushes "like"/"follow"
+   partent réellement (sinon l'Edge Function répond "ok" sans rien envoyer,
+   silencieusement).
+
+Requêtes de vérification en fin de fichier SQL.
+
+---
+
+## 2. Edge Functions — 2 fonctions jamais déployées, 1 à re-déployer
 
 Vérifié aujourd'hui par appel direct : `stripe-webhook` et `cleanup-expired-stories`
 renvoient **404** (le reste des fonctions est bien en ligne).
@@ -127,6 +179,24 @@ supabase functions deploy cleanup-expired-stories --no-verify-jwt
 Le cron qui l'appelle (tous les jours à 3h) est la dernière section de
 `supabase-COMBINED-pending-fixes.sql` — donc déploie la fonction **avant** ou
 **juste après** l'étape 1.
+
+### 2c. `send-push` (re-déploiement — la fonction est déjà en ligne)
+
+Aucun nouveau secret : réutilise les secrets VAPID / `PUSH_WEBHOOK_SECRET`
+déjà configurés pour cette fonction.
+
+```bash
+supabase functions deploy send-push
+```
+
+**Pourquoi :** le code de `supabase/functions/send-push/index.ts` a été
+étendu le 2026-09-15 pour gérer deux nouveaux types de payload, `"like"` et
+`"follow"` (en plus de `"match"` et du cas message déjà gérés). Sans ce
+re-déploiement, les nouveaux triggers SQL du §1c appelleront une version de
+la fonction qui ne reconnaît pas ces types et répond "ok" sans rien envoyer.
+À faire dans l'ordre : **d'abord ce re-déploiement, ensuite** l'exécution du
+SQL du §1c (dans l'autre ordre ce n'est pas grave non plus — `net.http_post`
+ne bloque rien — mais évite une fenêtre où les triggers tournent pour rien).
 
 ---
 
