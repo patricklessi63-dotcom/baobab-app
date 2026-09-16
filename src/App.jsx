@@ -1583,7 +1583,21 @@ export default function App() {
           .from("profiles")
           .update({ avatar_url: newAvatarUrl })
           .eq("id", currentUser.id);
-        if (!avatarError) {
+        if (avatarError) {
+          // Bug corrigé à l'audit résilience : la ligne + le fichier Storage de
+          // cette photo sont déjà supprimés à ce stade (aucun retour en arrière
+          // possible) — si CETTE mise à jour échoue à son tour (réseau, RLS...),
+          // l'ancien code l'ignorait silencieusement (ni erreur ni log) : le
+          // profil ("profiles".avatar_url) continuait de pointer vers le
+          // fichier tout juste effacé, avec un message de succès implicite
+          // (aucune erreur affichée) alors que l'avatar était cassé partout
+          // dans l'app (en-tête, cartes, messages) pour soi et pour les
+          // autres, jusqu'au prochain enregistrement complet du profil. Un
+          // "Enregistrer" recalcule avatar_url depuis la première photo
+          // restante (voir handleSaveProfile), d'où le message ci-dessous.
+          console.error(avatarError);
+          setError("Photo supprimée, mais ta photo de profil principale n'a pas pu être mise à jour. Enregistre à nouveau ton profil pour corriger l'affichage.");
+        } else {
           setCurrentUser((u) => (u ? { ...u, avatar_url: newAvatarUrl } : u));
         }
       }
