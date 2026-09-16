@@ -50,6 +50,7 @@ vi.mock("../supabaseClient", () => ({
 
 import SocialShell from "./SocialShell";
 import { supabase } from "../supabaseClient";
+import { useEscapeKey } from "../hooks/useEscapeKey";
 
 function setup() {
   const props = {
@@ -171,6 +172,99 @@ describe("SocialShell — navigation par historique (goTab/goBack réels)", () =
     // d'une autre modale/onglet et changerait l'écran de façon inattendue.
     window.dispatchEvent(new PopStateEvent("popstate"));
     expect(bottomNavButton("Découverte")).toBeInTheDocument();
+  });
+});
+
+// Bug corrigé à l'audit navigation par historique / notifications (audit
+// interaction cloche <-> goTab, 16 sept.) : ouvrir une conversation — carte de
+// match, célébration de match, OU notification "Nouveau message" (cloche,
+// NotificationsDropdown.jsx -> openChatWithProfileId -> openChat(), voir
+// App.jsx) — bascule SocialShell sur l'onglet Messages via un useEffect
+// dépendant de `activeMatch` qui existait déjà AVANT goTab/pushBackEntry
+// (Phase 5 messagerie, b3d8b69) et n'avait jamais été mis à jour pour
+// l'utiliser : il appelait setTab("matches") directement, sans jamais pousser
+// d'entrée d'historique pour ce changement d'onglet. Seule la fermeture de la
+// conversation elle-même (useEscapeKey(Boolean(activeMatch), closeChat), câblé
+// au niveau de App.jsx — reproduit ici par le wrapper ci-dessous, exactement
+// la même relation parent/enfant que App.jsx/SocialShell) poussait une
+// entrée. Un seul retour matériel/geste mobile fermait donc la conversation
+// mais laissait l'utilisateur sur la LISTE de l'onglet Messages au lieu de le
+// ramener sur l'onglet où il se trouvait avant de cliquer la notification
+// (ex. Rencontres) — un saut incohérent, contrairement aux autres
+// déclencheurs de navigation profonde (communautés/événements) qui, eux,
+// utilisaient déjà goTab. Corrigé en remplaçant setTab("matches") par
+// goTab("matches") dans ce useEffect (SocialShell.jsx).
+function ChatNotificationWrapper() {
+  const [activeMatch, setActiveMatch] = React.useState(null);
+  const closeChat = () => setActiveMatch(null);
+  // Même câblage que App.jsx (useEscapeKey(Boolean(activeMatch), closeChat)) :
+  // pousse sa propre entrée d'historique pour fermer la conversation,
+  // indépendamment de celle que goTab pousse pour le changement d'onglet.
+  useEscapeKey(Boolean(activeMatch), closeChat);
+  return (
+    <>
+      <button onClick={() => setActiveMatch({ id: "m1", name: "Awa" })}>
+        Simuler le clic sur une notification "Nouveau message"
+      </button>
+      <SocialShell
+        // MessagesTab.jsx calcule matchKey(currentUser.id, ...) avant même de
+        // vérifier si `matches` est vide — contrairement au reste de ce
+        // fichier, currentUser doit donc être un objet réel ici (le mock
+        // Supabase générique en tête de fichier renvoie des listes vides pour
+        // toutes les autres requêtes réseau que ça réactive).
+        currentUser={{ id: "u1", name: "Moi" }}
+        setView={vi.fn()}
+        handleSignOut={vi.fn()}
+        // MessagesTab.jsx rend un état vide ("Tes conversations apparaîtront
+        // ici.") tant que `matches` est vide, indépendamment de activeMatch —
+        // il faut donc que le match simulé y figure aussi (comme en
+        // production, où activeMatch correspond toujours à un match réel).
+        getMatches={() => [{ id: "m1", name: "Awa" }]}
+        activeMatch={activeMatch}
+        openChat={() => {}}
+        closeChat={closeChat}
+      />
+    </>
+  );
+}
+
+describe("SocialShell — ouvrir une conversation depuis une notification s'intègre à goTab/goBack", () => {
+  it("clic sur une notification \"Nouveau message\" depuis Rencontres : deux retours distincts (fermer la conversation, puis quitter Messages) ramènent exactement sur Rencontres", async () => {
+    const user = userEvent.setup();
+    render(<ChatNotificationWrapper />);
+
+    // Départ : onglet Rencontres (volontairement pas le Fil par défaut, pour
+    // distinguer un vrai retour à l'écran de départ d'un saut qui atterrirait
+    // par hasard sur le Fil).
+    await user.click(bottomNavButton("Rencontres"));
+    await waitFor(() => expect(screen.getByText("Découvrir")).toBeInTheDocument());
+
+    // Simule le clic sur une notification "Nouveau message" (même chemin que
+    // NotificationsDropdown -> openChatWithProfileId -> openChat()).
+    await user.click(screen.getByRole("button", { name: /Simuler le clic sur une notification/ }));
+
+    // La conversation doit s'ouvrir directement, sur l'onglet Messages.
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Voir le profil de Awa" })).toBeInTheDocument();
+    });
+    expect(screen.queryByText("Découvrir")).not.toBeInTheDocument();
+
+    // 1er retour : ferme la conversation (entrée poussée par le
+    // useEscapeKey(activeMatch) du wrapper) — révèle la LISTE de l'onglet
+    // Messages, ne doit PAS encore avoir quitté l'onglet.
+    window.dispatchEvent(new PopStateEvent("popstate"));
+    await waitFor(() => {
+      expect(screen.queryByRole("button", { name: "Voir le profil de Awa" })).not.toBeInTheDocument();
+    });
+    expect(bottomNavButton("Messages")).toBeInTheDocument();
+
+    // 2e retour : quitte l'onglet Messages (entrée poussée par goTab), ramène
+    // exactement sur Rencontres — pas le Fil, ce qui prouverait un saut
+    // incohérent plutôt qu'un vrai retour à l'écran précédent.
+    window.dispatchEvent(new PopStateEvent("popstate"));
+    await waitFor(() => {
+      expect(screen.getByText("Découvrir")).toBeInTheDocument();
+    });
   });
 });
 

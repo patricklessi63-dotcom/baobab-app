@@ -852,10 +852,32 @@ export default function SocialShell({
     });
   }, [activeMatch, currentUser, messages]);
 
-  // Ouvrir un chat depuis n'importe où (célébration de match, carte, etc.)
-  // doit toujours amener sur l'onglet Messages.
+  // Ouvrir un chat depuis n'importe où (célébration de match, carte, notification
+  // "new_message"/openChatWithProfileId, etc.) doit toujours amener sur l'onglet
+  // Messages.
+  //
+  // Bug corrigé à l'audit navigation par historique (goTab/pushBackEntry,
+  // 690fd90 et suivants) : ce useEffect existait déjà AVANT l'introduction de
+  // ce système (Phase 5 messagerie, b3d8b69) et n'avait jamais été mis à jour
+  // pour l'utiliser — il appelait setTab() directement, sans jamais pousser
+  // d'entrée d'historique pour ce changement d'onglet. Concrètement : ouvrir
+  // une conversation depuis, par ex., l'onglet Découverte (carte "Message",
+  // célébration de match, OU une notification "Nouveau message" — cloche,
+  // NotificationsDropdown.jsx → openChatWithProfileId → openChat ci-dessus)
+  // faisait bien basculer visuellement sur Messages, mais SANS entrée
+  // poussée pour ce saut de tab. Seule la fermeture de la conversation elle-
+  // même (useEscapeKey(Boolean(activeMatch), closeChat) dans App.jsx) était
+  // couverte par une entrée. Résultat : un seul appui sur "retour" fermait la
+  // conversation (activeMatch -> null) mais laissait l'utilisateur sur la
+  // LISTE de l'onglet Messages au lieu de le ramener sur l'onglet où il se
+  // trouvait avant (ex. Découverte) — un saut incohérent, contraire au reste
+  // du système où chaque changement d'onglet se défait par un retour. goTab()
+  // ne pousse une entrée que si l'onglet change réellement (no-op si déjà sur
+  // Messages), exactement comme pour les autres déclencheurs de navigation
+  // profonde (communautés/événements ci-dessous).
   useEffect(() => {
-    if (activeMatch) setTab("matches");
+    if (activeMatch) goTab("matches");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeMatch]);
 
   // Bug corrigé à l'audit blocage : incomingFavoriteFromIds garde la liste
