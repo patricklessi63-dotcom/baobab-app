@@ -996,6 +996,34 @@ export default function SocialShell({
         setCommunityNotifications((prev) => (prev.some((n) => n.id === payload.new.id) ? prev : [payload.new, ...prev].slice(0, notifLimitRef.current)));
         setUnreadCommunityCount((n) => n + 1);
       })
+      // Bug corrigé à l'audit des compteurs (gap multi-onglet) : marquer une
+      // notification lue (markOneNotificationRead ou "Tout marquer comme
+      // lu") depuis CET onglet met déjà à jour communityNotifications/
+      // unreadCommunityCount localement, dans ces mêmes fonctions — mais rien
+      // ne répercutait ce changement vers un AUTRE onglet/appareil connecté
+      // au même compte (seul l'INSERT ci-dessus était écouté sur ce canal).
+      // Ce deuxième onglet gardait donc les mêmes notifications affichées
+      // comme non lues (badge de cloche + pastilles Abonnés/Communautés/
+      // Événements/Rencontres) indéfiniment, jusqu'à un rechargement complet
+      // ou une reconnexion réseau (l'effet de resynchronisation plus bas ne
+      // se déclenche que sur une vraie coupure/retour en ligne, pas sur une
+      // action faite ailleurs) — même famille de désynchronisation
+      // multi-session déjà corrigée pour les messages/favoris/abonnements
+      // (voir leurs canaux Realtime plus haut), non appliquée ici jusqu'à
+      // présent. On répercute donc toute transition non-lue -> lue reçue du
+      // serveur, en ignorant celles déjà appliquées localement par CET onglet
+      // (garde sur l'état actuel de la ligne, comme pour l'INSERT ci-dessus,
+      // pour rester idempotent face à un double envoi/replay de Supabase
+      // Realtime).
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "notifications", filter: `recipient_id=eq.${currentUser.id}` }, (payload) => {
+        if (!payload.new.read_at || payload.old?.read_at) return;
+        const id = payload.new.id;
+        const current = communityNotificationsRef.current.find((n) => n.id === id);
+        if (!current || current.read_at) return;
+        communityNotificationsRef.current = communityNotificationsRef.current.map((n) => (n.id === id ? { ...n, read_at: payload.new.read_at } : n));
+        setCommunityNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read_at: payload.new.read_at } : n)));
+        setUnreadCommunityCount((n) => Math.max(0, n - 1));
+      })
       .subscribe();
     return () => { alive = false; fetchNotificationsRef.current = null; supabase.removeChannel(channel); };
   }, [currentUser]);
@@ -1191,8 +1219,21 @@ export default function SocialShell({
     // notification d'un autre type rouvrait le compteur agrégé (bug corrigé
     // à l'audit, voir commentaire au-dessus de ces trois constantes).
     setCommunityNotifications((prev) => prev.map((n) => (ids.includes(n.id) ? { ...n, read_at: nowIso } : n)));
-    if (ids.length === 0) return;
-    supabase.from("notifications").update({ read_at: nowIso }).in("id", ids).then(({ error }) => {
+    // Bug corrigé à l'audit des compteurs : ce .update() ne portait
+    // auparavant que sur `ids`, c'est-à-dire les notifications CHARGÉES
+    // localement (bornées à notifLimit — 20 par défaut, avant tout clic sur
+    // "Charger plus"). Un utilisateur avec par ex. 30 notifications non lues
+    // en base ne voyait jamais que les 20 plus récentes dans le menu ; "Tout
+    // marquer comme lu" ne marquait donc que ces 20-là côté serveur. Les 10
+    // plus anciennes restaient `read_at IS NULL` en base et réapparaissaient
+    // (badge de la cloche + liste) dès le prochain fetchNotifications
+    // (rechargement de page, reconnexion réseau après coupure, voir l'effet
+    // de resynchronisation ci-dessus) — "Tout marquer comme lu" donnait
+    // l'illusion d'un badge à zéro sans jamais l'être vraiment en base. Filtre
+    // désormais sur recipient_id + read_at IS NULL, qui couvre TOUTES les
+    // lignes non lues de l'utilisateur en base, pas seulement celles déjà
+    // chargées dans communityNotifications.
+    supabase.from("notifications").update({ read_at: nowIso }).eq("recipient_id", currentUser.id).is("read_at", null).then(({ error }) => {
       if (error) {
         console.error(error.message, error.code, error.details, error.hint);
         // Échec côté serveur : les notifications sont toujours non lues,
