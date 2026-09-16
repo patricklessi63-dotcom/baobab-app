@@ -37,11 +37,27 @@ export default function MediaViewerModal({ images, index = 0, onNavigate, url, a
 
   useEscapeKey(Boolean(active), onClose);
 
-  useEffect(() => {
+  // Bug corrigé à l'audit navigation : remettre zoom/pan/imgError à zéro au
+  // changement de photo via un useEffect classique ([index, url]) ne les
+  // applique qu'APRÈS le premier rendu de la nouvelle photo — un useEffect
+  // s'exécute une fois le DOM déjà peint, pas avant. En changeant vite de
+  // photo (flèche, clavier, swipe) : la photo suivante s'affichait un
+  // instant avec le zoom/pan encore actif sur la précédente (image
+  // visiblement décalée ou zoomée avant de se recadrer toute seule), et pire,
+  // si la photo précédente avait échoué à charger, la nouvelle — pourtant
+  // valide — s'affichait d'abord derrière le message "Image indisponible."
+  // le temps que l'effet se déclenche. On ajuste donc l'état pendant le
+  // rendu lui-même (motif recommandé par React pour réagir à un changement
+  // de prop, cf. "You Might Not Need an Effect") : le nouvel état est déjà
+  // correct dès le tout premier rendu affiché à l'écran, sans fenêtre
+  // intermédiaire erronée.
+  const [resetKey, setResetKey] = useState({ index, url });
+  if (resetKey.index !== index || resetKey.url !== url) {
+    setResetKey({ index, url });
     setZoom(1);
     setPan({ x: 0, y: 0 });
     setImgError(false);
-  }, [index, url]);
+  }
 
   // Bug corrigé : dézoomer avec la molette (onWheel) ou en pinçant sur
   // tactile ramène "zoom" à 1 progressivement, mais ne touchait jamais à
