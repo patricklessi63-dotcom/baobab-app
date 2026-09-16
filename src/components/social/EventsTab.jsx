@@ -225,6 +225,44 @@ export default function EventsTab({ currentUser, onError, onBack = () => {}, ini
     return () => { alive = false; };
   }, [currentUser?.id]);
 
+  // Miroir de selectedId lu depuis le gestionnaire Realtime ci-dessous : cet
+  // effet ne dépend que de currentUser.id (abonnement établi une seule fois),
+  // donc son callback fermerait sinon sur la valeur de selectedId au moment
+  // du montage au lieu de la valeur courante.
+  const selectedIdRef = useRef(null);
+  useEffect(() => { selectedIdRef.current = selectedId; }, [selectedId]);
+
+  // Bug identifié à l'audit (liste d'attente) : quand un·e participant·e
+  // "going" quitte un événement plafonné, promote_from_waitlist()
+  // (supabase-events-v2.sql) promeut immédiatement la première personne en
+  // liste d'attente au statut "going" — mais uniquement côté base. La
+  // personne promue reçoit bien une notification "event_waitlist_promoted"
+  // (visible dans la cloche, voir SocialShell.jsx), mais myStatuses ici
+  // n'était jamais mis à jour : si cette personne avait encore l'événement
+  // ouvert, le bouton continuait d'afficher "Sur liste d'attente — Quitter"
+  // alors qu'elle participait déjà réellement. Cliquer dessus appelait
+  // handleLeave() avec wasGoing=false (basé sur ce statut local perimé),
+  // qui supprime bien la ligne "going" réelle côté serveur (véritable
+  // désinscription, avec re-déclenchement de promote_from_waitlist pour la
+  // personne suivante) mais sans jamais rafraîchir participantCount côté
+  // client — laissant le compteur affiché trop élevé pour tous les visiteurs
+  // de cette session. On écoute donc la notification pour corriger
+  // myStatuses dès sa réception, et on rafraîchit la liste "Participants" si
+  // cet événement est celui actuellement ouvert.
+  useEffect(() => {
+    if (!currentUser) return;
+    const channel = supabase
+      .channel(`event-waitlist-promoted:${currentUser.id}`)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "notifications", filter: `recipient_id=eq.${currentUser.id}` }, (payload) => {
+        if (payload.new?.type !== "event_waitlist_promoted" || payload.new?.target_type !== "event") return;
+        const eventId = payload.new.target_id;
+        setMyStatuses((s) => (s[eventId] === "waitlisted" ? { ...s, [eventId]: "going" } : s));
+        if (selectedIdRef.current === eventId) loadParticipants(eventId, detailRequestRef.current);
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [currentUser?.id]);
+
   // ---------- Liste — recherche/filtres débouncés, jamais tout charger ----------
   useEffect(() => {
     if (view !== "home") return;
