@@ -129,6 +129,14 @@ export default function CommunitiesTab({ currentUser, onError, onBack = () => {}
   const [reactionCounts, setReactionCounts] = useState({}); // postId -> { emoji: count }
   const [postCommentCounts, setPostCommentCounts] = useState({});
   const [commentsByPost, setCommentsByPost] = useState({});
+  // Bug identifié à l'audit édition/suppression de commentaires : un
+  // double-clic rapide (ou un Enter répété) sur "Envoyer" insérait deux fois
+  // le même commentaire — commentDraft n'était vidé qu'en local par
+  // CommunityPostCard, sans jamais bloquer un second appel réseau pendant
+  // que le premier était encore en vol. EventsTab.jsx avait déjà ce garde
+  // (commentSubmittingRef) pour ses commentaires d'événement ; il manquait
+  // ici. Même pattern (Set par postId) que likeInFlightRef ci-dessous.
+  const commentSubmittingRef = useRef(new Set());
   const [members, setMembers] = useState([]);
   const [memberCount, setMemberCount] = useState(0);
   const [membersLoading, setMembersLoading] = useState(false);
@@ -827,6 +835,8 @@ export default function CommunitiesTab({ currentUser, onError, onBack = () => {}
 
   const handleSubmitComment = async (postId, text, replyToId = null) => {
     if (!currentUser) return;
+    if (commentSubmittingRef.current.has(postId)) return;
+    commentSubmittingRef.current.add(postId);
     try {
       const { data, error } = await supabase
         .from("community_comments").insert({ post_id: postId, author_id: currentUser.id, body: text, reply_to_id: replyToId })
@@ -837,6 +847,8 @@ export default function CommunitiesTab({ currentUser, onError, onBack = () => {}
     } catch (e) {
       console.error(e);
       onError("Impossible d'envoyer ce commentaire.");
+    } finally {
+      commentSubmittingRef.current.delete(postId);
     }
   };
 
