@@ -177,7 +177,13 @@ export default function CommunityPostCard({
                                 style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)", color: primary }}
                                 autoFocus
                               />
-                              <button onClick={submitEdit} aria-label="Valider la modification"><Check size={13} color={coral} /></button>
+                              {/* Bug identifié à l'audit : contrairement au bouton "Enregistrer"
+                                  équivalent pour l'édition d'une publication (PostCard.jsx,
+                                  confirmEdit), ce bouton restait visuellement actif même quand
+                                  editDraft était vide — submitEdit refusait bien silencieusement
+                                  (aucun commentaire vide sauvegardé), mais rien ne le signalait
+                                  à l'utilisateur avant le clic. */}
+                              <button onClick={submitEdit} disabled={!editDraft.trim()} aria-label="Valider la modification" className="disabled:opacity-40"><Check size={13} color={coral} /></button>
                               <button onClick={() => setEditingId(null)} aria-label="Annuler"><X size={13} color={muted} /></button>
                             </div>
                           ) : (
