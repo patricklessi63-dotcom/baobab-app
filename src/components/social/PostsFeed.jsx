@@ -69,6 +69,15 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
   const videoInputRef = useRef(null);
   const publishingRef = useRef(false);
   const likeInFlightRef = useRef(new Set());
+  // Bug identifié à l'audit édition/suppression de commentaires : un
+  // double-clic rapide (ou un Enter répété) sur "Envoyer" dans PostCard.jsx
+  // insérait deux fois le même commentaire — commentDraft n'était vidé
+  // qu'en local par PostCard, sans jamais bloquer un second appel réseau
+  // pendant que le premier était encore en vol. EventsTab.jsx avait déjà ce
+  // garde (commentSubmittingRef) pour ses commentaires d'événement ; il
+  // manquait ici comme dans CommunitiesTab.jsx (même correctif appliqué
+  // là-bas). Même pattern (Set par postId) que likeInFlightRef ci-dessus.
+  const commentSubmittingRef = useRef(new Set());
   // Incrémenté à chaque fermeture du composeur — capturé par addFiles() au
   // moment de l'appel puis revérifié après chaque await (validation,
   // compression) avant de toucher à mediaItems. Sans ça : sélectionner une
@@ -694,6 +703,8 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
 
   const submitComment = async (postId, text) => {
     if (!currentUser) return;
+    if (commentSubmittingRef.current.has(postId)) return;
+    commentSubmittingRef.current.add(postId);
     try {
       const { data, error } = await supabase
         .from("post_comments").insert({ post_id: postId, author_id: currentUser.id, body: text })
@@ -704,6 +715,8 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
     } catch (e) {
       console.error(e);
       onError("Impossible d'envoyer ce commentaire.");
+    } finally {
+      commentSubmittingRef.current.delete(postId);
     }
   };
 
