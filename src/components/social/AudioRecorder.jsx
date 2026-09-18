@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Mic, Send, Square, Trash2, Play, Pause } from "lucide-react";
 import { AUDIO_MAX_DURATION_MS } from "../../lib/mediaConstants";
+import { notifyAudioPlaying, notifyAudioStopped } from "../../lib/audioPlaybackRegistry";
 import MicPermissionModal from "./MicPermissionModal";
 import { primary, navy, coral, coralText, muted, bg } from "./theme";
 
@@ -104,6 +105,7 @@ export default function AudioRecorder({ hasDraft, onSendText, onSendAudio, onAct
     chunksRef.current = [];
     setPlaying(false);
     setElapsed(0);
+    notifyAudioStopped(audioElRef.current);
   };
 
   useEffect(() => () => cleanup(), []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -344,9 +346,9 @@ export default function AudioRecorder({ hasDraft, onSendText, onSendAudio, onAct
           <audio
             ref={audioElRef}
             src={audioUrlRef.current}
-            onPlay={() => setPlaying(true)}
-            onPause={() => setPlaying(false)}
-            onEnded={() => setPlaying(false)}
+            onPlay={() => { setPlaying(true); notifyAudioPlaying(audioElRef.current); }}
+            onPause={() => { setPlaying(false); notifyAudioStopped(audioElRef.current); }}
+            onEnded={() => { setPlaying(false); notifyAudioStopped(audioElRef.current); }}
             className="hidden"
           />
           <button type="button" onClick={togglePlayback} aria-label={playing ? "Pause" : "Écouter"} className="h-9 w-9 rounded-full flex items-center justify-center flex-shrink-0 text-white" style={{ background: navy }}>

@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Play, Pause, FileText, Download } from "lucide-react";
 import { useSignedMediaUrl } from "../../hooks/useSignedMediaUrl";
 import { getSignedUrl } from "../../lib/signedUrlCache";
+import { notifyAudioPlaying, notifyAudioStopped } from "../../lib/audioPlaybackRegistry";
 import { formatFileSize } from "../../lib/mediaConstants";
 import { STICKER_GRADIENTS } from "../../lib/stickerData";
 import { formatEventWhen } from "../../utils/format";
@@ -34,6 +35,13 @@ function AudioPlayer({ src }) {
   // format — sans ceci, cliquer "Écouter" ne faisait simplement rien, sans
   // aucune indication de ce qui se passe.
   const [playbackError, setPlaybackError] = useState(false);
+
+  // Un seul message vocal doit jouer à la fois dans toute l'app (comme
+  // WhatsApp) — bug corrigé à l'audit : sans ce nettoyage, un message vocal
+  // qui se démonte (la liste défile, la conversation se ferme) PENDANT sa
+  // lecture laissait le registre pointer sur un élément <audio> fantôme,
+  // qu'un futur play() mettrait en pause pour rien (inoffensif mais sale).
+  useEffect(() => () => notifyAudioStopped(audioRef.current), []);
 
   const toggle = () => {
     if (!audioRef.current) return;
@@ -83,9 +91,9 @@ function AudioPlayer({ src }) {
       <audio
         ref={audioRef}
         src={src || undefined}
-        onPlay={() => setPlaying(true)}
-        onPause={() => setPlaying(false)}
-        onEnded={() => setPlaying(false)}
+        onPlay={() => { setPlaying(true); notifyAudioPlaying(audioRef.current); }}
+        onPause={() => { setPlaying(false); notifyAudioStopped(audioRef.current); }}
+        onEnded={() => { setPlaying(false); notifyAudioStopped(audioRef.current); }}
         onError={() => setPlaybackError(true)}
         onLoadedMetadata={handleLoadedMetadata}
         onTimeUpdate={(e) => setCurrent(e.currentTarget.currentTime || 0)}
