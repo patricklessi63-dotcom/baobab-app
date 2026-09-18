@@ -254,6 +254,14 @@ export default function SocialShell({
   // addStory() une seconde fois avant que le state React n'ait eu le temps
   // de se propager, créant deux statuts identiques (et deux uploads média).
   const storyPublishingRef = useRef(false);
+  // Même garde, même raison, pour l'envoi d'une réponse à un statut : le
+  // bouton "Envoyer" (StoryViewerModal.jsx) et la touche Entrée appellent
+  // tous deux sendStoryReply() sans se désactiver en attendant le premier
+  // appel réseau (voir 9ed183b/10b05fb, même bug pour les commentaires) —
+  // un double-clic/double-Entrée rapide lisait deux fois le même
+  // storyReply non encore vidé par le re-rendu et envoyait deux messages
+  // identiques à l'auteur·ice du statut.
+  const storyReplySendingRef = useRef(false);
   const searchRef = useRef(null);
   const notifRef = useRef(null);
   const menuRef = useRef(null);
@@ -1890,18 +1898,24 @@ export default function SocialShell({
     const text = storyReply.trim();
     const s = visibleStories[storyViewerIndex];
     if (!text || !s || s.own) return;
+    if (storyReplySendingRef.current) return;
+    storyReplySendingRef.current = true;
     setStoryReply("");
-    const target = profiles.find((p) => p.id === s.profile_id)
-      || candidates.find((p) => p.id === s.profile_id)
-      || matches.find((p) => p.id === s.profile_id);
-    // select(OTHER_PROFILE_COLUMNS) et non select("*") (même correctif que
-    // fetchedViewedProfile plus haut — voir lib/otherProfileColumns.js) :
-    // s.own est déjà vérifié faux ci-dessus, donc s.profile_id est toujours
-    // l'auteur·ice d'un AUTRE utilisateur.
-    const profile = target || (await supabase.from("profiles").select(OTHER_PROFILE_COLUMNS).eq("id", s.profile_id).maybeSingle()).data;
-    if (!profile) return;
-    closeStoryViewer();
-    await sendMessageTo(profile, text);
+    try {
+      const target = profiles.find((p) => p.id === s.profile_id)
+        || candidates.find((p) => p.id === s.profile_id)
+        || matches.find((p) => p.id === s.profile_id);
+      // select(OTHER_PROFILE_COLUMNS) et non select("*") (même correctif que
+      // fetchedViewedProfile plus haut — voir lib/otherProfileColumns.js) :
+      // s.own est déjà vérifié faux ci-dessus, donc s.profile_id est toujours
+      // l'auteur·ice d'un AUTRE utilisateur.
+      const profile = target || (await supabase.from("profiles").select(OTHER_PROFILE_COLUMNS).eq("id", s.profile_id).maybeSingle()).data;
+      if (!profile) return;
+      closeStoryViewer();
+      await sendMessageTo(profile, text);
+    } finally {
+      storyReplySendingRef.current = false;
+    }
   };
 
   const deleteOwnStory = async () => {
