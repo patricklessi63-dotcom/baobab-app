@@ -114,6 +114,20 @@ export default function CommunitiesTab({ currentUser, onError, onBack = () => {}
   // la liste affichée (doublons visibles + clé React dupliquée).
   const [loadingMore, setLoadingMore] = useState(false);
   const loadingMoreRef = useRef(false);
+  // Jeton anti-course "filtre changé pendant une pagination en vol" (bug
+  // identifié à l'audit filtres, même correctif jumeau qu'EventsTab.jsx) :
+  // loadMore() capture ce jeton avant son appel réseau. Sans lien entre les
+  // deux, changer un filtre (ville/catégorie/visibilité) pendant qu'une page
+  // "Charger plus" de l'ANCIEN filtre est encore en vol laissait cette page
+  // arriver après le rechargement complet déclenché par le nouveau filtre
+  // (l'effet ci-dessous, qui remplace déjà "communities" en entier) et
+  // s'ajouter par-dessus via setCommunities(prev => [...prev, ...rows]) —
+  // polluant la liste fraîchement filtrée avec des communautés qui ne
+  // correspondent plus au filtre actuel, et écrasant listCursor/hasMore avec
+  // le curseur de l'ancien filtre. Incrémenté à chaque (ré)exécution de la
+  // requête de liste ; loadMore() abandonne silencieusement son résultat si
+  // ce jeton a changé entre-temps.
+  const listRequestRef = useRef(0);
 
   const [myMemberships, setMyMemberships] = useState({}); // communityId -> role
   const [myPending, setMyPending] = useState(new Set());
@@ -228,6 +242,7 @@ export default function CommunitiesTab({ currentUser, onError, onBack = () => {}
   useEffect(() => {
     if (view !== "list") return;
     let alive = true;
+    listRequestRef.current += 1;
     setListLoading(true);
     const timer = setTimeout(async () => {
       try {
@@ -255,6 +270,10 @@ export default function CommunitiesTab({ currentUser, onError, onBack = () => {}
   // doublons ou des communautés jamais vues à la page suivante.
   const loadMore = async () => {
     if (!listCursor || loadingMoreRef.current) return;
+    // Capturé avant l'appel réseau (voir commentaire sur listRequestRef) :
+    // permet de détecter un changement de filtre survenu pendant que cette
+    // page était en vol.
+    const requestId = listRequestRef.current;
     loadingMoreRef.current = true;
     setLoadingMore(true);
     try {
@@ -262,6 +281,10 @@ export default function CommunitiesTab({ currentUser, onError, onBack = () => {}
         .or(`created_at.lt.${listCursor.created_at},and(created_at.eq.${listCursor.created_at},id.lt.${listCursor.id})`)
         .limit(PAGE_SIZE);
       if (error) throw error;
+      // Un nouveau filtre a été appliqué (et a déjà rechargé "communities" en
+      // entier) pendant cet aller-retour : cette page correspond à l'ANCIEN
+      // filtre et ne doit surtout pas s'ajouter par-dessus la liste fraîche.
+      if (listRequestRef.current !== requestId) return;
       const rows = withMemberCount(data);
       setCommunities((prev) => [...prev, ...rows]);
       setHasMore(rows.length === PAGE_SIZE);

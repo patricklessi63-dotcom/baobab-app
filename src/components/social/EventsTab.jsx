@@ -168,6 +168,21 @@ export default function EventsTab({ currentUser, onError, onBack = () => {}, ini
   // à la liste affichée (doublons visibles + clé React dupliquée).
   const [loadingMore, setLoadingMore] = useState(false);
   const loadingMoreRef = useRef(false);
+  // Jeton anti-course "filtre changé pendant une pagination en vol" (bug
+  // identifié à l'audit filtres, même famille que detailRequestRef
+  // ci-dessous) : loadMore() capture ce jeton avant son appel réseau et
+  // buildListQuery() lit search/filterCity/filterCategory/filterDateRange
+  // par closure au moment du clic. Sans lien entre les deux, changer la
+  // plage de dates (ou tout autre filtre) pendant qu'une page "Charger
+  // plus" de l'ANCIEN filtre est encore en vol laissait cette page arriver
+  // après le rechargement complet déclenché par le nouveau filtre (l'effet
+  // ci-dessous, qui remplace déjà "events" en entier) et s'ajouter par-dessus
+  // via setEvents(prev => [...prev, ...rows]) — polluant la liste fraîchement
+  // filtrée avec des événements qui ne correspondent plus au filtre actuel,
+  // et écrasant listCursor/hasMore avec le curseur de l'ancien filtre.
+  // Incrémenté à chaque (ré)exécution de la requête de liste ; loadMore()
+  // abandonne silencieusement son résultat si ce jeton a changé entre-temps.
+  const listRequestRef = useRef(0);
   // Bug identifié à l'audit (même famille que la course réseau corrigée
   // dans CommunityInviteModal, et que le correctif jumeau apporté à
   // CommunitiesTab.jsx) : goDetail() enchaîne plusieurs allers-retours
@@ -267,6 +282,7 @@ export default function EventsTab({ currentUser, onError, onBack = () => {}, ini
   useEffect(() => {
     if (view !== "home") return;
     let alive = true;
+    listRequestRef.current += 1;
     setListLoading(true);
     const timer = setTimeout(async () => {
       try {
@@ -295,6 +311,10 @@ export default function EventsTab({ currentUser, onError, onBack = () => {}, ini
   // événements jamais vus à la page suivante.
   const loadMore = async () => {
     if (!listCursor || loadingMoreRef.current) return;
+    // Capturé avant l'appel réseau (voir commentaire sur listRequestRef) :
+    // permet de détecter un changement de filtre survenu pendant que cette
+    // page était en vol.
+    const requestId = listRequestRef.current;
     loadingMoreRef.current = true;
     setLoadingMore(true);
     try {
@@ -302,6 +322,10 @@ export default function EventsTab({ currentUser, onError, onBack = () => {}, ini
         .or(`event_date.gt.${listCursor.event_date},and(event_date.eq.${listCursor.event_date},id.gt.${listCursor.id})`)
         .limit(PAGE_SIZE);
       if (error) throw error;
+      // Un nouveau filtre a été appliqué (et a déjà rechargé "events" en
+      // entier) pendant cet aller-retour : cette page correspond à l'ANCIEN
+      // filtre et ne doit surtout pas s'ajouter par-dessus la liste fraîche.
+      if (listRequestRef.current !== requestId) return;
       const rows = withParticipantCount(data);
       setEvents((prev) => [...prev, ...rows]);
       setHasMore(rows.length === PAGE_SIZE);
