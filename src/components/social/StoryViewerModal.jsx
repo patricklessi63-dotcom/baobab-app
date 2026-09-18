@@ -331,7 +331,13 @@ export default function StoryViewerModal({
                 maxLength={4000}
                 className="flex-1 rounded-full px-4 py-2.5 text-sm text-white bg-white/15 backdrop-blur border border-white/25 outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--bb-leaf)] placeholder-white/60"
               />
-              <button onClick={sendStoryReply} aria-label="Envoyer la réponse" className="h-10 w-10 rounded-full flex items-center justify-center flex-shrink-0 focus-visible:outline focus-visible:outline-2" style={{ background: "#fff" }}>
+              {/* disabled={!storyReply.trim()} : sendStoryReply() refusait déjà
+                  silencieusement un texte vide/espaces (voir SocialShell.jsx),
+                  mais le bouton restait visuellement actif — même incohérence
+                  que le bouton de validation d'édition de commentaire corrigée
+                  en 7fe8017 (PostCard.jsx/CommunityPostCard.jsx utilisent tous
+                  deux disabled={!x.trim()} + disabled:opacity-40 pour ça). */}
+              <button onClick={sendStoryReply} disabled={!storyReply.trim()} aria-label="Envoyer la réponse" className="h-10 w-10 rounded-full flex items-center justify-center flex-shrink-0 focus-visible:outline focus-visible:outline-2 disabled:opacity-40" style={{ background: "#fff" }}>
                 <Send size={16} color={navy} />
               </button>
             </>
