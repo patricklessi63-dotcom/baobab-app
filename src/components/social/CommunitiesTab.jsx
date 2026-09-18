@@ -172,6 +172,15 @@ export default function CommunitiesTab({ currentUser, onError, onBack = () => {}
   const joinInFlightRef = useRef(new Set());
   const leaveInFlightRef = useRef(new Set());
   const removeMemberInFlightRef = useRef(new Set());
+  // Garde anti-double-appel pour "Changer de rôle" (même famille que
+  // removeMemberInFlightRef juste au-dessus, joinInFlightRef/leaveInFlightRef
+  // plus bas) : manquante à l'audit alors que handleRemoveMember l'a déjà.
+  // Les boutons promouvoir/rétrograder (CommunityMemberRow) ne se
+  // désactivent qu'après la mise à jour de "members" en local, une fois la
+  // réponse réseau revenue — un double-clic/tap rapide sur le même bouton
+  // avant ce ré-affichage envoyait deux fois le même appel UPDATE en
+  // parallèle vers community_members.
+  const roleChangeInFlightRef = useRef(new Set());
   const likeInFlightRef = useRef(new Set());
   // Garde anti-double-appel pour Accepter/Refuser une demande d'adhésion
   // (CommunityAdminPanel) : les boutons ne se désactivent pas pendant
@@ -956,6 +965,8 @@ export default function CommunitiesTab({ currentUser, onError, onBack = () => {}
 
   // ---------- Membres ----------
   const handleSetMemberRole = async (member, newRole) => {
+    if (roleChangeInFlightRef.current.has(member.id)) return;
+    roleChangeInFlightRef.current.add(member.id);
     try {
       const { error } = await supabase.from("community_members").update({ role: newRole }).eq("id", member.id);
       if (error) throw error;
@@ -963,6 +974,8 @@ export default function CommunitiesTab({ currentUser, onError, onBack = () => {}
     } catch (e) {
       console.error(e);
       onError("Impossible de modifier ce rôle.");
+    } finally {
+      roleChangeInFlightRef.current.delete(member.id);
     }
   };
 
