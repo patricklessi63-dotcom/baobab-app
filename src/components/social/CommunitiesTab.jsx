@@ -22,6 +22,7 @@ import { compressImageIfNeeded } from "../../lib/imageCompression";
 import { extFromMime } from "../../lib/mediaConstants";
 import { uploadWithProgress } from "../../lib/uploadWithProgress";
 import { escapeLikePattern, escapeOrFilterValue } from "../../lib/searchQuery";
+import { wouldOrphanCommunity } from "../../lib/communities/permissions";
 import { primary, muted, bg, card, navy } from "./theme";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
 
@@ -625,6 +626,20 @@ export default function CommunitiesTab({ currentUser, onError, onBack = () => {}
     // "confirmés" successifs avant la fin du premier appel décrémentaient
     // le compteur de membres deux fois pour un seul départ réel.
     if (!currentUser || leaveInFlightRef.current.has(comm.id)) return;
+    // Garde-fou "communauté orpheline" manquant identifié à l'audit membres/
+    // rôles : ni la RLS ni ce composant ne vérifiaient qu'un owner/admin qui
+    // quitte n'est pas le dernier membre du staff restant (voir
+    // wouldOrphanCommunity, lib/communities/permissions.js, pour le détail
+    // du scénario). "members" n'est fiable que pour la communauté
+    // actuellement affichée en détail (selectedId) — handleLeave n'est de
+    // toute façon jamais appelé ailleurs que depuis cette vue.
+    if (selectedId === comm.id) {
+      const myRole = myMemberships[comm.id];
+      if (wouldOrphanCommunity(myRole, members, currentUser.id)) {
+        onError("Tu es l'unique responsable (propriétaire ou administrateur·rice) de cette communauté : promeus d'abord un autre membre avant de la quitter, ou supprime-la si tu ne veux plus la garder.");
+        return;
+      }
+    }
     leaveInFlightRef.current.add(comm.id);
     try {
       const { error } = await supabase.from("community_members").delete().eq("community_id", comm.id).eq("profile_id", currentUser.id);

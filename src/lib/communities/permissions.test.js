@@ -9,6 +9,7 @@ import {
   canCreateCommunity,
   canSetRole,
   canRemoveMember,
+  wouldOrphanCommunity,
 } from "./permissions.js";
 
 describe("communities/permissions", () => {
@@ -74,6 +75,30 @@ describe("communities/permissions", () => {
     });
     it("moderator ne retire personne d'autre", () => {
       expect(canRemoveMember("moderator", "member", false)).toBe(false);
+    });
+  });
+
+  describe("wouldOrphanCommunity", () => {
+    it("l'unique owner qui quitte orpheline la communauté", () => {
+      const members = [{ profile_id: "u1", role: "owner" }, { profile_id: "u2", role: "member" }];
+      expect(wouldOrphanCommunity("owner", members, "u1")).toBe(true);
+    });
+    it("l'unique admin qui quitte, sans owner ni autre admin, orpheline la communauté", () => {
+      const members = [{ profile_id: "u1", role: "admin" }, { profile_id: "u2", role: "moderator" }];
+      expect(wouldOrphanCommunity("admin", members, "u1")).toBe(true);
+    });
+    it("un owner peut quitter s'il reste un autre admin", () => {
+      const members = [{ profile_id: "u1", role: "owner" }, { profile_id: "u2", role: "admin" }];
+      expect(wouldOrphanCommunity("owner", members, "u1")).toBe(false);
+    });
+    it("un admin peut quitter si l'owner est toujours présent", () => {
+      const members = [{ profile_id: "u1", role: "admin" }, { profile_id: "u2", role: "owner" }];
+      expect(wouldOrphanCommunity("admin", members, "u1")).toBe(false);
+    });
+    it("un moderator ou un membre simple ne peut jamais orpheliner la communauté", () => {
+      const members = [{ profile_id: "u1", role: "moderator" }];
+      expect(wouldOrphanCommunity("moderator", members, "u1")).toBe(false);
+      expect(wouldOrphanCommunity("member", members, "u1")).toBe(false);
     });
   });
 });
