@@ -15,7 +15,7 @@ Mise à jour 2026-09-15.
   ça les nouveaux triggers SQL appelleront une fonction qui ignore
   silencieusement ces payloads.
 
-**RESTE (SQL, écrit mais jamais exécuté — voir §1b et §1c) :**
+**RESTE (SQL, écrit mais jamais exécuté — voir §1b, §1c et §1d) :**
 - ⬜ `supabase-unaccent-search.sql` — recherche insensible aux accents
   (extension `unaccent` + index trigram) pour les communautés, événements et
   la recherche de profils à inviter. Additif et idempotent, mais livré
@@ -29,6 +29,15 @@ Mise à jour 2026-09-15.
   message, ni match, ni comme, ni abonnement), même si le client s'abonne
   correctement et que l'Edge Function `send-push` sait générer l'envoi :
   aucun trigger SQL ne l'appelle. Voir §1c.
+- ⬜ `supabase-community-orphan-guard-fix.sql` — **ajouté le 2026-09-18** :
+  filet de sécurité RLS pour le bug "communauté orpheline" (un owner/admin
+  unique qui quitte sa communauté la laisse sans personne pour la gérer).
+  Le correctif côté client (commit `eb43ad4`, déjà déployé) bloque bien le
+  bouton "Quitter" dans l'UI normale, mais la policy RLS DELETE réelle de
+  `community_members` n'avait aucune garde équivalente — un appel API
+  direct, en contournant l'UI, pouvait toujours orpheliner une communauté.
+  Ce script ajoute cette garde côté base (la vraie source de vérité). Voir
+  §1d.
 
 Le §1 ci-dessous est conservé pour référence mais **n'est plus à faire**.
 
@@ -122,6 +131,51 @@ déploiement.
    juste après**, mais indispensable pour que les pushes "like"/"follow"
    partent réellement (sinon l'Edge Function répond "ok" sans rien envoyer,
    silencieusement).
+
+Requêtes de vérification en fin de fichier SQL.
+
+---
+
+## 1d. SQL — `supabase-community-orphan-guard-fix.sql` — ⬜ JAMAIS EXÉCUTÉ
+
+**Quoi :** filet de sécurité côté base pour le bug "communauté orpheline",
+trouvé lors de l'audit du 18 septembre 2026. Un owner/admin qui est le
+SEUL owner/admin restant d'une communauté pouvait la quitter, la laissant
+sans personne pour gérer les membres, les demandes d'adhésion ou les
+signalements — orpheline de façon permanente (aucune autre issue que sa
+suppression complète).
+
+Un premier correctif (commit `eb43ad4`, déjà déployé) a bloqué ça côté
+client : `wouldOrphanCommunity()` dans `src/lib/communities/permissions.js`,
+branché dans `handleLeave()` de `CommunitiesTab.jsx`, désactive le bouton
+"Quitter" dans ce cas précis. Mais ce fichier lui-même le dit explicitement
+en en-tête : *"ce fichier ne doit jamais être considéré comme une barrière
+de sécurité"* — la vraie source de vérité est la policy RLS. Or la policy
+DELETE réelle de `community_members` (`supabase-communities.sql`, policy
+"Quitter ou etre retire selon la hierarchie") autorise sans aucune
+condition n'importe quel membre à supprimer sa propre ligne
+(`profile_id = current_profile_id()`), owner/admin unique compris. Un appel
+API direct (`supabase.from('community_members').delete()...`), qui
+contourne complètement `CommunitiesTab.jsx`, pouvait donc toujours
+orpheliner une communauté malgré le correctif client — le filet de
+sécurité manquant côté serveur, complémentaire (pas redondant) du
+correctif déjà en prod.
+
+Le script ajoute une fonction `community_would_be_orphaned_by_leaving()`
+(même style que les fonctions centrales déjà présentes dans
+`supabase-communities.sql`) et l'utilise pour resserrer uniquement la
+branche "je me retire moi-même" de la policy DELETE. Les deux autres
+branches (un owner qui expulse quelqu'un d'autre, un admin qui retire un
+modérateur/membre — c'est-à-dire la modération, jamais un départ
+volontaire) restent inchangées. Un départ normal (simple membre, ou
+owner/admin alors qu'il reste au moins un autre owner/admin) n'est jamais
+bloqué.
+
+**Comment :**
+1. Ouvre le **SQL Editor** de Supabase (projet `vozehymbihnckzklxesw`).
+2. Colle tout le contenu de `supabase-community-orphan-guard-fix.sql`.
+3. Exécute en une fois (additif et idempotent — rejouable sans erreur), après
+   `supabase-communities.sql`.
 
 Requêtes de vérification en fin de fichier SQL.
 
