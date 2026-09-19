@@ -140,7 +140,18 @@ export default function EventDetailView({
               )}
             </div>
             <div className="flex items-center gap-1.5 flex-shrink-0">
-              {staff && (
+              {/* Bug identifié à l'audit du flux d'annulation : ce bouton
+                  restait affiché même une fois l'événement annulé
+                  (`canceled`), contrairement à "Participer"/"Annuler
+                  l'événement"/"Supprimer l'événement" juste en dessous, tous
+                  déjà masqués par `!canceled`. EventEditForm permet pourtant
+                  de changer event_date/location/city/duration_minutes via un
+                  simple .update() (pas de RPC, aucune vérification serveur
+                  sur canceled_at) — et trg_notify_event_updated
+                  (supabase-events-v2.sql) envoie alors une notification
+                  "événement modifié" à tous les participants, contredisant
+                  celle d'annulation ("event_cancelled") déjà reçue. */}
+              {staff && !canceled && (
                 <button onClick={() => onEdit(event)} aria-label="Modifier l'événement" className="h-9 w-9 rounded-full flex items-center justify-center" style={{ background: bg }}>
                   <Pencil size={14} color={primary} />
                 </button>
