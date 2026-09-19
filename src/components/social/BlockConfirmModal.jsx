@@ -32,8 +32,10 @@ export default function BlockConfirmModal({ target, onCancel, onConfirm }) {
         </div>
         <h2 className="text-lg font-black" style={{ color: primary }}>Bloquer {target.name} ?</h2>
         <p className="text-sm mt-2" style={{ color: muted }}>
-          Cette personne ne pourra plus t'écrire ni voir ton profil. Elle ne
-          sera pas informée que tu l'as bloquée.
+          Cette personne ne pourra plus t'écrire ni voir ton profil — et toi
+          non plus le sien. Vos publications, likes et votre match éventuel
+          disparaîtront pour vous deux. Elle ne sera pas informée que tu l'as
+          bloquée.
         </p>
         <div className="flex gap-2 mt-5">
           <button onClick={onCancel} disabled={confirming} className="flex-1 py-2.5 rounded-full text-sm font-semibold disabled:opacity-50" style={{ border: `1px solid rgba(${primaryRgb},.12)`, color: primary }}>
