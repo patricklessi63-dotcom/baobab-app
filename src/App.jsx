@@ -160,6 +160,13 @@ export default function App() {
   const [blockedProfilesRaw, setBlockedProfilesRaw] = useState([]);
   const likeInFlightRef = useRef(new Set()); // to_id en cours d'envoi — évite un double clic = double insert
   const passInFlightRef = useRef(new Set());
+  // Garde anti-double-clic pour "Exporter mes données" (même famille que
+  // likeInFlightRef/passInFlightRef ci-dessus) : audit du bouton dans
+  // AppModals.jsx — il ne se désactive jamais pendant l'export (aucun état
+  // "en cours" affiché), donc un double-clic/tap rapide relançait deux fois
+  // en parallèle la même série de requêtes (dont la génération d'URLs
+  // signées) et déclenchait deux téléchargements du même fichier.
+  const exportDataInFlightRef = useRef(false);
   const likePairsRef = useRef(likePairs); // lu par l'abonnement realtime "likes" sans le forcer à se réabonner à chaque like
   const profilesRef = useRef(profiles); // idem, pour retrouver le profil qui vient de matcher
   const likerProfilesRawRef = useRef(likerProfilesRaw); // lu par l'abonnement realtime "likes" sans le forcer à se réabonner
@@ -967,6 +974,8 @@ export default function App() {
   // pas un { data: null, error } résolu normalement par Supabase).
   async function handleExportData() {
     if (!currentUser) return;
+    if (exportDataInFlightRef.current) return;
+    exportDataInFlightRef.current = true;
     try {
       const queries = {
         posts: supabase.from("posts").select("*").eq("author_id", currentUser.id),
@@ -1061,6 +1070,8 @@ export default function App() {
     } catch (e) {
       console.error(e);
       setError("Impossible d'exporter tes données pour le moment. Réessaie.");
+    } finally {
+      exportDataInFlightRef.current = false;
     }
   }
 
