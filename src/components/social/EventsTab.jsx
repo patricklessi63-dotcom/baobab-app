@@ -151,6 +151,20 @@ export default function EventsTab({ currentUser, onError, onBack = () => {}, ini
 
   const joinInFlightRef = useRef(new Set());
   const leaveInFlightRef = useRef(new Set());
+  // Garde anti-double-clic pour la suppression definitive d'un evenement
+  // (createur/admin, handleDeleteEvent) ou d'un message de discussion
+  // (auteur OU organisateur/moderateur qui modere le contenu d'un autre
+  // participant, handleDeleteComment) — meme trou identifie et corrige cote
+  // communautes (deletePostInFlightRef/deleteCommentInFlightRef,
+  // CommunitiesTab.jsx) : la ConfirmModal ne protege pas ce cas, son
+  // onConfirm (EventDetailView.jsx / EventCommentsSection.jsx) declenche la
+  // suppression sans attendre sa promesse puis referme aussitot la modale,
+  // donc l'evenement/le message reste affiche (et son bouton actif) tant
+  // que l'appel reseau n'a pas repondu — un second DELETE sur une ligne
+  // deja supprimee ne renvoie pas d'erreur PostgREST et repart donc sans
+  // etre bloque.
+  const deleteEventInFlightRef = useRef(new Set());
+  const deleteCommentInFlightRef = useRef(new Set());
   // Garde anti-double-clic pour l'envoi d'un message dans la discussion de
   // l'événement : contrairement à PostsFeed/CommunitiesTab où le brouillon
   // de commentaire est local à chaque carte et vidé de façon synchrone avant
@@ -646,6 +660,8 @@ export default function EventsTab({ currentUser, onError, onBack = () => {}, ini
   // (supabase-delete-own-content.sql) n'autorise que le createur ou
   // is_admin_or_above(), les tables enfants sont deja en cascade.
   const handleDeleteEvent = async (ev) => {
+    if (deleteEventInFlightRef.current.has(ev.id)) return;
+    deleteEventInFlightRef.current.add(ev.id);
     try {
       const { error } = await supabase.from("events").delete().eq("id", ev.id);
       if (error) throw error;
@@ -653,6 +669,8 @@ export default function EventsTab({ currentUser, onError, onBack = () => {}, ini
     } catch (e) {
       console.error(e);
       onError("Impossible de supprimer cet événement.");
+    } finally {
+      deleteEventInFlightRef.current.delete(ev.id);
     }
   };
 
@@ -678,6 +696,8 @@ export default function EventsTab({ currentUser, onError, onBack = () => {}, ini
   };
 
   const handleDeleteComment = async (c) => {
+    if (deleteCommentInFlightRef.current.has(c.id)) return;
+    deleteCommentInFlightRef.current.add(c.id);
     try {
       const { error } = await supabase.from("event_comments").delete().eq("id", c.id);
       if (error) throw error;
@@ -685,6 +705,8 @@ export default function EventsTab({ currentUser, onError, onBack = () => {}, ini
     } catch (e) {
       console.error(e);
       onError("Impossible de supprimer ce message.");
+    } finally {
+      deleteCommentInFlightRef.current.delete(c.id);
     }
   };
 
