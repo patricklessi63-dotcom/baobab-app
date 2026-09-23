@@ -1233,6 +1233,7 @@ export default function CommunitiesTab({ currentUser, onError, onBack = () => {}
           community={inviteTarget}
           currentUser={currentUser}
           memberIds={new Set(members.map((m) => m.profile_id))}
+          blockedIds={blockedIds}
           onClose={() => setInviteTarget(null)}
           onError={onError}
         />

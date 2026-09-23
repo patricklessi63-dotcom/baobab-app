@@ -12,7 +12,16 @@ import { primary, coralText, muted, card, primaryRgb } from "./theme";
 // découverte) — exclut les membres déjà présents et soi-même. La
 // contrainte unique (community_id, invited_profile_id) empêche déjà
 // d'inviter deux fois la même personne (anti-spam, item 27).
-export default function CommunityInviteModal({ community, currentUser, memberIds = new Set(), onClose, onError }) {
+//
+// blockedIds (bug corrigé à l'audit) : cette recherche interroge
+// directement `profiles` sans jamais tenir compte du blocage (dans un sens
+// ou l'autre), contrairement à EventInviteModal (candidats déjà filtrés
+// par blockedIds dans EventsTab.openInvite) et au reste de CommunitiesTab
+// (posts/commentaires/membres filtrés par blockedIds). Sans ce filtre, on
+// pouvait rechercher puis inviter dans une communauté quelqu'un qu'on a
+// bloqué — ou qui nous a bloqués — ce qui n'a de sens dans aucun des deux
+// cas et est incohérent avec le reste de l'app.
+export default function CommunityInviteModal({ community, currentUser, memberIds = new Set(), blockedIds = new Set(), onClose, onError }) {
   const [search, setSearch] = useState("");
   const [results, setResults] = useState([]);
   const [searching, setSearching] = useState(false);
@@ -66,7 +75,7 @@ export default function CommunityInviteModal({ community, currentUser, memberIds
         .limit(15);
       if (error) throw error;
       if (seq !== searchSeqRef.current) return; // une recherche plus récente a déjà pris le relais
-      setResults((data || []).filter((p) => !memberIds.has(p.id)));
+      setResults((data || []).filter((p) => !memberIds.has(p.id) && !blockedIds.has(p.id)));
     } catch (e) {
       if (seq !== searchSeqRef.current) return;
       console.error(e);
