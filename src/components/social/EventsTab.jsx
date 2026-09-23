@@ -108,6 +108,18 @@ export default function EventsTab({ currentUser, onError, onBack = () => {}, ini
   const [hasMore, setHasMore] = useState(false);
 
   const [myStatuses, setMyStatuses] = useState({}); // eventId -> going|interested|not_going|waitlisted
+  // Bug identifié à l'audit du côté réception des invitations : les RPC
+  // accept_event_invitation()/decline_event_invitation() (supabase-events-v2.sql,
+  // affinées par supabase-events-guards.sql — capacité/événement annulé/déjà
+  // passé déjà gérés côté serveur) n'étaient appelées nulle part dans le
+  // front. Contrairement à CommunitiesTab.jsx ("💌 Tes invitations" +
+  // handleAcceptInvite/handleDeclineInvite), une personne invitée à un
+  // événement privé/de communauté n'avait aucun moyen de voir ni de refuser
+  // son invitation : seul un "Participer" ordinaire (join_event, jamais
+  // accept_event_invitation) restait possible, laissant l'invitation dans
+  // event_invitations à jamais "pending" et decline_event_invitation()
+  // totalement inatteignable depuis l'app.
+  const [myEventInvites, setMyEventInvites] = useState([]);
   const [myCommunityIds, setMyCommunityIds] = useState([]);
   const [myMutualProfiles, setMyMutualProfiles] = useState([]); // connexions mutuelles réelles (likes croisés)
 
@@ -151,6 +163,13 @@ export default function EventsTab({ currentUser, onError, onBack = () => {}, ini
 
   const joinInFlightRef = useRef(new Set());
   const leaveInFlightRef = useRef(new Set());
+  // Même garde que inviteInFlightRef (CommunitiesTab.jsx, Accepter/Refuser
+  // une invitation à une communauté) : sans elle, un double-tap rapide sur
+  // "Accepter"/"Refuser" une invitation à un événement déclencherait deux
+  // appels RPC concurrents (le second échouerait proprement côté serveur —
+  // "Invitation introuvable ou deja traitee" — mais afficherait quand même
+  // un message d'erreur trompeur après un succès réel).
+  const eventInviteInFlightRef = useRef(new Set());
   // Garde anti-double-clic pour la suppression definitive d'un evenement
   // (createur/admin, handleDeleteEvent) ou d'un message de discussion
   // (auteur OU organisateur/moderateur qui modere le contenu d'un autre
@@ -232,6 +251,20 @@ export default function EventsTab({ currentUser, onError, onBack = () => {}, ini
       (data || []).forEach((r) => { map[r.event_id] = r.status; });
       setMyStatuses(map);
     });
+    // Invitations à des événements en attente de réponse — même requête que
+    // "community_invites" dans CommunitiesTab.jsx (voir commentaire sur
+    // myEventInvites ci-dessus pour le bug corrigé : cette liste n'existait
+    // simplement pas avant).
+    supabase
+      .from("event_invitations")
+      .select("id, event_id, invited_by, events(title, cover_url), inviter:invited_by(name)")
+      .eq("invited_profile_id", currentUser.id)
+      .eq("status", "pending")
+      .then(({ data, error }) => {
+        if (!alive) return;
+        if (error) { console.error(error); return; }
+        setMyEventInvites(data || []);
+      });
     supabase.from("community_members").select("community_id").eq("profile_id", currentUser.id).then(({ data, error }) => {
       if (!alive || error) { if (error) console.error(error); return; }
       setMyCommunityIds((data || []).map((r) => r.community_id));
@@ -854,6 +887,50 @@ export default function EventsTab({ currentUser, onError, onBack = () => {}, ini
     }
   };
 
+  // ---------- Invitations reçues ----------
+  // Miroir de handleAcceptInvite/handleDeclineInvite (CommunitiesTab.jsx) :
+  // même garde anti-double-clic, même retrait immédiat de la liste locale
+  // une fois traitée, même message d'erreur générique fixe (jamais le texte
+  // brut renvoyé par la RPC, cohérent avec handleInvite ci-dessus). Les cas
+  // "événement complet"/"événement annulé" sont déjà gérés par la RPC elle-
+  // même (supabase-events-guards.sql) : capacité atteinte → mise en liste
+  // d'attente silencieuse (même comportement que join_event/handleJoin,
+  // jamais une erreur), événement annulé ou déjà passé → exception proprement
+  // formulée côté serveur, remontée ici sous le même message générique que
+  // toute autre erreur (RLS, invitation déjà traitée...).
+  const handleAcceptEventInvite = async (invite) => {
+    if (eventInviteInFlightRef.current.has(invite.id)) return;
+    eventInviteInFlightRef.current.add(invite.id);
+    try {
+      const { data, error } = await supabase.rpc("accept_event_invitation", { p_invitation_id: invite.id });
+      if (error) throw error;
+      setMyEventInvites((inv) => inv.filter((x) => x.id !== invite.id));
+      setMyStatuses((s) => ({ ...s, [invite.event_id]: data.status }));
+      if (selectedId === invite.event_id) loadParticipants(invite.event_id, detailRequestRef.current);
+      if (data.status === "going") refreshParticipantCount(invite.event_id);
+    } catch (e) {
+      console.error(e);
+      onError("Impossible d'accepter cette invitation.");
+    } finally {
+      eventInviteInFlightRef.current.delete(invite.id);
+    }
+  };
+
+  const handleDeclineEventInvite = async (invite) => {
+    if (eventInviteInFlightRef.current.has(invite.id)) return;
+    eventInviteInFlightRef.current.add(invite.id);
+    try {
+      const { error } = await supabase.rpc("decline_event_invitation", { p_invitation_id: invite.id });
+      if (error) throw error;
+      setMyEventInvites((inv) => inv.filter((x) => x.id !== invite.id));
+    } catch (e) {
+      console.error(e);
+      onError("Impossible de refuser cette invitation.");
+    } finally {
+      eventInviteInFlightRef.current.delete(invite.id);
+    }
+  };
+
   // ---------- Partage dans une conversation (réel : écrit un vrai message) ----------
   const openShareMessage = (ev) => {
     setShareEvent(ev);
@@ -1167,6 +1244,25 @@ export default function EventsTab({ currentUser, onError, onBack = () => {}, ini
         />
       ) : isNeutralHome ? (
         <>
+          {myEventInvites.length > 0 && (
+            <div className="mb-8">
+              <h2 className="text-sm font-black mb-3" style={{ color: primary }}>💌 Tes invitations</h2>
+              <div className="flex flex-col gap-2">
+                {myEventInvites.map((inv) => (
+                  <div key={inv.id} className={`${card} p-3.5 flex items-center justify-between gap-3`}>
+                    <div className="min-w-0">
+                      <div className="text-sm font-bold truncate">{inv.events?.title}</div>
+                      <div className="text-xs truncate" style={{ color: muted }}>Invité·e par {inv.inviter?.name || "un membre"}</div>
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <button onClick={() => handleDeclineEventInvite(inv)} className="text-xs font-bold px-3 py-2 rounded-full" style={{ background: bg, color: muted }}>Refuser</button>
+                      <button onClick={() => handleAcceptEventInvite(inv)} className="bb-btn-gold text-xs font-bold px-3 py-2 rounded-full">Accepter</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
           {renderSection("🔥 Populaires", popular, "populaires")}
           {renderSection("📍 Près de toi", nearby)}
           {renderSection("❤️ Recommandés pour toi", recommended, "recommandes")}
