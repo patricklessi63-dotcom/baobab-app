@@ -199,6 +199,18 @@ export default function CommunitiesTab({ currentUser, onError, onBack = () => {}
   // aussi (invite déjà traitée mais pas d'erreur renvoyée), adjustMemberCount
   // incrémentait le compteur de membres deux fois pour une seule adhésion.
   const inviteInFlightRef = useRef(new Set());
+  // Garde anti-double-clic pour la suppression d'une publication/d'un
+  // commentaire (auteur OU modérateur/staff qui modère le contenu d'un
+  // autre membre, ConfirmModal ne protège pas ce cas : le onConfirm passé
+  // ici déclenche handleDeletePost/handleDeleteComment sans attendre sa
+  // promesse puis referme aussitôt la modale, donc son état "confirming"
+  // ne couvre pas l'appel réseau réel). Même famille que
+  // removeMemberInFlightRef/roleChangeInFlightRef ci-dessus : un second
+  // DELETE sur une ligne déjà supprimée ne renvoie pas d'erreur PostgREST,
+  // donc un double-clic/tap rapide sur "Supprimer" décrémentait deux fois
+  // postCommentCounts pour un seul commentaire réellement supprimé.
+  const deletePostInFlightRef = useRef(new Set());
+  const deleteCommentInFlightRef = useRef(new Set());
   // Devient true une fois myMemberships réellement chargé depuis le
   // serveur (voir l'effet ci-dessous) — utilisé par goDetail pour savoir si
   // myMemberships[id] === undefined signifie "non-membre confirmé" ou
@@ -804,6 +816,8 @@ export default function CommunitiesTab({ currentUser, onError, onBack = () => {}
   };
 
   const handleDeletePost = async (post) => {
+    if (deletePostInFlightRef.current.has(post.id)) return;
+    deletePostInFlightRef.current.add(post.id);
     try {
       const { error } = await supabase.from("community_posts").delete().eq("id", post.id);
       if (error) throw error;
@@ -812,6 +826,8 @@ export default function CommunitiesTab({ currentUser, onError, onBack = () => {}
     } catch (e) {
       console.error(e);
       onError("Impossible de supprimer cette publication.");
+    } finally {
+      deletePostInFlightRef.current.delete(post.id);
     }
   };
 
@@ -918,6 +934,8 @@ export default function CommunitiesTab({ currentUser, onError, onBack = () => {}
   };
 
   const handleDeleteComment = async (postId, commentId) => {
+    if (deleteCommentInFlightRef.current.has(commentId)) return;
+    deleteCommentInFlightRef.current.add(commentId);
     try {
       const { error } = await supabase.from("community_comments").delete().eq("id", commentId);
       if (error) throw error;
@@ -926,6 +944,8 @@ export default function CommunitiesTab({ currentUser, onError, onBack = () => {}
     } catch (e) {
       console.error(e);
       onError("Impossible de supprimer ce commentaire.");
+    } finally {
+      deleteCommentInFlightRef.current.delete(commentId);
     }
   };
 
