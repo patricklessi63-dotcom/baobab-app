@@ -97,7 +97,14 @@ export default function CommunityInviteModal({ community, currentUser, memberIds
       setInvitedIds((s) => new Set(s).add(profile.id));
     } catch (e) {
       console.error(e);
-      onError?.("Impossible d'envoyer cette invitation (déjà invité·e ?).");
+      // code Postgres 23505 = contrainte unique (invitation déjà envoyée à
+      // cette personne, ex. modale rouverte après un premier envoi) — seul
+      // cas où un message plus précis que le message générique est affiché,
+      // même pattern que EventsTab.handleInvite. Avant ce correctif, CE
+      // message (sous-entendant "déjà invité·e") s'affichait aussi pour
+      // n'importe quelle autre erreur (RLS, réseau...), induisant l'utilisateur
+      // en erreur sur la vraie cause.
+      onError?.(e.code === "23505" ? "Cette personne est déjà invitée." : "Impossible d'envoyer cette invitation.");
     } finally {
       setSendingId(null);
     }
