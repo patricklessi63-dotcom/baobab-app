@@ -134,6 +134,17 @@ export default function App() {
   const { pathname, navigate } = usePathname();
   const [profiles, setProfiles] = useState([]);
   const [currentUser, setCurrentUser] = useState(null);
+  // Bug corrigé (même anti-pattern que usePremiumStatus.js, voir e7a7cdd) :
+  // si la requête ci-dessous (chargement du PROPRE profil après connexion)
+  // échouait pour une raison réseau (coupure, panne Supabase ponctuelle),
+  // `data` restait undefined et le code l'interprétait comme "aucun profil
+  // trouvé" — un membre existant, avec un profil complet en base, se
+  // retrouvait alors renvoyé dans OnboardingWizard, currentUser remis à
+  // null, comme si son compte n'avait jamais été créé. `profileLoadError`
+  // permet de distinguer "échec de la requête" de "vraiment aucun profil",
+  // et affiche un écran d'erreur avec un bouton "Réessayer" au lieu de
+  // pousser l'utilisateur vers l'onboarding.
+  const [profileLoadError, setProfileLoadError] = useState(null);
   const [likePairs, setLikePairs] = useState([]); // [{from_id, to_id}]
   const [passPairs, setPassPairs] = useState([]); // [{from_id, to_id}]
   // Profils complets de tout le monde qui m'a liké (jointure directe sur
@@ -953,7 +964,17 @@ export default function App() {
     let alive = true;
     supabase.from("profiles").select("*").eq("user_id", session.user.id).maybeSingle().then(({ data, error }) => {
       if (!alive) return;
-      if (error) console.error(error.message, error.code, error.details, error.hint);
+      if (error) {
+        // Échec de la requête (réseau, panne ponctuelle) — distinct d'un
+        // "vraiment aucun profil" : on ne touche pas à currentUser et on
+        // n'envoie surtout pas un membre existant vers l'onboarding. Voir
+        // le commentaire sur profileLoadError ci-dessus.
+        console.error(error.message, error.code, error.details, error.hint);
+        setProfileLoadError(error.message || "Erreur réseau.");
+        setView("profile-load-error");
+        return;
+      }
+      setProfileLoadError(null);
       if (data) {
         applyOwnProfile(data);
       } else {
@@ -964,6 +985,11 @@ export default function App() {
     return () => { alive = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view, session]);
+
+  function handleRetryProfileLoad() {
+    setProfileLoadError(null);
+    setView("checking-profile");
+  }
 
   function handleAccountDeletionRequested() {
     setCurrentUser((u) => (u ? { ...u, deletion_requested_at: new Date().toISOString() } : u));
@@ -2819,6 +2845,29 @@ export default function App() {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: C.sand }}>
         <Loader2 className="animate-spin" color={C.indigo} size={32} />
+      </div>
+    );
+  }
+
+  // Voir profileLoadError plus haut : échec réseau de la requête "mon
+  // propre profil", distinct d'un compte réellement inexistant — on
+  // n'envoie jamais ce cas vers l'onboarding.
+  if (view === "profile-load-error") {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-6" style={{ background: C.sand }}>
+        <div className="bb-card p-8 max-w-sm w-full text-center">
+          <div className="text-4xl mb-3">⚠️</div>
+          <h1 className="text-lg font-black" style={{ color: "var(--bb-text)" }}>Impossible de charger ton profil</h1>
+          <p className="text-sm mt-3" style={{ color: "rgba(var(--bb-text-rgb),0.7)" }}>
+            {profileLoadError || "Une erreur réseau est survenue."} Ton compte est intact, réessaie dans un instant.
+          </p>
+          <button onClick={handleRetryProfileLoad} className="w-full mt-6 py-3 rounded-full text-sm font-bold text-white" style={{ background: C.navy }}>
+            Réessayer
+          </button>
+          <button onClick={() => handleSignOut().then(() => navigate("/connexion"))} className="w-full mt-2 py-3 rounded-full text-sm font-bold" style={{ color: "rgba(var(--bb-text-rgb),0.6)" }}>
+            Se déconnecter
+          </button>
+        </div>
       </div>
     );
   }
