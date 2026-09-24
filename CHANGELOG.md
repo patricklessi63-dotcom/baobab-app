@@ -1,5 +1,121 @@
 # Journal des modifications
 
+## 11–24 septembre 2026 — Messagerie temps réel, navigation mobile, fiabilité réseau (v1.1.0)
+
+Travail autonome continu sur ~2 semaines. 65+ commits sur `main`, chaque lot
+ré-audité pour régression avant de passer au suivant. Build vert, CI verte,
+suite de tests passée de 450 à 552 cas.
+
+### Messagerie temps réel
+
+- **Accusé de lecture à 3 états** : ajout de « distribué » (2 coches grises,
+  destinataire en ligne mais pas encore lu) entre « envoyé » (1 coche) et « lu »
+  (2 coches bleues), jusqu'ici absent. (`acd1868`)
+- **Présence en ligne fiabilisée** : `is_online` pouvait rester bloqué à
+  « vrai » indéfiniment après un crash/coupure réseau (aucun événement pour le
+  corriger) ; nouveau `lib/presence.js` borne la confiance accordée à 10 min
+  sans heartbeat récent. (`acd1868`)
+- **Messages vocaux** : deux messages ne jouent plus en même temps (mise en
+  pause automatique du précédent, comportement WhatsApp). (`b221ea6`)
+- **Notifications push étendues** aux likes simples et nouveaux abonnés (en
+  plus des messages et matchs) — edge function + trigger SQL livrés, en
+  attente de déploiement manuel. Le branchement SQL des triggers messages/
+  matchs eux-mêmes n'avait par ailleurs jamais été exécuté en prod. (`13640c2`)
+- Curseur de pagination sans tie-break sur l'historique de conversation
+  pouvant faire disparaître définitivement un message. (`8911994`)
+- Double-clic sur « Charger plus » (notifications) pouvant faire disparaître
+  des notifications déjà affichées. (`9a78d7d`)
+
+### Navigation mobile (bouton/geste retour)
+
+- Le bouton/geste retour du téléphone quittait l'application dès le premier
+  appui au lieu de revenir à l'écran précédent : nouveau système de pile
+  d'historique partagée (`pushBackEntry`, `useEscapeKey.js`) branché sur la
+  navigation par onglets (`goTab`/`goBack`) et sur l'inscription. Composition
+  automatique avec les modales déjà ouvertes par-dessus. (`690fd90`, `16830db`)
+- Revue a posteriori : purger plusieurs entrées d'un coup (fin d'inscription)
+  aurait déclenché une cascade de vraies navigations arrière — corrigé avant
+  tout impact utilisateur. (`5f74044`)
+- Retour incohérent après avoir ouvert une conversation depuis une
+  notification « Nouveau message ». (`36c09d9`)
+- Flèche de retour ajoutée sur Communautés/Événements (accessibles depuis le
+  menu profil, n'en avaient aucune). (`690fd90`)
+
+### Fiabilité réseau — « échec traité comme résultat négatif confirmé »
+
+Série de bugs où une simple coupure réseau transitoire était interprétée
+comme une réponse serveur définitive :
+
+- **Statut Premium avalé** : un échec réseau de la vérification faisait
+  perdre le badge/l'accès Premium jusqu'au rechargement complet. (`e7a7cdd`)
+- **Rôle admin/modérateur avalé** : même défaut, perte silencieuse de
+  l'accès au tableau de bord admin pour toute la session. (`16d03ee`)
+- **Perte de compte apparente** : un échec du chargement du propre profil
+  renvoyait un membre existant vers l'inscription, comme si son compte
+  n'avait jamais existé — le plus grave des quatre. (`4fd74c8`)
+- **Candidats/matchs/likes jamais rechargés** après un échec du chargement
+  initial : « Découvrir » vide, « Aucun match » affichés à tort
+  indéfiniment. (`632a6ed`)
+- **Message d'erreur muet sur « Gérer mon abonnement »** (signalé en prod) :
+  le SDK Supabase ne met jamais le corps JSON d'une erreur HTTP dans `data`
+  (il faut le relire depuis `error.context`) — la vraie raison serveur était
+  systématiquement perdue derrière un « Réessaie » générique. (`9db1a85`)
+
+### Confidentialité & sécurité
+
+- **Fuite de ville** dans « Autour de toi » : la simple présence dans la
+  liste révélait une ville masquée par l'utilisateur, même sans l'afficher
+  en texte. (`d0fd728`)
+- **Badge « En ligne » affiché pour un compte banni/suspendu** dans le widget
+  Accueil. (`68e0bbb`)
+- **Communauté orpheline** : le dernier owner/admin pouvait quitter sa
+  communauté et la laisser sans personne pour la gérer — bloqué côté client,
+  filet de sécurité RLS livré (non exécuté) pour couvrir un appel API direct.
+  (`eb43ad4`, `08377be`)
+- **Personnes bloquées invitables** à une communauté malgré le blocage.
+  (`c3005fd`)
+- Texte de confirmation de blocage précisé (conséquences bidirectionnelles).
+  (`2555493`)
+
+### Communautés & événements
+
+- **Réception des invitations à un événement** (Accepter/Refuser) : les
+  fonctions serveur existaient déjà mais n'étaient appelées nulle part —
+  impossible de refuser une invitation, restait « en attente » pour
+  toujours. (`b6c0d1b`)
+- Statut de participation figé sur « liste d'attente » après une promotion
+  automatique (place libérée), pouvant provoquer une désinscription
+  accidentelle en cascade. (`a878d6f`)
+- Bouton « Modifier » resté actif sur un événement annulé, provoquant des
+  notifications contradictoires. (`75d4206`)
+- Doubles suppressions possibles sur la modération de contenu (post/
+  commentaire par un modérateur, événement/message par un organisateur).
+  (`bbc020b`, `12cc368`)
+- Doubles envois de commentaire (communauté et fil) sur clic/Entrée rapide.
+  (`10b05fb`, `9ed183b`)
+- Pollution de liste par une pagination en retard après un changement de
+  filtre (communautés/événements). (`cb3cbbe`)
+
+### Autres corrections
+
+- **Fuseau horaire des événements** : les heures composées le jour d'un
+  changement heure d'été/hiver étaient décalées d'1h en base (bug DST dans
+  `zonedInputsToUtc`). (`652dcf5`)
+- **Recherche insensible aux accents** manquante dans messages, conversations,
+  actualités et emojis (« Rene » ne trouvait pas « René »). (`3220c42`, `5b0537f`)
+- CSP en production bloquait silencieusement la pause d'animation en
+  arrière-plan. (`f7e7335`)
+- Contraste WCAG des icônes or (badges Crown/Gem/étoiles) et perte de focus
+  clavier à la fermeture des menus (emoji, pièces jointes, notifications,
+  profil). (`d1c4f2e`, `c91a1a3`)
+- SEO de base : `robots.txt`, `sitemap.xml`, `og:url`/canonical,
+  `og:image` absolue. (`9854b70`)
+- Débordements et cibles tactiles mobiles (audit responsive). (`ba3e737`)
+- Champs obligatoires marqués + bouton désactivé tant qu'invalide (édition
+  de profil), cohérent avec les formulaires événements/communautés déjà
+  conformes. (`17e4aa4`)
+
+
 ## 10 septembre 2026 (après-midi) — Identité 4.0 : le vert remplace l'orange
 
 Direction validée (proposition : `claude.ai/code/artifact/a56e8049…`). L'orange

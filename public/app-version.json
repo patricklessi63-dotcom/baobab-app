@@ -1,11 +1,14 @@
 {
-  "latestVersion": "1.0.0",
+  "latestVersion": "1.1.0",
   "minimumVersion": "1.0.0",
   "updateRequired": false,
-  "releaseDate": "2026-08-21",
+  "releaseDate": "2026-09-24",
   "releaseNotes": [
-    "Publications avec galerie photos/vidéos",
-    "Nouveau logo Baobab",
-    "Corrections de bugs mobile"
+    "Messagerie : nouvel indicateur « distribué » entre envoyé et lu, présence en ligne plus fiable",
+    "Notifications push étendues aux nouveaux likes et abonnés (en plus des messages et matchs)",
+    "Le bouton/geste retour du téléphone fonctionne désormais écran par écran au lieu de fermer l'app",
+    "Réception des invitations à un événement (accepter/refuser)",
+    "Recherche insensible aux accents dans les messages, les actualités et les emojis",
+    "Corrections de bugs de fiabilité (statut Premium, rôle admin, chargement du profil) et de confidentialité"
   ]
 }
