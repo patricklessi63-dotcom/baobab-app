@@ -10,7 +10,7 @@ import { primary, coral, coralText, gold, green, muted, bg, card, goldText } fro
 // (theme.js), pas une DA "à part" pour Premium. Aucun dark pattern :
 // prix/période/conditions toujours visibles, pas de case pré-cochée.
 export default function PremiumPage({ currentUser, onBack, onError, justSubscribed = false, onJustSubscribedHandled = () => {} }) {
-  const { isPremium, subscription, refresh } = usePremiumStatus(currentUser);
+  const { isPremium, subscription, error: statusError, refresh } = usePremiumStatus(currentUser);
   const [selectedPlan, setSelectedPlan] = useState("yearly");
   const [submitting, setSubmitting] = useState(false);
   const [confirmingPayment, setConfirmingPayment] = useState(justSubscribed);
@@ -140,6 +140,28 @@ export default function PremiumPage({ currentUser, onBack, onError, justSubscrib
           </p>
           <button onClick={handleManagePastDue} disabled={submitting} className="mt-4 px-5 py-3 rounded-2xl text-sm font-bold text-white disabled:opacity-60" style={{ background: `linear-gradient(135deg, ${coral}, ${gold})` }}>
             {submitting ? "Ouverture..." : "Mettre à jour mon moyen de paiement"}
+          </button>
+        </div>
+      ) : statusError && !subscription ? (
+        // Bug corrigé : usePremiumStatus() n'exposait aucune erreur — une
+        // requête "subscriptions" en échec (coupure réseau, panne Supabase
+        // ponctuelle) était indiscernable d'un vrai statut gratuit, et cette
+        // page retombait silencieusement sur l'écran "Choisis un plan". Un·e
+        // abonné·e Premium dont la vérification échouait juste au mauvais
+        // moment pouvait donc être tenté·e de "s'abonner" à nouveau (l'edge
+        // function bloque bien un second abonnement Stripe actif, mais le
+        // message qu'elle renvoie alors — "tu as déjà un abonnement en
+        // cours" — serait, lui, un autre message confus sans ce correctif).
+        // On affiche donc explicitement l'échec de vérification, avec un
+        // bouton pour réessayer, plutôt que de deviner un statut.
+        <div className={`${card} p-6 text-center`}>
+          <span style={{ fontSize: 32 }}>⚠️</span>
+          <h2 className="text-lg font-black mt-2" style={{ color: primary }}>Impossible de vérifier ton statut Premium</h2>
+          <p className="text-sm mt-1" style={{ color: muted }}>
+            Une erreur est survenue en interrogeant ton abonnement ({statusError}). Si tu es déjà abonné·e, ne choisis pas de nouveau plan : réessaie simplement la vérification.
+          </p>
+          <button onClick={refresh} className="mt-4 px-5 py-3 rounded-2xl text-sm font-bold text-white" style={{ background: `linear-gradient(135deg, ${coral}, ${gold})` }}>
+            Réessayer
           </button>
         </div>
       ) : (

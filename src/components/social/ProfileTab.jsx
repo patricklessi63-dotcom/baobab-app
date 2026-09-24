@@ -96,7 +96,7 @@ export default function ProfileTab({
   onError = () => {},
   blockedIds,
 }) {
-          const { isPremium, subscription, loading: premiumLoading } = usePremiumStatus(currentUser);
+          const { isPremium, subscription, loading: premiumLoading, error: premiumError, refresh: refreshPremiumStatus } = usePremiumStatus(currentUser);
           const [managingSubscription, setManagingSubscription] = useState(false);
           // Garde anti-double-clic par ref, même motif que PremiumPage.jsx
           // (handleSubscribe) — `disabled={managingSubscription}` seul ne
@@ -211,8 +211,19 @@ export default function ProfileTab({
                           l'app. Pendant le chargement initial du hook (avant la
                           première réponse Supabase), on retombe sur la valeur mise en
                           cache pour éviter un badge qui clignote/disparaît un instant
-                          chez un·e abonné·e de longue date. */}
-                      <StatusBadge emailVerified={currentUser?.email_verified} phoneVerified={currentUser?.phone_verified} isFounder={currentUser?.is_founder} isPremium={premiumLoading ? currentUser?.is_premium : isPremium} size={16} />
+                          chez un·e abonné·e de longue date.
+
+                          Bug corrigé (même famille) : usePremiumStatus() n'exposait
+                          pas ses erreurs — une requête "subscriptions" en échec
+                          (réseau, panne Supabase ponctuelle) mettait `loading` à
+                          false exactement comme un chargement réussi sans abonnement.
+                          `premiumLoading` valait donc déjà false et ce fallback ne
+                          se déclenchait plus : un·e abonné·e Premium de longue date
+                          perdait son badge le temps d'une simple erreur réseau
+                          passagère, jusqu'au prochain refresh() réussi. On retombe
+                          maintenant sur le cache aussi tant que premiumError est
+                          posé, pas seulement pendant premiumLoading. */}
+                      <StatusBadge emailVerified={currentUser?.email_verified} phoneVerified={currentUser?.phone_verified} isFounder={currentUser?.is_founder} isPremium={(premiumLoading || premiumError) ? currentUser?.is_premium : isPremium} size={16} />
                       {isComplete && (
                         <span className="h-5 w-5 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: verified }} title="Profil complet">
                           <CheckCheck size={12} color="#fff" />
@@ -443,6 +454,25 @@ export default function ProfileTab({
                       </p>
                       <button onClick={handleManageSubscription} disabled={managingSubscription} className="bb-btn-gold mt-3 px-4 py-2.5 rounded-xl font-bold text-sm disabled:opacity-60 focus-visible:outline focus-visible:outline-2">
                         {managingSubscription ? "Ouverture..." : "Mettre à jour mon moyen de paiement"}
+                      </button>
+                    </div>
+                  ) : premiumError && !subscription ? (
+                    // Bug corrigé (même famille que le badge de profil ci-dessus) :
+                    // usePremiumStatus() n'exposait pas ses erreurs, donc une requête
+                    // "subscriptions" en échec (réseau, panne Supabase ponctuelle) était
+                    // rendue ici EXACTEMENT comme "Tu es sur le plan gratuit" — un·e
+                    // abonné·e Premium dont la vérification échouait juste au mauvais
+                    // moment se voyait donc annoncer, à tort, qu'il/elle n'a pas Premium.
+                    <div className="rounded-2xl p-4" style={{ background: "rgba(217,88,60,.12)", border: "1px solid rgba(217,88,60,.35)" }}>
+                      <div className="flex items-center gap-2">
+                        <span style={{ fontSize: 20 }}>⚠️</span>
+                        <span className="text-sm font-black" style={{ color: primary }}>Impossible de vérifier ton abonnement</span>
+                      </div>
+                      <p className="text-sm mt-2" style={{ color: "rgba(var(--bb-ink-rgb),0.72)" }}>
+                        Une erreur est survenue en interrogeant ton statut Premium. Si tu es déjà abonné·e, ne resouscris pas : réessaie simplement la vérification.
+                      </p>
+                      <button onClick={refreshPremiumStatus} className="bb-btn-gold mt-3 px-4 py-2.5 rounded-xl font-bold text-sm focus-visible:outline focus-visible:outline-2">
+                        Réessayer
                       </button>
                     </div>
                   ) : (

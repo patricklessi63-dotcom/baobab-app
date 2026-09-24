@@ -38,7 +38,7 @@ import ProfileTab from "./ProfileTab";
 const baseUser = { id: "u1", name: "Awa", is_founder: false, email_verified: false, phone_verified: false };
 
 function setup({ currentUser, premiumStatus }) {
-  usePremiumStatusMock.mockReturnValue({ isPremium: false, subscription: null, loading: false, refresh: vi.fn(), ...premiumStatus });
+  usePremiumStatusMock.mockReturnValue({ isPremium: false, subscription: null, loading: false, error: null, refresh: vi.fn(), ...premiumStatus });
   return render(
     <ProfileTab
       currentUser={currentUser}
@@ -74,6 +74,14 @@ describe("ProfileTab — badge Premium de son propre profil", () => {
     setup({
       currentUser: { ...baseUser, is_premium: true },
       premiumStatus: { isPremium: false, loading: true, subscription: null },
+    });
+    expect(screen.getByTitle("Membre Premium")).toBeInTheDocument();
+  });
+
+  it("erreur réseau lors de la vérification (usePremiumStatus.error) : retombe sur le cache plutôt que d'afficher un faux 'pas premium'", () => {
+    setup({
+      currentUser: { ...baseUser, is_premium: true },
+      premiumStatus: { isPremium: false, loading: false, error: "Failed to fetch", subscription: null },
     });
     expect(screen.getByTitle("Membre Premium")).toBeInTheDocument();
   });

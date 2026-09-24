@@ -12,6 +12,16 @@ import { supabase } from "../../supabaseClient";
 export function usePremiumStatus(currentUser) {
   const [subscription, setSubscription] = useState(null);
   const [loading, setLoading] = useState(true);
+  // Bug corrigé : en cas d'échec réseau de la requête "subscriptions"
+  // ci-dessous, on se contentait de logger l'erreur en console puis de
+  // couper `loading` sans jamais l'exposer aux appelants. Pour eux, ça se
+  // voyait EXACTEMENT comme "chargement terminé, aucun abonnement" — donc
+  // `isPremium` retombait à false, indiscernable d'un vrai statut gratuit.
+  // Un·e abonné·e Premium dont la requête échouait (coupure réseau, panne
+  // Supabase ponctuelle) se voyait donc traité·e comme non-Premium par
+  // tous les écrans qui lisent ce hook (PremiumPage, badge de profil...),
+  // au lieu de voir une erreur claire ou de garder une valeur de repli.
+  const [error, setError] = useState(null);
   const [refreshTick, setRefreshTick] = useState(0);
   // Permet à PremiumPage de revérifier le statut à la demande (ex. juste
   // après un retour de Stripe Checkout, le temps que le webhook écrive la
@@ -22,6 +32,7 @@ export function usePremiumStatus(currentUser) {
   useEffect(() => {
     if (!currentUser) {
       setSubscription(null);
+      setError(null);
       setLoading(false);
       return;
     }
@@ -34,13 +45,20 @@ export function usePremiumStatus(currentUser) {
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle()
-      .then(({ data, error }) => {
+      .then(({ data, error: err }) => {
         if (!alive) return;
-        if (error) {
-          console.error(error.message, error.code, error.details, error.hint);
+        if (err) {
+          console.error(err.message, err.code, err.details, err.hint);
+          // On NE touche PAS à `subscription` : si un rafraîchissement
+          // échoue après un chargement initial réussi, on garde la
+          // dernière valeur connue plutôt que de la remplacer par "aucun
+          // abonnement". `error` permet aux appelants de distinguer ce cas
+          // d'un vrai statut gratuit confirmé.
+          setError(err.message || "Erreur réseau.");
           setLoading(false);
           return;
         }
+        setError(null);
         setSubscription(data || null);
         setLoading(false);
       });
@@ -53,5 +71,5 @@ export function usePremiumStatus(currentUser) {
     && (!subscription.current_period_end || new Date(subscription.current_period_end) > new Date())
   );
 
-  return { isPremium, subscription, loading, refresh };
+  return { isPremium, subscription, loading, error, refresh };
 }
