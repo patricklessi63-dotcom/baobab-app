@@ -209,6 +209,20 @@ export default function App() {
   // reconnexion ci-dessous pour ne resynchroniser les messages qu'après un
   // véritable retour en ligne, pas à chaque rendu initial.
   const wasOfflineRef = useRef(false);
+  // Bug corrigé (même famille que e7a7cdd/16d03ee/4fd74c8 — échec réseau
+  // traité comme un résultat négatif confirmé) : si loadAll() (candidates,
+  // matches/likes/passes/blocages, photos) échouait au chargement initial
+  // (coupure, panne Supabase ponctuelle), le catch de loadAll affichait bien
+  // un message d'erreur, mais celui-ci s'auto-effaçait après 8s (effet
+  // "error" plus haut) sans qu'aucune requête ne soit rejouée : profiles/
+  // likePairs/passPairs/blockPairs/profilePhotos restaient alors indéfiniment
+  // à leur valeur initiale ([] / {}), indiscernables pour l'utilisateur d'un
+  // compte réellement sans aucun match/like/candidat — jusqu'à un rechargement
+  // complet de la page. Ce ref retient qu'un échec a eu lieu pour que l'effet
+  // de reconnexion ci-dessous (déjà utilisé pour resyncSocialGraph) puisse
+  // rejouer loadAll() en entier dès le retour de connectivité, au lieu du
+  // resync partiel habituel.
+  const loadAllFailedRef = useRef(false);
   // Cache par conversation (clé = match_key) des messages restés en échec
   // d'envoi ("_status: failed") — voir l'effet qui l'alimente plus bas et
   // refreshMessages() qui les réinjecte. Ces messages n'ont jamais atteint
@@ -372,9 +386,11 @@ export default function App() {
         grouped[ph.profile_id].push(ph);
       });
       setProfilePhotos(grouped);
+      loadAllFailedRef.current = false;
     } catch (e) {
       console.error(e);
       setError("Impossible de charger les données. Réessaie.");
+      loadAllFailedRef.current = true;
     }
   }, []);
 
@@ -2458,7 +2474,20 @@ export default function App() {
     const failed = messagesRef.current.filter((msg) => msg._status === "failed");
     failed.forEach((msg) => retrySend(msg));
     if (activeMatchRef.current) refreshMessages(activeMatchRef.current);
-    resyncSocialGraph(() => alive);
+    // Bug corrigé (même famille que e7a7cdd/16d03ee/4fd74c8) : si le
+    // chargement initial (loadAll — candidates, matches/likes/passes/
+    // blocages, photos) avait échoué, rien ne le rejouait jamais ;
+    // profiles/likePairs/passPairs/blockPairs/profilePhotos restaient
+    // vides en permanence ("Découvrir" sans candidat, "Aucun match", 0
+    // admirateur affichés à tort). On rejoue ici loadAll() en entier au
+    // lieu du resync partiel habituel (qui n'aurait de toute façon pas
+    // pu recharger candidates/photos), puisque loadAll() couvre déjà
+    // lui-même le graphe social (fetchSocialGraph).
+    if (session && loadAllFailedRef.current) {
+      loadAll();
+    } else {
+      resyncSocialGraph(() => alive);
+    }
     return () => { alive = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOnline]);
