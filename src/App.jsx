@@ -885,13 +885,32 @@ export default function App() {
   // platform_roles, RLS restreinte à sa propre ligne. N'affiche jamais
   // rien de plus qu'un bouton "Admin" conditionnel : la protection réelle
   // vit dans les RPC admin_* (vérification côté base à chaque appel).
+  // Bug corrigé (même anti-pattern que usePremiumStatus.js, voir e7a7cdd) :
+  // un échec réseau de cette requête (coupure, panne Supabase ponctuelle)
+  // retombait sur `setMyPlatformRole(null)`, exactement comme "confirmé :
+  // aucun rôle". Un·e admin/modérateur·rice dont la vérification échouait
+  // au mauvais moment perdait donc silencieusement l'accès au bouton
+  // "Baobab Admin" (ProfileMenu) et à l'onglet admin pour toute la session,
+  // sans jamais voir d'erreur ni de nouvelle tentative. On ne touche plus
+  // à `myPlatformRole` en cas d'échec (on garde le dernier rôle connu) et
+  // on retente automatiquement au retour de la connectivité (isOnline).
   const [myPlatformRole, setMyPlatformRole] = useState(null);
   useEffect(() => {
     if (!currentUser?.id) { setMyPlatformRole(null); return; }
+    if (!isOnline) return;
+    let alive = true;
     supabase.from("platform_roles").select("role").eq("profile_id", currentUser.id).maybeSingle()
-      .then(({ data }) => setMyPlatformRole(data?.role || null))
-      .catch(() => setMyPlatformRole(null));
-  }, [currentUser?.id]);
+      .then(({ data, error }) => {
+        if (!alive) return;
+        if (error) {
+          console.error(error.message, error.code, error.details, error.hint);
+          return;
+        }
+        setMyPlatformRole(data?.role || null);
+      })
+      .catch((e) => console.error(e?.message || e));
+    return () => { alive = false; };
+  }, [currentUser?.id, isOnline]);
 
   // Applique le profil retrouvé (banni/suspendu/onboarding/feed) — factorisé
   // pour être appelé aussi bien depuis le cache local que depuis le filet de
