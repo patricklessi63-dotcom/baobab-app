@@ -18,6 +18,7 @@ import { SkeletonCard } from "../Skeleton";
 import { rankEvents } from "../../lib/events/recommendations";
 import { EVENT_REPORT_CATEGORIES } from "../../lib/events/eventConfig";
 import { trackActivation } from "../../lib/trackActivation";
+import { friendlyDbError } from "../../lib/friendlyDbError";
 import { escapeLikePattern, escapeOrFilterValue } from "../../lib/searchQuery";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
@@ -664,7 +665,12 @@ export default function EventsTab({ currentUser, onError, onBack = () => {}, ini
       }
     } catch (e) {
       console.error(e);
-      onError("Impossible de rejoindre cet événement.");
+      // join_event() (supabase-events-v2.sql) lève "Cet evenement est annule"
+      // (ou "Evenement introuvable"/"Non autorise") — message précis masqué
+      // avant par un "Impossible de rejoindre cet événement." générique fixe,
+      // même motif que handleAcceptEventInvite/handleDeclineEventInvite
+      // ci-dessous.
+      onError(friendlyDbError(e) || "Impossible de rejoindre cet événement.");
     } finally {
       joinInFlightRef.current.delete(ev.id);
     }
@@ -928,11 +934,14 @@ export default function EventsTab({ currentUser, onError, onBack = () => {}, ini
       setInvitedIds((s) => new Set(s).add(profile.id));
     } catch (e) {
       console.error(e);
-      // code Postgres 23505 = contrainte unique (deja invite) — seul cas ou
-      // un message plus specifique que le message generique est affiche ;
-      // toute autre erreur (RLS, reseau...) reste un message francais fixe,
-      // jamais le texte brut renvoye par la base.
-      onError(e.code === "23505" ? "Cette personne est déjà invitée." : "Impossible d'envoyer cette invitation.");
+      // code Postgres 23505 = contrainte unique (deja invite) : message
+      // specifique. Sinon, check_event_invite_rate_limit()
+      // (supabase-global-action-rate-limit-fix.sql) leve un message deja
+      // propre en francais quand la limite (30 invitations/24h, ou 40 actions
+      // toutes tables confondues/60s) est atteinte — masque avant par un
+      // "Impossible d'envoyer cette invitation." generique fixe, meme motif
+      // que les autres limites de debit deja corrigees (friendlyDbError()).
+      onError(e.code === "23505" ? "Cette personne est déjà invitée." : friendlyDbError(e) || "Impossible d'envoyer cette invitation.");
     } finally {
       setInviteSending(false);
     }
@@ -941,14 +950,14 @@ export default function EventsTab({ currentUser, onError, onBack = () => {}, ini
   // ---------- Invitations reçues ----------
   // Miroir de handleAcceptInvite/handleDeclineInvite (CommunitiesTab.jsx) :
   // même garde anti-double-clic, même retrait immédiat de la liste locale
-  // une fois traitée, même message d'erreur générique fixe (jamais le texte
-  // brut renvoyé par la RPC, cohérent avec handleInvite ci-dessus). Les cas
-  // "événement complet"/"événement annulé" sont déjà gérés par la RPC elle-
-  // même (supabase-events-guards.sql) : capacité atteinte → mise en liste
-  // d'attente silencieuse (même comportement que join_event/handleJoin,
-  // jamais une erreur), événement annulé ou déjà passé → exception proprement
-  // formulée côté serveur, remontée ici sous le même message générique que
-  // toute autre erreur (RLS, invitation déjà traitée...).
+  // une fois traitée. Les cas "événement complet" est déjà géré par la RPC
+  // elle-même (supabase-events-guards.sql) : capacité atteinte → mise en
+  // liste d'attente silencieuse (même comportement que join_event/
+  // handleJoin, jamais une erreur). "événement annulé"/"invitation déjà
+  // traitée" restaient en revanche masqués derrière un message générique
+  // fixe (bug corrigé, même motif que handleAcceptInvite/handleDeclineInvite
+  // ci-dessus — friendlyDbError() extrait "Cet evenement est annule"/
+  // "Invitation introuvable ou deja traitee" quand la RPC les renvoie).
   const handleAcceptEventInvite = async (invite) => {
     if (eventInviteInFlightRef.current.has(invite.id)) return;
     eventInviteInFlightRef.current.add(invite.id);
@@ -961,7 +970,7 @@ export default function EventsTab({ currentUser, onError, onBack = () => {}, ini
       if (data.status === "going") refreshParticipantCount(invite.event_id);
     } catch (e) {
       console.error(e);
-      onError("Impossible d'accepter cette invitation.");
+      onError(friendlyDbError(e) || "Impossible d'accepter cette invitation.");
     } finally {
       eventInviteInFlightRef.current.delete(invite.id);
     }
@@ -976,7 +985,7 @@ export default function EventsTab({ currentUser, onError, onBack = () => {}, ini
       setMyEventInvites((inv) => inv.filter((x) => x.id !== invite.id));
     } catch (e) {
       console.error(e);
-      onError("Impossible de refuser cette invitation.");
+      onError(friendlyDbError(e) || "Impossible de refuser cette invitation.");
     } finally {
       eventInviteInFlightRef.current.delete(invite.id);
     }
@@ -1009,7 +1018,15 @@ export default function EventsTab({ currentUser, onError, onBack = () => {}, ini
       setShareOpen(false);
     } catch (e) {
       console.error(e);
-      onError("Impossible de partager cet événement dans cette conversation.");
+      // Cet insert direct dans "messages" (partage d'un événement dans une
+      // conversation) est soumis aux mêmes triggers que l'envoi normal d'un
+      // message (check_message_rate_limit, 30/min, + le garde-fou transversal
+      // global_recent_action_count, 40 actions/60s — supabase-global-action-
+      // rate-limit-fix.sql), qui lèvent un message déjà propre en français —
+      // mais contrairement à insertMessageRow() (App.jsx), ce chemin d'envoi
+      // séparé ne l'extrayait pas encore et affichait un message générique
+      // fixe masquant la vraie raison (limite de débit atteinte).
+      onError(friendlyDbError(e) || "Impossible de partager cet événement dans cette conversation.");
     } finally {
       setShareSending(false);
     }
