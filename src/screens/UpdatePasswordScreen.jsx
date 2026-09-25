@@ -41,6 +41,25 @@ export default function UpdatePasswordScreen({ onDone }) {
     try {
       const { error: updateError } = await supabase.auth.updateUser({ password });
       if (updateError) throw updateError;
+      // Bug corrigé (audit sécurité du flux "mot de passe oublié", item 4) :
+      // Supabase Auth ne révoque PAS automatiquement les AUTRES sessions
+      // actives quand le mot de passe change — seul le jeton d'accès à
+      // courte durée de vie (~1h) finit par expirer naturellement, le jeton
+      // de rafraîchissement d'un autre appareil resterait valide
+      // indéfiniment avec l'ancien mot de passe déjà utilisé pour s'y
+      // connecter. Ce flux étant justement déclenché en cas de compte
+      // compromis ou d'appareil partagé oublié connecté, laisser les autres
+      // sessions vivantes annule une bonne partie de l'intérêt du reset.
+      // `scope: "others"` appelle l'endpoint /logout de GoTrue authentifié
+      // par le jeton d'accès courant (pas besoin de clé de service, donc pas
+      // d'edge function) et ne déconnecte PAS la session courante — pas de
+      // reconnexion forcée juste après avoir changé son mot de passe sur cet
+      // appareil. Best-effort : un échec ici (réseau, etc.) ne doit jamais
+      // remettre en cause le changement de mot de passe déjà réussi côté
+      // serveur, d'où le try/catch silencieux.
+      try {
+        await supabase.auth.signOut({ scope: "others" });
+      } catch (_) {}
       setDone(true);
       setTimeout(() => onDone?.(), 1800);
     } catch (e) {
