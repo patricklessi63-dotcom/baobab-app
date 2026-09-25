@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef, Suspense, lazy } from "rea
 import { Home, Heart, X, MessageCircle, UserRound, Search, Bell, Globe2, Compass } from "lucide-react";
 import logoIcon from "../assets/logo-baobab-icon.png";
 import { supabase } from "../supabaseClient";
-import { matchKey } from "../utils/format";
+import { matchKey, formatBadgeCount } from "../utils/format";
 import { useClickOutside } from "../hooks/useClickOutside";
 import { useEscapeKey, pushBackEntry } from "../hooks/useEscapeKey";
 import { useFocusReturn } from "../hooks/useFocusReturn";
@@ -2423,7 +2423,7 @@ export default function SocialShell({
                   <Icon size={19} color={active ? "var(--bb-gold-1)" : muted} fill={active && key === "discover" ? "var(--bb-gold-1)" : "none"} className="motion-safe:transition-colors motion-safe:duration-200" />
                   {badgeCount > 0 && (
                     <span className="absolute -top-0.5 -right-0.5 h-4 min-w-4 px-1 rounded-full text-[9px] font-black text-white flex items-center justify-center" style={{ background: coral }}>
-                      {badgeCount}
+                      {formatBadgeCount(badgeCount)}
                     </span>
                   )}
                 </div>

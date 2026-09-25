@@ -2,6 +2,19 @@ export function matchKey(a, b) {
   return [a, b].sort().join("__");
 }
 
+// Plafond d'affichage des pastilles numériques (badge "Messages" de la barre
+// de navigation, badge de non-lus par conversation dans MessagesTab.jsx).
+// Bug corrigé à l'audit des compteurs : aucun plafond n'existait nulle part
+// — un utilisateur revenant après une longue absence avec, par ex., 150
+// messages non lus cumulés (plusieurs conversations) voyait ce nombre à
+// 3 chiffres tenter de tenir dans une pastille ronde de taille fixe (h-4/h-5,
+// police 9-10px), débordant de l'icône ou du reste de la ligne. Convention
+// standard (Messenger, WhatsApp...) : au-delà de 99, on affiche "99+" plutôt
+// que le nombre exact.
+export function formatBadgeCount(n) {
+  return n > 99 ? "99+" : String(n);
+}
+
 // Tronque une chaîne à `maxLength` unités UTF-16 sans jamais couper un
 // graphème Unicode en deux — cas concret : bio, message ou commentaire
 // proche de sa limite (300/500/1000/4000 selon l'endroit) auquel on ajoute

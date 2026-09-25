@@ -9,6 +9,7 @@ import {
   formatDayLabel,
   messagePreviewLabel,
   formatEventWhen,
+  formatBadgeCount,
 } from "./format.js";
 
 describe("matchKey", () => {
@@ -176,6 +177,20 @@ describe("messagePreviewLabel", () => {
     expect(messagePreviewLabel({ text: "coucou" })).toBe("coucou");
     expect(messagePreviewLabel({})).toBe("");
     expect(messagePreviewLabel(null)).toBe("");
+  });
+});
+
+describe("formatBadgeCount", () => {
+  it("affiche le nombre exact jusqu'à 99", () => {
+    expect(formatBadgeCount(1)).toBe("1");
+    expect(formatBadgeCount(42)).toBe("42");
+    expect(formatBadgeCount(99)).toBe("99");
+  });
+
+  it("plafonne à \"99+\" au-delà de 99 (pastille de taille fixe, nombre à 3 chiffres+)", () => {
+    expect(formatBadgeCount(100)).toBe("99+");
+    expect(formatBadgeCount(150)).toBe("99+");
+    expect(formatBadgeCount(9999)).toBe("99+");
   });
 });
 

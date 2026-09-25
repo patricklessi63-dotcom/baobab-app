@@ -7,7 +7,7 @@ import ConversationPane from "./ConversationPane";
 import { useClickOutside } from "../../hooks/useClickOutside";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
 import { useFocusReturn } from "../../hooks/useFocusReturn";
-import { matchKey, formatMessageTime, messagePreviewLabel } from "../../utils/format";
+import { matchKey, formatMessageTime, messagePreviewLabel, formatBadgeCount } from "../../utils/format";
 import { normalizeForSearch } from "../../lib/searchQuery";
 import { isUserOnline } from "../../lib/presence";
 import { primary, navy, green, coral, coralText, bg, muted, card, buttonBase, leafLight, offline, body, primaryRgb } from "./theme";
@@ -185,7 +185,7 @@ export default function MessagesTab({
                     <span className="text-xs truncate" style={{ color: unavailable ? coralText : unread > 0 ? body : muted, fontWeight: unread > 0 ? 700 : 400 }}>{unavailable ? "Ce compte n'est plus disponible" : preview}</span>
                     {unread > 0 && (
                       <span className="text-[10px] font-black text-white rounded-full h-5 min-w-5 px-1.5 flex items-center justify-center shrink-0" style={{ background: coral }}>
-                        {unread}
+                        {formatBadgeCount(unread)}
                       </span>
                     )}
                   </div>
