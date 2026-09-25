@@ -35,11 +35,28 @@ export default function CommunityMemberRow({ member, viewerRole, currentUserId, 
 
   return (
     <div className="flex items-center gap-3 py-2.5">
-      <button onClick={() => onViewProfile(profile)} className="flex items-center gap-3 flex-1 min-w-0 text-left focus-visible:outline focus-visible:outline-2">
+      {/* Bug corrigé à l'audit du flux de signalement : ce bouton ouvrait
+          PublicProfileModal pour N'IMPORTE QUEL membre de la liste, y
+          compris soi-même (aucune garde `isSelf` ici, contrairement à
+          `canRemove` juste en dessous). PublicProfileModal affiche
+          Signaler/Bloquer/Message dès que les callbacks correspondants sont
+          fournis, sans jamais vérifier l'identité du profil affiché — un·e
+          membre cliquant sur sa propre ligne pouvait donc ouvrir "Signaler"
+          sur son propre profil (RLS `reports.from_id <> reports.to_id` le
+          bloque bien côté serveur, mais avec une erreur technique confuse,
+          jamais un message clair). On désactive simplement l'ouverture de la
+          modale pour sa propre ligne : rien de plus à y voir/faire que ce
+          qui est déjà affiché dans la liste. */}
+      <button
+        onClick={() => { if (!isSelf) onViewProfile(profile); }}
+        aria-label={isSelf ? `${firstName} (toi)` : undefined}
+        className="flex items-center gap-3 flex-1 min-w-0 text-left focus-visible:outline focus-visible:outline-2"
+      >
         <Avatar name={profile.name} url={profile.avatar_url} size={40} />
         <div className="min-w-0">
           <div className="text-sm font-bold truncate flex items-center gap-1.5" style={{ color: primary }}>
             <span dir="auto">{firstName}</span>
+            {isSelf && <span className="text-xs font-normal" style={{ color: muted }}>(toi)</span>}
             {/* Parité de badges (bug corrigé à l'audit, même famille que
                 PublicProfileModal/AdmirersModal/FavoritesModal) : les champs
                 sont désormais chargés dans loadMembers() (CommunitiesTab.jsx). */}

@@ -283,6 +283,7 @@ export default function EventDetailView({
                 participants={participants}
                 blockedIds={blockedIds}
                 onViewProfile={onViewParticipantProfile}
+                currentUserId={currentUser?.id}
               />
             )}
           </div>
