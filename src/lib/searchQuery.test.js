@@ -174,4 +174,22 @@ describe("normalizeForSearch", () => {
     expect(normalizeForSearch("日本語")).toBe("日本語");
     expect(normalizeForSearch("☕")).toBe("☕");
   });
+
+  it("gère les ligatures françaises œ/æ, non couvertes par NFD/\\p{Diacritic}", () => {
+    // œ/æ n'ont AUCUNE décomposition canonique Unicode (vérifié :
+    // "cœur".normalize("NFD") === "cœur") et ne sont pas non plus marqués
+    // \p{Diacritic} — sans traitement dédié, "cœur" et "coeur" normalisent
+    // différemment alors que le clavier (autocorrection iOS/Mac) bascule
+    // constamment de l'un à l'autre pour le même mot tapé par l'utilisateur.
+    expect(normalizeForSearch("cœur")).toBe("coeur");
+    expect(normalizeForSearch("cœur")).toBe(normalizeForSearch("coeur"));
+    expect(normalizeForSearch("sœur")).toBe("soeur");
+    expect(normalizeForSearch("Cœur")).toBe("coeur");
+    expect(normalizeForSearch("nœud")).toBe("noeud");
+    expect(normalizeForSearch("vœu")).toBe("voeu");
+    expect(normalizeForSearch("œuf")).toBe("oeuf");
+    expect(normalizeForSearch("Œuvre")).toBe("oeuvre");
+    expect(normalizeForSearch("cæsium")).toBe("caesium");
+    expect(normalizeForSearch("Ægypte")).toBe("aegypte");
+  });
 });

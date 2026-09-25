@@ -60,4 +60,16 @@ describe("searchEmojis", () => {
   it("trouve un mot-clé accentué en tapant la requête aussi accentuée", () => {
     expect(searchEmojis("gêné").some((r) => r.e === "😅")).toBe(true);
   });
+
+  // Bug corrigé à l'audit (v1.1.0) : les mots-clés du tableau ("coeur",
+  // "clin d'oeil"...) sont volontairement écrits SANS la ligature œ, mais le
+  // clavier (autocorrection iOS/Mac) transforme couramment "coeur" tapé par
+  // l'utilisateur en "cœur" — sans le correctif de normalizeForSearch pour
+  // œ/æ, taper "cœur" (avec la ligature) dans le sélecteur d'emojis ne
+  // trouvait plus jamais ❤️, alors que c'est l'un des emojis les plus
+  // recherchés de l'app.
+  it("trouve l'emoji cœur même en tapant la ligature œ (autocorrection clavier)", () => {
+    expect(searchEmojis("cœur").some((r) => r.e === "❤️")).toBe(true);
+    expect(searchEmojis("clin d'œil").some((r) => r.e === "😉")).toBe(true); // k: ["clin d'oeil", "complice"]
+  });
 });

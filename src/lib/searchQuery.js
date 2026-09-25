@@ -38,6 +38,22 @@ export function escapeOrFilterValue(value) {
 // servent à construire un filtre ILIKE côté serveur (Postgres), insensible à
 // la casse mais PAS aux accents en l'absence de l'extension unaccent.
 const DIACRITICS_RE = /\p{Diacritic}/gu;
+// Bug corrigé à l'audit (v1.1.0) : "œ"/"æ" (ligatures françaises — cœur,
+// sœur, œuf, vœu, nœud...) ne sont PAS des caractères accentués au sens
+// Unicode : ils n'ont aucune décomposition canonique, donc "cœur".normalize
+// ("NFD") reste "cœur" tel quel (vérifié) et \p{Diacritic} ne les retire pas
+// non plus — seuls les vrais diacritiques (accents, cédille...) portés sur
+// une lettre de base passent par ce mécanisme. Or ces mots sont très
+// fréquemment autocorrigés par le clavier (iOS/Mac transforme "coeur" tapé
+// en "cœur" à la volée) : sans ce correctif, rechercher "coeur" ne trouvait
+// jamais un message/actualité contenant "cœur" (autocorrigé), ni l'emoji
+// ❤️ dans le sélecteur d'emojis, et inversement. Remplacement manuel après
+// le passage en minuscules (qui uniformise déjà Œ/Æ en œ/æ).
 export function normalizeForSearch(text) {
-  return (text || "").normalize("NFD").replace(DIACRITICS_RE, "").toLowerCase();
+  return (text || "")
+    .normalize("NFD")
+    .replace(DIACRITICS_RE, "")
+    .toLowerCase()
+    .replace(/œ/g, "oe")
+    .replace(/æ/g, "ae");
 }
