@@ -880,7 +880,14 @@ export default function CommunitiesTab({ currentUser, onError, onBack = () => {}
       return true;
     } catch (e) {
       console.error(e);
-      onError("Impossible de publier. Réessaie.");
+      // check_community_post_creation_rate_limit()
+      // (supabase-content-creation-limits-fix.sql) lève un message déjà propre
+      // en français ("Trop de publications creees recemment, reessaie plus
+      // tard") quand la limite de 50 publications/24h est atteinte — ce catch
+      // affichait avant un "Impossible de publier. Réessaie." générique qui
+      // masquait cette vraie raison, même motif que addStory() (SocialShell.jsx)
+      // et PostsFeed.jsx (fil général).
+      onError(friendlyDbError(e) || "Impossible de publier. Réessaie.");
       return false;
     } finally {
       postSubmittingRef.current = false;
@@ -1060,7 +1067,13 @@ export default function CommunitiesTab({ currentUser, onError, onBack = () => {}
       onCommunitiesChanged?.();
     } catch (e) {
       console.error(e);
-      onError("Impossible d'accepter cette invitation.");
+      // accept_invite() (supabase-communities.sql) lève "Invitation introuvable
+      // ou deja traitee" (déjà acceptée/déclinée par une autre session, ou
+      // invitation révoquée entre-temps) — un message précis qui explique la
+      // situation, masqué avant par un "Impossible d'accepter cette
+      // invitation." générique fixe. Même motif que isAlreadyDecidedError
+      // ci-dessus pour les demandes d'adhésion.
+      onError(friendlyDbError(e) || "Impossible d'accepter cette invitation.");
     } finally {
       inviteInFlightRef.current.delete(invite.id);
     }
@@ -1075,7 +1088,9 @@ export default function CommunitiesTab({ currentUser, onError, onBack = () => {}
       setMyInvites((inv) => inv.filter((x) => x.id !== invite.id));
     } catch (e) {
       console.error(e);
-      onError("Impossible de refuser cette invitation.");
+      // Même motif que handleAcceptInvite ci-dessus : decline_invite() peut
+      // renvoyer "Invitation introuvable ou deja traitee".
+      onError(friendlyDbError(e) || "Impossible de refuser cette invitation.");
     } finally {
       inviteInFlightRef.current.delete(invite.id);
     }
