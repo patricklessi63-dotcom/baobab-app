@@ -241,6 +241,18 @@ export default function EventsTab({ currentUser, onError, onBack = () => {}, ini
   // affirmait une protection complète. Chaque fonction reçoit maintenant ce
   // même requestId et vérifie le jeton juste avant d'appliquer son résultat.
   const detailRequestRef = useRef(0);
+  // Bug identifié à l'audit des invitations (même famille exacte que
+  // detailRequestRef ci-dessus et que searchSeqRef dans
+  // CommunityInviteModal.jsx) : openInvite() enchaîne plusieurs allers-
+  // retours réseau séquentiels (invitations existantes + participants actuels,
+  // puis membres de la communauté liée si applicable) avant d'appliquer
+  // invitedIds/inviteCandidates. Sans garde de séquence, ouvrir "Inviter" sur
+  // l'événement A, fermer la modale, puis l'ouvrir sur un événement B avant la
+  // fin de la requête de A pouvait laisser la réponse de A (arrivée en
+  // dernier) écraser les candidats/invités affichés pour B — la modale
+  // resterait bien étiquetée "Inviter" pour B (inviteEvent déjà à jour), mais
+  // proposerait la liste de candidats et les badges "Invité" de l'ÉVÉNEMENT A.
+  const inviteRequestRef = useRef(0);
 
   const isNeutralHome = !search.trim() && !filterCity.trim() && !filterCategory && !filterDateRange;
 
@@ -833,6 +845,9 @@ export default function EventsTab({ currentUser, onError, onBack = () => {}, ini
 
   // ---------- Invitations ----------
   const openInvite = async (ev) => {
+    // Capturé avant les appels réseau (voir commentaire sur inviteRequestRef) :
+    // seul le résultat de la DERNIÈRE ouverture d'invite peut s'appliquer.
+    const requestId = ++inviteRequestRef.current;
     setInviteEvent(ev);
     setInviteOpen(true);
     setInviteSending(false);
@@ -840,6 +855,9 @@ export default function EventsTab({ currentUser, onError, onBack = () => {}, ini
       supabase.from("event_invitations").select("invited_profile_id").eq("event_id", ev.id),
       supabase.from("event_attendees").select("profile_id").eq("event_id", ev.id),
     ]);
+    // Une ouverture plus récente (autre événement) a démarré entre-temps :
+    // on abandonne avant d'écraser l'état affiché pour ce nouvel événement.
+    if (inviteRequestRef.current !== requestId) return;
     setInvitedIds(new Set((existing || []).map((r) => r.invited_profile_id)));
 
     // Exclut aussi les personnes qui participent déjà à l'événement (going,
@@ -869,6 +887,11 @@ export default function EventsTab({ currentUser, onError, onBack = () => {}, ini
         // cohérent avec loadMembers et rendre le résultat déterministe.
         .order("joined_at", { ascending: true })
         .limit(1000);
+      // Même garde que ci-dessus : cet aller-retour supplémentaire (membres de
+      // la communauté liée) n'a lieu que pour un événement associé à une
+      // communauté, donc son résultat tardif pouvait à lui seul écraser les
+      // candidats d'un événement B déjà ouvert entre-temps.
+      if (inviteRequestRef.current !== requestId) return;
       const extra = (members || []).map((m) => m.profiles).filter(Boolean).filter((p) => !blockedIds.has(p.id) && !alreadyInEvent.has(p.id));
       const seen = new Set(candidates.map((c) => c.id));
       extra.forEach((p) => { if (!seen.has(p.id)) { candidates.push(p); seen.add(p.id); } });
