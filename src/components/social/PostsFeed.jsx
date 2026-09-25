@@ -13,6 +13,7 @@ import { compressImageIfNeeded } from "../../lib/imageCompression";
 import { uploadWithProgress } from "../../lib/uploadWithProgress";
 import { POST_MEDIA_BUCKET, extFromMime } from "../../lib/mediaConstants";
 import { beginCriticalOperation, endCriticalOperation } from "../../lib/criticalOperationGuard";
+import { friendlyDbError } from "../../lib/friendlyDbError";
 import { useOnlineStatus } from "../../hooks/useOnlineStatus";
 import { primary, navy, coral, muted, bg, card } from "./theme";
 
@@ -623,7 +624,13 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
       }
     } catch (e) {
       console.error(e);
-      onError("Impossible de publier. Réessaie.");
+      // check_post_creation_rate_limit() (supabase-content-creation-limits-fix.sql)
+      // lève un message déjà propre en français ("Trop de publications creees
+      // recemment, reessaie plus tard") quand la limite de 50 publications/24h
+      // est atteinte — ce catch affichait avant un "Impossible de publier.
+      // Réessaie." générique qui masquait cette vraie raison et poussait à
+      // réessayer en boucle, même motif que addStory() (SocialShell.jsx).
+      onError(friendlyDbError(e) || "Impossible de publier. Réessaie.");
     } finally {
       publishingRef.current = false;
       setPublishing(false);
