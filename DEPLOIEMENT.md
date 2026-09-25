@@ -1,6 +1,6 @@
 # Déploiement en attente — Baobab
 
-Mise à jour 2026-09-15.
+Mise à jour 2026-09-25.
 
 **FAIT :**
 - ✅ `supabase-COMBINED-pending-fixes.sql` exécuté en prod (vérifié : RLS/RPC OK).
@@ -53,6 +53,14 @@ Mise à jour 2026-09-15.
   2026-09-25**, non encore listés ici : les notifications d'invitation et
   de demande d'adhésion partent encore sans vérifier un blocage existant
   entre les deux profils (voir l'en-tête de chaque fichier pour le détail).
+- ⬜ `supabase-age-check-server-side.sql` — **retrouvé le 2026-09-25** (commit
+  `8785275`, plus ancien, jamais listé ici) : ajoute la contrainte
+  `check (birth_date is null or birth_date <= current_date - interval '18
+  years')` sur `profiles`. Le contrôle 18 ans+ à l'inscription/édition est
+  déjà solide côté client (vérifié le 2026-09-25), mais SANS ce script,
+  RIEN ne l'impose côté serveur — un appel API direct pourrait enregistrer
+  une date de naissance de mineur. **Priorité haute** (sujet légal/sécurité
+  des mineurs sur une app de rencontre), à exécuter dès que possible.
 
 Le §1 ci-dessous est conservé pour référence mais **n'est plus à faire**.
 
