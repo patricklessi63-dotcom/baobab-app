@@ -14,6 +14,15 @@ import { primary, coral, coralText, muted, bg, goldText, primaryRgb } from "./th
 const NAME_MAX = 80;
 const DESCRIPTION_MAX = 300;
 const RULES_MAX = 1000;
+// Bug identifié à l'audit création/édition : contrairement à name/
+// description/rules (tous tronqués via .slice() ci-dessous), "city" n'avait
+// ici aucune limite côté client — alors que communities_city_length
+// (supabase-remaining-text-length-guards-fix.sql, non modifié ici) impose
+// déjà 80 caractères côté base. Un nom de ville plus long que ça (collé
+// depuis ailleurs, par ex.) faisait donc échouer create_community() avec une
+// erreur serveur confuse ("valeur trop longue"), après que tout le reste du
+// formulaire ait été rempli. 80 reprend exactement cette limite serveur.
+const CITY_MAX = 80;
 
 export default function CommunityCreateForm({ currentUser, onCreated, onCancel, onError, onDirtyChange = () => {}, onSubmittingChange = () => {} }) {
   const [name, setName] = useState("");
@@ -251,7 +260,7 @@ export default function CommunityCreateForm({ currentUser, onCreated, onCancel, 
         <span className="text-xs font-bold" style={{ color: muted }}>Ville</span>
         <input
           value={city}
-          onChange={(e) => setCity(e.target.value)}
+          onChange={(e) => setCity(e.target.value.slice(0, CITY_MAX))}
           placeholder="Montréal"
           className="mt-1.5 w-full rounded-xl px-3.5 py-2.5 text-sm outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--bb-leaf)]"
           style={{ background: bg }}

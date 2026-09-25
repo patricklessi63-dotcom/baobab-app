@@ -11,6 +11,14 @@ import { primary, coralText, muted, bg, primaryRgb } from "./theme";
 
 const TITLE_MAX = 80;
 const DESCRIPTION_MAX = 500;
+// Même bug qu'à la création (EventCreateForm) : "city"/"location" n'avaient
+// ici aucune limite côté client alors qu'events_city_length (80) et
+// events_location_length (150) (supabase-remaining-text-length-guards-fix.sql,
+// non modifié ici) existent déjà côté base — un texte plus long faisait
+// échouer l'UPDATE avec une erreur serveur confuse après édition de tout le
+// reste du formulaire.
+const CITY_MAX = 80;
+const LOCATION_MAX = 150;
 const COVER_URL_EXPIRY = 60 * 60 * 24 * 365 * 5;
 
 // Doit utiliser les composants de date LOCAUX, pas toISOString() qui renvoie
@@ -302,12 +310,12 @@ export default function EventEditForm({ event, onSaved, onCancel, onError, onDir
 
       <label className="block">
         <span className="text-xs font-bold" style={{ color: muted }}>Ville *</span>
-        <input value={city} onChange={(e) => setCity(e.target.value)} className="mt-1.5 w-full rounded-xl px-3.5 py-2.5 text-sm outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--bb-leaf)]" style={{ background: bg }} />
+        <input value={city} onChange={(e) => setCity(e.target.value.slice(0, CITY_MAX))} className="mt-1.5 w-full rounded-xl px-3.5 py-2.5 text-sm outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--bb-leaf)]" style={{ background: bg }} />
       </label>
 
       <label className="block">
         <span className="text-xs font-bold" style={{ color: muted }}>Lieu public (facultatif)</span>
-        <input value={location} onChange={(e) => setLocation(e.target.value)} className="mt-1.5 w-full rounded-xl px-3.5 py-2.5 text-sm outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--bb-leaf)]" style={{ background: bg }} />
+        <input value={location} onChange={(e) => setLocation(e.target.value.slice(0, LOCATION_MAX))} className="mt-1.5 w-full rounded-xl px-3.5 py-2.5 text-sm outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--bb-leaf)]" style={{ background: bg }} />
       </label>
 
       <label className="block">

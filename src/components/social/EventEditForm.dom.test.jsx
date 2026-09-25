@@ -145,3 +145,25 @@ describe("EventEditForm — anti-double-submit", () => {
     await waitFor(() => expect(onSubmittingChange).toHaveBeenLastCalledWith(false));
   });
 });
+
+describe("EventEditForm — limite de longueur « Ville »/« Lieu public »", () => {
+  // Bug identifié à l'audit : title/description sont tronqués via .slice()
+  // au fil de la saisie, mais "city"/"location" ne l'étaient pas — alors que
+  // events_city_length (80) et events_location_length (150)
+  // (supabase-remaining-text-length-guards-fix.sql) limitent déjà ces
+  // colonnes côté base. Un texte plus long faisait donc échouer l'UPDATE avec
+  // une erreur serveur confuse après édition de tout le reste du formulaire.
+  it("tronque la ville à 80 caractères, alignée sur events_city_length", () => {
+    setup();
+    const city = screen.getByLabelText("Ville *");
+    fireEvent.change(city, { target: { value: "x".repeat(120) } });
+    expect(city.value.length).toBe(80);
+  });
+
+  it("tronque le lieu public à 150 caractères, alignée sur events_location_length", () => {
+    setup();
+    const location = screen.getByLabelText("Lieu public (facultatif)");
+    fireEvent.change(location, { target: { value: "x".repeat(200) } });
+    expect(location.value.length).toBe(150);
+  });
+});

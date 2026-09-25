@@ -12,6 +12,17 @@ import { primary, coral, coralText, muted, bg, primaryRgb } from "./theme";
 
 const TITLE_MAX = 80;
 const DESCRIPTION_MAX = 500;
+// Bug identifié à l'audit création/édition : contrairement à title/
+// description (tronqués via .slice() ci-dessous), "city" et "location"
+// n'avaient ici aucune limite côté client — alors qu'events_city_length et
+// events_location_length (supabase-remaining-text-length-guards-fix.sql, non
+// modifié ici) imposent déjà respectivement 80 et 150 caractères côté base.
+// Un texte plus long (collé depuis ailleurs, par ex.) faisait donc échouer
+// create_event() avec une erreur serveur confuse ("valeur trop longue"),
+// après que tout le reste du formulaire (titre, description, date...) ait
+// déjà été rempli. Ces limites reprennent exactement les contraintes serveur.
+const CITY_MAX = 80;
+const LOCATION_MAX = 150;
 const COVER_URL_EXPIRY = 60 * 60 * 24 * 365 * 5; // 5 ans — bucket privé, pas de re-signature à gérer pour une couverture
 
 export default function EventCreateForm({ currentUser, initialCommunityId = null, onCreated, onCancel, onError, onDirtyChange = () => {}, onSubmittingChange = () => {} }) {
@@ -297,12 +308,12 @@ export default function EventCreateForm({ currentUser, initialCommunityId = null
 
       <label className="block">
         <span className="text-xs font-bold" style={{ color: muted }}>Ville *</span>
-        <input value={city} onChange={(e) => setCity(e.target.value)} placeholder="Montréal" className="mt-1.5 w-full rounded-xl px-3.5 py-2.5 text-sm outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--bb-leaf)]" style={{ background: bg }} />
+        <input value={city} onChange={(e) => setCity(e.target.value.slice(0, CITY_MAX))} placeholder="Montréal" className="mt-1.5 w-full rounded-xl px-3.5 py-2.5 text-sm outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--bb-leaf)]" style={{ background: bg }} />
       </label>
 
       <label className="block">
         <span className="text-xs font-bold" style={{ color: muted }}>Lieu public (facultatif)</span>
-        <input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Café Aunja, Plateau-Mont-Royal" className="mt-1.5 w-full rounded-xl px-3.5 py-2.5 text-sm outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--bb-leaf)]" style={{ background: bg }} />
+        <input value={location} onChange={(e) => setLocation(e.target.value.slice(0, LOCATION_MAX))} placeholder="Café Aunja, Plateau-Mont-Royal" className="mt-1.5 w-full rounded-xl px-3.5 py-2.5 text-sm outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--bb-leaf)]" style={{ background: bg }} />
         <p className="text-[11px] mt-1" style={{ color: muted }}>Un lieu public ou un quartier — jamais une adresse exacte.</p>
       </label>
 

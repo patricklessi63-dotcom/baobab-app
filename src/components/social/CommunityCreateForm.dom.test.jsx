@@ -143,3 +143,19 @@ describe("CommunityCreateForm — anti-double-submit & validation", () => {
     await waitFor(() => expect(onSubmittingChange).toHaveBeenLastCalledWith(false));
   });
 });
+
+describe("CommunityCreateForm — limite de longueur de « Ville »", () => {
+  // Bug identifié à l'audit : name/description/rules sont tous tronqués via
+  // .slice() au fil de la saisie, mais "city" ne l'était pas — alors que
+  // communities_city_length (supabase-remaining-text-length-guards-fix.sql)
+  // limite déjà cette colonne à 80 caractères côté base. Un nom de ville
+  // plus long (collé depuis ailleurs) faisait donc échouer create_community()
+  // avec une erreur serveur confuse après que tout le formulaire ait été
+  // rempli.
+  it("tronque la ville à 80 caractères, alignée sur communities_city_length", async () => {
+    setup();
+    const city = screen.getByLabelText("Ville");
+    fireEvent.change(city, { target: { value: "x".repeat(120) } });
+    expect(city.value.length).toBe(80);
+  });
+});
