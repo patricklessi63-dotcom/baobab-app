@@ -78,6 +78,23 @@ Mise à jour 2026-09-25.
   temps (commit correspondant) : `AdminDashboard.jsx` reconnaît désormais
   cette erreur pour retirer la ligne avec un message exact au lieu d'un échec
   générique.
+- ⬜ `supabase-waitlist-promotion-race-fix.sql` — **ajouté le 2026-09-25**,
+  audit du mécanisme de promotion de la liste d'attente des événements
+  (jamais audité jusqu'ici — seule la mise en liste d'attente elle-même
+  l'avait été) : `promote_from_waitlist()` ne verrouille pas la ligne
+  "events" avant de compter les "going" et choisir la prochaine personne en
+  attente à promouvoir, contrairement à join_event()/
+  accept_event_invitation() qui le font déjà pour éviter la même classe de
+  course. Sur un événement plafonné et complet, si deux participants
+  "going" quittent presque en même temps, les deux transactions peuvent
+  sélectionner la MÊME personne en tête de liste d'attente : elle est
+  promue et notifiée deux fois, et la personne suivante n'est jamais
+  promue alors qu'une seconde place s'est bel et bien libérée — cette place
+  reste vacante indéfiniment (rien ne relance le calcul tant qu'un autre
+  "going" ne quitte pas l'événement). Correctif : même verrou ('for
+  update') sur "events" que join_event/accept_event_invitation, plus
+  vérification défensive du statut avant la promotion finale. Voir
+  l'en-tête du fichier pour le détail du scénario.
 
 Le §1 ci-dessous est conservé pour référence mais **n'est plus à faire**.
 
