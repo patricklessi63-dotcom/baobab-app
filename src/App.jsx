@@ -2787,6 +2787,40 @@ export default function App() {
           setBlockedProfilesRaw((prev) => prev.filter((p) => p.id !== toId));
         }
       )
+      // Bug corrigé (audit confidentialité/cohérence du blocage, 25 sept.
+      // 2026) : les deux écouteurs ci-dessus ne couvrent que MES PROPRES
+      // blocages (filter from_id=eq.moi), pour synchroniser mes autres
+      // sessions/appareils. Mais quand c'est QUELQU'UN D'AUTRE qui me bloque
+      // (ou me débloque), to_id = moi, from_id = son id — aucun des filtres
+      // ci-dessus ne matche, donc mon blockPairs local ne l'apprenait jamais
+      // avant un rechargement complet de la page. Concrètement : Alice
+      // bloque Bob pendant que Bob a encore la conversation ouverte
+      // (activeMatch = Alice) → côté Bob, rien ne se passe en direct : la
+      // conversation reste affichée comme active, Alice reste visible dans
+      // ses matches/Découvrir, et un message envoyé échoue seulement au
+      // niveau de la policy RLS (déjà bloquée côté serveur, voir
+      // supabase-scale-security.sql), sans que l'UI ne se remette à jour
+      // toute seule. hasBlocked()/getMatches()/getAdmirers()/candidates
+      // savent déjà lire une ligne {from_id: autre, to_id: moi} dans
+      // blockPairs (chargée dans les deux sens par fetchSocialGraph au
+      // login) — il ne manquait que sa mise à jour en temps réel ici.
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "blocks", filter: `to_id=eq.${currentUser.id}` },
+        (payload) => {
+          const fromId = payload.new.from_id;
+          setBlockPairs((prev) => (prev.some((b) => b.from_id === fromId && b.to_id === currentUser.id) ? prev : [...prev, { from_id: fromId, to_id: currentUser.id }]));
+          if (activeMatchRef.current?.id === fromId) setActiveMatch(null);
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "DELETE", schema: "public", table: "blocks", filter: `to_id=eq.${currentUser.id}` },
+        (payload) => {
+          const fromId = payload.old.from_id;
+          setBlockPairs((prev) => prev.filter((pair) => !(pair.from_id === fromId && pair.to_id === currentUser.id)));
+        }
+      )
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "passes", filter: `from_id=eq.${currentUser.id}` },
