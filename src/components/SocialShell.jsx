@@ -25,6 +25,7 @@ import { uploadWithProgress } from "../lib/uploadWithProgress";
 import { beginCriticalOperation, endCriticalOperation } from "../lib/criticalOperationGuard";
 import { trackBetaEvent } from "../lib/trackBetaEvent";
 import { friendlyDbError } from "../lib/friendlyDbError";
+import { resolveLiveMatch } from "../lib/activeMatchPresence";
 import ChunkErrorBoundary from "./ChunkErrorBoundary";
 import { useHiddenRecommendations } from "../lib/useHiddenRecommendations";
 import { escapeLikePattern, escapeOrFilterValue, normalizeForSearch } from "../lib/searchQuery";
@@ -698,6 +699,14 @@ export default function SocialShell({
   const matches = getMatches();
   const matchIdsKey = matches.map((m) => m.id).sort().join(",");
   const admirers = getAdmirers();
+
+  // Voir lib/activeMatchPresence.js : `activeMatch` (prop, instantané figé au
+  // moment de l'ouverture par App.jsx/openChat) doit être résolu contre
+  // `matches` (recalculé à jour à chaque rendu) avant d'être transmis à
+  // ConversationPane, pour que le point "En ligne" et les accusés
+  // "distribué"/"lu" ne restent pas figés tant que la conversation reste
+  // ouverte.
+  const activeMatchLive = resolveLiveMatch(activeMatch, matches);
 
   const [lastByKey, setLastByKey] = useState({});
   const [unreadByKey, setUnreadByKey] = useState({});
@@ -2254,7 +2263,7 @@ export default function SocialShell({
           <MessagesTab
             matches={matches}
             currentUser={currentUser}
-            activeMatch={activeMatch}
+            activeMatch={activeMatchLive}
             onSelectMatch={openChat}
             onBack={closeChat}
             goTab={goTab}
