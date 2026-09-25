@@ -30,6 +30,7 @@ import LocationRequiredGate from "./components/LocationRequiredGate";
 import { useOnlineStatus } from "./hooks/useOnlineStatus";
 import { OTHER_PROFILE_COLUMNS } from "./lib/otherProfileColumns";
 import { buildOlderMessagesFilter } from "./lib/messagesPagination";
+import { startHeartbeatInterval } from "./lib/presenceHeartbeat";
 
 const PUBLIC_ONLY_PATHS = new Set(["/connexion", "/inscription", "/a-propos", "/confidentialite", "/conditions"]);
 
@@ -640,7 +641,12 @@ export default function App() {
     };
 
     heartbeat();
-    const timer = setInterval(heartbeat, 30000);
+    // startHeartbeatInterval (lib/presenceHeartbeat.js) : ne redéclenche le
+    // tick périodique que si l'onglet est bien visible à ce moment-là — sans
+    // ça, ce minuteur réécrivait is_online=true toutes les 30s même en
+    // arrière-plan, annulant le is_online=false posé juste en dessous par
+    // "visibilitychange" dès le tick suivant.
+    const stopHeartbeatInterval = startHeartbeatInterval(heartbeat);
 
     const handleVisibility = async () => {
       if (document.visibilityState === "visible") heartbeat();
@@ -657,7 +663,7 @@ export default function App() {
     document.addEventListener("visibilitychange", handleVisibility);
     return () => {
       alive = false;
-      clearInterval(timer);
+      stopHeartbeatInterval();
       document.removeEventListener("visibilitychange", handleVisibility);
     };
   }, [session?.user?.id, currentUser?.show_online_status]);
