@@ -38,6 +38,21 @@ Mise à jour 2026-09-15.
   direct, en contournant l'UI, pouvait toujours orpheliner une communauté.
   Ce script ajoute cette garde côté base (la vraie source de vérité). Voir
   §1d.
+- ⬜ `supabase-community-role-change-orphan-fix.sql` — **ajouté le
+  2026-09-25** : même bug "communauté orpheline" que
+  `supabase-community-orphan-guard-fix.sql` ci-dessus, mais via le
+  changement de rôle (UPDATE) plutôt que le départ (DELETE) — un owner
+  unique peut appeler directement `community_members.update({role:
+  'member'})` sur sa propre ligne (aucun bouton de l'UI n'atteint ce cas,
+  donc aucun correctif client n'est possible ni nécessaire ici) et se
+  rétrograder lui-même sans qu'aucun autre owner/admin ne reste. Resserre
+  uniquement la branche "owner modifie sa propre ligne" de la policy UPDATE
+  existante, en réutilisant `community_would_be_orphaned_by_leaving()`.
+- ⬜ `supabase-community-invite-block-bypass-fix.sql` et
+  `supabase-community-join-request-block-bypass-fix.sql` — **ajoutés le
+  2026-09-25**, non encore listés ici : les notifications d'invitation et
+  de demande d'adhésion partent encore sans vérifier un blocage existant
+  entre les deux profils (voir l'en-tête de chaque fichier pour le détail).
 
 Le §1 ci-dessous est conservé pour référence mais **n'est plus à faire**.
 
