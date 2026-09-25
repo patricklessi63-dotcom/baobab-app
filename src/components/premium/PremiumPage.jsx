@@ -121,6 +121,15 @@ export default function PremiumPage({ currentUser, onBack, onError, justSubscrib
           <p className="text-sm mt-1" style={{ color: muted }}>
             {subscription?.plan === "yearly" ? "Plan annuel" : "Plan mensuel"}
             {subscription?.current_period_end && ` — renouvellement le ${new Date(subscription.current_period_end).toLocaleDateString("fr-CA")}`}
+            {/* Bug corrigé : contrairement à ProfileTab.jsx (onglet "Abonnement"),
+                cette carte affichait "renouvellement le X" pour TOUS les
+                abonnements actifs, y compris ceux déjà annulés côté Stripe
+                (cancel_at_period_end=true, qui restent "active" jusqu'à la fin
+                de la période déjà payée). Un utilisateur ayant annulé voyait
+                donc ici le même message qu'un abonnement qui va bien se
+                renouveler, et pouvait croire à tort ne pas avoir besoin de se
+                réabonner avant la date affichée. */}
+            {subscription?.cancel_at_period_end && " (annulation programmée à cette date, aucun renouvellement)"}
           </p>
           <p className="text-xs mt-3" style={{ color: muted }}>Gère ton abonnement depuis ton profil, onglet "Abonnement".</p>
         </div>
