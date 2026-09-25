@@ -1237,7 +1237,17 @@ export default function CommunitiesTab({ currentUser, onError, onBack = () => {}
           onViewMemberProfile={(p) => setViewedMemberProfile(p)}
           onSetMemberRole={handleSetMemberRole}
           onRemoveMember={handleRemoveMember}
-          joinRequests={joinRequests}
+          // Bug corrigé à l'audit du flux "demande d'adhésion" (jamais audité
+          // jusqu'ici) : contrairement à posts/membres/commentaires (filtrés
+          // par blockedIds ci-dessus/plus haut dans ce même fichier), la
+          // liste des demandes d'adhésion en attente était transmise telle
+          // quelle à CommunityAdminPanel. Un profil qui a bloqué un membre du
+          // staff (ou que ce membre a bloqué) pouvait donc demander à
+          // rejoindre une communauté privée et voir sa demande s'afficher
+          // normalement dans la file d'approbation de ce même staff, à un
+          // clic d'être accepté — soit une mise en contact malgré le
+          // blocage. Même filtrage que members/posts/comments.
+          joinRequests={joinRequests.filter((r) => !blockedIds.has(r.profile_id))}
           reports={reports}
           onAcceptRequest={handleAcceptRequest}
           onRejectRequest={handleRejectRequest}
