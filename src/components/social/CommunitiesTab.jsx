@@ -621,7 +621,21 @@ export default function CommunitiesTab({ currentUser, onError, onBack = () => {}
   // connaît l'état réel de ses champs.
   const [createDirty, setCreateDirty] = useState(false);
   const [confirmDiscardCreate, setConfirmDiscardCreate] = useState(false);
+  // Bug identifié à l'audit création/édition : une création (upload de
+  // couverture + RPC create_community) qui n'a pas encore abouti est une
+  // requête réseau déjà en vol, qu'on ne peut pas annuler côté client. Sans
+  // ce garde-fou, "← Annuler" ci-dessous (ou Échap) restait actionnable
+  // pendant ce délai — et comme le formulaire est déjà "dirty" (nom rempli)
+  // à cet instant, cela ouvrait tout de suite "Quitter sans enregistrer ?" ;
+  // confirmer démontait CommunityCreateForm mais n'annulait rien : la
+  // création aboutissait quand même en base juste après, malgré la
+  // confirmation explicite de tout abandonner. createSubmitting (via
+  // onSubmittingChange, CommunityCreateForm) rend "← Annuler"/Échap inertes
+  // le temps de la création, comme le bouton "Annuler" du pied de
+  // formulaire (déjà `disabled={submitting}`) le fait pour lui-même.
+  const [createSubmitting, setCreateSubmitting] = useState(false);
   const requestCancelCreate = () => {
+    if (createSubmitting) return;
     if (createDirty) setConfirmDiscardCreate(true);
     else setView("list");
   };
@@ -1147,10 +1161,10 @@ export default function CommunitiesTab({ currentUser, onError, onBack = () => {}
     return (
       <section className="max-w-lg mx-auto">
         <div className="flex items-center gap-2 mb-4">
-          <button onClick={requestCancelCreate} aria-label="Annuler" className="text-sm font-bold" style={{ color: primary }}>← Annuler</button>
+          <button onClick={requestCancelCreate} disabled={createSubmitting} aria-label="Annuler" className="text-sm font-bold disabled:opacity-40" style={{ color: primary }}>← Annuler</button>
         </div>
         <h1 className="text-2xl font-black mb-4" style={{ color: primary }}>Créer une communauté</h1>
-        <CommunityCreateForm currentUser={currentUser} onCreated={handleCreated} onCancel={requestCancelCreate} onDirtyChange={setCreateDirty} onError={onError} />
+        <CommunityCreateForm currentUser={currentUser} onCreated={handleCreated} onCancel={requestCancelCreate} onDirtyChange={setCreateDirty} onSubmittingChange={setCreateSubmitting} onError={onError} />
         <ConfirmModal
           open={confirmDiscardCreate}
           title="Quitter sans enregistrer ?"

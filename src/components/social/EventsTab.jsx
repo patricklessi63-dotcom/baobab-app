@@ -578,11 +578,29 @@ export default function EventsTab({ currentUser, onError, onBack = () => {}, ini
   // partagé suffit.
   const [formDirty, setFormDirty] = useState(false);
   const [discardConfirmTarget, setDiscardConfirmTarget] = useState(null); // 'create' | 'edit' | null
+  // Bug identifié à l'audit création/édition : une création (RPC
+  // create_event + upload/liaison de couverture) ou un enregistrement
+  // (.update() de l'édition) qui n'a pas encore abouti est une requête
+  // réseau déjà en vol, qu'on ne peut pas annuler côté client. Sans ce
+  // garde-fou, "← Annuler" ci-dessous (ou Échap) restait actionnable pendant
+  // ce délai — et comme le formulaire est déjà "dirty" à cet instant, cela
+  // ouvrait tout de suite "Quitter sans enregistrer ?" ; confirmer démontait
+  // EventCreateForm/EventEditForm mais n'annulait rien : la création ou la
+  // modification (y compris un changement de date) aboutissait quand même
+  // en base juste après, malgré la confirmation explicite de tout
+  // abandonner. formSubmitting (via onSubmittingChange) rend "← Annuler"/
+  // Échap inertes le temps de la requête, comme le bouton "Annuler" du pied
+  // de formulaire (déjà `disabled={submitting}`) le fait pour lui-même.
+  // Un seul indicateur partagé suffit : "create" et "edit" ne sont jamais
+  // actifs en même temps (même raisonnement que formDirty ci-dessus).
+  const [formSubmitting, setFormSubmitting] = useState(false);
   const requestCancelCreate = () => {
+    if (formSubmitting) return;
     if (formDirty) setDiscardConfirmTarget("create");
     else setView("home");
   };
   const requestCancelEdit = () => {
+    if (formSubmitting) return;
     if (formDirty) setDiscardConfirmTarget("edit");
     else setView("detail");
   };
@@ -1015,9 +1033,9 @@ export default function EventsTab({ currentUser, onError, onBack = () => {}, ini
   if (view === "create") {
     return (
       <section className="max-w-lg mx-auto">
-        <button onClick={requestCancelCreate} className="text-sm font-bold mb-4" style={{ color: primary }}>← Annuler</button>
+        <button onClick={requestCancelCreate} disabled={formSubmitting} className="text-sm font-bold mb-4 disabled:opacity-40" style={{ color: primary }}>← Annuler</button>
         <h1 className="text-2xl font-black mb-4" style={{ color: primary }}>Créer un événement</h1>
-        <EventCreateForm currentUser={currentUser} initialCommunityId={createCommunityId} onCreated={handleCreated} onCancel={requestCancelCreate} onDirtyChange={setFormDirty} onError={onError} />
+        <EventCreateForm currentUser={currentUser} initialCommunityId={createCommunityId} onCreated={handleCreated} onCancel={requestCancelCreate} onDirtyChange={setFormDirty} onSubmittingChange={setFormSubmitting} onError={onError} />
         <ConfirmModal
           open={discardConfirmTarget === "create"}
           title="Quitter sans enregistrer ?"
@@ -1034,9 +1052,9 @@ export default function EventsTab({ currentUser, onError, onBack = () => {}, ini
   if (view === "edit" && event) {
     return (
       <section className="max-w-lg mx-auto">
-        <button onClick={requestCancelEdit} className="text-sm font-bold mb-4" style={{ color: primary }}>← Annuler</button>
+        <button onClick={requestCancelEdit} disabled={formSubmitting} className="text-sm font-bold mb-4 disabled:opacity-40" style={{ color: primary }}>← Annuler</button>
         <h1 className="text-2xl font-black mb-4" style={{ color: primary }}>Modifier l'événement</h1>
-        <EventEditForm event={event} onSaved={handleEdited} onCancel={requestCancelEdit} onDirtyChange={setFormDirty} onError={onError} />
+        <EventEditForm event={event} onSaved={handleEdited} onCancel={requestCancelEdit} onDirtyChange={setFormDirty} onSubmittingChange={setFormSubmitting} onError={onError} />
         <ConfirmModal
           open={discardConfirmTarget === "edit"}
           title="Quitter sans enregistrer ?"

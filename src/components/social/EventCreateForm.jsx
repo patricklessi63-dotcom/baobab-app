@@ -14,7 +14,7 @@ const TITLE_MAX = 80;
 const DESCRIPTION_MAX = 500;
 const COVER_URL_EXPIRY = 60 * 60 * 24 * 365 * 5; // 5 ans — bucket privé, pas de re-signature à gérer pour une couverture
 
-export default function EventCreateForm({ currentUser, initialCommunityId = null, onCreated, onCancel, onError, onDirtyChange = () => {} }) {
+export default function EventCreateForm({ currentUser, initialCommunityId = null, onCreated, onCancel, onError, onDirtyChange = () => {}, onSubmittingChange = () => {} }) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState("");
@@ -106,6 +106,19 @@ export default function EventCreateForm({ currentUser, initialCommunityId = null
   // annuler perdait cette saisie sans la moindre confirmation.
   const isDirty = Boolean(title.trim() || description.trim() || category || coverFile || date || time || location.trim() || durationMinutes.trim() || maxParticipants.trim());
   useEffect(() => { onDirtyChange(isDirty); }, [isDirty]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Signale au parent (EventsTab) qu'une création est en vol (RPC
+  // create_event, puis upload+liaison de la couverture) — même bug que
+  // CommunityCreateForm : le bouton "Annuler" du pied de formulaire se
+  // désactive bien pendant `submitting`, mais "← Annuler" (affiché en haut
+  // d'écran par EventsTab) et Échap restaient actionnables. Comme le titre
+  // est déjà rempli à cet instant, cela ouvrait direct "Quitter sans
+  // enregistrer ?", et confirmer démontait le formulaire sans annuler la
+  // requête réseau en cours : l'événement se créait quand même en base
+  // malgré la confirmation explicite de tout abandonner. EventsTab utilise
+  // cette valeur pour rendre "← Annuler"/Échap inertes tant que la création
+  // est en vol.
+  useEffect(() => { onSubmittingChange(submitting); }, [submitting]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const canSubmit = title.trim().length > 0 && category && date && time && city.trim().length > 0 && !submitting
     && (visibility !== "community" || communityId);

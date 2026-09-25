@@ -123,4 +123,25 @@ describe("EventEditForm — anti-double-submit", () => {
     resolveSingle({ data: { ...event }, error: null });
     await waitFor(() => expect(chain.update).toHaveBeenCalledTimes(1));
   });
+
+  // Bug identifié à l'audit : EventsTab a besoin de savoir qu'un
+  // enregistrement est en vol pour neutraliser son propre bouton
+  // "← Annuler" (haut d'écran) et Échap — sans quoi confirmer "Quitter sans
+  // enregistrer ?" pendant l'appel réseau démonte ce formulaire sans jamais
+  // l'annuler, et l'UPDATE (y compris un changement de date) aboutit quand
+  // même en base.
+  it("onSubmittingChange(true) pendant la requête, puis onSubmittingChange(false) une fois résolue", async () => {
+    let resolveSingle;
+    single.mockImplementation(() => new Promise((r) => { resolveSingle = r; }));
+    const onSubmittingChange = vi.fn();
+    setup({ onSubmittingChange });
+
+    expect(onSubmittingChange).toHaveBeenCalledWith(false); // état initial
+
+    fireEvent.click(screen.getByRole("button", { name: "Enregistrer" }));
+    expect(onSubmittingChange).toHaveBeenLastCalledWith(true);
+
+    resolveSingle({ data: { ...event }, error: null });
+    await waitFor(() => expect(onSubmittingChange).toHaveBeenLastCalledWith(false));
+  });
 });

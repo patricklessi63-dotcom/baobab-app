@@ -40,7 +40,7 @@ function resolveInitialTimezone(ev) {
 // — la visibilité et la communauté associée ne sont volontairement pas
 // modifiables après création (évite les cas limites RLS d'un événement qui
 // changerait de visibilité avec des participants déjà inscrits/invités).
-export default function EventEditForm({ event, onSaved, onCancel, onError, onDirtyChange = () => {} }) {
+export default function EventEditForm({ event, onSaved, onCancel, onError, onDirtyChange = () => {}, onSubmittingChange = () => {} }) {
   const [title, setTitle] = useState(event.title || "");
   const [description, setDescription] = useState(event.description || "");
   const [category, setCategory] = useState(event.category || "");
@@ -109,6 +109,18 @@ export default function EventEditForm({ event, onSaved, onCancel, onError, onDir
     || city !== init.city || location !== init.location || String(maxParticipants) !== String(init.maxParticipants)
     || timezone !== init.timezone;
   useEffect(() => { onDirtyChange(isDirty); }, [isDirty]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Signale au parent (EventsTab) qu'un enregistrement est en vol (upload de
+  // couverture éventuel + .update()) — même bug que CommunityCreateForm/
+  // EventCreateForm : "← Annuler" (affiché en haut d'écran par EventsTab) et
+  // Échap restaient actionnables pendant `submitting`, alors que le bouton
+  // du pied de formulaire, lui, se désactive. Confirmer "Quitter sans
+  // enregistrer ?" à ce moment démontait le formulaire sans annuler
+  // l'UPDATE réseau en cours : les modifications (y compris un changement de
+  // date) s'enregistraient quand même en base malgré la confirmation
+  // explicite de tout abandonner. EventsTab utilise cette valeur pour rendre
+  // "← Annuler"/Échap inertes tant que l'enregistrement est en vol.
+  useEffect(() => { onSubmittingChange(submitting); }, [submitting]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const canSubmit = title.trim().length > 0 && category && date && time && city.trim().length > 0 && !submitting;
 

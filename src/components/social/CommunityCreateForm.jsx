@@ -15,7 +15,7 @@ const NAME_MAX = 80;
 const DESCRIPTION_MAX = 300;
 const RULES_MAX = 1000;
 
-export default function CommunityCreateForm({ currentUser, onCreated, onCancel, onError, onDirtyChange = () => {} }) {
+export default function CommunityCreateForm({ currentUser, onCreated, onCancel, onError, onDirtyChange = () => {}, onSubmittingChange = () => {} }) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState("");
@@ -94,6 +94,23 @@ export default function CommunityCreateForm({ currentUser, onCreated, onCancel, 
   // jusqu'ici aucune protection contre la perte de saisie).
   const isDirty = Boolean(name.trim() || description.trim() || category || rules.trim() || coverFile);
   useEffect(() => { onDirtyChange(isDirty); }, [isDirty]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Signale au parent (CommunitiesTab) qu'une création est en vol (upload +
+  // RPC create_community) — bug identifié à l'audit création/édition : le
+  // bouton "Annuler" du pied de formulaire se désactive bien pendant
+  // `submitting`, mais le bouton "← Annuler" affiché en haut d'écran (rendu
+  // par CommunitiesTab, hors de ce composant) et la touche Échap
+  // (useEscapeKey) restaient, eux, actionnables. Comme la communauté est
+  // déjà "dirty" (nom rempli) à cet instant, cliquer dessus ouvrait direct
+  // la confirmation "Quitter sans enregistrer ?", et confirmer démontait ce
+  // formulaire *sans jamais annuler la requête réseau en cours* : la
+  // création (et l'upload de couverture) continuait en arrière-plan et
+  // aboutissait quand même — la communauté se retrouvait créée en base
+  // malgré l'écran "Quitter sans enregistrer" explicitement confirmé par
+  // l'utilisateur. CommunitiesTab utilise cette valeur pour rendre
+  // "← Annuler"/Échap inertes tant que la création est en vol, exactement
+  // comme le bouton du pied de formulaire.
+  useEffect(() => { onSubmittingChange(submitting); }, [submitting]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const canSubmit = name.trim().length > 0 && category && !submitting;
 

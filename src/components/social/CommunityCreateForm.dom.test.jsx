@@ -117,4 +117,29 @@ describe("CommunityCreateForm — anti-double-submit & validation", () => {
     resolveRpc({ data: { id: "c1" }, error: null });
     await waitFor(() => expect(rpc).toHaveBeenCalledTimes(1));
   });
+
+  // Bug identifié à l'audit : CommunitiesTab a besoin de savoir qu'une
+  // création est en vol pour neutraliser son propre bouton "← Annuler" (haut
+  // d'écran) et Échap — sans quoi confirmer "Quitter sans enregistrer ?"
+  // pendant l'appel réseau démonte ce formulaire sans jamais l'annuler, et
+  // create_community() aboutit quand même en base (voir
+  // CommunitiesTab.cancelDuringSubmit.dom.test.jsx). onSubmittingChange est
+  // le seul canal par lequel CommunitiesTab peut le savoir.
+  it("onSubmittingChange(true) pendant la requête, puis onSubmittingChange(false) une fois résolue", async () => {
+    const user = userEvent.setup();
+    let resolveRpc;
+    rpc.mockImplementation(() => new Promise((r) => { resolveRpc = r; }));
+    const onSubmittingChange = vi.fn();
+    setup({ onSubmittingChange });
+    await user.type(screen.getByLabelText("Nom *"), "Club");
+    await user.click(screen.getByRole("button", { name: "🏃 Sport" }));
+
+    expect(onSubmittingChange).toHaveBeenCalledWith(false); // état initial
+
+    await user.click(screen.getByRole("button", { name: "Créer la communauté" }));
+    expect(onSubmittingChange).toHaveBeenLastCalledWith(true);
+
+    resolveRpc({ data: { id: "c1" }, error: null });
+    await waitFor(() => expect(onSubmittingChange).toHaveBeenLastCalledWith(false));
+  });
 });

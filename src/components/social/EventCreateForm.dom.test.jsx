@@ -162,4 +162,26 @@ describe("EventCreateForm — anti-double-submit & validation", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(/date et une heure dans le futur/i);
     expect(rpc).not.toHaveBeenCalled();
   });
+
+  // Bug identifié à l'audit : EventsTab a besoin de savoir qu'une création
+  // est en vol pour neutraliser son propre bouton "← Annuler" (haut d'écran)
+  // et Échap — sans quoi confirmer "Quitter sans enregistrer ?" pendant
+  // l'appel réseau démonte ce formulaire sans jamais l'annuler, et
+  // create_event() aboutit quand même en base.
+  it("onSubmittingChange(true) pendant la requête, puis onSubmittingChange(false) une fois résolue", async () => {
+    const user = userEvent.setup();
+    let resolveRpc;
+    rpc.mockImplementation(() => new Promise((r) => { resolveRpc = r; }));
+    const onSubmittingChange = vi.fn();
+    setup({ onSubmittingChange });
+    await fillRequired(user);
+
+    expect(onSubmittingChange).toHaveBeenCalledWith(false); // état initial
+
+    await user.click(screen.getByRole("button", { name: "Créer l'événement" }));
+    expect(onSubmittingChange).toHaveBeenLastCalledWith(true);
+
+    resolveRpc({ data: { id: "e1" }, error: null });
+    await waitFor(() => expect(onSubmittingChange).toHaveBeenLastCalledWith(false));
+  });
 });
