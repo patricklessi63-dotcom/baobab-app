@@ -17,6 +17,7 @@ import { validateMediaFile } from "./lib/mediaValidation";
 import { compressImageIfNeeded } from "./lib/imageCompression";
 import { uploadWithProgress } from "./lib/uploadWithProgress";
 import { MEDIA_BUCKET, extFromMime } from "./lib/mediaConstants";
+import { sortMessagesChronologically } from "./lib/messageOrdering";
 import { trackActivation } from "./lib/trackActivation";
 import { fetchMyLocation, upsertMyLocation, disableMyLocation } from "./lib/locationApi";
 import { getCurrentPositionSafe, LOCATION_ERROR_MESSAGES } from "./lib/geolocation";
@@ -2289,9 +2290,14 @@ export default function App() {
         .select()
         .single();
       if (sendError) throw sendError;
+      // Bug corrigé à l'audit pièces jointes : sans le tri chronologique
+      // ci-dessous, remplacer le message optimiste "à sa place" dans le
+      // tableau ne suffit pas — voir lib/messageOrdering.js pour le
+      // scénario concret (photo à l'upload lent + texte envoyé juste
+      // après, inséré en base avant elle).
       setMessages((m) => {
         const withoutRealtimeDupe = m.filter((msg) => msg.id !== data.id);
-        return withoutRealtimeDupe.map((msg) => (msg.id === tempId ? data : msg));
+        return sortMessagesChronologically(withoutRealtimeDupe.map((msg) => (msg.id === tempId ? data : msg)));
       });
       trackActivation(currentUser.id, "first_message");
       return true;
@@ -2561,7 +2567,17 @@ export default function App() {
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "messages", filter: `match_key=eq.${key}` },
         (payload) => {
-          setMessages((prev) => (prev.some((m) => m.id === payload.new.id) ? prev : [...prev, payload.new]));
+          // Même correctif d'ordre chronologique qu'insertMessageRow ci-dessus
+          // (lib/messageOrdering.js) : un ajout en fin de tableau suffisait
+          // tant que les INSERT arrivaient dans l'ordre attendu, mais un
+          // média à l'upload lent envoyé par l'AUTRE participant juste avant
+          // un texte peut voir son propre événement Realtime INSERT arriver
+          // après celui du texte — sans tri, ce média resterait affiché après
+          // le texte ici alors qu'un rechargement (refreshMessages, trié par
+          // created_at) l'afficherait avant.
+          setMessages((prev) =>
+            prev.some((m) => m.id === payload.new.id) ? prev : sortMessagesChronologically([...prev, payload.new])
+          );
           if (payload.new.from_id !== currentUser.id) markConversationRead(activeMatch);
         }
       )
