@@ -767,6 +767,24 @@ export default function CommunitiesTab({ currentUser, onError, onBack = () => {}
   };
 
   // ---------- Admin : demandes d'adhésion ----------
+  // Bug corrigé à l'audit du flux "demande d'adhésion" (angle "deux membres
+  // du staff traitent la même demande en même temps", jamais audité jusqu'ici
+  // — aucun canal Realtime n'existe sur community_join_requests, donc la
+  // liste affichée à un second membre du staff resté sur l'écran ne se
+  // retire jamais toute seule). accept_join_request/reject_join_request
+  // (supabase-communities.sql) verrouillent la ligne et vérifient
+  // status = 'pending' avant d'agir : aucun risque de double adhésion ou de
+  // double traitement côté base, mais le second appel lève "Demande
+  // introuvable ou deja traitee" — que ce catch affichait jusqu'ici comme un
+  // échec générique ("Impossible d'accepter/refuser cette demande."), sans
+  // jamais retirer la ligne de la liste. Le second membre du staff voyait
+  // donc une demande déjà résolue par son collègue rester affichée,
+  // cliquable, et échouer à l'identique à chaque nouvelle tentative, sans
+  // comprendre pourquoi. On distingue maintenant ce cas précis (texte exact
+  // renvoyé par les deux RPC) pour retirer la ligne et afficher un message
+  // qui correspond à la réalité.
+  const isAlreadyDecidedError = (e) => /introuvable ou deja traitee/i.test(e?.message || "");
+
   const handleAcceptRequest = async (req) => {
     if (joinRequestInFlightRef.current.has(req.id)) return;
     joinRequestInFlightRef.current.add(req.id);
@@ -778,7 +796,12 @@ export default function CommunitiesTab({ currentUser, onError, onBack = () => {}
       loadMembers(req.community_id);
     } catch (e) {
       console.error(e);
-      onError("Impossible d'accepter cette demande.");
+      if (isAlreadyDecidedError(e)) {
+        setJoinRequests((r) => r.filter((x) => x.id !== req.id));
+        onError("Cette demande a déjà été traitée (par toi ou un autre membre du staff) entre-temps.");
+      } else {
+        onError("Impossible d'accepter cette demande.");
+      }
     } finally {
       joinRequestInFlightRef.current.delete(req.id);
     }
@@ -793,7 +816,12 @@ export default function CommunitiesTab({ currentUser, onError, onBack = () => {}
       setJoinRequests((r) => r.filter((x) => x.id !== req.id));
     } catch (e) {
       console.error(e);
-      onError("Impossible de refuser cette demande.");
+      if (isAlreadyDecidedError(e)) {
+        setJoinRequests((r) => r.filter((x) => x.id !== req.id));
+        onError("Cette demande a déjà été traitée (par toi ou un autre membre du staff) entre-temps.");
+      } else {
+        onError("Impossible de refuser cette demande.");
+      }
     } finally {
       joinRequestInFlightRef.current.delete(req.id);
     }
