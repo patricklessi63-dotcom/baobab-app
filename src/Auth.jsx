@@ -215,7 +215,26 @@ export default function Auth({ justVerified = false, onAcknowledgeVerified = () 
     setResendLoading(true);
     setError("");
     try {
-      const { error: resendError } = await supabase.auth.resend({ type: "signup", email: email.trim().toLowerCase() });
+      // Bug corrigé (audit confirmation email) : sans `options.emailRedirectTo`
+      // ici, supabase-js envoie `redirectTo: undefined` au endpoint /resend
+      // (voir node_modules/@supabase/auth-js GoTrueClient.js#resend) — le
+      // serveur retombe alors sur le Site URL par défaut du projet Supabase,
+      // SANS le marqueur "?verified=1" ajouté ci-dessus dans signUp(). Un
+      // lien de confirmation RENVOYÉ (bouton "Renvoyer") atterrissait donc
+      // sur l'app avec une session déjà établie mais sans que
+      // pendingVerifiedRef ne soit armé côté App.jsx : onAuthStateChange
+      // traitait alors ce SIGNED_IN comme une connexion normale et laissait
+      // l'utilisateur connecté directement, sans repasser par mot de passe —
+      // à l'inverse du premier email de confirmation, qui déconnecte
+      // volontairement (voir le commentaire "Ne JAMAIS laisser une
+      // confirmation d'email connecter automatiquement" dans App.jsx). Le
+      // lien renvoyé se comportait donc différemment du lien original pour
+      // la même action, et contournait cette règle de sécurité voulue.
+      const { error: resendError } = await supabase.auth.resend({
+        type: "signup",
+        email: email.trim().toLowerCase(),
+        options: { emailRedirectTo: `${window.location.origin}/?verified=1` },
+      });
       if (resendError) throw resendError;
       setNotice("Un nouveau lien vient d'être envoyé.");
       setResendCooldown(RESEND_COOLDOWN_S);
