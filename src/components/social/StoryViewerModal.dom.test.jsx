@@ -1,6 +1,6 @@
 import React from "react";
 import { describe, it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import StoryViewerModal from "./StoryViewerModal";
 
 const story = {
@@ -83,5 +83,59 @@ describe("StoryViewerModal — réponse à un statut", () => {
     setup({ stories: [{ ...story, own: true }] });
     expect(screen.queryByPlaceholderText(/Répondre à/)).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Envoyer la réponse" })).not.toBeInTheDocument();
+  });
+});
+
+describe("StoryViewerModal — statut photo dont le média devient indisponible", () => {
+  // Scénario concret : le propriétaire supprime son statut (deleteOwnStory,
+  // SocialShell.jsx) pendant qu'un·e autre utilisateur·ice l'a encore ouvert
+  // en plein écran — le fichier Storage est retiré, mais "stories" n'étant
+  // rechargé qu'au montage (pas de canal Realtime dédié), le spectateur garde
+  // encore l'URL en cache et continue de la demander. Avant ce correctif,
+  // l'échec de chargement de l'image laissait juste l'icône "image cassée"
+  // du navigateur en plein écran, sans le moindre message — contrairement à
+  // la vidéo (videoError) et à MediaViewerModal.jsx (visualiseur photo des
+  // publications), qui affichent déjà tous deux un message de repli dans ce
+  // cas.
+  const photoStory = { ...story, media_url: "https://example.test/story.jpg", media_kind: "photo" };
+
+  it("affiche un message de repli si l'image du statut échoue à charger", () => {
+    setup({ stories: [photoStory] });
+    const img = document.querySelector('img[src="https://example.test/story.jpg"]');
+    expect(img).toBeTruthy();
+    fireEvent.error(img);
+    expect(screen.getByText("Cette image n'est plus disponible.")).toBeInTheDocument();
+    expect(document.querySelector('img[src="https://example.test/story.jpg"]')).not.toBeInTheDocument();
+  });
+
+  it("réinitialise l'état d'erreur image en changeant de statut (storyViewerIndex)", () => {
+    const { rerender } = setup({ stories: [photoStory, { ...photoStory, id: "s2" }], storyViewerIndex: 0 });
+    const img = document.querySelector('img[src="https://example.test/story.jpg"]');
+    fireEvent.error(img);
+    expect(screen.getByText("Cette image n'est plus disponible.")).toBeInTheDocument();
+
+    rerender(
+      <StoryViewerModal
+        storyViewerIndex={1}
+        stories={[photoStory, { ...photoStory, id: "s2" }]}
+        storyReply=""
+        storyViewersOpen={false}
+        storyViewers={[]}
+        storyViewersLoading={false}
+        storyViewCount={0}
+        myStoryReaction={null}
+        closeStoryViewer={vi.fn()}
+        prevStory={vi.fn()}
+        nextStory={vi.fn()}
+        deleteOwnStory={vi.fn()}
+        setStoryReply={vi.fn()}
+        sendStoryReply={vi.fn()}
+        openStoryViewers={vi.fn()}
+        closeStoryViewers={vi.fn()}
+        sendStoryReaction={vi.fn()}
+      />
+    );
+    expect(screen.queryByText("Cette image n'est plus disponible.")).not.toBeInTheDocument();
+    expect(document.querySelector('img[src="https://example.test/story.jpg"]')).toBeTruthy();
   });
 });

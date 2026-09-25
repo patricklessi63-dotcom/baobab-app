@@ -47,6 +47,15 @@ export default function StoryViewerModal({
   const [muted, setMuted] = useState(true);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [videoError, setVideoError] = useState(false);
+  // Pendant du videoError ci-dessus pour les statuts photo : sans lui, une
+  // image de statut devenue inaccessible (fichier supprimé du Storage par
+  // deleteOwnStory pendant qu'un autre spectateur a encore ce statut ouvert,
+  // média orphelin nettoyé par cleanup-expired-stories une fois déployée, ou
+  // simple coupure réseau) affichait silencieusement l'icône de navigateur
+  // "image cassée" en plein écran, sans le moindre message — contrairement à
+  // la vidéo (videoError ci-dessus) et à MediaViewerModal.jsx (visualiseur
+  // photo des publications), qui gèrent tous deux ce cas depuis longtemps.
+  const [imgError, setImgError] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const touchStart = useRef(null);
   // Toujours à jour à chaque rendu (mêmes garanties que onCloseRef dans
@@ -76,7 +85,7 @@ export default function StoryViewerModal({
   // confirmation affiché à la prochaine ouverture d'un statut personnel —
   // même un statut différent republié plus tard — au risque d'une
   // suppression accidentelle jamais demandée cette fois-ci.
-  useEffect(() => { setVideoError(false); setMenuOpen(false); setConfirmDelete(false); }, [storyViewerIndex]);
+  useEffect(() => { setVideoError(false); setImgError(false); setMenuOpen(false); setConfirmDelete(false); }, [storyViewerIndex]);
 
   // Navigation clavier (flèches) — jusqu'ici seuls le swipe tactile et les
   // zones cliquables gauche/droite permettaient de changer de statut :
@@ -260,8 +269,12 @@ export default function StoryViewerModal({
                 className="absolute inset-0 w-full h-full object-cover z-[1]"
               />
             )
+          ) : imgError ? (
+            <div className="absolute inset-0 flex items-center justify-center px-10 text-center z-[1]">
+              <p className="text-white/80 text-sm leading-relaxed">Cette image n'est plus disponible.</p>
+            </div>
           ) : (
-            <img src={story.media_url} alt="" className="absolute inset-0 w-full h-full object-cover z-[1]" />
+            <img src={story.media_url} alt="" onError={() => setImgError(true)} className="absolute inset-0 w-full h-full object-cover z-[1]" />
           )
         )}
 
