@@ -143,6 +143,13 @@ export default function EventsTab({ currentUser, onError, onBack = () => {}, ini
   const [reportCategory, setReportCategory] = useState("");
   const [reportReason, setReportReason] = useState("");
   const [reportSending, setReportSending] = useState(false);
+  // Garde synchrone (même motif que commentSubmittingRef plus haut) :
+  // submitReport() ci-dessous ne se protégeait que via l'état React
+  // reportSending, dont la mise à jour n'est pas synchrone — un double-clic
+  // rapide sur "Envoyer" (ReportModal.jsx) avant que le bouton ne se
+  // désactive visuellement pouvait donc insérer deux fois le même
+  // signalement dans event_reports.
+  const reportSendingRef = useRef(false);
   const [reportSubmitted, setReportSubmitted] = useState(false);
 
   const [inviteOpen, setInviteOpen] = useState(false);
@@ -794,6 +801,8 @@ export default function EventsTab({ currentUser, onError, onBack = () => {}, ini
   const submitReport = async () => {
     if (!currentUser || !reportTarget || !reportCategory) return;
     if (reportCategory === "autre" && !reportReason.trim()) return;
+    if (reportSendingRef.current) return;
+    reportSendingRef.current = true;
     setReportSending(true);
     try {
       const { error } = await supabase.from("event_reports").insert({
@@ -808,6 +817,7 @@ export default function EventsTab({ currentUser, onError, onBack = () => {}, ini
       console.error(e);
       onError("Impossible d'envoyer le signalement.");
     } finally {
+      reportSendingRef.current = false;
       setReportSending(false);
     }
   };

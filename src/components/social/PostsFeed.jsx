@@ -108,6 +108,13 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
   const [reportCategory, setReportCategory] = useState("");
   const [reportReason, setReportReason] = useState("");
   const [reportSending, setReportSending] = useState(false);
+  // Garde synchrone (même motif que publishingRef/commentSubmittingRef
+  // ci-dessus) : submitReport() ci-dessous ne se protégeait que via l'état
+  // React reportSending, dont la mise à jour n'est pas synchrone — un
+  // double-clic rapide sur "Envoyer" (ReportModal.jsx) avant que le bouton
+  // ne se désactive visuellement pouvait donc insérer deux fois le même
+  // signalement dans post_reports.
+  const reportSendingRef = useRef(false);
   const [reportSubmitted, setReportSubmitted] = useState(false);
 
   const loadCounts = async (ids, replace) => {
@@ -741,6 +748,8 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
   const submitReport = async () => {
     if (!currentUser || !reportTarget || !reportCategory) return;
     if (reportCategory === "autre" && !reportReason.trim()) return;
+    if (reportSendingRef.current) return;
+    reportSendingRef.current = true;
     setReportSending(true);
     try {
       const { error } = await supabase.from("post_reports").insert({
@@ -756,6 +765,7 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
       console.error(e);
       onError("Impossible d'envoyer ce signalement.");
     } finally {
+      reportSendingRef.current = false;
       setReportSending(false);
     }
   };

@@ -241,6 +241,15 @@ export default function App() {
   const [reportCategory, setReportCategory] = useState("");
   const [reportSending, setReportSending] = useState(false);
   const [reportSubmitted, setReportSubmitted] = useState(false);
+  // Garde synchrone (même motif que publishingRef/postSubmittingRef/
+  // commentSubmittingRef ailleurs dans l'app) : setReportSending (état React,
+  // asynchrone) laisse une fenêtre où un double-clic rapide sur "Envoyer"
+  // (ou un Entrée répété) déclenche submitReport() deux fois avant que le
+  // bouton ne se désactive visuellement. Sans garde, ça insérait deux lignes
+  // "reports" pour le même signalement — de simples doublons, mais qui
+  // comptent double dans le seuil d'auto-signalement flag_profile_on_reports
+  // (report_count >= 3, supabase-dating-2.sql), faussant la modération.
+  const reportSendingRef = useRef(false);
   const [blockTarget, setBlockTarget] = useState(null); // profil en attente de confirmation de blocage
   const [unmatchTarget, setUnmatchTarget] = useState(null); // profil en attente de confirmation de suppression de match (remplace l'ancien window.confirm())
   const [successNotice, setSuccessNotice] = useState("");
@@ -1455,6 +1464,8 @@ export default function App() {
   async function submitReport() {
     if (!currentUser || !reportTarget || !reportCategory) return;
     if (reportCategory === "autre" && !reportReason.trim()) return;
+    if (reportSendingRef.current) return;
+    reportSendingRef.current = true;
     setReportSending(true);
     try {
       const { error: reportError } = await supabase
@@ -1483,6 +1494,7 @@ export default function App() {
       // la vraie raison ("Trop de signalements envoyes recemment...").
       setError(friendlyDbError(e) || "Échec de l'envoi du signalement.");
     } finally {
+      reportSendingRef.current = false;
       setReportSending(false);
     }
   }
