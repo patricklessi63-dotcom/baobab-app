@@ -2422,7 +2422,7 @@ export default function SocialShell({
         {tab === "admin" && myPlatformRole && (
           <ChunkErrorBoundary>
             <Suspense fallback={<TabLoadingFallback />}>
-              <AdminDashboard onBack={goBack} onError={onError} myPlatformRole={myPlatformRole} />
+              <AdminDashboard onBack={goBack} onError={onError} myPlatformRole={myPlatformRole} myProfileId={currentUser?.id} />
             </Suspense>
           </ChunkErrorBoundary>
         )}

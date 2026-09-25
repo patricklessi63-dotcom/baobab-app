@@ -26,7 +26,7 @@ const SUSPEND_DURATIONS = [
 ];
 const REPORT_SOURCE_LABEL = { community: "Communauté", event: "Événement", post: "Fil général", info: "Baobab Info", profile: "Profil (rencontre/messagerie)" };
 
-export default function AdminDashboard({ onBack, onError, myPlatformRole }) {
+export default function AdminDashboard({ onBack, onError, myPlatformRole, myProfileId }) {
   const [subTab, setSubTab] = useState("dashboard");
   const isAdmin = myPlatformRole === "admin" || myPlatformRole === "super_admin";
 
@@ -302,6 +302,17 @@ export default function AdminDashboard({ onBack, onError, myPlatformRole }) {
               {users.map((u) => {
                 const isBanned = Boolean(u.banned_at);
                 const isSuspended = u.suspended_until && new Date(u.suspended_until) > new Date();
+                // Bug corrigé (même garde `isSelf` que CommunityMemberRow.jsx/
+                // EventParticipantsList.jsx, absente ici) : cet écran liste TOUS
+                // les utilisateurs, y compris l'admin/modérateur connecté·e s'il
+                // correspond à la recherche — rien ne masquait ses propres
+                // boutons Suspendre/Bannir. suspend_user()/ban_user() refusent
+                // déjà la cible côté serveur ("Cible invalide"), mais seulement
+                // après avoir rempli et confirmé la modale, avec un message
+                // d'erreur générique ("Action impossible") ne expliquant pas
+                // pourquoi. On masque désormais ces actions sur sa propre ligne,
+                // comme partout ailleurs dans l'app.
+                const isSelf = Boolean(myProfileId) && u.id === myProfileId;
                 return (
                   <div key={u.id} className={`${card} p-3.5 flex flex-col sm:flex-row sm:items-center gap-3`}>
                     <div className="flex items-center gap-3 min-w-0">
@@ -309,6 +320,7 @@ export default function AdminDashboard({ onBack, onError, myPlatformRole }) {
                       <div className="min-w-0 flex-1">
                         <div className="text-sm font-bold truncate flex items-center gap-1.5">
                           {u.name}
+                          {isSelf && <span className="text-xs font-normal" style={{ color: muted }}>(toi)</span>}
                           {u.role && <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full" style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)", color: primary }}>{u.role}</span>}
                         </div>
                         <div className="text-xs" style={{ color: muted }}>
@@ -317,7 +329,7 @@ export default function AdminDashboard({ onBack, onError, myPlatformRole }) {
                       </div>
                     </div>
                     <div className="flex items-center gap-1.5 flex-shrink-0 sm:ml-auto">
-                      {isBanned ? (
+                      {isSelf ? null : isBanned ? (
                         isAdmin && <button onClick={() => handleUnban(u)} className="text-xs font-bold px-3 py-2 rounded-full" style={{ background: bg, color: primary }}>Débannir</button>
                       ) : isSuspended ? (
                         <button onClick={() => handleUnsuspend(u)} className="text-xs font-bold px-3 py-2 rounded-full flex items-center gap-1" style={{ background: bg, color: primary }}><PlayCircle size={12} /> Réactiver</button>
