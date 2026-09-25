@@ -583,12 +583,37 @@ export default function CommunitiesTab({ currentUser, onError, onBack = () => {}
         if (role) setMyMemberships((m) => ({ ...m, [comm.id]: role }));
       }
       if (detailRequestRef.current !== requestId) return;
+      // Bug identifié à l'audit du flux "demande d'adhésion" : loadJoinRequests/
+      // loadReports n'étaient lancés que si "role" valait déjà 'owner'/'admin'/
+      // 'moderator' à CET instant précis. Or "role" ci-dessus vient soit de
+      // myMemberships (capturé par la fermeture de CE goDetail — périmé pour
+      // l'effet "Ouverture directe" du montage, voir son commentaire plus haut,
+      // car cet effet ne se relance jamais après le premier rendu), soit du
+      // repli ci-dessus, lui-même sauté dès que membershipsLoadedRef.current
+      // est déjà passé à true — ce qui, en pratique, arrive presque toujours
+      // AVANT ce point : la requête "community_members" du montage (une seule
+      // colonne, aucune jointure) répond quasi systématiquement avant que
+      // goDetail ait fini ses DEUX allers-retours réseau séquentiels
+      // ci-dessus (communauté puis créateur). Résultat concret et grave pour
+      // ce flux précis : un owner/admin qui ouvre sa communauté en lien direct
+      // (notification "join_request_received", qui pointe justement ici) via
+      // initialCommunityId voyait l'onglet "Gestion" s'afficher (viewerRole
+      // recalculé à chaque rendu depuis l'état réel, donc correct) mais
+      // durablement VIDE — "Aucune demande en attente."/"Aucun signalement
+      // ouvert." — alors qu'une vraie demande l'attendait, jusqu'à quitter la
+      // communauté et y revenir (un second goDetail, avec une fermeture
+      // fraîche, refait le calcul correctement). Les policies RLS de
+      // community_join_requests/community_reports (is_community_staff/
+      // is_community_mod) filtrent déjà correctement qui voit quoi : lancer
+      // ces deux requêtes inconditionnellement, comme loadPosts/loadMembers/
+      // loadEvents juste au-dessus, est aussi sûr (un simple membre ou
+      // visiteur reçoit juste 0 ligne) et supprime cette course entièrement.
       await Promise.all([
         loadPosts(comm.id, requestId),
         loadMembers(comm.id, requestId),
         loadEvents(comm.id, requestId),
-        (role === "owner" || role === "admin") ? loadJoinRequests(comm.id, requestId) : Promise.resolve(),
-        (role === "owner" || role === "admin" || role === "moderator") ? loadReports(comm.id, requestId) : Promise.resolve(),
+        loadJoinRequests(comm.id, requestId),
+        loadReports(comm.id, requestId),
       ]);
     } catch (e) {
       console.error(e);
