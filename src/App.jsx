@@ -1717,7 +1717,32 @@ export default function App() {
     const reordered = [...existingPhotos];
     [reordered[idx], reordered[newIdx]] = [reordered[newIdx], reordered[idx]];
     setExistingPhotos(reordered);
-    persistPhotoOrder(reordered).then((ok) => { if (!ok) setExistingPhotos(previous); });
+    // Bug corrigé à l'audit réordonnancement : les flèches haut/bas (contrairement
+    // au bouton étoile "Définir comme photo principale", qui appelle setPrimaryPhoto)
+    // ne touchaient jamais profiles.avatar_url — pourtant l'écran affiche
+    // explicitement "La première est ta photo principale." et déplace le badge
+    // étoile sur la nouvelle photo en position 0. Un simple clic sur la flèche pour
+    // faire passer la 2e photo en 1re position changeait donc bien la position en
+    // base ET l'étoile affichée localement, mais avatar_url — utilisé partout
+    // ailleurs dans l'app (MatchCard, PublicProfileModal, en-tête...) — restait
+    // figé sur l'ancienne photo principale jusqu'au prochain "Enregistrer" complet,
+    // voire indéfiniment si l'utilisateur ferme l'onglet sans enregistrer.
+    const avatarMustSync = (idx === 0 || newIdx === 0) && currentUser;
+    persistPhotoOrder(reordered).then(async (ok) => {
+      if (!ok) { setExistingPhotos(previous); return; }
+      if (!avatarMustSync) return;
+      try {
+        const { error: avatarError } = await supabase.from("profiles").update({ avatar_url: reordered[0].url }).eq("id", currentUser.id);
+        if (avatarError) throw avatarError;
+        setCurrentUser((u) => (u ? { ...u, avatar_url: reordered[0].url } : u));
+      } catch (e) {
+        // Même pattern que removeExistingPhoto : l'ordre est déjà persisté en
+        // base à ce stade (impossible/inutile de l'annuler), donc on prévient
+        // plutôt que d'échouer silencieusement.
+        console.error(e);
+        setError("Photo déplacée, mais ta photo de profil principale n'a pas pu être mise à jour. Enregistre à nouveau ton profil pour corriger l'affichage.");
+      }
+    });
   }
 
   async function setPrimaryPhoto(photoId) {
