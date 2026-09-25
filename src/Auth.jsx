@@ -48,6 +48,18 @@ export default function Auth({ justVerified = false, onAcknowledgeVerified = () 
   const [legalView, setLegalView] = useState(null); // "privacy" | "terms" | null
   const [resendLoading, setResendLoading] = useState(false);
   const [signupEmailExists, setSignupEmailExists] = useState(false);
+  // Bug corrigé (audit vérification d'âge minimum) : l'inscription ne
+  // proposait AUCUNE case à cocher d'acceptation des Conditions
+  // d'utilisation / Politique de confidentialité — seulement deux boutons
+  // ouvrant ces textes en lecture, jamais reliés à une condition bloquante
+  // ni à une trace enregistrée. Sur une app de rencontre, l'acceptation des
+  // CGU (qui rappellent notamment la règle des 18 ans) doit être un geste
+  // explicite et prouvable, pas une simple disponibilité du texte. Case
+  // cochée par défaut à false, gate signupReady ci-dessous (bouton "Créer
+  // mon compte" désactivé tant qu'elle n'est pas cochée) et son horodatage
+  // est transmis à signUp() (voir plus bas) pour être stocké dans les
+  // métadonnées auth.users — preuve de conformité consultable côté admin.
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [otpCode, setOtpCode] = useState("");
   const [verifyLoading, setVerifyLoading] = useState(false);
   // Panneau de la modale légale (Confidentialité/Conditions) — sans ce ref +
@@ -102,6 +114,14 @@ export default function Auth({ justVerified = false, onAcknowledgeVerified = () 
         setError("Les mots de passe ne correspondent pas.");
         return;
       }
+      // Double vérification (le bouton "Créer mon compte" est déjà désactivé
+      // tant qu'elle n'est pas cochée — voir signupReady) : même filet que
+      // les autres règles ci-dessus, au cas où le bouton serait déclenché
+      // via Entrée avant le prochain rendu.
+      if (!acceptedTerms) {
+        setError("Tu dois accepter les Conditions d'utilisation et la Politique de confidentialité pour créer un compte.");
+        return;
+      }
     }
 
     // Coupe-circuit local (en plus du rate limit serveur de Supabase) :
@@ -138,7 +158,12 @@ export default function Auth({ justVerified = false, onAcknowledgeVerified = () 
         const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
           email: cleanEmail,
           password,
-          options: { emailRedirectTo: `${window.location.origin}/?verified=1` },
+          // terms_accepted_at dans les métadonnées auth.users (aucune ligne
+          // "profiles" n'existe encore à ce stade — elle n'est créée qu'à la
+          // première étape de l'onboarding) : preuve horodatée, côté serveur
+          // Supabase, que la case d'acceptation des CGU était bien cochée au
+          // moment de l'appel signUp(), consultable depuis le dashboard Auth.
+          options: { emailRedirectTo: `${window.location.origin}/?verified=1`, data: { terms_accepted_at: new Date().toISOString() } },
         });
         if (signUpError) throw signUpError;
         // Un compte confirmé existant fait échouer signUp() (catch plus bas).
@@ -248,6 +273,7 @@ export default function Auth({ justVerified = false, onAcknowledgeVerified = () 
     setSignupEmailExists(false);
     setPassword("");
     setPasswordConfirm("");
+    setAcceptedTerms(false);
     // Sans ce reset, un code OTP partiellement saisi restait dans le champ
     // au prochain passage par l'écran "vérifie ton email" (ex. inscription
     // abandonnée puis retentée) — code d'une tentative précédente affiché
@@ -273,7 +299,7 @@ export default function Auth({ justVerified = false, onAcknowledgeVerified = () 
   const passwordCheckResult = scorePassword(password);
   const confirmMatches = passwordConfirm.length > 0 && password === passwordConfirm;
   const confirmMismatch = passwordConfirm.length > 0 && password !== passwordConfirm;
-  const signupReady = passwordMeetsMinimum(passwordCheckResult.checks) && password === passwordConfirm;
+  const signupReady = passwordMeetsMinimum(passwordCheckResult.checks) && password === passwordConfirm && acceptedTerms;
 
   return (
     <main className="bb-auth min-h-screen relative flex items-center justify-center overflow-hidden px-4 py-6 sm:px-6"
@@ -563,6 +589,23 @@ export default function Auth({ justVerified = false, onAcknowledgeVerified = () 
                       {confirmMatches ? "✓ Les mots de passe correspondent" : "⚠ Les mots de passe ne correspondent pas"}
                     </p>
                   )}
+                  <label htmlFor="accept-terms" className="flex items-start gap-2.5 text-xs leading-5 cursor-pointer" style={{ color: C.sandDim }}>
+                    <input
+                      id="accept-terms"
+                      type="checkbox"
+                      checked={acceptedTerms}
+                      onChange={(e) => setAcceptedTerms(e.target.checked)}
+                      required
+                      className="mt-0.5 h-4 w-4 flex-shrink-0"
+                    />
+                    <span>
+                      J'ai lu et j'accepte les{" "}
+                      <button type="button" onClick={() => setLegalView("terms")} className="bb-tap underline decoration-dotted underline-offset-2 font-semibold" style={{ color: C.ochre }}>Conditions d'utilisation</button>
+                      {" "}et la{" "}
+                      <button type="button" onClick={() => setLegalView("privacy")} className="bb-tap underline decoration-dotted underline-offset-2 font-semibold" style={{ color: C.ochre }}>Politique de confidentialité</button>
+                      {" "}de Baobab, y compris la condition d'âge minimum de 18 ans.
+                    </span>
+                  </label>
                 </>
               )}
 
