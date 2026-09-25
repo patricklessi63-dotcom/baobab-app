@@ -3,6 +3,7 @@ import {
   NOTIFICATION_LABELS,
   NOTIF_CATEGORIES,
   groupNotificationRows,
+  reminderStaleness,
 } from "./notificationLabels.js";
 
 const row = (type, name, id, created_at, category = "communities") => ({
@@ -106,5 +107,46 @@ describe("groupNotificationRows", () => {
     const res = groupNotificationRows(rows);
     expect(new Date(res[0].n.created_at) >= new Date(res[1].n.created_at)).toBe(true);
     expect(res[0].n.id).toBe("b");
+  });
+});
+
+// Bug identifié à l'audit "clic sur un rappel d'événement plusieurs jours
+// après" : event_reminder_24h/1h affichent un délai fixe qui devient faux
+// avec le temps, sans aucun horodatage ailleurs dans le menu pour l'indiquer
+// (voir commentaire sur reminderStaleness dans notificationLabels.js).
+// Même convention que utils/format.test.js (formatLastSeen) : décalages
+// relatifs à Date.now() réel, pas de fake timers (évite toute fuite de
+// timer sur les autres fichiers de test qui utilisent userEvent).
+describe("reminderStaleness", () => {
+  const ago = (ms) => new Date(Date.now() - ms).toISOString();
+
+  it("type non concerné -> pas de mention, même très ancien", () => {
+    expect(reminderStaleness("new_message", ago(30 * 24 * 60 * 60 * 1000))).toBe("");
+  });
+
+  it("rappel envoyé il y a moins d'1h -> le texte fixe est encore fiable, pas de mention", () => {
+    expect(reminderStaleness("event_reminder_24h", ago(30 * 60 * 1000))).toBe("");
+  });
+
+  it("rappel 1h envoyé il y a 5h -> mention en heures", () => {
+    expect(reminderStaleness("event_reminder_1h", ago(5 * 60 * 60 * 1000))).toBe("(envoyé il y a 5 h)");
+  });
+
+  it("rappel 24h ouvert 3 jours après -> mention en jours (le cas signalé)", () => {
+    expect(reminderStaleness("event_reminder_24h", ago(3 * 24 * 60 * 60 * 1000))).toBe("(envoyé il y a 3 j)");
+  });
+
+  it("groupNotificationRows ajoute la mention sur une ligne de rappel isolée", () => {
+    const rows = [{
+      category: "events",
+      label: NOTIFICATION_LABELS.event_reminder_24h,
+      n: { type: "event_reminder_24h", id: "1", created_at: ago(3 * 24 * 60 * 60 * 1000) },
+    }];
+    expect(groupNotificationRows(rows)[0].label).toBe("Un événement commence dans 24h (envoyé il y a 3 j)");
+  });
+
+  it("groupNotificationRows ne casse pas si le label est absent (garde défensive)", () => {
+    const rows = [row("event_reminder_24h", null, "1", ago(3 * 24 * 60 * 60 * 1000), "events")];
+    expect(groupNotificationRows(rows)).toEqual(rows);
   });
 });

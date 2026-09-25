@@ -34,6 +34,34 @@ export const NOTIFICATION_LABELS = {
   premium_renewing_soon: "Ton abonnement Premium se renouvelle bientôt",
 };
 
+// Bug identifié à l'audit (angle "clic sur un rappel d'événement plusieurs
+// jours après") : "event_reminder_24h"/"event_reminder_1h" affichent un
+// délai FIXE ("commence dans 24h"/"dans 1h") calculé au moment où
+// send_event_reminders() (cron SQL, hors périmètre ici) a écrit la
+// notification — jamais réévalué à la lecture. Aucun horodatage
+// n'accompagne par ailleurs ces lignes dans NotificationsDropdown.jsx ni
+// FeedTab.jsx (contrairement à "Vu il y a X h/j" déjà affiché pour la
+// dernière connexion, voir utils/format.js:formatLastSeen) : un utilisateur
+// qui ouvre sa cloche plusieurs jours après continue de lire "commence dans
+// 24h" pour un événement déjà terminé (ou annulé) depuis longtemps, sans
+// aucun indice contraire dans le menu lui-même — seul le clic (qui ouvre
+// bien l'événement à jour, voir EventDetailView isPast/canceled, déjà
+// correct) révèle la vérité. On accole donc, uniquement pour ces deux types
+// dont le texte encode une promesse de délai, le temps écoulé depuis
+// l'envoi — les autres libellés ("Nouveau message", "Nouvel abonné"...)
+// restent vrais quelle que soit la date de lecture et n'ont pas besoin de
+// cet ajout.
+export function reminderStaleness(type, createdAt) {
+  if (type !== "event_reminder_24h" && type !== "event_reminder_1h") return "";
+  if (!createdAt) return "";
+  const diffMs = Date.now() - new Date(createdAt).getTime();
+  const hours = Math.floor(diffMs / 3_600_000);
+  if (hours < 1) return "";
+  if (hours < 24) return `(envoyé il y a ${hours} h)`;
+  const days = Math.floor(hours / 24);
+  return `(envoyé il y a ${days} j)`;
+}
+
 // Regroupement client des notifications similaires (item audit — jusqu'ici
 // chaque événement générait sa propre ligne, même 5 "like" identiques sur la
 // même publication). Groupe par (catégorie, type) : conserve la ligne la
@@ -49,13 +77,23 @@ export function groupNotificationRows(rows) {
   }
   const result = [];
   for (const group of groups.values()) {
-    if (group.length === 1) { result.push(group[0]); continue; }
+    if (group.length === 1) {
+      const [only] = group;
+      const staleness = reminderStaleness(only.n.type, only.n.created_at);
+      // `only.label` est toujours défini en usage réel (calculé par
+      // l'appelant avant regroupement) — garde défensive pour ne jamais
+      // produire "undefined (envoyé...)" si jamais absent.
+      result.push(staleness && only.label ? { ...only, label: `${only.label} ${staleness}` } : only);
+      continue;
+    }
     const [mostRecent] = group;
     const baseLabel = NOTIFICATION_LABELS[mostRecent.n.type] || "Nouvelle activité";
     const names = [...new Set(group.map((r) => r.n.actor?.name).filter(Boolean))];
-    const label = names.length > 0
+    let label = names.length > 0
       ? `${names.slice(0, 2).join(", ")}${names.length > 2 ? ` +${names.length - 2}` : ""} — ${baseLabel}`
       : `${group.length} × ${baseLabel}`;
+    const staleness = reminderStaleness(mostRecent.n.type, mostRecent.n.created_at);
+    if (staleness) label = `${label} ${staleness}`;
     result.push({ ...mostRecent, label, groupCount: group.length, groupIds: group.map((r) => r.n.id) });
   }
   return result.sort((a, b) => new Date(b.n.created_at) - new Date(a.n.created_at));
