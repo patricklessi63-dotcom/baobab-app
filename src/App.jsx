@@ -1349,7 +1349,13 @@ export default function App() {
       if (activeMatch?.id === target.id) closeChat();
     } catch (e) {
       console.error(e);
-      setError("Impossible de supprimer ce match.");
+      // unmatch_profile() (supabase-dating-2.sql) lève des messages déjà
+      // propres en français ("Non authentifié" si la session a expiré,
+      // "Aucun match actif avec ce profil" si un autre onglet/session a déjà
+      // rompu le match entre-temps) — masqués avant par un "Impossible de
+      // supprimer ce match." générique fixe, même motif que friendlyDbError()
+      // déjà utilisé ailleurs (likes, follows, signalements...).
+      setError(friendlyDbError(e) || "Impossible de supprimer ce match.");
     } finally {
       setUnmatchTarget(null);
     }
