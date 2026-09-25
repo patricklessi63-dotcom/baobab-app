@@ -143,11 +143,14 @@ export default function EventDetailView({
               {/* Bug identifié à l'audit du flux d'annulation : ce bouton
                   restait affiché même une fois l'événement annulé
                   (`canceled`), contrairement à "Participer"/"Annuler
-                  l'événement"/"Supprimer l'événement" juste en dessous, tous
-                  déjà masqués par `!canceled`. EventEditForm permet pourtant
-                  de changer event_date/location/city/duration_minutes via un
-                  simple .update() (pas de RPC, aucune vérification serveur
-                  sur canceled_at) — et trg_notify_event_updated
+                  l'événement" juste en dessous, déjà masqués par
+                  `!canceled` (voir plus bas — "Supprimer l'événement", lui,
+                  reste volontairement visible même annulé depuis un
+                  correctif ultérieur, pour ne pas bloquer sa suppression).
+                  EventEditForm permet pourtant de changer
+                  event_date/location/city/duration_minutes via un simple
+                  .update() (pas de RPC, aucune vérification serveur sur
+                  canceled_at) — et trg_notify_event_updated
                   (supabase-events-v2.sql) envoie alors une notification
                   "événement modifié" à tous les participants, contredisant
                   celle d'annulation ("event_cancelled") déjà reçue. */}
@@ -184,33 +187,49 @@ export default function EventDetailView({
 
           {event.description && <p className="text-sm mt-3 whitespace-pre-wrap" style={{ color: body }}>{event.description}</p>}
 
-          {!canceled && (
+          {/* Bug identifié à l'audit du flux d'annulation : "Supprimer
+              l'événement" était imbriqué dans ce même bloc `{!canceled &&
+              (...)}`, avec "Participer"/"Annuler l'événement" — alors que
+              rien côté serveur (policy "Le createur supprime son evenement" /
+              "Un admin supprime n'importe quel evenement", voir
+              supabase-delete-own-content.sql) ne conditionne la suppression à
+              canceled_at. Un événement annulé se retrouvait donc bloqué sans
+              issue : plus moyen d'annuler (déjà fait), plus moyen de modifier
+              (masqué à raison, voir plus haut), et maintenant plus moyen non
+              plus de le supprimer — ni pour son créateur, ni pour un admin
+              plateforme. On sort donc le bouton Supprimer de ce bloc pour
+              qu'il reste disponible même une fois l'événement annulé. */}
+          {(!canceled || (onDeleteEvent && (event.created_by === currentUser?.id || isPlatformAdmin))) && (
             <div className="mt-4 flex items-center gap-2 flex-wrap">
-              {viewerStatus === "going" ? (
-                <button onClick={() => onLeave(event)} className="px-4 py-2.5 rounded-full text-sm font-bold" style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)", color: green }}>
-                  Tu participes ✓ — Ne plus participer
-                </button>
-              ) : viewerStatus === "waitlisted" ? (
-                <button onClick={() => onLeave(event)} className="px-4 py-2.5 rounded-full text-sm font-bold" style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)", color: goldText }}>
-                  Sur liste d'attente — Quitter
-                </button>
-              ) : isPast ? (
-                <span className="px-4 py-2.5 rounded-full text-sm font-bold" style={{ background: bg, color: muted }}>
-                  Cet événement est déjà passé
-                </span>
-              ) : full ? (
-                <button onClick={() => onJoin(event)} className="bb-btn-gold px-5 py-2.5 rounded-full text-sm font-bold">
-                  Rejoindre la liste d'attente
-                </button>
-              ) : (
-                <button onClick={() => onJoin(event)} className="bb-btn-gold px-5 py-2.5 rounded-full text-sm font-bold">
-                  🎟️ Participer
-                </button>
-              )}
-              {staff && !canceled && (
-                <button onClick={() => onCancel(event)} className="px-4 py-2.5 rounded-full text-sm font-bold flex items-center gap-1.5" style={{ border: "1px solid rgba(225,107,93,.3)", color: coralText }}>
-                  <Ban size={14} /> Annuler l'événement
-                </button>
+              {!canceled && (
+                <>
+                  {viewerStatus === "going" ? (
+                    <button onClick={() => onLeave(event)} className="px-4 py-2.5 rounded-full text-sm font-bold" style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)", color: green }}>
+                      Tu participes ✓ — Ne plus participer
+                    </button>
+                  ) : viewerStatus === "waitlisted" ? (
+                    <button onClick={() => onLeave(event)} className="px-4 py-2.5 rounded-full text-sm font-bold" style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)", color: goldText }}>
+                      Sur liste d'attente — Quitter
+                    </button>
+                  ) : isPast ? (
+                    <span className="px-4 py-2.5 rounded-full text-sm font-bold" style={{ background: bg, color: muted }}>
+                      Cet événement est déjà passé
+                    </span>
+                  ) : full ? (
+                    <button onClick={() => onJoin(event)} className="bb-btn-gold px-5 py-2.5 rounded-full text-sm font-bold">
+                      Rejoindre la liste d'attente
+                    </button>
+                  ) : (
+                    <button onClick={() => onJoin(event)} className="bb-btn-gold px-5 py-2.5 rounded-full text-sm font-bold">
+                      🎟️ Participer
+                    </button>
+                  )}
+                  {staff && (
+                    <button onClick={() => onCancel(event)} className="px-4 py-2.5 rounded-full text-sm font-bold flex items-center gap-1.5" style={{ border: "1px solid rgba(225,107,93,.3)", color: coralText }}>
+                      <Ban size={14} /> Annuler l'événement
+                    </button>
+                  )}
+                </>
               )}
               {onDeleteEvent && (event.created_by === currentUser?.id || isPlatformAdmin) && (
                 <button
