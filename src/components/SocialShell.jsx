@@ -1751,7 +1751,15 @@ export default function SocialShell({
       // (ex : session expirée entre les deux) : nettoie le fichier orphelin
       // plutôt que de le laisser dans "avatars" pour toujours.
       if (uploadedPath) supabase.storage.from("avatars").remove([uploadedPath]).catch(() => {});
-      setStoryMediaError("Impossible de publier le statut. Réessaie.");
+      // check_story_creation_rate_limit() (supabase-content-creation-limits-fix.sql,
+      // 30 statuts/24h) lève déjà un message P0001 propre en français ("Trop
+      // de statuts crees recemment, reessaie plus tard") — masqué jusqu'ici
+      // par ce message générique (même bug déjà corrigé pour
+      // CommunityCreateForm.jsx/le suivi dans SocialShell.jsx via
+      // friendlyDbError) : l'utilisateur qui atteint la limite voyait
+      // "Réessaie" et relançait aussitôt la même publication, qui échouait à
+      // l'identique sans jamais comprendre pourquoi.
+      setStoryMediaError(friendlyDbError(e) || "Impossible de publier le statut. Réessaie.");
     } finally {
       storyPublishingRef.current = false;
       setStoryUploading(false);
