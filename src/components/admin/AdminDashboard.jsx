@@ -229,6 +229,19 @@ export default function AdminDashboard({ onBack, onError, myPlatformRole, myProf
     }
   };
 
+  // Bug corrigé (même course que les demandes d'adhésion aux communautés,
+  // voir isAlreadyDecidedError dans CommunitiesTab.jsx et le correctif SQL
+  // supabase-admin-resolve-report-race-fix.sql livré à côté) : aucun canal
+  // Realtime n'existe sur les tables de signalement, donc deux membres du
+  // staff peuvent voir le même signalement dans leur file en même temps. Sans
+  // le correctif SQL, le second clic (Résolu/Ignorer) écrasait silencieusement
+  // le statut déjà posé par le premier, sans erreur ni indication. Une fois
+  // le correctif SQL déployé, admin_resolve_report() lève désormais
+  // "Signalement introuvable ou deja traite" pour ce second appel — on le
+  // reconnaît ici pour retirer la ligne (déjà traitée par un collègue) avec
+  // un message exact plutôt qu'un échec générique.
+  const isAlreadyHandledReportError = (e) => /introuvable ou deja traite/i.test(e?.message || "");
+
   const handleResolve = async (r, dismiss) => {
     const key = `${r.source}-${r.id}`;
     if (reportActionInFlightRef.current.has(key)) return;
@@ -238,7 +251,12 @@ export default function AdminDashboard({ onBack, onError, myPlatformRole, myProf
       setReports((rs) => rs.filter((x) => !(x.source === r.source && x.id === r.id)));
     } catch (e) {
       console.error(e);
-      onError("Impossible de traiter ce signalement.");
+      if (isAlreadyHandledReportError(e)) {
+        setReports((rs) => rs.filter((x) => !(x.source === r.source && x.id === r.id)));
+        onError("Ce signalement a déjà été traité (par toi ou un autre membre du staff) entre-temps.");
+      } else {
+        onError("Impossible de traiter ce signalement.");
+      }
     } finally {
       reportActionInFlightRef.current.delete(key);
     }

@@ -61,6 +61,23 @@ Mise à jour 2026-09-25.
   RIEN ne l'impose côté serveur — un appel API direct pourrait enregistrer
   une date de naissance de mineur. **Priorité haute** (sujet légal/sécurité
   des mineurs sur une app de rencontre), à exécuter dès que possible.
+- ⬜ `supabase-admin-resolve-report-race-fix.sql` — **ajouté le 2026-09-25**,
+  audit du tableau de bord admin (rôle plateforme `myPlatformRole`, jamais
+  audité jusqu'ici pour sa logique de traitement) : `admin_resolve_report()`
+  ne vérifiait pas que le signalement était encore "open" avant d'écrire son
+  nouveau statut. Deux membres du staff (moderator/admin/super_admin)
+  pouvaient donc traiter le même signalement en même temps (aucun canal
+  Realtime sur les tables de signalement) sans aucune erreur : le second clic
+  écrasait silencieusement la décision du premier (résolu -> ignoré ou
+  l'inverse) et journalisait une entrée `admin_actions` contradictoire — même
+  classe de bug que la course déjà corrigée sur les demandes d'adhésion aux
+  communautés (commit `833f240`), mais sans même l'erreur qui, là-bas,
+  alertait le second membre du staff. Le correctif ajoute le verrouillage de
+  ligne + vérification de statut déjà en place pour
+  accept_join_request/reject_join_request. Correctif client livré en même
+  temps (commit correspondant) : `AdminDashboard.jsx` reconnaît désormais
+  cette erreur pour retirer la ligne avec un message exact au lieu d'un échec
+  générique.
 
 Le §1 ci-dessous est conservé pour référence mais **n'est plus à faire**.
 
