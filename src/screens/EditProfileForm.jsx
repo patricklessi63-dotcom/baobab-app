@@ -165,7 +165,8 @@ export default function EditProfileForm({
                   style={{ width: 72, height: 72, borderRadius: "var(--bb-radius-sm)", objectFit: "cover", boxShadow: "var(--bb-shadow-sm)", cursor: "pointer" }}
                 />
                 <button type="button" onClick={() => removeExistingPhotoGuarded(photo)} aria-label="Supprimer la photo"
-                  style={{ position: "absolute", top: -6, right: -6, width: 20, height: 20, borderRadius: "50%", background: C.indigo, color: "#fff", fontSize: 12, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  disabled={savingProfile}
+                  style={{ position: "absolute", top: -6, right: -6, width: 20, height: 20, borderRadius: "50%", background: C.indigo, color: "#fff", fontSize: 12, display: "flex", alignItems: "center", justifyContent: "center", opacity: savingProfile ? 0.4 : 1, cursor: savingProfile ? "not-allowed" : "pointer" }}>
                   ×
                 </button>
                 {i === 0 ? (
@@ -173,21 +174,31 @@ export default function EditProfileForm({
                     <Star size={11} fill="currentColor" />
                   </span>
                 ) : (
+                  // savingProfile désactive aussi ce bouton (et les flèches ci-dessous) :
+                  // handleSaveProfile (App.jsx) capture existingPhotos dans une closure au
+                  // moment du clic sur "Enregistrer" et calcule avatar_url/les positions des
+                  // nouvelles photos à partir de cet instantané une fois l'upload terminé —
+                  // un réordonnancement/suppression concurrent (pendant l'upload réseau)
+                  // écrivait alors des données redevenues obsolètes (avatar_url pointant vers
+                  // une photo qui n'est plus en position 0, voire déjà supprimée).
                   <button type="button" onClick={() => setPrimaryPhoto(photo.id)} aria-label="Définir comme photo principale"
-                    style={{ position: "absolute", top: -6, left: -6, width: 20, height: 20, borderRadius: "50%", background: "#fff", border: `1px solid rgba(var(--bb-ink-rgb-static),0.15)`, color: C.indigo, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    disabled={savingProfile}
+                    style={{ position: "absolute", top: -6, left: -6, width: 20, height: 20, borderRadius: "50%", background: "#fff", border: `1px solid rgba(var(--bb-ink-rgb-static),0.15)`, color: C.indigo, display: "flex", alignItems: "center", justifyContent: "center", opacity: savingProfile ? 0.4 : 1, cursor: savingProfile ? "not-allowed" : "pointer" }}>
                     <Star size={11} />
                   </button>
                 )}
                 <div style={{ position: "absolute", bottom: -6, left: 0, right: 0, display: "flex", justifyContent: "center", gap: 4 }}>
                   {i > 0 && (
                     <button type="button" onClick={() => moveExistingPhoto(photo.id, "up")} aria-label="Déplacer la photo vers la gauche"
-                      style={{ width: 20, height: 20, borderRadius: "50%", background: "#fff", border: `1px solid rgba(var(--bb-ink-rgb-static),0.15)`, color: C.indigo, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      disabled={savingProfile}
+                      style={{ width: 20, height: 20, borderRadius: "50%", background: "#fff", border: `1px solid rgba(var(--bb-ink-rgb-static),0.15)`, color: C.indigo, display: "flex", alignItems: "center", justifyContent: "center", opacity: savingProfile ? 0.4 : 1, cursor: savingProfile ? "not-allowed" : "pointer" }}>
                       <ChevronLeft size={12} />
                     </button>
                   )}
                   {i < existingPhotos.length - 1 && (
                     <button type="button" onClick={() => moveExistingPhoto(photo.id, "down")} aria-label="Déplacer la photo vers la droite"
-                      style={{ width: 20, height: 20, borderRadius: "50%", background: "#fff", border: `1px solid rgba(var(--bb-ink-rgb-static),0.15)`, color: C.indigo, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      disabled={savingProfile}
+                      style={{ width: 20, height: 20, borderRadius: "50%", background: "#fff", border: `1px solid rgba(var(--bb-ink-rgb-static),0.15)`, color: C.indigo, display: "flex", alignItems: "center", justifyContent: "center", opacity: savingProfile ? 0.4 : 1, cursor: savingProfile ? "not-allowed" : "pointer" }}>
                       <ChevronRight size={12} />
                     </button>
                   )}
@@ -208,15 +219,16 @@ export default function EditProfileForm({
                   style={{ width: 72, height: 72, borderRadius: "var(--bb-radius-sm)", objectFit: "cover", boxShadow: "var(--bb-shadow-sm)", cursor: "pointer" }}
                 />
                 <button type="button" onClick={() => removeNewPhotoFileGuarded(i)} aria-label="Supprimer la nouvelle photo"
-                  style={{ position: "absolute", top: -6, right: -6, width: 20, height: 20, borderRadius: "50%", background: C.indigo, color: "#fff", fontSize: 12, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  disabled={savingProfile}
+                  style={{ position: "absolute", top: -6, right: -6, width: 20, height: 20, borderRadius: "50%", background: C.indigo, color: "#fff", fontSize: 12, display: "flex", alignItems: "center", justifyContent: "center", opacity: savingProfile ? 0.4 : 1, cursor: savingProfile ? "not-allowed" : "pointer" }}>
                   ×
                 </button>
               </div>
             ))}
             {existingPhotos.length + newPhotoPreviews.length < MAX_PHOTOS && (
-              <label className="cursor-pointer flex items-center justify-center transition-colors hover:bg-black/[0.02]" style={{ width: 72, height: 72, borderRadius: "var(--bb-radius-sm)", border: "1.5px dashed rgba(var(--bb-ink-rgb-static),0.28)" }}>
+              <label className="cursor-pointer flex items-center justify-center transition-colors hover:bg-black/[0.02]" style={{ width: 72, height: 72, borderRadius: "var(--bb-radius-sm)", border: "1.5px dashed rgba(var(--bb-ink-rgb-static),0.28)", opacity: savingProfile ? 0.4 : 1 }}>
                 <span className="text-xs text-center px-1" style={{ color: "rgba(var(--bb-ink-rgb-static),0.5)" }}>+ Ajouter</span>
-                <input type="file" accept="image/*" multiple onChange={handleNewPhotosSelected} className="hidden" />
+                <input type="file" accept="image/*" multiple disabled={savingProfile} onChange={handleNewPhotosSelected} className="hidden" />
               </label>
             )}
           </div>
