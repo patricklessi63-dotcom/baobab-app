@@ -65,6 +65,30 @@ export function usePremiumStatus(currentUser) {
     return () => { alive = false; };
   }, [currentUser?.id, refreshTick]);
 
+  // Bug corrigé : l'effet ci-dessus ne revérifie "subscriptions" qu'au
+  // montage (changement de currentUser?.id) ou sur refresh() explicite
+  // (PremiumPage après un retour de Stripe Checkout). Un composant qui
+  // reste monté pendant toute la session (ex. l'onglet "Abonnement" de
+  // ProfileTab) ne relance donc jamais cette requête tout seul : si
+  // l'abonnement expire (current_period_end dépassé) ou bascule en
+  // "past_due"/"canceled" chez Stripe PENDANT que l'onglet est resté
+  // ouvert en arrière-plan (webhook stripe-webhook/index.ts déjà traité
+  // entre-temps), `subscription` reste la valeur chargée avant l'expiration
+  // et `isPremium` restait donc vrai jusqu'à un rechargement complet de la
+  // page — un utilisateur pouvait continuer à voir/utiliser des
+  // fonctionnalités Premium (ex. "Qui m'a aimé") après la fin réelle de son
+  // abonnement. Même motif que le rafraîchissement de présence/bannissement
+  // dans App.jsx : on revérifie au retour de focus sur l'onglet, pas
+  // seulement au montage.
+  useEffect(() => {
+    if (!currentUser) return;
+    const onVisible = () => {
+      if (document.visibilityState === "visible") setRefreshTick((t) => t + 1);
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [currentUser?.id]);
+
   const isPremium = Boolean(
     subscription
     && (subscription.status === "active" || subscription.status === "trialing")
