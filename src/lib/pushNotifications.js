@@ -16,13 +16,58 @@ function urlBase64ToUint8Array(base64String) {
 // Statut affiché dans les préférences : suit à la fois la permission
 // navigateur (source de vérité pour "refusé") et l'existence d'un
 // abonnement PushManager actif (source de vérité pour "activé").
+//
+// Bug corrigé à l'audit : "activé" était déduit uniquement de l'état local
+// du navigateur (Boolean(subscription)). Or PushManager peut rester
+// abonné côté navigateur sans que la ligne push_subscriptions existe côté
+// serveur — par exemple si l'upsert de enablePushNotifications() a échoué
+// après coup (réseau coupé juste après l'abonnement navigateur) ou si le
+// navigateur a fait tourner discrètement l'abonnement (endpoint renouvelé
+// sans notify explicite ailleurs dans l'app). Dans ce cas précis, l'ancien
+// code affichait "Désactiver" comme si tout fonctionnait, alors qu'aucun
+// push ne peut jamais être livré (send-push ne trouve aucune ligne pour cet
+// utilisateur). On revérifie donc que la ligne existe réellement en base
+// pour cet endpoint et on tente une réparation best-effort (ré-upsert des
+// clés déjà connues localement, sans nouvelle demande de permission) avant
+// de considérer l'abonnement comme valide ; si la réparation échoue aussi
+// (ex. hors-ligne), on remonte honnêtement "non abonné".
 export async function getPushSubscriptionStatus() {
   if (!isPushSupported()) return { supported: false, permission: "unsupported", subscribed: false };
   const permission = Notification.permission;
   if (permission !== "granted") return { supported: true, permission, subscribed: false };
   const registration = await navigator.serviceWorker.getRegistration();
   const subscription = await registration?.pushManager.getSubscription();
-  return { supported: true, permission, subscribed: Boolean(subscription) };
+  if (!subscription) return { supported: true, permission, subscribed: false };
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { supported: true, permission, subscribed: false };
+
+  const { data: existing } = await supabase
+    .from("push_subscriptions")
+    .select("id")
+    .eq("endpoint", subscription.endpoint)
+    .maybeSingle();
+  if (existing) return { supported: true, permission, subscribed: true };
+
+  try {
+    const json = subscription.toJSON();
+    const { error } = await supabase.from("push_subscriptions").upsert(
+      {
+        user_id: user.id,
+        endpoint: subscription.endpoint,
+        p256dh: json.keys.p256dh,
+        auth: json.keys.auth,
+      },
+      { onConflict: "endpoint" }
+    );
+    if (error) throw error;
+    return { supported: true, permission, subscribed: true };
+  } catch (e) {
+    console.error(e);
+    return { supported: true, permission, subscribed: false };
+  }
 }
 
 export async function enablePushNotifications() {
