@@ -332,6 +332,30 @@ export default function CommunitiesTab({ currentUser, onError, onBack = () => {}
     setCommunities((cs) => cs.map((c) => (c.id === communityId ? { ...c, memberCount: Math.max(0, c.memberCount + delta) } : c)));
   };
 
+  // Rafraîchit le compteur depuis la base plutôt qu'un simple +1 optimiste :
+  // bug identifié à l'audit des invitations — accept_invite
+  // (supabase-communities.sql) insère la ligne community_members avec
+  // "on conflict (community_id, profile_id) do nothing", donc réussit
+  // silencieusement SANS ajouter de membre si l'invité·e est déjà membre au
+  // moment d'accepter (ex. une demande d'adhésion à cette même communauté,
+  // envoyée en parallèle, a été approuvée entre-temps pendant que
+  // l'invitation restait encore affichée comme "pending"). handleAcceptInvite
+  // appelait jusqu'ici adjustMemberCount(+1) sans condition : dans ce
+  // scénario, le compteur de membres affiché devenait durablement supérieur
+  // de 1 au nombre réel (jamais recorrigé tant que la liste "communities"
+  // n'est pas rechargée depuis zéro) — même correctif de principe que
+  // refreshParticipantCount dans EventsTab.jsx (accepter une invitation à un
+  // événement relit aussi le compteur réel plutôt que de l'incrémenter en
+  // aveugle).
+  const refreshMemberCount = async (communityId) => {
+    const { data, error } = await supabase.from("communities").select("*, community_members(count)").eq("id", communityId).single();
+    if (!error && data) {
+      const count = data.community_members?.[0]?.count || 0;
+      setCommunities((cs) => cs.map((c) => (c.id === communityId ? { ...c, memberCount: count } : c)));
+      if (selectedId === communityId) setMemberCount(count);
+    }
+  };
+
   // ---------- Détail ----------
   // Le filtrage blockedIds n'est plus appliqué ici avant setPosts : si on le
   // fait au moment du chargement, un blocage effectué ensuite (depuis cette
@@ -965,7 +989,7 @@ export default function CommunitiesTab({ currentUser, onError, onBack = () => {}
       if (error) throw error;
       setMyInvites((inv) => inv.filter((x) => x.id !== invite.id));
       setMyMemberships((m) => ({ ...m, [invite.community_id]: "member" }));
-      adjustMemberCount(invite.community_id, 1);
+      refreshMemberCount(invite.community_id);
       onCommunitiesChanged?.();
     } catch (e) {
       console.error(e);
