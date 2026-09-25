@@ -6,7 +6,7 @@ import EmptyState from "../home/EmptyState";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { visibleAge } from "../../utils/format";
-import { primary, coral, goldText, muted, card, primaryRgb } from "./theme";
+import { primary, coral, coralText, goldText, muted, card, primaryRgb } from "./theme";
 
 export default function FavoritesModal({ open, onClose, favoriteProfiles = [], onViewProfile, onToggleFavorite, onDiscover }) {
   useEscapeKey(open, onClose);
@@ -42,7 +42,17 @@ export default function FavoritesModal({ open, onClose, favoriteProfiles = [], o
           />
         ) : (
           <div className="flex flex-col gap-2">
-            {favoriteProfiles.map((p) => (
+            {favoriteProfiles.map((p) => {
+              // Bug corrigé à l'audit, même famille que ConversationCard.jsx/
+              // MessagesTab.jsx/ConversationPane.jsx (banned_at/suspended_until
+              // ajoutés à la jointure "favorites" dans SocialShell.jsx) : un
+              // profil banni ou suspendu par un·e admin après avoir été ajouté
+              // en favori restait affiché ici comme un compte parfaitement
+              // normal (ville, badges...), sans la moindre indication —
+              // contrairement à une conversation avec ce même compte qui
+              // affiche déjà "Ce compte n'est plus disponible".
+              const unavailable = Boolean(p.banned_at) || Boolean(p.suspended_until && new Date(p.suspended_until) > new Date());
+              return (
               <div key={p.id} className="flex items-center gap-3 p-2.5 rounded-xl" style={{ background: `rgba(${primaryRgb},.03)` }}>
                 <button onClick={() => onViewProfile?.(p)} className="flex items-center gap-3 flex-1 min-w-0 text-left focus-visible:outline focus-visible:outline-2">
                   <Avatar name={p.name} url={p.avatar_url} size={44} />
@@ -59,7 +69,11 @@ export default function FavoritesModal({ open, onClose, favoriteProfiles = [], o
                         modale affichait la ville sans consulter show_city, alors que
                         MatchCard/PublicProfileModal le respectent déjà : un profil ayant
                         masqué sa ville restait quand même visible dans "Mes favoris". */}
-                    {p.show_city !== false && p.city && <div className="text-xs truncate" style={{ color: muted }}>{p.city}</div>}
+                    {unavailable ? (
+                      <div className="text-xs truncate" style={{ color: coralText }}>Ce compte n'est plus disponible</div>
+                    ) : (
+                      p.show_city !== false && p.city && <div className="text-xs truncate" style={{ color: muted }}>{p.city}</div>
+                    )}
                   </div>
                 </button>
                 <button
@@ -75,7 +89,8 @@ export default function FavoritesModal({ open, onClose, favoriteProfiles = [], o
                   <Star size={15} color={goldText} fill={goldText} />
                 </button>
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
 

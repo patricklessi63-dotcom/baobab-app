@@ -368,7 +368,15 @@ export default function SocialShell({
       // phone_verified mais pas les deux autres champs de StatusBadge, donc
       // FavoritesModal ne pouvait jamais afficher les badges Fondateur/Premium
       // même après leur ajout côté rendu, contrairement à MatchCard/DiscoverTab.
-      .select("to_id, profile:to_id(id,name,avatar_url,city,show_city,age,show_birth_year,looking_for,email_verified,phone_verified,is_founder,is_premium)")
+      // banned_at/suspended_until ajoutés (bug corrigé à l'audit, même famille
+      // que ConversationCard.jsx/MessagesTab.jsx/ConversationPane.jsx et le
+      // filtre de Découverte dans App.jsx) : ces deux colonnes ne sont
+      // vérifiées nulle part pour un profil mis en favori. Un compte banni ou
+      // suspendu par un·e admin après avoir été ajouté à "Mes favoris" y
+      // restait affiché comme un profil parfaitement normal (ville, badges...)
+      // sans la moindre indication, contrairement à une conversation avec ce
+      // même compte qui affiche déjà "Ce compte n'est plus disponible".
+      .select("to_id, profile:to_id(id,name,avatar_url,city,show_city,age,show_birth_year,looking_for,email_verified,phone_verified,is_founder,is_premium,banned_at,suspended_until)")
       .eq("from_id", currentUser.id)
       .then(({ data, error }) => {
         if (!alive) return;
@@ -405,7 +413,11 @@ export default function SocialShell({
           (async () => {
             const { data } = await supabase
               .from("profiles")
-              .select("id,name,avatar_url,city,show_city,age,show_birth_year,looking_for,email_verified,phone_verified,is_founder,is_premium")
+              // banned_at/suspended_until ajoutés (même correctif que la
+              // requête initiale plus haut) : sans eux, un favori/abonnement
+              // reçu en temps réel pendant que le compte visé est déjà banni/
+              // suspendu apparaissait comme un profil normal, sans indication.
+              .select("id,name,avatar_url,city,show_city,age,show_birth_year,looking_for,email_verified,phone_verified,is_founder,is_premium,banned_at,suspended_until")
               .eq("id", toId)
               .maybeSingle();
             if (!data) return;
@@ -535,8 +547,13 @@ export default function SocialShell({
       // ProfileCard consulte ces deux champs (hasStatusBadge) mais ils
       // manquaient ici, donc "Suivis"/"Abonnés" n'affichait jamais les badges
       // Fondateur/Premium même pour des profils qui les ont réellement.
-      supabase.from("follows").select("to_id, profile:to_id(id,name,avatar_url,city,show_city,age,show_birth_year,looking_for,email_verified,phone_verified,is_founder,is_premium)").eq("from_id", currentUser.id).limit(2000),
-      supabase.from("follows").select("from_id, profile:from_id(id,name,avatar_url,city,show_city,age,show_birth_year,looking_for,email_verified,phone_verified,is_founder,is_premium)").eq("to_id", currentUser.id).limit(2000),
+      // banned_at/suspended_until ajoutés (bug corrigé à l'audit, même famille
+      // que ConversationCard.jsx/MessagesTab.jsx/ConversationPane.jsx et le
+      // filtre de Découverte dans App.jsx, jamais appliquée ici) : un profil
+      // suivi (ou qui me suit) banni/suspendu par un·e admin restait affiché
+      // dans "Abonnements"/"Abonnés" comme un compte parfaitement normal.
+      supabase.from("follows").select("to_id, profile:to_id(id,name,avatar_url,city,show_city,age,show_birth_year,looking_for,email_verified,phone_verified,is_founder,is_premium,banned_at,suspended_until)").eq("from_id", currentUser.id).limit(2000),
+      supabase.from("follows").select("from_id, profile:from_id(id,name,avatar_url,city,show_city,age,show_birth_year,looking_for,email_verified,phone_verified,is_founder,is_premium,banned_at,suspended_until)").eq("to_id", currentUser.id).limit(2000),
     ]).then(([followingRes, followersRes]) => {
       if (!alive) return;
       if (followingRes.error) console.error(followingRes.error.message, followingRes.error.code, followingRes.error.details, followingRes.error.hint);
@@ -580,7 +597,11 @@ export default function SocialShell({
           (async () => {
             const { data } = await supabase
               .from("profiles")
-              .select("id,name,avatar_url,city,show_city,age,show_birth_year,looking_for,email_verified,phone_verified,is_founder,is_premium")
+              // banned_at/suspended_until ajoutés (même correctif que la
+              // requête initiale plus haut) : sans eux, un favori/abonnement
+              // reçu en temps réel pendant que le compte visé est déjà banni/
+              // suspendu apparaissait comme un profil normal, sans indication.
+              .select("id,name,avatar_url,city,show_city,age,show_birth_year,looking_for,email_verified,phone_verified,is_founder,is_premium,banned_at,suspended_until")
               .eq("id", toId)
               .maybeSingle();
             if (!data) return;
@@ -611,7 +632,11 @@ export default function SocialShell({
           (async () => {
             const { data } = await supabase
               .from("profiles")
-              .select("id,name,avatar_url,city,show_city,age,show_birth_year,looking_for,email_verified,phone_verified,is_founder,is_premium")
+              // banned_at/suspended_until ajoutés (même correctif que la
+              // requête initiale plus haut) : sans eux, un favori/abonnement
+              // reçu en temps réel pendant que le compte visé est déjà banni/
+              // suspendu apparaissait comme un profil normal, sans indication.
+              .select("id,name,avatar_url,city,show_city,age,show_birth_year,looking_for,email_verified,phone_verified,is_founder,is_premium,banned_at,suspended_until")
               .eq("id", fromId)
               .maybeSingle();
             if (!data) return;

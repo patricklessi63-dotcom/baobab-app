@@ -340,7 +340,17 @@ export default function ProfileTab({
                     />
                   ) : (
                     <div className="flex flex-col gap-2">
-                      {(networkView === "following" ? followingProfiles : followerProfiles).map((p) => (
+                      {(networkView === "following" ? followingProfiles : followerProfiles).map((p) => {
+                        // Bug corrigé à l'audit, même famille que ConversationCard.jsx/
+                        // MessagesTab.jsx/ConversationPane.jsx (banned_at/suspended_until
+                        // ajoutés à la jointure "follows" dans SocialShell.jsx) : un
+                        // profil suivi (ou qui me suit) banni/suspendu par un·e admin
+                        // restait affiché ici comme un compte parfaitement normal
+                        // (ville...), sans la moindre indication — contrairement à une
+                        // conversation avec ce même compte qui affiche déjà "Ce compte
+                        // n'est plus disponible".
+                        const unavailable = Boolean(p.banned_at) || Boolean(p.suspended_until && new Date(p.suspended_until) > new Date());
+                        return (
                         <div key={p.id} className="flex items-center gap-3 p-2.5 rounded-xl" style={{ background: bg }}>
                           <button onClick={() => onViewProfile(p)} className="flex items-center gap-3 flex-1 min-w-0 text-left focus-visible:outline focus-visible:outline-2">
                             <Avatar name={p.name} url={p.avatar_url} size={44} />
@@ -350,14 +360,19 @@ export default function ProfileTab({
                                   liste abonnements/abonnés affichait la ville sans consulter
                                   show_city, alors que MatchCard/PublicProfileModal le
                                   respectent déjà. */}
-                              {p.show_city !== false && p.city && <div className="text-xs truncate" style={{ color: muted }}>{p.city}</div>}
+                              {unavailable ? (
+                                <div className="text-xs truncate" style={{ color: coralText }}>Ce compte n'est plus disponible</div>
+                              ) : (
+                                p.show_city !== false && p.city && <div className="text-xs truncate" style={{ color: muted }}>{p.city}</div>
+                              )}
                             </div>
                           </button>
                           <button onClick={() => onToggleFollow(p)} aria-pressed={followingIds.has(p.id)} className="px-3 py-2 rounded-full text-xs font-bold shrink-0 focus-visible:outline focus-visible:outline-2" style={{ background: followingIds.has(p.id) ? "var(--bb-surface-2)" : navy, border: followingIds.has(p.id) ? "1px solid var(--bb-border)" : "none", color: followingIds.has(p.id) ? primary : "#fff" }}>
                             {followingIds.has(p.id) ? "Abonné(e)" : "Suivre"}
                           </button>
                         </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </div>
