@@ -190,8 +190,34 @@ export default function ConversationPane({
   // pas de nouvelle requête serveur pour cette première itération.
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const searchInputRef = useRef(null);
   useEffect(() => { setSearchOpen(false); setSearchQuery(""); }, [activeMatch?.id]);
   useEscapeKey(searchOpen, () => { setSearchOpen(false); setSearchQuery(""); });
+  // Bug corrigé à l'audit clavier/focus trap : contrairement à la recherche
+  // équivalente de SocialShell.jsx (dont le <input> reste monté en
+  // permanence, seul son dropdown de résultats se démonte), cette barre de
+  // recherche EN CONVERSATION démonte tout son bloc — le <input> compris —
+  // quand `searchOpen` repasse à false (voir plus bas :
+  // `{searchOpen && (<div>...<input/>...)}`). Un utilisateur qui tabule
+  // jusqu'au champ (ou au bouton "Fermer la recherche" juste à côté) puis
+  // ferme via Échap (useEscapeKey ci-dessus) perdait donc son focus sur
+  // <body> — exactement le même bug déjà identifié et corrigé pour
+  // "Options de la conversation" (menuOpen) et MessageActionsMenu
+  // (openActionsFor) juste au-dessus dans ce même fichier, mais oublié ici.
+  useFocusReturn(searchOpen);
+  // L'ouverture du champ se faisait via l'attribut natif `autoFocus` — or
+  // React l'applique pendant la phase de commit, AVANT que l'effet passif
+  // de useFocusReturn ci-dessus n'ait pu capturer `document.activeElement`
+  // (le bouton loupe). Résultat : useFocusReturn capturait déjà le <input>
+  // lui-même comme "élément à restaurer" au lieu du bouton loupe, rendant le
+  // correctif ci-dessus inopérant. En déplaçant l'autofocus dans un effet
+  // séparé, déclaré APRÈS useFocusReturn(searchOpen) (les effets d'un même
+  // rendu s'exécutent dans leur ordre de déclaration), la capture a
+  // désormais lieu AVANT ce déplacement de focus — même ordre que
+  // useFocusTrap (capture, puis déplacement du focus dans la modale).
+  useEffect(() => {
+    if (searchOpen) searchInputRef.current?.focus();
+  }, [searchOpen]);
 
   // Rappel avant un premier partage de coordonnées personnelles (item audit
   // sécurité) — jamais répété une fois écarté pour cette conversation, pas
@@ -433,7 +459,7 @@ export default function ConversationPane({
         <div className="flex items-center gap-2 px-4 py-2.5 shrink-0" style={{ borderBottom: `1px solid rgba(${primaryRgb},.08)`, background: bg }}>
           <Search size={15} color={muted} />
           <input
-            autoFocus
+            ref={searchInputRef}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Rechercher dans cette conversation..."
