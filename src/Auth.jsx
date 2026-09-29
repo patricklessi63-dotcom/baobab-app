@@ -37,7 +37,7 @@ const traduireErreur = traduireAuthErreur;
 // de App.jsx, qui détecte le retour d'un lien de confirmation/reset
 // (voir la détection dans App.jsx : ni un routeur ni un backend n'existent
 // dans ce projet, donc c'est le seul point d'entrée possible).
-export default function Auth({ justVerified = false, onAcknowledgeVerified = () => {}, authLinkError = null, onDismissLinkError = () => {}, initialMode = "signin", onGoHome = () => {} }) {
+export default function Auth({ justVerified = false, onAcknowledgeVerified = () => {}, authLinkError = null, onDismissLinkError = () => {}, sessionExpired = false, onDismissSessionExpired = () => {}, initialMode = "signin", onGoHome = () => {} }) {
   const [mode, setMode] = useState(initialMode); // signin | signup | reset | check-email | unverified | link-error
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -299,6 +299,7 @@ export default function Auth({ justVerified = false, onAcknowledgeVerified = () 
     // comme si valide pour la nouvelle.
     setOtpCode("");
     if (authLinkError) onDismissLinkError();
+    if (sessionExpired) onDismissSessionExpired();
   }
 
   const title = mode === "signup" ? "Crée ton compte"
@@ -423,6 +424,25 @@ export default function Auth({ justVerified = false, onAcknowledgeVerified = () 
               <div>
                 <div className="text-sm font-bold" style={{ color: C.acacia }}>Email vérifié</div>
                 <p className="text-xs mt-0.5" style={{ color: C.sandDim }}>Ton adresse a bien été vérifiée. Entre ton mot de passe pour continuer.</p>
+              </div>
+            </div>
+          )}
+
+          {/* Bandeau "session expirée" (audit rafraîchissement de session) :
+              affiché quand Supabase a lui-même mis fin à la session en cours
+              (jeton de rafraîchissement révoqué à distance après un
+              changement de mot de passe sur un autre appareil, ou impossible
+              à renouveler après une longue coupure réseau) — jamais après une
+              déconnexion volontaire via "Déconnexion" (voir manualSignOutRef
+              dans App.jsx). */}
+          {mode === "signin" && sessionExpired && (
+            <div role="status" className="mb-5 rounded-2xl px-4 py-4 flex items-center gap-3" style={{ background: "rgba(217,164,65,0.14)", border: "1px solid rgba(217,164,65,0.28)" }}>
+              <span className="flex-shrink-0 h-9 w-9 rounded-full flex items-center justify-center" style={{ background: "rgba(217,164,65,0.25)" }}>
+                <AlertTriangle size={19} color={C.ochre} />
+              </span>
+              <div>
+                <div className="text-sm font-bold" style={{ color: C.ochre }}>Ta session a expiré</div>
+                <p className="text-xs mt-0.5" style={{ color: C.sandDim }}>Reconnecte-toi pour continuer. Si tu avais commencé à écrire un message ou remplir un formulaire, il n'a pas pu être conservé.</p>
               </div>
             </div>
           )}

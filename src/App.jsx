@@ -131,6 +131,13 @@ export default function App() {
   // (l'effet qui installe ce listener a des deps [] pour ne s'abonner qu'une
   // fois). Voir le bug corrigé documenté plus bas.
   const sessionRef = useRef(undefined);
+  // Distingue une déconnexion volontaire (bouton "Déconnexion", voir
+  // handleSignOut) d'une déconnexion imposée par Supabase (SIGNED_OUT émis
+  // par GoTrueClient#_removeSession) : les deux produisent exactement le
+  // même évènement "SIGNED_OUT" avec newSession=null, impossible à
+  // distinguer autrement depuis ce callback. Sert au correctif
+  // sessionExpired plus bas.
+  const manualSignOutRef = useRef(false);
   const [view, setView] = useState("loading"); // loading | form | feed | discover | matches | stories
   const { isOnline } = useOnlineStatus();
   const { pathname, navigate } = usePathname();
@@ -487,6 +494,20 @@ export default function App() {
   const pendingVerifiedRef = useRef(false);
   const [justVerified, setJustVerified] = useState(false);
   const [authLinkError, setAuthLinkError] = useState(null);
+  // Bug corrigé (audit rafraîchissement de session) : quand Supabase émet
+  // SIGNED_OUT de sa propre initiative (jeton de rafraîchissement révoqué à
+  // distance après un changement de mot de passe sur un autre appareil —
+  // signOut({scope:"others"}) — ou rafraîchissement impossible après une
+  // coupure réseau prolongée), l'app retombait sur "auth" sans que
+  // showAuthForm (plus bas) ne devienne vrai : le pathname reste "/" pendant
+  // toute l'utilisation de l'app (aucune route interne ne le change), donc
+  // sans ce drapeau la personne se retrouvait sur la page vitrine (marketing,
+  // boutons "Se connecter"/"S'inscrire") sans AUCUNE explication, devait
+  // deviner qu'il fallait cliquer "Se connecter", et perdait au passage tout
+  // ce qu'elle était en train de taper (message, formulaire d'événement...)
+  // sans le moindre avertissement. sessionExpired force l'affichage direct
+  // du formulaire de connexion avec un message clair.
+  const [sessionExpired, setSessionExpired] = useState(false);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -578,6 +599,23 @@ export default function App() {
       if (event !== "PASSWORD_RECOVERY" && newSession?.user?.id && newSession.user.id === sessionRef.current?.user?.id) {
         sessionRef.current = newSession;
         return;
+      }
+      // Bug corrigé (audit rafraîchissement de session) : voir la déclaration
+      // de sessionExpired plus haut. On ne déclenche le message que pour un
+      // VRAI décrochage involontaire — un compte réellement connecté
+      // (sessionRef.current avait un user) qui se retrouve SIGNED_OUT sans
+      // être passé par handleSignOut (manualSignOutRef). Sans le test sur
+      // manualSignOutRef, un clic normal sur "Déconnexion" afficherait aussi
+      // "ta session a expiré" alors que c'est une déconnexion volontaire.
+      if (event === "SIGNED_OUT") {
+        if (!manualSignOutRef.current && sessionRef.current?.user?.id) {
+          setSessionExpired(true);
+        }
+        manualSignOutRef.current = false;
+      } else if (newSession?.user?.id) {
+        // Une vraie (re)connexion réussie efface un éventuel message
+        // "session expirée" laissé par un décrochage précédent.
+        setSessionExpired(false);
       }
       sessionRef.current = newSession;
       setSession(newSession);
@@ -1173,6 +1211,18 @@ export default function App() {
     } catch (e) {
       console.error(e);
     }
+    // Marque cette déconnexion comme volontaire AVANT l'appel : le listener
+    // onAuthStateChange ci-dessus reçoit l'évènement "SIGNED_OUT" pendant
+    // l'exécution de supabase.auth.signOut() (notifyAllSubscribers y est
+    // attendu en interne avant que la promesse ne se résolve), donc le
+    // drapeau doit déjà être à true à ce moment précis pour que le listener
+    // sache qu'il ne doit PAS afficher le message "ta session a expiré".
+    // Remis à false dans le listener lui-même dès que l'évènement est
+    // consommé, et ici aussi en filet de sécurité (finally) si signOut()
+    // échoue si tôt qu'aucun SIGNED_OUT n'est jamais émis (voir le
+    // try/catch ci-dessous) — sans quoi ce drapeau resterait bloqué à true
+    // et masquerait un VRAI décrochage de session survenant plus tard.
+    manualSignOutRef.current = true;
     try {
       await supabase.auth.signOut();
     } catch (e) {
@@ -1187,6 +1237,8 @@ export default function App() {
       // navigation se faire malgré l'échec réseau — rester affiché comme si
       // de rien n'était serait pire qu'une déconnexion traitée localement.
       console.error(e);
+    } finally {
+      manualSignOutRef.current = false;
     }
     setCurrentUser(null);
     setProfiles([]);
@@ -3001,7 +3053,12 @@ export default function App() {
   }
 
   if (view === "auth") {
-    const showAuthForm = justVerified || authLinkError || pathname === "/connexion" || pathname === "/inscription";
+    // sessionExpired (voir sa déclaration plus haut) force l'affichage direct
+    // du formulaire plutôt que la page vitrine : sans ça, un décrochage de
+    // session survenu pendant l'utilisation de l'app (pathname toujours "/",
+    // aucune route interne ne le change) retomberait sur LandingPage sans
+    // aucune explication.
+    const showAuthForm = justVerified || authLinkError || sessionExpired || pathname === "/connexion" || pathname === "/inscription";
     if (!showAuthForm) {
       if (pathname === "/a-propos") return lazyScreen(<AboutPage navigate={navigate} />);
       if (pathname === "/confidentialite") return lazyScreen(<PrivacyPage navigate={navigate} />);
@@ -3014,6 +3071,8 @@ export default function App() {
         onGoHome={() => navigate("/")}
         justVerified={justVerified}
         onAcknowledgeVerified={() => setJustVerified(false)}
+        sessionExpired={sessionExpired}
+        onDismissSessionExpired={() => setSessionExpired(false)}
         authLinkError={authLinkError}
         onDismissLinkError={() => setAuthLinkError(null)}
       />
