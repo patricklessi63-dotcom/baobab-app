@@ -22,7 +22,6 @@ import { validateMediaFile } from "../lib/mediaValidation";
 import { compressImageIfNeeded } from "../lib/imageCompression";
 import { extFromMime } from "../lib/mediaConstants";
 import { uploadWithProgress } from "../lib/uploadWithProgress";
-import { beginCriticalOperation, endCriticalOperation } from "../lib/criticalOperationGuard";
 import { trackBetaEvent } from "../lib/trackBetaEvent";
 import { friendlyDbError } from "../lib/friendlyDbError";
 import { resolveLiveMatch } from "../lib/activeMatchPresence";
@@ -1694,7 +1693,6 @@ export default function SocialShell({
     storyPublishingRef.current = true;
     setStoryUploading(true);
     setStoryUploadProgress(0);
-    beginCriticalOperation();
     // Chemin Storage de l'upload en cours, pour nettoyage si l'insertion en
     // base échoue après un upload réussi (même motif que EventCreateForm/
     // CommunityCreateForm/PostsFeed : sans ce suivi, un statut qui échoue à
@@ -1764,7 +1762,6 @@ export default function SocialShell({
       storyPublishingRef.current = false;
       setStoryUploading(false);
       setStoryUploadProgress(0);
-      endCriticalOperation();
     }
   };
 

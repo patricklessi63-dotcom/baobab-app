@@ -12,7 +12,6 @@ import { truncateUnicodeSafe } from "../../utils/format";
 import { compressImageIfNeeded } from "../../lib/imageCompression";
 import { uploadWithProgress } from "../../lib/uploadWithProgress";
 import { POST_MEDIA_BUCKET, extFromMime } from "../../lib/mediaConstants";
-import { beginCriticalOperation, endCriticalOperation } from "../../lib/criticalOperationGuard";
 import { friendlyDbError } from "../../lib/friendlyDbError";
 import { useOnlineStatus } from "../../hooks/useOnlineStatus";
 import { primary, navy, coral, muted, bg, card } from "./theme";
@@ -577,7 +576,6 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
     if ((!draft.trim() && mediaItems.length === 0) || !currentUser) return;
     publishingRef.current = true;
     setPublishing(true);
-    beginCriticalOperation();
     try {
       const body = draft.trim() || PLACEHOLDER_BODY;
       const { data: inserted, error } = await supabase
@@ -634,7 +632,6 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
     } finally {
       publishingRef.current = false;
       setPublishing(false);
-      endCriticalOperation();
     }
   };
 

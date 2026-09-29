@@ -4,7 +4,6 @@ import ChipSelect from "../ChipSelect";
 import { supabase } from "../../supabaseClient";
 import { COMMUNITY_CATEGORIES, COMMUNITY_VISIBILITY } from "../../lib/communities/communityConfig";
 import { invokeAI } from "../../lib/ai/aiClient";
-import { beginCriticalOperation, endCriticalOperation } from "../../lib/criticalOperationGuard";
 import { validateMediaFile } from "../../lib/mediaValidation";
 import { compressImageIfNeeded } from "../../lib/imageCompression";
 import { extFromMime } from "../../lib/mediaConstants";
@@ -126,7 +125,6 @@ export default function CommunityCreateForm({ currentUser, onCreated, onCancel, 
   const handleSubmit = async () => {
     if (!canSubmit || !currentUser) return;
     setSubmitting(true);
-    beginCriticalOperation(); // évite que la déconnexion auto par inactivité (App.jsx) coupe un upload/création en cours
     try {
       let coverUrl = null;
       let uploadedPath = null;
@@ -177,7 +175,6 @@ export default function CommunityCreateForm({ currentUser, onCreated, onCancel, 
       // création via RPC) affiche déjà le message serveur le cas échéant.
       if (mountedRef.current) onError?.(friendlyDbError(e) || "Impossible de créer la communauté. Réessaie.");
     } finally {
-      endCriticalOperation();
       if (mountedRef.current) setSubmitting(false);
     }
   };
