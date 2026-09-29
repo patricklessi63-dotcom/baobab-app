@@ -5,32 +5,49 @@ const TTL_SECONDS = 3600;
 const SAFETY_MARGIN_MS = 60000;
 
 const cache = new Map(); // path -> { url, expiresAt }
+// Requêtes createSignedUrl en vol, indexées par path — voir getSignedUrl.
+const inflight = new Map(); // path -> Promise<string|null>
 
 export async function getSignedUrl(path) {
   if (!path) return null;
   const cached = cache.get(path);
   if (cached && cached.expiresAt > Date.now()) return cached.url;
 
-  try {
-    // handleOperation() (storage-js) ne convertit en { data:null, error }
-    // que les erreurs "storage" reconnues — une vraie coupure réseau (fetch
-    // qui lève un TypeError, DNS, CORS...) est relancée telle quelle, donc
-    // cet appel PEUT rejeter, pas seulement renvoyer un champ error. Sans ce
-    // try/catch, le moindre aléa réseau faisait planter la promesse
-    // retournée par getSignedUrl : ses deux appelants (useSignedMediaUrl,
-    // qui ne pose pas de .catch, et openFile dans MessageBubbleMedia, qui
-    // l'attend sans try/catch) restaient alors bloqués indéfiniment —
-    // spinner de chargement figé sur l'image/vidéo/audio d'un message, ou
-    // bouton "Ouvrir le fichier" désactivé pour de bon après un simple aléa
-    // réseau, sans jamais réessayer même une fois la connexion revenue.
-    const { data, error } = await supabase.storage.from(MEDIA_BUCKET).createSignedUrl(path, TTL_SECONDS);
-    if (error || !data?.signedUrl) return null;
-    cache.set(path, { url: data.signedUrl, expiresAt: Date.now() + TTL_SECONDS * 1000 - SAFETY_MARGIN_MS });
-    return data.signedUrl;
-  } catch (e) {
-    console.error(e);
-    return null;
-  }
+  // Le cache local est vide/expiré : si une résolution pour ce même path est
+  // déjà en cours (ex. un message dont la bulle média est démontée puis
+  // remontée avant la fin du premier aller-retour réseau, en cas de scroll
+  // rapide dans une liste virtualisée, ou un double-mount React en dev),
+  // on réutilise cette requête en vol au lieu d'en relancer une deuxième en
+  // parallèle vers Supabase pour exactement le même chemin.
+  const existing = inflight.get(path);
+  if (existing) return existing;
+
+  const promise = (async () => {
+    try {
+      // handleOperation() (storage-js) ne convertit en { data:null, error }
+      // que les erreurs "storage" reconnues — une vraie coupure réseau (fetch
+      // qui lève un TypeError, DNS, CORS...) est relancée telle quelle, donc
+      // cet appel PEUT rejeter, pas seulement renvoyer un champ error. Sans ce
+      // try/catch, le moindre aléa réseau faisait planter la promesse
+      // retournée par getSignedUrl : ses deux appelants (useSignedMediaUrl,
+      // qui ne pose pas de .catch, et openFile dans MessageBubbleMedia, qui
+      // l'attend sans try/catch) restaient alors bloqués indéfiniment —
+      // spinner de chargement figé sur l'image/vidéo/audio d'un message, ou
+      // bouton "Ouvrir le fichier" désactivé pour de bon après un simple aléa
+      // réseau, sans jamais réessayer même une fois la connexion revenue.
+      const { data, error } = await supabase.storage.from(MEDIA_BUCKET).createSignedUrl(path, TTL_SECONDS);
+      if (error || !data?.signedUrl) return null;
+      cache.set(path, { url: data.signedUrl, expiresAt: Date.now() + TTL_SECONDS * 1000 - SAFETY_MARGIN_MS });
+      return data.signedUrl;
+    } catch (e) {
+      console.error(e);
+      return null;
+    } finally {
+      inflight.delete(path);
+    }
+  })();
+  inflight.set(path, promise);
+  return promise;
 }
 
 // Résolution groupée — un seul aller-retour pour toutes les images/vidéos/
