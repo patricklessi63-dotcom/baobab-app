@@ -551,8 +551,19 @@ export default function SocialShell({
       // filtre de Découverte dans App.jsx, jamais appliquée ici) : un profil
       // suivi (ou qui me suit) banni/suspendu par un·e admin restait affiché
       // dans "Abonnements"/"Abonnés" comme un compte parfaitement normal.
-      supabase.from("follows").select("to_id, profile:to_id(id,name,avatar_url,city,show_city,age,show_birth_year,looking_for,email_verified,phone_verified,is_founder,is_premium,banned_at,suspended_until)").eq("from_id", currentUser.id).limit(2000),
-      supabase.from("follows").select("from_id, profile:from_id(id,name,avatar_url,city,show_city,age,show_birth_year,looking_for,email_verified,phone_verified,is_founder,is_premium,banned_at,suspended_until)").eq("to_id", currentUser.id).limit(2000),
+      // .order() ajouté (bug corrigé à l'audit, même famille que la recherche
+      // globale du header ci-dessus et loadMembers/CommunityInviteModal dans
+      // CommunitiesTab.jsx/EventsTab.jsx) : ces deux requêtes combinaient déjà
+      // .limit(2000) avec AUCUN .order(). Sans ORDER BY, Postgres/PostgREST ne
+      // garantit ni quelles lignes remontent au-delà de la limite, ni leur
+      // ordre entre deux exécutions identiques — les listes "Abonnements"/
+      // "Abonnés" de ProfileTab pouvaient donc changer d'ordre (voire de
+      // contenu au-delà de 2000 lignes) d'un rechargement à l'autre, sans
+      // aucune action de l'utilisateur. Tri par created_at décroissant (plus
+      // récent d'abord), cohérent avec les autres listes de ce fichier
+      // (stories, aperçu de conversations, notifications ci-dessus/dessous).
+      supabase.from("follows").select("to_id, profile:to_id(id,name,avatar_url,city,show_city,age,show_birth_year,looking_for,email_verified,phone_verified,is_founder,is_premium,banned_at,suspended_until)").eq("from_id", currentUser.id).order("created_at", { ascending: false }).limit(2000),
+      supabase.from("follows").select("from_id, profile:from_id(id,name,avatar_url,city,show_city,age,show_birth_year,looking_for,email_verified,phone_verified,is_founder,is_premium,banned_at,suspended_until)").eq("to_id", currentUser.id).order("created_at", { ascending: false }).limit(2000),
     ]).then(([followingRes, followersRes]) => {
       if (!alive) return;
       if (followingRes.error) console.error(followingRes.error.message, followingRes.error.code, followingRes.error.details, followingRes.error.hint);
