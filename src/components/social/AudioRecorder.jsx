@@ -174,7 +174,21 @@ export default function AudioRecorder({ hasDraft, onSendText, onSendAudio, onAct
     timerRef.current = setInterval(() => {
       const ms = Date.now() - startRef.current;
       setElapsed(ms);
-      if (ms >= AUDIO_MAX_DURATION_MS) recorder.stop();
+      // Bug corrigé à l'audit voix : sans ce clearInterval, atteindre la
+      // limite de 2 minutes appelait recorder.stop() une première fois (OK)
+      // mais laissait CET intervalle tourner indéfiniment — aucun autre
+      // chemin ne l'arrête pour ce cas précis (stopRecording/cancelRecording
+      // le font, mais pas ce déclenchement automatique). Chaque tick suivant
+      // rappelait recorder.stop() sur un MediaRecorder déjà "inactive", ce
+      // qui lève une InvalidStateError non interceptée toutes les 200ms en
+      // continu, ET continuait à appeler setElapsed(ms) avec un ms toujours
+      // croissant — le chronomètre affiché dans l'aperçu ("preview") ne
+      // restait donc jamais figé sur la durée réelle du message vocal (2:00)
+      // mais continuait de défiler sans fin tant que l'aperçu restait ouvert.
+      if (ms >= AUDIO_MAX_DURATION_MS) {
+        clearInterval(timerRef.current);
+        recorder.stop();
+      }
     }, 200);
     // Bug corrigé à l'audit, même famille que recorder.onerror ci-dessus :
     // une révocation de permission EN COURS d'enregistrement (via les
