@@ -1070,12 +1070,18 @@ export default function App() {
   }
 
   // Export des données personnelles (item audit Paramètres/confidentialité —
-  // obligation légale, pas juste une bonne pratique). Portée volontairement
-  // limitée à ce que l'utilisateur a lui-même créé/renseigné (profil,
-  // publications, statuts, participations) — pas les messages d'autrui dans
-  // une conversation partagée. Tout en lecture, RLS self-only déjà en place,
-  // aucune nouvelle requête privilégiée nécessaire. Téléchargement direct
-  // côté client, rien n'est envoyé à un tiers.
+  // obligation légale, pas juste une bonne pratique). Couvre ce que
+  // l'utilisateur a lui-même créé/renseigné (profil, publications, statuts,
+  // participations) ET les messages reçus dans ses conversations : lus par
+  // lui, conservés indéfiniment en base et rattachés à son compte, ils
+  // restent une donnée personnelle "le concernant" au sens RGPD/LPRPDE même
+  // si le texte a été tapé par l'autre participant — au même titre que
+  // likes_received/followers ci-dessous, déjà exportés avec l'identifiant
+  // (uuid) de l'autre partie sans jamais exposer son profil complet. Tout en
+  // lecture, RLS self-only déjà en place (voir supabase-protect-rls.sql —
+  // les deux participants d'une conversation peuvent lire tous ses
+  // messages), aucune nouvelle requête privilégiée nécessaire. Téléchargement
+  // direct côté client, rien n'est envoyé à un tiers.
   // "Exporter mes données" doit couvrir tout le contenu que l'utilisateur a
   // lui-même créé, pas seulement le fil principal — audit du 2026-08-26 :
   // il manquait les photos de galerie (table profile_photos, distincte de
@@ -1105,6 +1111,25 @@ export default function App() {
         // URL signée plus bas (chat-media est un bucket privé, le chemin brut
         // seul seul n'aurait mené à rien pour l'utilisateur).
         messages_sent: supabase.from("messages").select("id, match_key, kind, text, media_path, created_at").eq("from_id", currentUser.id),
+        // Bug corrigé (audit RGPD du 2026-09-29) : seuls les messages ENVOYÉS
+        // étaient exportés — les messages REÇUS (contenu tapé par d'autres
+        // utilisateurs mais bel et bien conservé et lu dans CETTE messagerie,
+        // donc une donnée personnelle de l'utilisateur au même titre que le
+        // reste) en étaient totalement absents. La table "messages" n'a pas
+        // de colonne to_id (conversation identifiée par match_key, format
+        // "idA__idB" trié — voir utils/format.js matchKey et la policy RLS
+        // "Un utilisateur lit ses propres conversations" dans
+        // supabase-protect-rls.sql qui autorise explicitement cette lecture
+        // pour les deux participants) : on filtre donc sur match_key via
+        // ilike plutôt que sur une colonne to_id qui n'existe pas. Seul
+        // from_id de l'autre participant est inclus (un uuid, comme pour
+        // likes_received/followers ci-dessous) — jamais son profil complet,
+        // pour ne pas exposer les données d'un tiers au-delà du nécessaire.
+        messages_received: supabase
+          .from("messages")
+          .select("id, match_key, kind, text, media_path, from_id, created_at")
+          .neq("from_id", currentUser.id)
+          .or(`match_key.ilike.${currentUser.id}__%,match_key.ilike.%__${currentUser.id}`),
         post_comments: supabase.from("post_comments").select("id, post_id, body, created_at").eq("author_id", currentUser.id),
         // media_url/media_kind ajoutés (même bug) : une publication de
         // communauté avec photo/vidéo ressortait sans son média.
@@ -1145,26 +1170,34 @@ export default function App() {
       // le TTL d'1h utilisé en direct par la messagerie — voir
       // lib/signedUrlCache.js — pour laisser le temps de récupérer le fichier
       // après le téléchargement de l'export) plutôt que d'exposer le chemin
-      // brut ou un lien déjà expiré.
-      const pathsToSign = (payload.messages_sent || []).map((m) => m.media_path).filter(Boolean);
+      // brut ou un lien déjà expiré. Couvre aussi bien messages_sent que
+      // messages_received (même bucket, même schéma media_path) : les
+      // médias reçus doivent rester récupérables au même titre que les
+      // médias envoyés.
+      const pathsToSign = [
+        ...(payload.messages_sent || []).map((m) => m.media_path),
+        ...(payload.messages_received || []).map((m) => m.media_path),
+      ].filter(Boolean);
       let signedUrlByPath = {};
       if (pathsToSign.length > 0) {
         try {
           const { data: signedList, error: signError } = await supabase.storage
             .from(MEDIA_BUCKET)
             .createSignedUrls(pathsToSign, 60 * 60 * 24 * 7);
-          if (signError) { console.error("messages_sent media", signError); failedCategories.push("messages_sent_media"); }
+          if (signError) { console.error("messages media", signError); failedCategories.push("messages_media"); }
           (signedList || []).forEach((row) => {
             if (row.path && row.signedUrl) signedUrlByPath[row.path] = row.signedUrl;
           });
         } catch (e) {
-          console.error("messages_sent media", e);
-          failedCategories.push("messages_sent_media");
+          console.error("messages media", e);
+          failedCategories.push("messages_media");
         }
       }
-      payload.messages_sent = (payload.messages_sent || []).map(({ media_path, ...rest }) => (
+      const resolveMessageMedia = (list) => (list || []).map(({ media_path, ...rest }) => (
         media_path ? { ...rest, media_url: signedUrlByPath[media_path] || null, media_url_expires_in: "7 jours" } : rest
       ));
+      payload.messages_sent = resolveMessageMedia(payload.messages_sent);
+      payload.messages_received = resolveMessageMedia(payload.messages_received);
 
       const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
       const url = URL.createObjectURL(blob);
