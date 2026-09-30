@@ -2859,6 +2859,19 @@ export default function App() {
         (payload) => {
           const toId = payload.old.to_id;
           setLikePairs((prev) => prev.filter((l) => !(l.from_id === currentUser.id && l.to_id === toId)));
+          // Bug corrigé (audit unmatch, 30 sept. 2026) : contrairement aux
+          // handlers "blocks" ci-dessous (qui appellent déjà
+          // setActiveMatch(null) quand la personne affichée vient d'être
+          // bloquée), ce handler ne fermait jamais la conversation ouverte
+          // quand le match qui la sous-tend vient de se rompre sur CETTE
+          // session (autre onglet/appareil ayant appelé confirmUnmatch(), ou
+          // handleUnlike() retirant mon propre like). La conversation restait
+          // affichée comme active : envoyer un message y échouait ensuite
+          // silencieusement (policy INSERT sur "messages" exige un like
+          // mutuel encore présent — supabase-audit-fixes.sql), affichant
+          // "Impossible d'envoyer le message. Réessayer" en boucle sans que
+          // "Réessayer" ne puisse jamais aboutir.
+          if (activeMatchRef.current?.id === toId) setActiveMatch(null);
         }
       )
       // Bug corrigé (audit "explication du score"/unlike côté récepteur) :
@@ -2892,6 +2905,17 @@ export default function App() {
           if (!wasMutual) {
             setAdmirersCount((c) => Math.max(0, c - 1));
           }
+          // Bug corrigé (audit unmatch, 30 sept. 2026) : c'est CE handler qui
+          // reçoit l'événement quand c'est l'AUTRE personne qui vient de
+          // rompre le match (confirmUnmatch() appelé depuis son appareil à
+          // elle supprime aussi la ligne "likes" from=elle/to=moi, capturée
+          // ici). Sans ce garde, ma conversation avec elle restait affichée
+          // comme active de mon côté — même symptôme et même correctif que le
+          // handler "from_id=eq.moi" ci-dessus (voir son commentaire), et même
+          // principe déjà appliqué à "blocks" juste en dessous
+          // (activeMatchRef.current?.id === fromId/toId → setActiveMatch(null)
+          // en temps réel des DEUX côtés).
+          if (activeMatchRef.current?.id === fromId) setActiveMatch(null);
         }
       )
       .subscribe();
