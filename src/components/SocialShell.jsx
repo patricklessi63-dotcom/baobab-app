@@ -1541,10 +1541,23 @@ export default function SocialShell({
       // réponse réseau brute — à quiconque tape une lettre dans la recherche —
       // des colonnes sensibles de n'importe quel compte tiers, même si
       // l'UI n'affiche jamais que nom/ville/pays/profession/avatar.
+      // .order("name") ajouté (bug corrigé à l'audit) : cette requête combine
+      // LIMIT 30 et un .or() SANS aucun tri, alors que CommunitiesTab.jsx/
+      // EventsTab.jsx (voir leur commentaire "Tri secondaire") trient
+      // toujours explicitement pour cette même raison — sans ORDER BY,
+      // Postgres/PostgREST ne garantit NI quelles lignes remontent parmi
+      // tous les profils correspondants, NI leur ordre entre deux exécutions
+      // identiques (plan de requête, autovacuum...). Résultat concret : pour
+      // une recherche dépassant 30 correspondances, retaper exactement la
+      // même recherche pouvait afficher un ordre différent, voire un
+      // sous-ensemble différent de profils, sans aucune action de
+      // l'utilisateur — alors que localSearchResults (cache local) reste lui
+      // parfaitement stable d'une frappe à l'autre.
       supabase
         .from("profiles")
         .select(OTHER_PROFILE_COLUMNS)
         .or(`name.ilike."%${escaped}%",city.ilike."%${escaped}%",country.ilike."%${escaped}%",occupation.ilike."%${escaped}%"`)
+        .order("name", { ascending: true })
         .limit(30)
         .then(({ data, error }) => {
           if (!alive) return;
