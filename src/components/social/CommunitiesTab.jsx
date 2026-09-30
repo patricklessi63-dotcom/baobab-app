@@ -740,7 +740,54 @@ export default function CommunitiesTab({ currentUser, onError, onBack = () => {}
       }
     }
     leaveInFlightRef.current.add(comm.id);
+    let cleanedEventIds = [];
     try {
+      // Bug identifié à l'audit du bouton "Quitter" (membre normal) : quitter
+      // une communauté ne touchait ni les invitations à ses événements
+      // "réservés aux membres" (visibility = 'community') ni les inscriptions
+      // déjà confirmées. Une invitation restait "pending" indéfiniment (et
+      // accept_event_invitation(), supabase-events-v2.sql, ne revérifie pas
+      // l'appartenance à la communauté au moment d'accepter — risque hors de
+      // portée ici, fichier supabase-*.sql interdit), et une inscription
+      // "going"/"waitlisted" déjà confirmée restait valide alors que la
+      // personne n'est plus membre : incohérent avec can_view_event() qui
+      // exige is_community_member() pour ces événements. On nettoie donc les
+      // deux ICI, avant de retirer l'appartenance (après, la RLS de "events"
+      // ne laisserait plus rien voir de ces événements pour les retrouver).
+      // Best-effort : un échec de ce nettoyage ne doit pas bloquer le départ.
+      try {
+        const { data: memberEvents, error: eventsError } = await supabase
+          .from("events")
+          .select("id")
+          .eq("community_id", comm.id)
+          .eq("visibility", "community")
+          .is("canceled_at", null)
+          .gte("event_date", new Date().toISOString());
+        if (eventsError) throw eventsError;
+        const eventIds = (memberEvents || []).map((e) => e.id);
+        cleanedEventIds = eventIds;
+        if (eventIds.length > 0) {
+          const { data: pendingInvites, error: invitesError } = await supabase
+            .from("event_invitations")
+            .select("id")
+            .eq("invited_profile_id", currentUser.id)
+            .eq("status", "pending")
+            .in("event_id", eventIds);
+          if (invitesError) throw invitesError;
+          for (const invite of pendingInvites || []) {
+            const { error: declineError } = await supabase.rpc("decline_event_invitation", { p_invitation_id: invite.id });
+            if (declineError) console.error(declineError);
+          }
+          const { error: attendeesError } = await supabase
+            .from("event_attendees")
+            .delete()
+            .eq("profile_id", currentUser.id)
+            .in("event_id", eventIds);
+          if (attendeesError) throw attendeesError;
+        }
+      } catch (cleanupError) {
+        console.error(cleanupError);
+      }
       const { error } = await supabase.from("community_members").delete().eq("community_id", comm.id).eq("profile_id", currentUser.id);
       if (error) throw error;
       setMyMemberships((m) => { const n = { ...m }; delete n[comm.id]; return n; });
@@ -748,6 +795,18 @@ export default function CommunitiesTab({ currentUser, onError, onBack = () => {}
       if (selectedId === comm.id) {
         setMemberCount((n) => Math.max(0, n - 1));
         setMembers((m) => m.filter((x) => x.profile_id !== currentUser.id));
+        // Reflète le nettoyage ci-dessus dans l'onglet "Événements" déjà
+        // affiché : sans ça, un événement communautaire visible (communauté
+        // publique) gardait le badge "Tu participes ✓" alors que
+        // l'inscription venait d'être supprimée côté serveur.
+        if (cleanedEventIds.length > 0) {
+          const cleanedSet = new Set(cleanedEventIds);
+          setEvents((evs) => evs.map((e) => (
+            cleanedSet.has(e.id) && e.status
+              ? { ...e, status: null, participantCount: e.status === "going" ? Math.max(0, e.participantCount - 1) : e.participantCount }
+              : e
+          )));
+        }
       }
       onCommunitiesChanged?.();
     } catch (e) {
