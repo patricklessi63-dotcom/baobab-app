@@ -124,6 +124,17 @@ Mise à jour 2026-09-30.
   contournement sera immédiat et invisible. Remplace uniquement `'photo'`
   par `'image'` dans la fonction (redéfinition complète, idempotente). À
   exécuter après `supabase-premium-messaging.sql`.
+- ⬜ `supabase-accept-event-invitation-membership-check-fix.sql` — **ajouté
+  le 2026-09-30**, audit "quitter une communauté" : `accept_event_invitation()`
+  ne revérifie jamais l'appartenance à la communauté (`can_view_event()`,
+  déjà utilisé par `join_event()`) avant d'accepter une invitation à un
+  événement `visibility='community'`. Le correctif client du même jour
+  (commit `52a4ebd`) décline déjà les invitations en attente quand on quitte
+  une communauté, mais ne protège pas contre une fenêtre de course ou un
+  départ par un autre chemin (exclusion par le staff) — un ex-membre pourrait
+  encore accepter une invitation restée "pending" et rejoindre un événement
+  réservé aux membres. Ajoute uniquement l'appel à `can_view_event()` avant
+  l'insertion dans `event_attendees`. À exécuter après `supabase-events-v2.sql`.
 - ⬜ `supabase-waitlist-promotion-race-fix.sql` — **ajouté le 2026-09-25**,
   audit du mécanisme de promotion de la liste d'attente des événements
   (jamais audité jusqu'ici — seule la mise en liste d'attente elle-même
