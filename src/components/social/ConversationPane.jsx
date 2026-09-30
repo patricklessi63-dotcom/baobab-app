@@ -71,6 +71,7 @@ function TypingIndicator() {
 export default function ConversationPane({
   activeMatch,
   currentUser,
+  goTab,
   otherTyping,
   messages,
   hasMoreHistory,
@@ -684,7 +685,33 @@ export default function ConversationPane({
                   </div>
                 )}
               </div>
-              {isMine && m._status === "failed" && (
+              {isMine && m._status === "failed" && m._premiumBlocked && (
+                // Bug corrigé (audit paywall messagerie) : FREE_MESSAGE_LIMIT_REACHED/
+                // PREMIUM_MEDIA_REQUIRED ne sont pas des échecs transitoires — un
+                // simple "Réessayer" échouerait à l'identique (et re-uploaderait un
+                // média en pure perte) tant que l'utilisateur n'est pas passé
+                // Premium. On explique la vraie raison et on pointe directement
+                // vers la page Premium plutôt que de laisser deviner.
+                <div className="self-end text-xs flex flex-col items-end gap-1 mt-0.5 text-right" style={{ color: coralText }}>
+                  <span>{m._error || "Action réservée aux membres Premium."}</span>
+                  <span className="flex items-center gap-2">
+                    {goTab && (
+                      <button onClick={() => goTab("premium")} className="font-bold underline" style={{ color: primary }}>
+                        Passer Premium
+                      </button>
+                    )}
+                    {/* Reste disponible pour le cas où l'abonnement vient d'être
+                        activé (webhook Stripe déjà traité) : la vérification
+                        is_premium() est refaite côté serveur à chaque tentative,
+                        donc réessayer après avoir souscrit fonctionne sans recharger
+                        la page — voir enforce_premium_message_limits() (SQL). */}
+                    <button onClick={() => retrySend(m)} className="font-bold underline flex items-center gap-1" style={{ color: coralText }}>
+                      <RotateCcw size={11} className="flex-shrink-0" /> Réessayer
+                    </button>
+                  </span>
+                </div>
+              )}
+              {isMine && m._status === "failed" && !m._premiumBlocked && (
                 <button onClick={() => retrySend(m)} className="self-end text-xs font-bold flex items-center gap-1 mt-0.5 text-right" style={{ color: coralText }}>
                   <RotateCcw size={12} className="flex-shrink-0" /> {m._error || "Impossible d'envoyer le message."} Réessayer
                 </button>

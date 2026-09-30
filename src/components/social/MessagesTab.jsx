@@ -229,6 +229,7 @@ export default function MessagesTab({
         key={activeMatch.id}
         activeMatch={activeMatch}
         currentUser={currentUser}
+        goTab={goTab}
         otherTyping={otherTyping}
         messages={messages}
         hasMoreHistory={hasMoreHistory}

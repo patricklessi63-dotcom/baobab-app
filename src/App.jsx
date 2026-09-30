@@ -23,7 +23,7 @@ import { fetchMyLocation, upsertMyLocation, disableMyLocation } from "./lib/loca
 import { getCurrentPositionSafe, LOCATION_ERROR_MESSAGES } from "./lib/geolocation";
 import { disablePushNotifications } from "./lib/pushNotifications";
 import { isLikelyInCanada, TRAVEL_GRACE_PERIOD_MS } from "./lib/canadaGate";
-import { friendlyDbError } from "./lib/friendlyDbError";
+import { friendlyDbError, dbErrorCode } from "./lib/friendlyDbError";
 import { usePathname } from "./hooks/usePathname";
 import { useEscapeKey } from "./hooks/useEscapeKey";
 import LandingPage from "./screens/public/LandingPage";
@@ -2416,7 +2416,17 @@ export default function App() {
       return true;
     } catch (e) {
       console.error(e);
-      setMessages((m) => m.map((msg) => (msg.id === tempId ? { ...msg, _status: "failed", _error: friendlyDbError(e) } : msg)));
+      // Bug corrigé (audit paywall messagerie) : FREE_MESSAGE_LIMIT_REACHED
+      // et PREMIUM_MEDIA_REQUIRED (supabase-premium-messaging.sql) ne sont
+      // jamais transitoires — retenter l'envoi sans être passé Premium
+      // échouera à l'identique (et, pour un média, re-uploade le fichier en
+      // pure perte à chaque tentative). On distingue ce cas pour ne PAS le
+      // relancer automatiquement au retour de connexion ci-dessous, et pour
+      // orienter l'utilisateur vers la page Premium plutôt qu'un simple
+      // "Réessayer" muet (voir ConversationPane.jsx).
+      const code = dbErrorCode(e);
+      const premiumBlocked = code === "FREE_MESSAGE_LIMIT_REACHED" || code === "PREMIUM_MEDIA_REQUIRED";
+      setMessages((m) => m.map((msg) => (msg.id === tempId ? { ...msg, _status: "failed", _error: friendlyDbError(e), _premiumBlocked: premiumBlocked } : msg)));
       return false;
     }
   }
@@ -2633,7 +2643,11 @@ export default function App() {
     if (!wasOfflineRef.current) return; // pas une vraie reconnexion (ex. montage initial)
     wasOfflineRef.current = false;
     let alive = true;
-    const failed = messagesRef.current.filter((msg) => msg._status === "failed");
+    // _premiumBlocked exclu : un retour de wifi ne change ni la limite
+    // gratuite ni le statut Premium, donc relancer ces envois-là échouerait
+    // à l'identique (et re-uploaderait un média en pure perte) — voir le
+    // commentaire dans insertMessageRow ci-dessus.
+    const failed = messagesRef.current.filter((msg) => msg._status === "failed" && !msg._premiumBlocked);
     failed.forEach((msg) => retrySend(msg));
     if (activeMatchRef.current) refreshMessages(activeMatchRef.current);
     // Bug corrigé (même famille que e7a7cdd/16d03ee/4fd74c8) : si le
