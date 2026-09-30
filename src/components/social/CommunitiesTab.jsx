@@ -1226,6 +1226,22 @@ export default function CommunitiesTab({ currentUser, onError, onBack = () => {}
     // la fin du premier appel double-décrémentaient le compteur de membres
     // (la suppression d'une ligne déjà supprimée ne renvoie pas d'erreur
     // Postgrest, donc le second appel se déroulait comme un succès).
+    //
+    // Écart connu et volontairement NON corrigé ici (audit du 30 sept. 2026,
+    // voir DEPLOIEMENT.md section 6 pour le détail complet) : contrairement à
+    // handleLeave ci-dessus, cette fonction ne décline pas les invitations
+    // "en attente" du membre exclu ni ne retire ses inscriptions
+    // event_attendees aux événements `visibility='community'` de cette
+    // communauté — même trou que celui corrigé pour le départ volontaire.
+    // MAIS le copier-coller du correctif de handleLeave ne marcherait pas :
+    // decline_event_invitation() exige invited_profile_id = current_profile_id()
+    // (échoue toujours si appelée par le staff pour quelqu'un d'autre), et la
+    // policy DELETE d'event_attendees n'autorise que profile_id=soi-même OU
+    // is_event_mod (staff de CET événement précis, pas staff de la
+    // communauté) — un owner/admin qui exclut un membre n'a généralement ni
+    // l'un ni l'autre droit sur les événements de cette communauté. Un vrai
+    // correctif demande une fonction SECURITY DEFINER ou un trigger côté SQL
+    // (hors périmètre : supabase-*.sql en lecture seule ici).
     if (removeMemberInFlightRef.current.has(member.id)) return;
     removeMemberInFlightRef.current.add(member.id);
     try {

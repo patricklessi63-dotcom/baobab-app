@@ -426,3 +426,72 @@ l'utilisateur gratuit découvrira sa limite en la heurtant (message d'erreur
 après coup) plutôt que d'être prévenu à l'avance. Construire cet affichage
 préventif est une vraie mission UI/UX à part entière (composant, design,
 décision produit sur où l'afficher) — non traitée ici.
+
+---
+
+## 6. Écart connu — l'exclusion d'un membre par le staff ne nettoie PAS ses
+invitations/participations aux événements de la communauté, et un correctif
+purement client (identique à celui de `handleLeave`) ne peut pas combler ce
+trou sans modification SQL
+
+Audit du 30 septembre 2026, suite au correctif client du départ volontaire
+(commit `52a4ebd`, `handleLeave` de `CommunitiesTab.jsx`) : question posée —
+`handleRemoveMember` (même fichier, exclusion d'un membre par le staff) fait-il
+le même nettoyage ?
+
+**Constat : non.** `handleRemoveMember` (`CommunitiesTab.jsx`, ~ligne 1222) se
+contente de `delete from community_members where id = member.id` puis met à
+jour l'état local (compteur, liste des membres) — contrairement à `handleLeave`,
+il ne touche ni `event_invitations` ni `event_attendees`. Un membre exclu de
+force garde donc ses invitations "en attente" aux événements
+`visibility='community'` de cette communauté, et reste inscrit
+(`going`/`waitlisted`) à ceux déjà confirmés, alors que `can_view_event()`
+(`supabase-events-v2.sql`) exige `is_community_member()` pour ce type
+d'événement — même incohérence que celle corrigée pour le départ volontaire.
+
+**Mais copier-coller le correctif de `handleLeave` ne fonctionnerait PAS**, pour
+une raison structurelle propre aux droits RLS/RPC existants (aucun fichier
+`supabase-*.sql` n'a été modifié pour vérifier ceci — lecture seule) :
+
+- `decline_event_invitation(p_invitation_id)` (`supabase-events-v2.sql`,
+  ~ligne 550) exige `invited_profile_id = current_profile_id()` : seul
+  l'invité·e peut décliner sa propre invitation. Appelée par le membre du
+  staff qui exclut quelqu'un d'autre (`current_profile_id()` = le staff, pas
+  le membre exclu), cette RPC échoue **systématiquement** ("Invitation
+  introuvable ou deja traitee") — ce n'est pas un cas limite, ça ne peut
+  jamais réussir pour un tiers.
+- La policy DELETE de `event_attendees` (`supabase-events-v2.sql`,
+  ~ligne 226-228, "Se retirer ou etre retire par le staff") autorise
+  `profile_id = current_profile_id() or is_event_mod(event_id)` — mais
+  `is_event_mod()` teste le rôle dans `event_staff` (organisateur/
+  co-organisateur/modérateur de CET événement précis, renseigné uniquement à
+  la création de l'événement par `create_event()`, ~ligne 485), pas le rôle
+  dans `community_members`. Un owner/admin de communauté qui exclut un membre
+  n'est donc "event mod" que par coïncidence (s'il a lui-même créé
+  l'événement) — dans le cas général, la suppression de la ligne
+  `event_attendees` d'un tiers échoue silencieusement (0 ligne affectée, pas
+  d'erreur PostgREST).
+
+Autrement dit : le même code que `handleLeave` compilerait et s'exécuterait
+sans planter, mais ne nettoierait quasiment jamais rien dans le cas réel
+(exclusion par un owner/admin qui n'est pas l'organisateur de l'événement) —
+un correctif cosmétique qui donnerait une fausse impression d'être réglé.
+Un vrai correctif demande soit une fonction `SECURITY DEFINER` dédiée
+(ex. `remove_community_member(p_member_id)` qui nettoie les événements
+`community` de ce membre AVANT de supprimer la ligne `community_members`,
+avec les droits du staff vérifiés à l'intérieur de la fonction), soit un
+trigger `AFTER DELETE on community_members` qui fait ce nettoyage avec des
+privilèges élevés indépendamment de qui a fait le DELETE — les deux touchent
+`supabase-*.sql`, hors périmètre autorisé pour cette session (lecture seule,
+aucune edge function). Non traité ici volontairement plutôt que de forcer un
+changement spéculatif ; à corriger via une vraie modification SQL une fois
+autorisée.
+
+Point vérifié par la même occasion : aucune action que tenterait un membre
+déjà exclu (mais ayant encore le détail de la communauté ouvert à l'écran —
+pas de canal Realtime sur `community_members`, limitation déjà connue) ne
+plante côté client. Toutes les mutations de `CommunitiesTab.jsx` (poster,
+réagir, commenter, quitter, accepter/décliner une invitation, etc.) sont déjà
+protégées par `try/catch` avec un message d'erreur générique ou
+`friendlyDbError()` : un refus RLS remonte proprement comme une erreur
+affichée, jamais comme un crash silencieux.
