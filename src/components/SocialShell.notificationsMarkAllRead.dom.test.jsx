@@ -46,7 +46,7 @@ function makeNotificationsBuilder(initialUnread) {
   function makeChain() {
     const calls = [];
     const chain = {};
-    ["select", "update", "eq", "is", "order", "limit", "in"].forEach((m) => {
+    ["select", "update", "eq", "is", "lte", "order", "limit", "in"].forEach((m) => {
       chain[m] = vi.fn((...args) => { calls.push([m, args]); return chain; });
     });
     chain.then = (resolve, reject) => {
@@ -136,6 +136,35 @@ describe("SocialShell — exactitude des compteurs de notifications", () => {
     expect(calledMethods).not.toContain("in");
     expect(calls.find(([m]) => m === "eq")?.[1]).toEqual(["recipient_id", "u1"]);
     expect(calls.find(([m]) => m === "is")?.[1]).toEqual(["read_at", null]);
+  });
+
+  it("« Tout marquer comme lu » borne l'update aux notifications déjà créées au moment du clic (.lte sur created_at)", async () => {
+    // Bug corrigé à l'audit fiabilité : sans cette borne, une notification
+    // arrivée par Realtime pendant que la requête d'update est en vol (son
+    // INSERT atteignant la base avant que l'UPDATE ne s'exécute) est elle
+    // aussi `read_at IS NULL` à cet instant et se retrouve marquée lue par
+    // erreur, alors qu'elle est arrivée APRÈS le clic. Vérifie que la requête
+    // ajoute désormais `.lte("created_at", <horodatage du clic>)`.
+    const user = userEvent.setup();
+    const before = Date.now();
+    render(<SocialShell currentUser={{ id: "u1", name: "Test" }} setView={vi.fn()} handleSignOut={vi.fn()} />);
+
+    const bell = await screen.findByRole("button", { name: "Notifications" });
+    await user.click(bell);
+    const markAllReadButtons = await screen.findAllByRole("button", { name: "Tout marquer comme lu" });
+    await user.click(markAllReadButtons[0]);
+
+    await waitFor(() => expect(notifBuilder.updateCalls.length).toBe(1));
+    const calls = notifBuilder.updateCalls[0];
+    const lteCall = calls.find(([m]) => m === "lte");
+    expect(lteCall).toBeTruthy();
+    expect(lteCall[1][0]).toBe("created_at");
+    const cutoff = new Date(lteCall[1][1]).getTime();
+    // La borne doit être l'horodatage du clic (capturé de façon synchrone),
+    // pas une valeur arbitraire ou absente — encadrée entre le début du test
+    // et maintenant, avec une marge large pour les environnements lents.
+    expect(cutoff).toBeGreaterThanOrEqual(before);
+    expect(cutoff).toBeLessThanOrEqual(Date.now() + 1000);
   });
 
   it("un UPDATE Realtime (notification marquée lue depuis un autre onglet) fait redescendre le badge sans recharger la page", async () => {

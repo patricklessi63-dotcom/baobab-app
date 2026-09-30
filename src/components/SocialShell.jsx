@@ -1307,7 +1307,23 @@ export default function SocialShell({
     // désormais sur recipient_id + read_at IS NULL, qui couvre TOUTES les
     // lignes non lues de l'utilisateur en base, pas seulement celles déjà
     // chargées dans communityNotifications.
-    supabase.from("notifications").update({ read_at: nowIso }).eq("recipient_id", currentUser.id).is("read_at", null).then(({ error }) => {
+    //
+    // .lte("created_at", nowIso) ajouté (bug corrigé à l'audit fiabilité) :
+    // sans cette borne, le filtre "read_at IS NULL" est réévalué par Postgres
+    // au moment où l'UPDATE s'exécute réellement sur le serveur — pas au
+    // moment du clic. Une notification arrivée par Realtime (ex. nouveau
+    // message) tout juste après le clic mais dont l'INSERT atteint la base
+    // AVANT que cet UPDATE ne s'exécute (latence réseau) est alors elle aussi
+    // `read_at IS NULL` à cet instant, et se retrouvait donc marquée lue par
+    // erreur par une action de l'utilisateur déclenchée avant même qu'elle
+    // n'existe — elle disparaissait du badge (redescendu par l'UPDATE
+    // Realtime que ce même onglet reçoit en retour, voir le handler UPDATE du
+    // canal "notifications" ci-dessus) sans jamais avoir été vue. nowIso est
+    // capturé de façon synchrone AVANT l'envoi de la requête, donc borne
+    // exactement l'ensemble aux notifications qui existaient déjà au moment
+    // du clic — cohérent avec `ids` ci-dessus (snapshot local pris au même
+    // instant), tout en couvrant en plus les non-lues non chargées localement.
+    supabase.from("notifications").update({ read_at: nowIso }).eq("recipient_id", currentUser.id).is("read_at", null).lte("created_at", nowIso).then(({ error }) => {
       if (error) {
         console.error(error.message, error.code, error.details, error.hint);
         // Échec côté serveur : les notifications sont toujours non lues,
