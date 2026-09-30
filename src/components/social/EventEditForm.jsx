@@ -201,7 +201,23 @@ export default function EventEditForm({ event, onSaved, onCancel, onError, onDir
         if (signed?.signedUrl) coverUrl = signed.signedUrl;
       }
 
-      const { data, error: updateError } = await supabase
+      // Contrôle de concurrence optimiste (même motif qu'editPost dans
+      // PostsFeed.jsx et handleEditComment dans CommunitiesTab.jsx, tous
+      // deux corrigés au même audit) : un événement peut avoir plusieurs
+      // "staff" (créateur + co-organisateurs/modérateurs, voir isEventStaff
+      // dans EventDetailView.jsx), pas juste un unique propriétaire — deux
+      // membres du staff peuvent donc ouvrir ce même formulaire d'édition en
+      // même temps (ou le même organisateur depuis deux appareils). Sans
+      // condition sur `updated_at` tel que connu localement par CE
+      // formulaire à son ouverture, l'UPDATE (identifié seulement par
+      // `id`) écraserait silencieusement la modification déjà enregistrée
+      // par l'autre avec les champs obsolètes encore affichés ici — y
+      // compris une date/heure remise par erreur à son ancienne valeur.
+      // `events.updated_at` existe depuis supabase-events-v2.sql (colonne
+      // ajoutée avec DEFAULT now(), donc jamais NULL pour un événement
+      // existant), donc pas besoin du fallback `.is(..., null)` qu'exige
+      // `posts.updated_at` (NULL tant que jamais modifié).
+      let query = supabase
         .from("events")
         .update({
           title: title.trim(),
@@ -216,15 +232,27 @@ export default function EventEditForm({ event, onSaved, onCancel, onError, onDir
           timezone: timezone || null,
           updated_at: new Date().toISOString(),
         })
-        .eq("id", event.id)
-        .select()
-        .single();
+        .eq("id", event.id);
+      query = event.updated_at ? query.eq("updated_at", event.updated_at) : query.is("updated_at", null);
+      const { data, error: updateError } = await query.select().maybeSingle();
       if (updateError) {
         // Nouvelle couverture envoyée avec succès mais mise à jour de
         // l'événement échouée : sans ce nettoyage l'ancienne couverture
         // restait en place ET la nouvelle traînait orpheline dans le bucket.
         if (uploadedPath) supabase.storage.from("event-covers").remove([uploadedPath]).catch(() => {});
         throw updateError;
+      }
+      if (!data) {
+        // Ligne non retrouvée avec cette condition sur updated_at : quelqu'un
+        // d'autre (autre membre du staff, ou soi-même sur un autre appareil)
+        // a modifié l'événement entre-temps. On prévient au lieu d'écraser
+        // en silence — même nettoyage de couverture orpheline que ci-dessus,
+        // la nouvelle image n'est reliée à aucune ligne enregistrée.
+        if (uploadedPath) supabase.storage.from("event-covers").remove([uploadedPath]).catch(() => {});
+        if (!mountedRef.current) return;
+        setError("Cet événement a été modifié entre-temps (autre organisateur ou autre appareil). Recharge avant de réessayer pour ne pas écraser la dernière version.");
+        setSubmitting(false);
+        return;
       }
       // Nettoyage de l'ANCIENNE couverture, seulement maintenant que la mise
       // à jour a réussi (l'événement pointe bien vers la nouvelle image) —

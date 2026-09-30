@@ -10,12 +10,13 @@ import userEvent from "@testing-library/user-event";
 // retour à non-dirty quand on rétablit les valeurs d'origine, et
 // anti-double-submit.
 
-const single = vi.fn();
+const maybeSingle = vi.fn();
 const chain = {
   update: vi.fn(() => chain),
   eq: vi.fn(() => chain),
+  is: vi.fn(() => chain),
   select: vi.fn(() => chain),
-  single,
+  maybeSingle,
 };
 vi.mock("../../supabaseClient", () => ({
   supabase: {
@@ -38,6 +39,10 @@ const event = {
   location: "Plateau",
   max_participants: 20,
   timezone: "America/Toronto",
+  // events.updated_at n'est jamais NULL (colonne ajoutée avec DEFAULT now(),
+  // voir supabase-events-v2.sql) — reflète le cas réel, contrairement à
+  // posts.updated_at (NULL tant que jamais modifié).
+  updated_at: "2024-01-01T00:00:00Z",
 };
 
 function setup(props = {}) {
@@ -55,6 +60,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   chain.update.mockReturnValue(chain);
   chain.eq.mockReturnValue(chain);
+  chain.is.mockReturnValue(chain);
   chain.select.mockReturnValue(chain);
 });
 
@@ -114,7 +120,7 @@ describe("EventEditForm — onDirtyChange", () => {
 describe("EventEditForm — anti-double-submit", () => {
   it("deux clics synchrones sur « Enregistrer » ne déclenchent qu'un seul update", async () => {
     let resolveSingle;
-    single.mockImplementation(() => new Promise((r) => { resolveSingle = r; }));
+    maybeSingle.mockImplementation(() => new Promise((r) => { resolveSingle = r; }));
     setup();
     const save = screen.getByRole("button", { name: "Enregistrer" });
     fireEvent.click(save);
@@ -132,7 +138,7 @@ describe("EventEditForm — anti-double-submit", () => {
   // même en base.
   it("onSubmittingChange(true) pendant la requête, puis onSubmittingChange(false) une fois résolue", async () => {
     let resolveSingle;
-    single.mockImplementation(() => new Promise((r) => { resolveSingle = r; }));
+    maybeSingle.mockImplementation(() => new Promise((r) => { resolveSingle = r; }));
     const onSubmittingChange = vi.fn();
     setup({ onSubmittingChange });
 
@@ -165,5 +171,31 @@ describe("EventEditForm — limite de longueur « Ville »/« Lieu public »", (
     const location = screen.getByLabelText("Lieu public (facultatif)");
     fireEvent.change(location, { target: { value: "x".repeat(200) } });
     expect(location.value.length).toBe(150);
+  });
+});
+
+// Bug identifié à l'audit (même motif qu'editPost/PostsFeed.jsx et
+// handleEditComment/CommunitiesTab.jsx, tous deux corrigés au même audit) :
+// un événement peut avoir plusieurs membres du "staff" (créateur +
+// co-organisateurs/modérateurs, voir isEventStaff), qui peuvent donc ouvrir
+// ce même formulaire d'édition en même temps (ou le même organisateur
+// depuis deux appareils). L'UPDATE n'était conditionné que sur `id` : le
+// second enregistrement écrasait silencieusement le premier avec ses
+// propres champs, potentiellement obsolètes.
+describe("EventEditForm — contrôle de concurrence optimiste (updated_at)", () => {
+  it("conditionne l'UPDATE sur updated_at tel que connu localement", async () => {
+    maybeSingle.mockResolvedValue({ data: { ...event }, error: null });
+    setup();
+    fireEvent.click(screen.getByRole("button", { name: "Enregistrer" }));
+    await waitFor(() => expect(chain.update).toHaveBeenCalledTimes(1));
+    expect(chain.eq).toHaveBeenCalledWith("updated_at", event.updated_at);
+  });
+
+  it("conflit détecté (0 ligne mise à jour) : message d'erreur, pas d'écrasement silencieux, onSaved non appelé", async () => {
+    maybeSingle.mockResolvedValue({ data: null, error: null });
+    const { onSaved } = setup();
+    fireEvent.click(screen.getByRole("button", { name: "Enregistrer" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(/modifié entre-temps/);
+    expect(onSaved).not.toHaveBeenCalled();
   });
 });
