@@ -1,6 +1,6 @@
 # Déploiement en attente — Baobab
 
-Mise à jour 2026-09-25.
+Mise à jour 2026-09-30.
 
 **FAIT :**
 - ✅ `supabase-COMBINED-pending-fixes.sql` exécuté en prod (vérifié : RLS/RPC OK).
@@ -78,6 +78,16 @@ Mise à jour 2026-09-25.
   temps (commit correspondant) : `AdminDashboard.jsx` reconnaît désormais
   cette erreur pour retirer la ligne avec un message exact au lieu d'un échec
   générique.
+- ⬜ `supabase-posts-update-account-state-guard-fix.sql` — **ajouté le
+  2026-09-30**, audit du flux d'édition de publication : la policy UPDATE de
+  "posts" ne vérifiait que `author_id = current_profile_id()`, sans les 3
+  gardes d'état de compte (banni/suspendu, onboarding incomplet, suppression
+  en attente) déjà posés sur l'INSERT de la même table par
+  `supabase-posts-account-state-guard-fix.sql` (2026-09-09). Un compte banni
+  APRÈS avoir publié pouvait donc toujours réécrire le texte de ses
+  publications existantes par appel API direct, contournant l'effet de la
+  modération sur ce chemin précis. À exécuter après
+  `supabase-posts-account-state-guard-fix.sql`.
 - ⬜ `supabase-waitlist-promotion-race-fix.sql` — **ajouté le 2026-09-25**,
   audit du mécanisme de promotion de la liste d'attente des événements
   (jamais audité jusqu'ici — seule la mise en liste d'attente elle-même
