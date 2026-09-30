@@ -2466,13 +2466,24 @@ export default function SocialShell({
       </main>
 
 
+      {/* Bug corrigé à l'audit accessibilité clavier de la navigation
+          principale : l'onglet actif n'était signalé que visuellement
+          (couleur dorée de l'icône/du texte) — aucun aria-current sur ces 5
+          boutons, contrairement à leur aria-label qui, lui, annonce déjà
+          correctement le badge de non-lus (ex. "Messages (3 non lus)"). Un
+          lecteur d'écran parcourant cette barre entendait donc "Découverte,
+          bouton", "Rencontres, bouton", "Messages, bouton"... sans jamais
+          savoir lequel correspond à l'écran actuellement affiché, obligeant
+          à deviner. aria-current="page" (convention pour une navigation
+          entre "pages" d'une même app) sur le bouton de l'onglet actif fait
+          annoncer "sélectionné(e)" par les lecteurs d'écran usuels. */}
       <nav className="fixed bottom-0 left-0 right-0 z-40 bb-glass border-t" style={{ borderColor: `rgba(${primaryRgb},.08)`, paddingBottom: "env(safe-area-inset-bottom)" }}>
         <div className="max-w-xl mx-auto grid grid-cols-5 px-2">
           {nav.map(([key, Icon, label, getBadge]) => {
             const badgeCount = getBadge ? getBadge() : 0;
             const active = tab === key;
             return (
-              <button key={key} onClick={() => goTab(key)} aria-label={badgeCount > 0 ? `${label} (${badgeCount} non lus)` : label} className="py-3 flex flex-col items-center gap-1.5 rounded-2xl" style={{ minHeight: 48 }}>
+              <button key={key} onClick={() => goTab(key)} aria-label={badgeCount > 0 ? `${label} (${badgeCount} non lus)` : label} aria-current={active ? "page" : undefined} className="py-3 flex flex-col items-center gap-1.5 rounded-2xl" style={{ minHeight: 48 }}>
                 <div className="h-7 w-9 flex items-center justify-center rounded-xl relative motion-safe:transition-colors motion-safe:duration-200">
                   <Icon size={19} color={active ? "var(--bb-gold-1)" : muted} fill={active && key === "discover" ? "var(--bb-gold-1)" : "none"} className="motion-safe:transition-colors motion-safe:duration-200" />
                   {badgeCount > 0 && (
