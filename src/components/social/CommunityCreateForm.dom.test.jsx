@@ -10,9 +10,23 @@ import userEvent from "@testing-library/user-event";
 //  - validation : nom + catégorie requis (bouton désactivé sinon).
 
 const rpc = vi.fn();
+// Résultat de la vérification de doublon de nom (communities.ilike("name", …))
+// — configurable par test, { data: [], error: null } par défaut (aucun
+// doublon trouvé).
+let communitiesQueryResult = { data: [], error: null };
 vi.mock("../../supabaseClient", () => ({
   supabase: {
-    from: vi.fn(() => ({ select: vi.fn(), eq: vi.fn(), then: (r) => r({ data: [], error: null }) })),
+    from: vi.fn((table) => {
+      if (table === "communities") {
+        const builder = {
+          select: vi.fn(() => builder),
+          ilike: vi.fn(() => builder),
+          limit: vi.fn(() => Promise.resolve(communitiesQueryResult)),
+        };
+        return builder;
+      }
+      return { select: vi.fn(), eq: vi.fn(), then: (r) => r({ data: [], error: null }) };
+    }),
     rpc: (...args) => rpc(...args),
     storage: { from: vi.fn(() => ({ upload: vi.fn(() => Promise.resolve({ error: null })), remove: vi.fn(), getPublicUrl: vi.fn(() => ({ data: { publicUrl: "" } })) })) },
   },
@@ -41,7 +55,10 @@ function setup(props = {}) {
 
 const dirtyValues = (fn) => fn.mock.calls.map((c) => c[0]);
 
-beforeEach(() => vi.clearAllMocks());
+beforeEach(() => {
+  vi.clearAllMocks();
+  communitiesQueryResult = { data: [], error: null };
+});
 
 describe("CommunityCreateForm — onDirtyChange", () => {
   it("signale non-dirty au montage", () => {
@@ -157,5 +174,52 @@ describe("CommunityCreateForm — limite de longueur de « Ville »", () => {
     const city = screen.getByLabelText("Ville");
     fireEvent.change(city, { target: { value: "x".repeat(120) } });
     expect(city.value.length).toBe(80);
+  });
+});
+
+describe("CommunityCreateForm — avertissement non bloquant de nom déjà pris", () => {
+  // Bug identifié à l'audit : ni contrainte unique en base (communities.name,
+  // voir supabase-communities.sql) ni vérification côté client n'empêchaient
+  // deux communautés d'exister avec EXACTEMENT le même nom — un vrai risque de
+  // confusion (deux "Montréal Immigration" créées par erreur) ou d'usurpation
+  // délibérée d'une communauté populaire. On avertit sans jamais bloquer :
+  // deux communautés légitimes (deux chapitres locaux d'une même diaspora)
+  // peuvent vouloir un nom identique ou très proche.
+  it("affiche un avertissement au blur si une communauté du même nom existe déjà (insensible casse/espaces)", async () => {
+    communitiesQueryResult = { data: [{ id: "existing" }], error: null };
+    const user = userEvent.setup();
+    setup();
+    const nameInput = screen.getByLabelText("Nom *");
+    await user.type(nameInput, "  montréal immigration  ");
+    nameInput.blur();
+    await waitFor(() => expect(screen.getByText(/existe déjà/)).toBeInTheDocument());
+    // Non bloquant : le bouton de création reste utilisable dès qu'une
+    // catégorie est choisie, malgré l'avertissement affiché.
+    await user.click(screen.getByRole("button", { name: "🎓 Études" }));
+    expect(screen.getByRole("button", { name: "Créer la communauté" })).toBeEnabled();
+  });
+
+  it("n'affiche rien si aucune communauté ne porte déjà ce nom", async () => {
+    communitiesQueryResult = { data: [], error: null };
+    const user = userEvent.setup();
+    setup();
+    const nameInput = screen.getByLabelText("Nom *");
+    await user.type(nameInput, "Un nom bien à moi");
+    nameInput.blur();
+    await waitFor(() => expect(rpc).not.toHaveBeenCalled()); // laisse le temps à la vérification de partir
+    expect(screen.queryByText(/existe déjà/)).toBeNull();
+  });
+
+  it("l'avertissement disparaît dès que le nom est modifié après coup (redevenu obsolète)", async () => {
+    communitiesQueryResult = { data: [{ id: "existing" }], error: null };
+    const user = userEvent.setup();
+    setup();
+    const nameInput = screen.getByLabelText("Nom *");
+    await user.type(nameInput, "Montréal Immigration");
+    nameInput.blur();
+    await waitFor(() => expect(screen.getByText(/existe déjà/)).toBeInTheDocument());
+
+    await user.type(nameInput, " bis");
+    expect(screen.queryByText(/existe déjà/)).toBeNull();
   });
 });

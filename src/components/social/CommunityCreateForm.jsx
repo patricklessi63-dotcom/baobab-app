@@ -8,6 +8,7 @@ import { validateMediaFile } from "../../lib/mediaValidation";
 import { compressImageIfNeeded } from "../../lib/imageCompression";
 import { extFromMime } from "../../lib/mediaConstants";
 import { friendlyDbError } from "../../lib/friendlyDbError";
+import { escapeLikePattern } from "../../lib/searchQuery";
 import { primary, coral, coralText, muted, bg, goldText, primaryRgb } from "./theme";
 
 const NAME_MAX = 80;
@@ -37,6 +38,24 @@ export default function CommunityCreateForm({ currentUser, onCreated, onCancel, 
   const [aiLoading, setAiLoading] = useState(false);
   const [aiSuggestion, setAiSuggestion] = useState(null);
   const [aiError, setAiError] = useState("");
+  // Avertissement non bloquant (item audit "doublons de nom") : rien n'empêche
+  // aujourd'hui deux communautés d'exister avec EXACTEMENT le même nom (ni
+  // contrainte unique en base — voir communities.name dans
+  // supabase-communities.sql — ni vérification côté client), ce qui peut
+  // créer une vraie confusion pour les utilisateurs (ex. deux "Montréal
+  // Immigration" créées indépendamment par erreur) ou pire, permettre à
+  // quelqu'un de nommer délibérément sa communauté à l'identique d'une
+  // communauté populaire existante pour tromper les gens. On choisit
+  // volontairement de ne PAS bloquer la création : deux communautés locales
+  // légitimes (deux chapitres d'une même diaspora dans deux villes, par ex.)
+  // peuvent avoir un nom très proche voire identique sans que ce soit une
+  // erreur. On se contente donc de prévenir, en laissant l'utilisateur juger.
+  const [duplicateNameWarning, setDuplicateNameWarning] = useState("");
+  // Garde anti-course (même pattern que searchSeqRef dans
+  // CommunityInviteModal.jsx) : sans elle, saisir vite puis effacer avant que
+  // la vérification réseau revienne pouvait afficher un avertissement pour un
+  // nom qui n'est plus celui du champ.
+  const duplicateCheckSeqRef = useRef(0);
   // Le formulaire se démonte dès que l'utilisateur clique "← Annuler" en
   // haut d'écran (setView() dans CommunitiesTab, hors du bouton "Annuler"
   // du pied de formulaire) : sans cette garde, une génération IA ou une
@@ -119,6 +138,35 @@ export default function CommunityCreateForm({ currentUser, onCreated, onCancel, 
   // "← Annuler"/Échap inertes tant que la création est en vol, exactement
   // comme le bouton du pied de formulaire.
   useEffect(() => { onSubmittingChange(submitting); }, [submitting]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Vérifie (au blur du champ "Nom", pas à chaque frappe — pas besoin d'une
+  // requête réseau par lettre tapée) si une communauté porte déjà exactement
+  // ce nom, insensible à la casse et aux espaces superflus (ilike sans joker
+  // = égalité insensible à la casse ; .trim() gère les espaces). N'empêche
+  // jamais de continuer : juste un avertissement affiché sous le champ.
+  const checkDuplicateName = async (value) => {
+    const trimmed = value.trim();
+    const seq = ++duplicateCheckSeqRef.current;
+    if (!trimmed) { setDuplicateNameWarning(""); return; }
+    try {
+      const { data, error } = await supabase
+        .from("communities")
+        .select("id")
+        .ilike("name", escapeLikePattern(trimmed))
+        .limit(1);
+      if (!mountedRef.current || seq !== duplicateCheckSeqRef.current) return;
+      if (error) throw error;
+      setDuplicateNameWarning(
+        data && data.length > 0
+          ? `Une communauté nommée « ${trimmed} » existe déjà. Tu peux continuer, mais vérifie que ce n'est pas un doublon involontaire (ou le nom d'une communauté déjà bien connue).`
+          : ""
+      );
+    } catch (e) {
+      // Non bloquant par nature : une erreur réseau ici ne doit pas empêcher
+      // de créer la communauté, on abandonne juste silencieusement l'alerte.
+      console.error(e);
+    }
+  };
 
   const canSubmit = name.trim().length > 0 && category && !submitting;
 
@@ -222,11 +270,21 @@ export default function CommunityCreateForm({ currentUser, onCreated, onCancel, 
         <span className="text-xs font-bold" style={{ color: muted }}>Nom *</span>
         <input
           value={name}
-          onChange={(e) => setName(e.target.value.slice(0, NAME_MAX))}
+          onChange={(e) => {
+            setName(e.target.value.slice(0, NAME_MAX));
+            // Le nom a changé : l'avertissement affiché (s'il y en a un) ne
+            // correspond plus forcément à la saisie actuelle. La vérification
+            // ne se relance qu'au blur (voir checkDuplicateName ci-dessus).
+            if (duplicateNameWarning) setDuplicateNameWarning("");
+          }}
+          onBlur={(e) => checkDuplicateName(e.target.value)}
           placeholder="Montréal Running Club"
           className="mt-1.5 w-full rounded-xl px-3.5 py-2.5 text-sm outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--bb-leaf)]"
           style={{ background: bg }}
         />
+        {duplicateNameWarning && (
+          <p className="text-[11px] mt-1" style={{ color: goldText }}>{duplicateNameWarning}</p>
+        )}
       </label>
 
       <label className="block">
