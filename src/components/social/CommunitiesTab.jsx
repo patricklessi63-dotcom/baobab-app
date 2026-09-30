@@ -770,7 +770,26 @@ export default function CommunitiesTab({ currentUser, onError, onBack = () => {}
       goList();
     } catch (e) {
       console.error(e);
-      onError("Impossible de supprimer cette communauté.");
+      // Bug identifié à l'audit (suppression de communauté, jamais auditée
+      // jusqu'ici) : events.community_id est "on delete set null"
+      // (supabase-communities.sql), pas "cascade" — un événement lié à cette
+      // communauté ne devait donc PAS être supprimé avec elle. Mais tout
+      // événement créé "pour une communauté" a forcément visibility =
+      // 'community' (EventCreateForm.jsx), et la contrainte CHECK
+      // events_community_visibility_consistent (supabase-events-v2.sql)
+      // exige justement community_id non nul quand visibility = 'community'.
+      // Résultat : dès que la communauté a au moins un événement (même
+      // annulé, canceled_at ne le supprime jamais), le "SET NULL" déclenché
+      // par la suppression de la communauté viole cette contrainte et la
+      // suppression ENTIÈRE échoue côté base (rien n'est supprimé — ni la
+      // communauté, ni ses publications), alors que ce catch affichait un
+      // message générique qui laissait croire à un bug aléatoire au lieu
+      // d'expliquer la vraie cause et la marche à suivre.
+      if (e?.code === "23514" && /events_community_visibility_consistent/.test(e?.message || "")) {
+        onError("Impossible de supprimer cette communauté : au moins un événement (même annulé) lui est encore rattaché. Supprime d'abord ces événements avant de supprimer la communauté.");
+      } else {
+        onError("Impossible de supprimer cette communauté.");
+      }
     }
   };
 

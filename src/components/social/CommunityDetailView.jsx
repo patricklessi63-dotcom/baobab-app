@@ -304,7 +304,14 @@ export default function CommunityDetailView({
         title={pendingAction?.type === "delete" ? `Supprimer définitivement "${community.name}" ?` : "Quitter la communauté ?"}
         message={
           pendingAction?.type === "delete"
-            ? "Publications, membres et événements de cette communauté seront aussi supprimés. Cette action est irréversible."
+            ? // Bug identifié à l'audit (ce texte affirmait que les événements de
+              // la communauté seraient supprimés avec elle — faux : events.community_id
+              // est "on delete set null", jamais "cascade", voir handleDeleteCommunity
+              // dans CommunitiesTab.jsx pour le détail. En pratique, tant qu'un
+              // événement reste rattaché, la suppression échoue entièrement côté
+              // base plutôt que de supprimer l'événement : on prévient donc ici au
+              // lieu de promettre une suppression qui ne se produit jamais.
+              "Les publications et les adhésions de cette communauté seront supprimées. Cette action est irréversible. S'il reste des événements liés à cette communauté, supprime-les d'abord : la suppression échouera tant qu'il en reste."
             : "Veux-tu vraiment quitter cette communauté ?"
         }
         confirmLabel={pendingAction?.type === "delete" ? "Supprimer" : "Quitter"}
