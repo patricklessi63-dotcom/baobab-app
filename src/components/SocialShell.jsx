@@ -469,6 +469,12 @@ export default function SocialShell({
   }, [currentUser?.id]);
 
   const favoriteInFlightRef = useRef(new Set()); // profile.id en cours de bascule — évite un double clic = double insert/delete
+  // Garde anti-double-clic pour "Tout marquer comme lu" (voir
+  // markCommunityNotificationsRead plus bas) — un simple booléen suffit ici,
+  // contrairement à favoriteInFlightRef/followInFlightRef (des Set par id),
+  // car cette action est globale (un seul appel possible à la fois, pas par
+  // notification individuelle).
+  const markAllReadInFlightRef = useRef(false);
 
   const toggleFavorite = async (profile) => {
     if (!currentUser || favoriteInFlightRef.current.has(profile.id)) return;
@@ -1281,7 +1287,23 @@ export default function SocialShell({
   };
 
   const markCommunityNotificationsRead = () => {
-    if (unreadCommunityCount === 0 || !currentUser) return;
+    // Garde anti-double-clic (bug corrigé à l'audit fiabilité de "Tout
+    // marquer comme lu") — même famille que favoriteInFlightRef/
+    // followInFlightRef/notifLoadingMoreRef/storyPublishingRef ci-dessus,
+    // absente jusqu'ici sur cette action. Sans elle, un double-clic/double-tap
+    // rapide (les deux événements pouvant atteindre le bouton avant que le
+    // premier setUnreadCommunityCount(0) n'ait démonté le bouton via le
+    // rendu React) déclenchait deux requêtes UPDATE identiques en vol. Les
+    // deux étant idempotentes côté base, la vraie casse survenait si la
+    // PREMIÈRE échouait après que la SECONDE a réussi : le handler d'échec de
+    // la première restaurait alors previousCount/read_at=null localement en
+    // pensant l'opération ratée, alors que les notifications étaient déjà
+    // bien marquées lues en base par la seconde — badge et liste
+    // redevenaient "non lus" à tort jusqu'au prochain rechargement/
+    // reconnexion. markAllReadInFlightRef bloque tout second appel tant que
+    // le premier n'a pas abouti (succès ou échec).
+    if (markAllReadInFlightRef.current || unreadCommunityCount === 0 || !currentUser) return;
+    markAllReadInFlightRef.current = true;
     const ids = communityNotifications.filter((n) => !n.read_at).map((n) => n.id);
     const previousCount = unreadCommunityCount;
     const nowIso = new Date().toISOString();
@@ -1324,6 +1346,7 @@ export default function SocialShell({
     // du clic — cohérent avec `ids` ci-dessus (snapshot local pris au même
     // instant), tout en couvrant en plus les non-lues non chargées localement.
     supabase.from("notifications").update({ read_at: nowIso }).eq("recipient_id", currentUser.id).is("read_at", null).lte("created_at", nowIso).then(({ error }) => {
+      markAllReadInFlightRef.current = false;
       if (error) {
         console.error(error.message, error.code, error.details, error.hint);
         // Échec côté serveur : les notifications sont toujours non lues,

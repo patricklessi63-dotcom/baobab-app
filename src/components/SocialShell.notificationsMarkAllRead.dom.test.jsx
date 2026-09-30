@@ -1,6 +1,6 @@
 import React from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 // Audit des compteurs de la cloche de notifications (SocialShell.jsx) :
@@ -165,6 +165,33 @@ describe("SocialShell — exactitude des compteurs de notifications", () => {
     // et maintenant, avec une marge large pour les environnements lents.
     expect(cutoff).toBeGreaterThanOrEqual(before);
     expect(cutoff).toBeLessThanOrEqual(Date.now() + 1000);
+  });
+
+  it("un double-clic rapide sur « Tout marquer comme lu » ne déclenche qu'une seule requête UPDATE", async () => {
+    // Bug corrigé à l'audit fiabilité : aucune garde anti-double-clic
+    // n'existait ici (contrairement à favoriteInFlightRef/followInFlightRef/
+    // notifLoadingMoreRef ailleurs dans ce même fichier). Deux clics assez
+    // rapprochés pour atteindre tous deux le bouton avant que React ne l'ait
+    // démonté (unreadCommunityCount repassé à 0) déclenchaient deux requêtes
+    // UPDATE concurrentes — inoffensif si les deux réussissent, mais si la
+    // PREMIÈRE échoue après que la SECONDE a réussi, son handler d'échec
+    // restaure à tort le badge/read_at local à "non lu" alors que la base a
+    // bien les notifications marquées lues (désynchronisation UI/base). Deux
+    // fireEvent.click synchrones (sans attendre entre les deux, contrairement
+    // à userEvent.click qui est asynchrone) simulent ce double-clic rapide.
+    render(<SocialShell currentUser={{ id: "u1", name: "Test" }} setView={vi.fn()} handleSignOut={vi.fn()} />);
+
+    const bell = await screen.findByRole("button", { name: "Notifications" });
+    fireEvent.click(bell);
+    const [markAllReadButton] = await screen.findAllByRole("button", { name: "Tout marquer comme lu" });
+
+    fireEvent.click(markAllReadButton);
+    fireEvent.click(markAllReadButton);
+
+    await waitFor(() => expect(notifBuilder.updateCalls.length).toBeGreaterThan(0));
+    // Laisse le temps à un éventuel second appel erroné de s'enregistrer.
+    await new Promise((r) => setTimeout(r, 20));
+    expect(notifBuilder.updateCalls.length).toBe(1);
   });
 
   it("un UPDATE Realtime (notification marquée lue depuis un autre onglet) fait redescendre le badge sans recharger la page", async () => {
