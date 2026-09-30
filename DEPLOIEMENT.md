@@ -110,6 +110,20 @@ Mise à jour 2026-09-30.
   garde anti-double-soumission ni contrôle de concurrence optimiste sur
   `updated_at`, exactement comme `editPost`/`PostCard.jsx` avant leur
   correctif du 2026-09-30 (commit `0b29505`).
+- ⬜ `supabase-premium-media-kind-mismatch-fix.sql` — **ajouté le
+  2026-09-30**, audit du paywall messagerie (`FREE_MESSAGE_LIMIT_REACHED`/
+  `PREMIUM_MEDIA_REQUIRED`) : `enforce_premium_message_limits()`
+  (`supabase-premium-messaging.sql`) teste `new.kind in ('photo', 'video')`
+  pour bloquer l'envoi de médias aux comptes non-Premium, mais le client
+  envoie toujours `kind: "image"` pour une photo — jamais `"photo"`, valeur
+  qui n'existe même pas dans la contrainte `messages_kind_check`. Résultat :
+  la restriction Premium sur les PHOTOS est du code mort, un compte gratuit
+  peut en envoyer sans limite (la vidéo, elle, est bien bloquée). Sans
+  impact aujourd'hui car `monetization_enabled = false` en prod, mais
+  **à exécuter avant toute activation future de la monétisation** — sinon le
+  contournement sera immédiat et invisible. Remplace uniquement `'photo'`
+  par `'image'` dans la fonction (redéfinition complète, idempotente). À
+  exécuter après `supabase-premium-messaging.sql`.
 - ⬜ `supabase-waitlist-promotion-race-fix.sql` — **ajouté le 2026-09-25**,
   audit du mécanisme de promotion de la liste d'attente des événements
   (jamais audité jusqu'ici — seule la mise en liste d'attente elle-même
