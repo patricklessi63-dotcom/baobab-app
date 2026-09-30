@@ -1190,6 +1190,28 @@ export default function App() {
     }
   }
 
+  // Régression corrigée (audit post-aea682d) : aea682d n'avait positionné
+  // manualSignOutRef qu'autour du signOut() de CE handleSignOut (bouton
+  // "Déconnexion" principal), en supposant que c'était le seul endroit où un
+  // signOut() volontaire pouvait survenir pendant qu'une session active
+  // existe. Or UpdatePasswordScreen.handleBackToLogin ("Retour à la
+  // connexion", affiché quand le lien de récupération est expiré/déjà
+  // utilisé) appelle aussi supabase.auth.signOut() sur la session de
+  // récupération active (sessionRef.current a un user.id dès l'évènement
+  // PASSWORD_RECOVERY) — sans ce wrapper, ce clic déclenchait à tort le
+  // bandeau "Ta session a expiré" juste après une déconnexion volontaire.
+  // Centralise ici le même garde manualSignOutRef + filet de sécurité
+  // (finally) que handleSignOut, pour tout signOut() ajouté ailleurs à
+  // l'avenir sur une session potentiellement active.
+  async function signOutWithoutExpiredBanner(options) {
+    manualSignOutRef.current = true;
+    try {
+      await supabase.auth.signOut(options);
+    } finally {
+      manualSignOutRef.current = false;
+    }
+  }
+
   async function handleSignOut() {
     // Bug corrigé : sur un appareil partagé (ordinateur familial/public), le
     // navigateur reste abonné aux notifications push de CE compte après la
@@ -3080,7 +3102,7 @@ export default function App() {
   }
 
   if (view === "update-password") {
-    return lazyScreen(<UpdatePasswordScreen onDone={() => setView("checking-profile")} />);
+    return lazyScreen(<UpdatePasswordScreen onDone={() => setView("checking-profile")} onSignOut={signOutWithoutExpiredBanner} />);
   }
 
   if (view === "banned" || view === "suspended") {

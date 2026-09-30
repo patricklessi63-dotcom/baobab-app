@@ -11,7 +11,7 @@ import { traduireAuthErreur } from "../lib/authErrors";
 // auparavant la palette claire de constants.js, ce qui créait une rupture
 // visuelle en plein milieu du parcours d'authentification. La logique
 // supabase.auth.updateUser() est inchangée.
-export default function UpdatePasswordScreen({ onDone }) {
+export default function UpdatePasswordScreen({ onDone, onSignOut }) {
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [loading, setLoading] = useState(false);
@@ -82,7 +82,20 @@ export default function UpdatePasswordScreen({ onDone }) {
   async function handleBackToLogin() {
     setSigningOut(true);
     try {
-      await supabase.auth.signOut();
+      // Bug corrigé (audit régression sessionExpired, voir aea682d) : App.jsx
+      // affiche désormais un bandeau "Ta session a expiré" pour tout
+      // SIGNED_OUT reçu alors qu'une session active existait, sauf si
+      // manualSignOutRef (interne à App.jsx) a été positionné juste avant
+      // l'appel signOut() — voir handleSignOut/signOutWithoutExpiredBanner
+      // dans App.jsx. Ce bouton déconnecte la session de récupération
+      // active (PASSWORD_RECOVERY en a établi une) : sans passer par le
+      // wrapper onSignOut fourni par App.jsx, ce SIGNED_OUT volontaire
+      // affichait à tort ce même bandeau juste après avoir cliqué "Retour à
+      // la connexion" (lien de récupération expiré/déjà utilisé) — message
+      // trompeur qui parle d'un message/formulaire perdu, sans rapport avec
+      // ce cas. onSignOut est optionnel (repli sur l'appel direct) pour ne
+      // pas casser un rendu de ce composant sans ce prop.
+      await (onSignOut ? onSignOut() : supabase.auth.signOut());
     } catch (_) {
       // Rien à faire : App.jsx retombera de toute façon sur l'écran de
       // connexion si la session est déjà invalide côté serveur.

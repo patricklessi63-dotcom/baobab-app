@@ -68,3 +68,42 @@ describe("UpdatePasswordScreen — révocation des autres sessions après change
     expect(await screen.findByText(/Mot de passe mis à jour/)).toBeInTheDocument();
   });
 });
+
+// Régression corrigée (audit post-aea682d, "Ta session a expiré") : le bouton
+// "Retour à la connexion" (affiché quand updateUser() échoue, ex. lien de
+// récupération expiré/déjà utilisé) déconnecte la session de récupération en
+// cours via supabase.auth.signOut(). App.jsx affiche un bandeau "Ta session a
+// expiré" pour tout SIGNED_OUT reçu alors qu'une session active existait, SAUF
+// si App.jsx a positionné son manualSignOutRef juste avant l'appel — ce que le
+// prop onSignOut (fourni par App.jsx via signOutWithoutExpiredBanner) permet.
+// Sans passer par ce prop, ce clic volontaire affichait à tort ce bandeau.
+describe("UpdatePasswordScreen — bouton \"Retour à la connexion\" (lien expiré/déjà utilisé)", () => {
+  it("appelle le prop onSignOut fourni par App.jsx plutôt que supabase.auth.signOut() directement", async () => {
+    updateUser.mockResolvedValue({ error: { message: "Auth session missing!" } });
+    const onSignOut = vi.fn().mockResolvedValue(undefined);
+    const user = userEvent.setup();
+    render(<UpdatePasswordScreen onSignOut={onSignOut} />);
+    await fillAndSubmit(user);
+
+    await screen.findByRole("alert");
+    await user.click(screen.getByRole("button", { name: "Retour à la connexion" }));
+
+    await waitFor(() => expect(onSignOut).toHaveBeenCalledTimes(1));
+    // Le wrapper d'App.jsx (signOutWithoutExpiredBanner) gère lui-même l'appel
+    // à supabase.auth.signOut() en interne : ce composant ne doit pas
+    // l'appeler une deuxième fois en plus du prop.
+    expect(signOut).not.toHaveBeenCalled();
+  });
+
+  it("se rabat sur supabase.auth.signOut() si aucun prop onSignOut n'est fourni", async () => {
+    updateUser.mockResolvedValue({ error: { message: "Auth session missing!" } });
+    const user = userEvent.setup();
+    render(<UpdatePasswordScreen />);
+    await fillAndSubmit(user);
+
+    await screen.findByRole("alert");
+    await user.click(screen.getByRole("button", { name: "Retour à la connexion" }));
+
+    await waitFor(() => expect(signOut).toHaveBeenCalledTimes(1));
+  });
+});
