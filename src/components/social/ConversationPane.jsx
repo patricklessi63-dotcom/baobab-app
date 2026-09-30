@@ -505,6 +505,19 @@ export default function ConversationPane({
           const isSticker = m.kind === "sticker";
           const isCompactMedia = m.kind === "image" || m.kind === "video";
           const repliedMessage = m.reply_to_id ? messages.find((x) => x.id === m.reply_to_id) : null;
+          // Bug corrigé à l'audit réponses : le message cité était cherché dans
+          // `messages` (jamais filtré) et seul `deleted_at` (suppression pour
+          // tout le monde) faisait basculer l'aperçu sur "Message supprimé".
+          // Or `deleteMessageForMe` ne touche jamais deleted_at, seulement
+          // `deleted_for` (masquage propre à MOI, voir App.jsx) — le message
+          // original disparaît bien de la liste principale (filtre
+          // visibleMessages) mais son contenu d'origine (texte/média)
+          // continuait de fuiter dans l'aperçu "↳ ..." de toute réponse qui le
+          // cite, y compris pour l'utilisateur qui vient de le supprimer pour
+          // lui-même — contournant sa propre suppression sur son propre écran.
+          const repliedMessageDeleted =
+            Boolean(repliedMessage) &&
+            (Boolean(repliedMessage.deleted_at) || (repliedMessage.deleted_for || []).includes(currentUser.id));
           const reactions = reactionsByMessageId[m.id] || [];
           const groupedReactions = Object.values(
             reactions.reduce((acc, r) => {
@@ -527,10 +540,11 @@ export default function ConversationPane({
                 {repliedMessage && !isDeleted && (
                   <div className="text-xs px-3 py-1.5 rounded-xl mb-1 truncate" style={{ background: `rgba(${primaryRgb},.05)`, color: muted, maxWidth: "100%" }}>
                     {/* Le message cité peut avoir été supprimé (pour tout le
-                        monde) après coup : ne jamais réafficher son contenu
-                        d'origine, sinon la suppression est contournée via
-                        l'aperçu de réponse. */}
-                    ↳ {repliedMessage.deleted_at ? "Message supprimé" : repliedMessage.kind === "text" ? repliedMessage.text : "Média"}
+                        monde, deleted_at) OU pour moi seul (deleted_for) après
+                        coup : ne jamais réafficher son contenu d'origine dans
+                        les deux cas, sinon l'une ou l'autre suppression est
+                        contournée via l'aperçu de réponse. */}
+                    ↳ {repliedMessageDeleted ? "Message supprimé" : repliedMessage.kind === "text" ? repliedMessage.text : "Média"}
                   </div>
                 )}
                 <div
