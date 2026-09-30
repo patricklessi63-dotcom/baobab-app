@@ -88,6 +88,28 @@ Mise à jour 2026-09-30.
   publications existantes par appel API direct, contournant l'effet de la
   modération sur ce chemin précis. À exécuter après
   `supabase-posts-account-state-guard-fix.sql`.
+- ⬜ `supabase-community-comments-update-account-state-guard-fix.sql` —
+  **ajouté le 2026-09-30**, même audit que le correctif "posts" ci-dessus
+  (vérification si l'édition de commentaire, fil général ET communautés,
+  souffrait des mêmes bugs que l'édition de publication) : le fil général
+  (`post_comments`) n'a tout simplement pas de fonctionnalité d'édition de
+  commentaire (aucune policy UPDATE, aucun bouton "Modifier" — juste une
+  limite de fonctionnalité, pas un bug). Les communautés (`community_
+  comments`), en revanche, ont bien l'édition (ajoutée par
+  `supabase-communities-3.sql`), et sa policy UPDATE "L'auteur modifie son
+  propre commentaire" ne vérifiait que `author_id = current_profile_id()`,
+  sans les 3 gardes d'état de compte (banni/suspendu, onboarding incomplet,
+  suppression en attente) déjà posés sur l'INSERT de la même table par
+  `supabase-content-account-state-block-guards-remaining-fix.sql`. Un compte
+  banni APRÈS avoir commenté pouvait donc toujours réécrire le texte de ses
+  commentaires de communauté existants par appel API direct. À exécuter après
+  `supabase-communities-3.sql` et
+  `supabase-content-account-state-block-guards-remaining-fix.sql`. Deux vrais
+  bugs client trouvés et corrigés dans le même audit (voir commit
+  correspondant) : `handleEditComment`/`CommunityPostCard.jsx` n'avaient ni
+  garde anti-double-soumission ni contrôle de concurrence optimiste sur
+  `updated_at`, exactement comme `editPost`/`PostCard.jsx` avant leur
+  correctif du 2026-09-30 (commit `0b29505`).
 - ⬜ `supabase-waitlist-promotion-race-fix.sql` — **ajouté le 2026-09-25**,
   audit du mécanisme de promotion de la liste d'attente des événements
   (jamais audité jusqu'ici — seule la mise en liste d'attente elle-même
