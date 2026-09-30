@@ -386,3 +386,32 @@ par tout compte connecté, même bloqué (`using (true)`) — cohérent avec le 
 partout ailleurs (communautés, profils) : le filtrage des blocages dans les fils
 publics est géré côté client React, pas garanti par RLS. À généraliser dans un sens
 ou dans l'autre un jour si tu veux ; ce n'était pas un oubli.
+
+---
+
+## 5. Écart connu — quota de messages gratuits jamais affiché côté client (non bloquant tant que `monetization_enabled = false`)
+
+`get_message_quota(p_match_key)` (`supabase-premium-messaging.sql`) renvoie déjà
+`{ monetization_enabled, is_premium, used, limit }` pour une conversation donnée,
+mais n'est appelée nulle part dans `src/` (vérifié par recherche exhaustive) :
+aucun affichage "X/20 messages restants", aucune désactivation préventive du
+bouton d'envoi ou du bouton photo/vidéo. Le pattern existant ailleurs dans l'app
+pour les autres quotas (invitations d'événements, création de posts, débit des
+messages) est le même : purement réactif — le serveur lève une erreur déjà
+traduite en français seulement une fois la limite atteinte
+(`check_event_invite_rate_limit`, `check_post_creation_rate_limit`,
+`check_message_rate_limit`) — il n'existe donc aucun composant "compteur de
+quota" existant dont s'inspirer directement le jour où quelqu'un construira
+cet affichage.
+
+Ce n'est pas un problème de fiabilité : `enforce_premium_message_limits()` lève
+`FREE_MESSAGE_LIMIT_REACHED` / `PREMIUM_MEDIA_REQUIRED` à l'insertion, et
+`App.jsx` (`insertMessageRow`, voir le commentaire "audit paywall messagerie")
+traite déjà ces deux codes comme non transitoires — le message passe en
+`_status: "failed"` avec `_premiumBlocked: true`, sans réessai automatique ni
+ré-upload du fichier, et sans bloquer le reste de la messagerie. C'est un
+problème de confort/UX : le jour où `monetization_enabled` passera à `true`,
+l'utilisateur gratuit découvrira sa limite en la heurtant (message d'erreur
+après coup) plutôt que d'être prévenu à l'avance. Construire cet affichage
+préventif est une vraie mission UI/UX à part entière (composant, design,
+décision produit sur où l'afficher) — non traitée ici.
