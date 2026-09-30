@@ -140,7 +140,7 @@ export default function CommunityDetailView({
             ) : (
               <div className="w-full">
                 {isPrivate && community.rules && (
-                  <div className="rounded-xl p-3 mb-3 text-xs whitespace-pre-wrap" style={{ background: bg, color: body }}>
+                  <div className="rounded-xl p-3 mb-3 text-xs whitespace-pre-wrap break-words" style={{ background: bg, color: body }}>
                     <div className="text-[10px] font-black uppercase tracking-wider mb-1" style={{ color: muted }}>Règles de la communauté</div>
                     {community.rules}
                   </div>
@@ -184,7 +184,7 @@ export default function CommunityDetailView({
             {community.rules && (
               <div className="mt-4 pt-4" style={{ borderTop: `1px solid rgba(${primaryRgb},.08)` }}>
                 <div className="text-[10px] font-black uppercase tracking-wider mb-1.5" style={{ color: muted }}>Règles de la communauté</div>
-                <p className="whitespace-pre-wrap">{community.rules}</p>
+                <p className="whitespace-pre-wrap break-words">{community.rules}</p>
               </div>
             )}
             {creatorName && <p className="mt-3 text-xs" style={{ color: muted }}>Créée par {creatorName}</p>}
