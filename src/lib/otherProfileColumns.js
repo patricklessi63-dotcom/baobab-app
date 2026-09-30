@@ -24,6 +24,16 @@
 // suppression exclus de Découverte) : il n'existe pas ici de filtrage
 // équivalent côté serveur (contrairement au RPC get_my_likers()), donc ces
 // colonnes doivent transiter jusqu'au client pour que ce filtre fonctionne.
+//
+// personality_evening/personality_travel/relationship_needs ajoutés (bug
+// corrigé à l'audit "profil public") : saisis à l'étape 9 de l'onboarding et
+// dans "Modifier mon profil" (section Personnalité), ces trois champs
+// n'étaient chargés nulle part pour un profil tiers — PublicProfileModal.jsx
+// ne pouvait donc jamais les afficher, quoi que la personne ait choisi de
+// renseigner (donnée saisie mais qui ne servait jamais à rien, ni pour elle-
+// même ni pour les autres, contrairement à tous les autres champs de
+// l'onboarding qui finissent soit affichés soit utilisés pour le score de
+// compatibilité).
 export const OTHER_PROFILE_COLUMNS = [
   "id", "name", "age", "city", "country", "languages", "arrived_since",
   "looking_for", "bio", "created_at",
@@ -34,6 +44,7 @@ export const OTHER_PROFILE_COLUMNS = [
   "show_canada_journey", "show_life_project", "show_interests",
   "immigration_status", "arrival_city", "languages_detail", "relationship_values",
   "wants_children", "family_importance", "career_goal", "geographic_openness",
+  "personality_evening", "personality_travel", "relationship_needs",
   "dating_enabled", "banned_at", "suspended_until", "onboarding_completed_at",
   "deletion_requested_at",
 ].join(",");

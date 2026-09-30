@@ -70,6 +70,16 @@ export default function PublicProfileModal({
   const showInterests = profile.show_interests !== false;
 
   const lifeProjectParts = [profile.wants_children, profile.family_importance, profile.career_goal, profile.geographic_openness].filter(Boolean);
+  // Bug corrigé à l'audit "profil public" : personality_evening/
+  // personality_travel/relationship_needs sont saisis à l'étape 9 de
+  // l'onboarding et dans "Modifier mon profil" (section Personnalité), mais
+  // n'étaient affichés NULLE PART — ni ici, ni sur son propre profil
+  // (ProfileTab.jsx), ni utilisés par le score de compatibilité
+  // (matchingService.js) — contrairement à tous les autres champs de
+  // l'onboarding. Une personne pouvait donc répondre à ces questions sans
+  // que cela ne serve jamais à rien. Ajoutés à OTHER_PROFILE_COLUMNS pour
+  // qu'ils transitent bien jusqu'ici pour un profil tiers.
+  const personalityParts = [profile.personality_evening, profile.personality_travel, profile.relationship_needs].filter(Boolean);
 
   return (
     <div
@@ -159,6 +169,9 @@ export default function PublicProfileModal({
             {showInterests && profile.interests && <Row icon="✨" label="Centres d'intérêt">{profile.interests}</Row>}
             {showLifeProject && lifeProjectParts.length > 0 && (
               <Row icon="🌱" label="Projet de vie">{lifeProjectParts.join(" · ")}</Row>
+            )}
+            {personalityParts.length > 0 && (
+              <Row icon="🧭" label="Personnalité">{personalityParts.join(" · ")}</Row>
             )}
             {profile.bio && <Row icon="📝" label="À propos">{profile.bio}</Row>}
           </div>
