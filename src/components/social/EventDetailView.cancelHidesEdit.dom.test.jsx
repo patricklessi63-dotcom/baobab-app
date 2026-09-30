@@ -1,6 +1,7 @@
 import React from "react";
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 
 // Bug identifié à l'audit du flux d'annulation d'un événement : le bouton
 // crayon "Modifier l'événement" (EventDetailView.jsx) restait affiché même
@@ -157,5 +158,30 @@ describe("EventDetailView — bouton Modifier après annulation", () => {
       </ImageLightboxProvider>
     );
     expect(screen.getByRole("button", { name: /Supprimer l'événement \(admin\)/ })).toBeInTheDocument();
+  });
+});
+
+// Bug identifié lors de l'audit de calendarExport.js (génération .ics) :
+// "Télécharger (.ics)" et "Ajouter à Google Calendar", dans le menu Partager,
+// restaient proposés même une fois l'événement annulé (canceled_at rempli),
+// contrairement aux autres actions (Modifier, Participer, Annuler) déjà
+// masquées dans ce cas — incitant à tort à ajouter à son agenda personnel un
+// événement qui n'aura pas lieu.
+describe("EventDetailView — options calendrier du menu Partager après annulation", () => {
+  it("propose Télécharger (.ics) et Ajouter à Google Calendar tant que l'événement n'est pas annulé", async () => {
+    renderDetail(BASE_EVENT);
+    await userEvent.click(screen.getByRole("button", { name: "Partager" }));
+    expect(screen.getByRole("button", { name: /Télécharger \(\.ics\)/ })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Ajouter à Google Calendar/ })).toBeInTheDocument();
+  });
+
+  it("masque Télécharger (.ics) et Ajouter à Google Calendar une fois l'événement annulé", async () => {
+    renderDetail({ ...BASE_EVENT, canceled_at: new Date().toISOString() });
+    await userEvent.click(screen.getByRole("button", { name: "Partager" }));
+    expect(screen.queryByRole("button", { name: /Télécharger \(\.ics\)/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /Ajouter à Google Calendar/ })).not.toBeInTheDocument();
+    // Les autres options de partage restent disponibles (partager n'est pas
+    // la même action qu'ajouter à son agenda).
+    expect(screen.getByRole("button", { name: /Dans une conversation/ })).toBeInTheDocument();
   });
 });

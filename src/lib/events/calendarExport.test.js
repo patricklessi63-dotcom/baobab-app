@@ -57,6 +57,16 @@ describe("buildIcsBlob", () => {
   it("type MIME text/calendar", () => {
     expect(buildIcsBlob(baseEvent).type).toContain("text/calendar");
   });
+
+  it("ajoute STATUS:CANCELLED quand l'événement est annulé (canceled_at rempli)", async () => {
+    const lines = await icsText({ ...baseEvent, canceled_at: "2025-07-10T09:00:00.000Z" });
+    expect(lines).toContain("STATUS:CANCELLED");
+  });
+
+  it("n'ajoute pas STATUS:CANCELLED quand l'événement n'est pas annulé", async () => {
+    const lines = await icsText(baseEvent);
+    expect(lines.some((l) => l.startsWith("STATUS:"))).toBe(false);
+  });
 });
 
 describe("googleCalendarUrl", () => {

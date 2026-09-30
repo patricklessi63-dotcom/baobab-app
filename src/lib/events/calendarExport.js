@@ -20,6 +20,15 @@ function eventWindow(event) {
 export function buildIcsBlob(event) {
   const { start, end } = eventWindow(event);
   const location = [event.location, event.city].filter(Boolean).join(", ");
+  // Bug identifié à l'audit du flux d'annulation : un événement annulé
+  // (event.canceled_at rempli) produisait un fichier .ics identique à un
+  // événement bien vivant — rien n'indiquait l'annulation à l'application de
+  // calendrier de la personne qui le télécharge ou qui l'avait déjà importé
+  // plus tôt. RFC 5545 prévoit justement STATUS:CANCELLED pour ce cas (§
+  // 3.8.1.11) : on l'ajoute pour que les clients calendrier qui le
+  // supportent (Apple Calendar, Outlook…) affichent/traitent l'événement
+  // comme annulé plutôt que comme un rendez-vous normal.
+  const canceled = Boolean(event.canceled_at);
   const lines = [
     "BEGIN:VCALENDAR",
     "VERSION:2.0",
@@ -30,6 +39,7 @@ export function buildIcsBlob(event) {
     `DTSTART:${toIcsUtc(start)}`,
     `DTEND:${toIcsUtc(end)}`,
     `SUMMARY:${escapeIcsText(event.title || "Événement Baobab")}`,
+    canceled ? "STATUS:CANCELLED" : null,
     event.description ? `DESCRIPTION:${escapeIcsText(event.description)}` : null,
     location ? `LOCATION:${escapeIcsText(location)}` : null,
     "END:VEVENT",
