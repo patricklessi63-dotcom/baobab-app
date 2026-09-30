@@ -78,6 +78,19 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
   // manquait ici comme dans CommunitiesTab.jsx (même correctif appliqué
   // là-bas). Même pattern (Set par postId) que likeInFlightRef ci-dessus.
   const commentSubmittingRef = useRef(new Set());
+  // Même garde, même motif, pour l'édition d'une publication (voir editPost
+  // ci-dessous) : confirmEdit() (PostCard.jsx) appelle onEdit() puis ferme
+  // aussitôt le formulaire d'édition (setEditing(false)) sans attendre la
+  // réponse réseau ni désactiver le bouton pendant l'envoi — un double-clic
+  // (ou un Enter répété avant le prochain rendu React) déclenchait deux
+  // UPDATE identiques en vol. Anodin tant que le texte n'a pas changé entre
+  // les deux appels, mais devient un vrai problème combiné au contrôle de
+  // concurrence optimiste ajouté plus bas : le second appel, parti avec le
+  // même `post.updated_at` (obsolète) que le premier déjà résolu, ne
+  // retrouverait plus aucune ligne à mettre à jour et afficherait à tort un
+  // message de conflit ("modifié ailleurs") pour ce qui n'était qu'un
+  // double-clic sur le même onglet.
+  const editSubmittingRef = useRef(new Set());
   // Incrémenté à chaque fermeture du composeur — capturé par addFiles() au
   // moment de l'appel puis revérifié après chaque await (validation,
   // compression) avant de toucher à mediaItems. Sans ça : sélectionner une
@@ -659,18 +672,38 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
   };
 
   const editPost = async (post, newBody) => {
+    // Garde anti-double-soumission — voir editSubmittingRef ci-dessus.
+    if (editSubmittingRef.current.has(post.id)) return;
+    editSubmittingRef.current.add(post.id);
     try {
-      const { data, error } = await supabase
-        .from("posts")
-        .update({ body: newBody, updated_at: new Date().toISOString() })
-        .eq("id", post.id)
+      // Contrôle de concurrence optimiste : deux onglets peuvent avoir chargé
+      // la même publication, l'un l'édite et enregistre pendant que l'autre
+      // affiche encore l'ancien texte en mémoire. Sans condition sur l'état
+      // connu par CE post au moment de l'ouverture de l'édition, le second
+      // onglet qui clique "Enregistrer" (même sans rien changer) écraserait
+      // silencieusement la modification du premier avec son propre texte
+      // obsolète — l'auteur croirait avoir sauvegardé sa dernière version
+      // alors que l'ancienne aurait gagné. On conditionne donc l'UPDATE sur
+      // `updated_at` tel que connu localement (jamais modifié -> IS NULL) :
+      // si la ligne a changé entre-temps, la condition ne correspond plus,
+      // aucune ligne n'est mise à jour, et on prévient l'utilisateur au lieu
+      // d'écraser en silence.
+      let query = supabase.from("posts").update({ body: newBody, updated_at: new Date().toISOString() }).eq("id", post.id);
+      query = post.updated_at ? query.eq("updated_at", post.updated_at) : query.is("updated_at", null);
+      const { data, error } = await query
         .select("*, profiles(name, avatar_url, is_founder, is_premium, email_verified, phone_verified)")
-        .single();
+        .maybeSingle();
       if (error) throw error;
+      if (!data) {
+        onError("Cette publication a été modifiée entre-temps (autre onglet ?). Recharge le fil avant de réessayer pour ne pas écraser la dernière version.");
+        return;
+      }
       setPosts((p) => p.map((x) => (x.id === post.id ? { ...x, ...data } : x)));
     } catch (e) {
       console.error(e);
       onError("Impossible de modifier cette publication.");
+    } finally {
+      editSubmittingRef.current.delete(post.id);
     }
   };
 
