@@ -218,6 +218,14 @@ export default function CommunitiesTab({ currentUser, onError, onBack = () => {}
   // postCommentCounts pour un seul commentaire réellement supprimé.
   const deletePostInFlightRef = useRef(new Set());
   const deleteCommentInFlightRef = useRef(new Set());
+  // Même bug que celui corrigé pour l'édition de publication (PostsFeed.jsx,
+  // editSubmittingRef) : submitEdit() (CommunityPostCard.jsx) appelle
+  // onEditComment() puis ferme aussitôt le formulaire d'édition
+  // (setEditingId(null)) sans attendre la réponse réseau ni désactiver le
+  // bouton pendant l'envoi — un double-clic (ou un Enter répété avant le
+  // prochain rendu) déclenchait deux UPDATE identiques en vol sur le même
+  // commentaire.
+  const editCommentSubmittingRef = useRef(new Set());
   // Devient true une fois myMemberships réellement chargé depuis le
   // serveur (voir l'effet ci-dessous) — utilisé par goDetail pour savoir si
   // myMemberships[id] === undefined signifie "non-membre confirmé" ou
@@ -1021,13 +1029,32 @@ export default function CommunitiesTab({ currentUser, onError, onBack = () => {}
   };
 
   const handleEditComment = async (postId, commentId, newBody) => {
+    // Garde anti-double-soumission — voir editCommentSubmittingRef ci-dessus.
+    if (editCommentSubmittingRef.current.has(commentId)) return;
+    editCommentSubmittingRef.current.add(commentId);
     try {
-      const { data, error } = await supabase
+      // Contrôle de concurrence optimiste, même motif qu'editPost
+      // (PostsFeed.jsx) : deux onglets peuvent avoir chargé le même
+      // commentaire, l'un l'édite et enregistre pendant que l'autre affiche
+      // encore l'ancien texte en mémoire. Sans condition sur `updated_at` tel
+      // que connu localement (jamais modifié -> IS NULL), le second onglet
+      // qui clique "Enregistrer" (même sans rien changer) écraserait
+      // silencieusement la modification du premier avec son propre texte
+      // obsolète.
+      const known = (commentsByPost[postId]?.items || []).find((x) => x.id === commentId);
+      let query = supabase
         .from("community_comments")
         .update({ body: newBody, updated_at: new Date().toISOString() })
-        .eq("id", commentId)
-        .select("*, profiles(name, avatar_url, is_founder, is_premium, email_verified, phone_verified)").single();
+        .eq("id", commentId);
+      query = known?.updated_at ? query.eq("updated_at", known.updated_at) : query.is("updated_at", null);
+      const { data, error } = await query
+        .select("*, profiles(name, avatar_url, is_founder, is_premium, email_verified, phone_verified)")
+        .maybeSingle();
       if (error) throw error;
+      if (!data) {
+        onError("Ce commentaire a été modifié entre-temps (autre onglet ?). Recharge les commentaires avant de réessayer pour ne pas écraser la dernière version.");
+        return;
+      }
       setCommentsByPost((c) => ({
         ...c,
         [postId]: { items: (c[postId]?.items || []).map((x) => (x.id === commentId ? data : x)) },
@@ -1035,6 +1062,8 @@ export default function CommunitiesTab({ currentUser, onError, onBack = () => {}
     } catch (e) {
       console.error(e);
       onError("Impossible de modifier ce commentaire.");
+    } finally {
+      editCommentSubmittingRef.current.delete(commentId);
     }
   };
 
