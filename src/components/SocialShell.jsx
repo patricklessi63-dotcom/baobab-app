@@ -1524,8 +1524,13 @@ export default function SocialShell({
   // "📍 Autour de toi" — titrée "Membres de ta ville" — révélait déjà qu'il
   // habite la même ville que l'utilisateur, confirmant la donnée qu'il avait
   // pourtant choisi de cacher.
+  // Bug corrigé (même audit que matchingService.js/CommunitiesTab.jsx/
+  // EventsTab.jsx) : "Ville" est un champ texte libre — un simple
+  // .toLowerCase() est insensible à la casse mais pas aux accents
+  // ("Montréal" vs "Montreal"), ce qui pouvait exclure silencieusement un
+  // membre pourtant dans la même ville de la section "Autour de toi".
   const nearbyMembers = currentUser?.city
-    ? candidates.filter((p) => p.show_city !== false && p.city && p.city.trim().toLowerCase() === currentUser.city.trim().toLowerCase())
+    ? candidates.filter((p) => p.show_city !== false && p.city && normalizeForSearch(p.city.trim()) === normalizeForSearch(currentUser.city.trim()))
     : [];
 
   // show_canada_journey vérifié (bug corrigé à l'audit) : la section "Nouveaux

@@ -70,4 +70,30 @@ describe("SocialShell — section « Autour de toi » exclut une ville masquée"
     await waitFor(() => expect(screen.getByText("VilleVisible")).toBeInTheDocument());
     expect(screen.queryByText("VilleMasquee")).not.toBeInTheDocument();
   });
+
+  it("inclut un candidat de la même ville tapée sans accent (ville = champ texte libre, non normalisé à la saisie)", async () => {
+    // Bug corrigé : "Montréal" vs "Montreal" (même ville réelle, saisie sans
+    // accent) ne se reconnaissaient pas comme "même ville" avec un simple
+    // .toLowerCase() — un membre pourtant dans la même ville n'apparaissait
+    // jamais dans « Autour de toi ».
+    const currentUser = { id: "u1", name: "Moi", city: "Montréal" };
+    const candidates = [
+      { id: "sansAccent", name: "SansAccent", city: "Montreal", show_city: true, looking_for: "" },
+    ];
+
+    render(
+      <SocialShell
+        currentUser={currentUser}
+        setView={vi.fn()}
+        handleSignOut={vi.fn()}
+        candidates={candidates}
+      />
+    );
+
+    const user = userEvent.setup();
+    const localTab = await screen.findByRole("tab", { name: "Local" });
+    await user.click(localTab);
+
+    await waitFor(() => expect(screen.getByText("SansAccent")).toBeInTheDocument());
+  });
 });
