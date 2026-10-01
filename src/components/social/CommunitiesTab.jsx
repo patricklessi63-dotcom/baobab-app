@@ -626,6 +626,22 @@ export default function CommunitiesTab({ currentUser, onError, onBack = () => {}
     } catch (e) {
       console.error(e);
       onError("Impossible de charger cette communauté.");
+      // Bug corrigé à l'audit (même famille que goDetail() dans EventsTab.jsx) :
+      // "Mes communautés" (ProfileTab.jsx, via SocialShell.jsx) n'est rechargé
+      // qu'au montage de l'onglet Profil, jamais en temps réel. Si l'owner
+      // supprime entièrement sa communauté pendant que "Mes communautés" (ou
+      // la liste de découverte, elle aussi potentiellement périmée) reste
+      // affichée avec cette entrée en cache, cliquer dessus appelle goDetail()
+      // avec un id qui n'existe plus en base : le .single() ci-dessus échoue
+      // (0 ligne), et comme la vue "detail" est déjà affichée avec
+      // community=null (voir plus haut), seul un SkeletonCard est rendu
+      // (if (!community) return <SkeletonCard />) — sans ce retour à la liste,
+      // l'utilisateur restait bloqué indéfiniment sur ce chargement, sans
+      // bouton retour visible, avec pour seul indice un toast d'erreur qui
+      // disparaît tout seul. Même garde de séquence que les autres aiguillages
+      // de detailRequestRef : une navigation plus récente ne doit pas être
+      // annulée par l'échec tardif d'une requête déjà abandonnée.
+      if (detailRequestRef.current === requestId) goList();
     }
   };
 
