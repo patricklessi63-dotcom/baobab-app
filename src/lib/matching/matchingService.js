@@ -24,8 +24,20 @@ import { normalizeForSearch } from "../searchQuery.js";
 // fonction normalizeForSearch déjà utilisée pour la recherche globale
 // (SocialShell.jsx) et les communautés/événements "Près de toi"
 // (CommunitiesTab.jsx/EventsTab.jsx, corrigé dans le même passage).
+function sameTextNormalized(a, b) {
+  return Boolean(a && b && normalizeForSearch(a.trim()) === normalizeForSearch(b.trim()));
+}
 function sameCityNormalized(cityA, cityB) {
-  return Boolean(cityA && cityB && normalizeForSearch(cityA) === normalizeForSearch(cityB));
+  return sameTextNormalized(cityA, cityB);
+}
+// Même bug, même correctif, pour "Pays d'origine" (Step3Location.jsx) : lui
+// aussi un champ texte libre ("Ex : Sénégal, Philippines, Haïti…"), comparé
+// ci-dessous dans scorePreferences/scoreLocation/filterCandidatesByPreferences
+// avec le même .trim().toLowerCase() insuffisant — "Côte d'Ivoire" tapé sans
+// accent/apostrophe typographique, ou "Haïti" vs "Haiti", ne se
+// reconnaissaient jamais comme "même pays".
+function sameCountryNormalized(countryA, countryB) {
+  return sameTextNormalized(countryA, countryB);
 }
 
 function parseList(text) {
@@ -166,7 +178,7 @@ function scorePreferences(userA, userB) {
   const cityBForDistance = visibleCity(userB);
   const countryBForDistance = visibleCountry(userB);
   const sameCity = sameCityNormalized(userA.city, cityBForDistance);
-  const sameCountry = Boolean(userA.country && countryBForDistance && userA.country.trim().toLowerCase() === countryBForDistance.trim().toLowerCase());
+  const sameCountry = sameCountryNormalized(userA.country, countryBForDistance);
   if (distancePref === "Ma ville uniquement" && sameCity) distancePoints = 7;
   else if (distancePref === "Ma ville ou mon pays" && (sameCity || sameCountry)) distancePoints = 7;
   else if (distancePref === "Peu importe") distancePoints = 7;
@@ -201,13 +213,11 @@ function visibleCountry(profile) {
 function scoreLocation(userA, userB) {
   const cityBRaw = visibleCity(userB);
   const countryBRaw = visibleCountry(userB);
-  const countryA = (userA.country || "").trim().toLowerCase();
-  const countryB = (countryBRaw || "").trim().toLowerCase();
 
   if (sameCityNormalized(userA.city, cityBRaw)) {
     return { points: MATCH_WEIGHTS.location, level: "same_city", label: `Même ville (${cityBRaw})` };
   }
-  if (countryA && countryB && countryA === countryB) {
+  if (sameCountryNormalized(userA.country, countryBRaw)) {
     return { points: Math.round(MATCH_WEIGHTS.location / 2), level: "same_country", label: `Même pays d'origine (${countryBRaw})` };
   }
   return { points: 0, level: "unknown", label: null };
@@ -324,7 +334,7 @@ export function filterCandidatesByPreferences(currentUser, candidates) {
       if (!sameCity) return false;
     } else if (distance === "Ma ville ou mon pays") {
       const sameCity = sameCityNormalized(currentUser.city, cityBForFilter);
-      const sameCountry = currentUser.country && countryBForFilter && countryBForFilter.trim().toLowerCase() === currentUser.country.trim().toLowerCase();
+      const sameCountry = sameCountryNormalized(currentUser.country, countryBForFilter);
       if (!sameCity && !sameCountry) return false;
     }
 

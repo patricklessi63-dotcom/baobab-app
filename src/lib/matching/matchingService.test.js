@@ -81,6 +81,19 @@ describe("filterCandidatesByPreferences", () => {
     expect(out.map((c) => c.id)).toEqual(["city", "country"]);
   });
 
+  it("distance 'Ma ville ou mon pays' : pays commun insensible aux accents (pays d'origine = champ texte libre, non normalisé à la saisie)", () => {
+    // Bug corrigé : "Côte d'Ivoire" vs "Cote d'Ivoire" (même pays réel, saisi
+    // sans accent) ne se reconnaissaient pas comme "même pays" avec un simple
+    // .toLowerCase() — ce filtre DUR excluait alors silencieusement un
+    // candidat pourtant du même pays. Même correctif que pour la ville.
+    const user = { city: "Lyon", country: "Côte d'Ivoire", pref_distance: "Ma ville ou mon pays" };
+    const out = filterCandidatesByPreferences(user, [
+      { id: "sansAccent", city: "Québec", country: "Cote d'Ivoire" },
+      { id: "autrePays", city: "Québec", country: "Sénégal" },
+    ]);
+    expect(out.map((c) => c.id)).toEqual(["sansAccent"]);
+  });
+
   it("filtre 'type de relation' : n'exclut que si le candidat a renseigné looking_for", () => {
     const user = { pref_looking_for: "Amour, Amitié" };
     const out = filterCandidatesByPreferences(user, [
@@ -221,6 +234,15 @@ describe("computeMatch", () => {
     const match = computeMatch(a, { id: "b", city: "Montreal" });
     expect(match.breakdown.location).toBeGreaterThan(0);
     expect(match.locationLabel).toBe("Même ville (Montreal)");
+  });
+
+  it("scoreLocation : 'Même pays d'origine' détectée même si l'un des deux a tapé le pays sans accent", () => {
+    // Même bug/correctif que pour la ville ci-dessus, mais pour le champ
+    // libre "Pays d'origine" (Step3Location.jsx) : "Haïti" vs "Haiti".
+    const a = { id: "a", country: "Haïti" };
+    const match = computeMatch(a, { id: "b", country: "Haiti" });
+    expect(match.breakdown.location).toBeGreaterThan(0);
+    expect(match.locationLabel).toBe("Même pays d'origine (Haiti)");
   });
 
   it("respecte la confidentialité : ville/pays masqués (show_city/show_country:false) ne rapportent aucun point de localisation ni libellé", () => {
