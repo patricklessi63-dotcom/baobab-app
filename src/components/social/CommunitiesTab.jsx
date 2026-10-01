@@ -1086,6 +1086,30 @@ export default function CommunitiesTab({ currentUser, onError, onBack = () => {}
         // la mise à jour optimiste ci-dessus : une réaction existe déjà en
         // base pour ce post et ce profil.
         if (error && error.code !== "23505") throw error;
+        if (error) {
+          // Contrairement à "likes"/"favorites"/"follows"/"blocks" (contrainte
+          // unique sur la seule paire, donc binaire), la ligne existante ici
+          // porte aussi un "emoji" qui n'entre pas dans la contrainte unique :
+          // un 23505 signifie seulement qu'UNE réaction existe déjà pour ce
+          // post+profil, pas forcément celle tentée ici (ex. un autre
+          // onglet/appareil a réagi avec un émoji différent avant que ce
+          // select initial — pas d'abonnement Realtime sur cette table — ne
+          // se rafraîchisse). On ne peut donc pas supposer que l'émoji tenté
+          // est celui réellement enregistré : on relit la ligne pour refléter
+          // l'état vrai en base plutôt qu'un état supposé.
+          const { data: existing } = await supabase
+            .from("community_post_likes")
+            .select("emoji")
+            .eq("post_id", post.id)
+            .eq("profile_id", currentUser.id)
+            .maybeSingle();
+          const actualEmoji = existing?.emoji ?? emoji;
+          if (actualEmoji !== emoji) {
+            applyReactionDelta(post.id, emoji, -1);
+            applyReactionDelta(post.id, actualEmoji, 1);
+            setMyReactions((m) => ({ ...m, [post.id]: actualEmoji }));
+          }
+        }
       }
     } catch (e) {
       console.error(e);
