@@ -1934,7 +1934,21 @@ export default function App() {
 
   async function handleSaveProfile(e) {
     e.preventDefault();
-    if (!editForm.name || !currentUser) { setError("Le nom est requis."); return; }
+    // Bug corrigé à l'audit changement de prénom : `!editForm.name` est faux
+    // pour une chaîne composée uniquement d'espaces (" " est "truthy" en JS),
+    // donc ce garde laissait passer un prénom "espace seul" — seul le bouton
+    // "Enregistrer" désactivé côté EditProfileForm.jsx (profileValid, qui lui
+    // utilise bien .trim()) empêchait ce cas en pratique. Deux conséquences
+    // sans ce .trim() ici : (1) ce garde serveur n'est pas une vraie défense
+    // en profondeur, il dépend entièrement de l'état disabled d'un bouton
+    // React ; (2) même un prénom valide mais saisi avec des espaces en trop
+    // ("  Awa ") passait ce garde ET était enregistré tel quel (voir payload
+    // plus bas, désormais trim()é) — alors que lastName et l'onboarding
+    // (OnboardingWizard.jsx, isStep1Valid) trim(ent) déjà le prénom. Ce
+    // prénom non nettoyé se serait ensuite affiché partout où profiles.name
+    // est lu (carte de match, notifications via actor:actor_id(name), en-tête
+    // de conversation...).
+    if (!editForm.name?.trim() || !currentUser) { setError("Le nom est requis."); return; }
     const editAgeNum = editForm.birthDate ? computeAge(editForm.birthDate) : Number(editForm.age);
     if (editAgeNum === null || Number.isNaN(editAgeNum) || editAgeNum < 18) { setError("Tu dois avoir au moins 18 ans."); return; }
     // Même borne haute que l'onboarding (isStep1Valid) : sans elle, une date
@@ -2019,7 +2033,7 @@ export default function App() {
       }
 
       const payload = {
-        name: editForm.name,
+        name: editForm.name.trim(),
         last_name: editForm.lastName?.trim() || null,
         cover_url: coverUrl,
         age: editAgeNum,

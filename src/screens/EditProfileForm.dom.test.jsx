@@ -110,3 +110,27 @@ describe("EditProfileForm — contrôles photos pendant l'enregistrement", () =>
     expect(moveExistingPhoto).not.toHaveBeenCalled();
   });
 });
+
+// Bug corrigé à l'audit changement de prénom (App.jsx:handleSaveProfile) :
+// le garde serveur `!editForm.name` ne bloquait pas un prénom "espace seul"
+// (" " est "truthy" en JS) — seul ce bouton désactivé (profileValid, qui
+// utilise bien .trim()) empêchait réellement ce cas en pratique. On fige ici
+// ce comportement pour qu'une régression future (ex. un profileValid qui
+// perdrait son .trim()) soit détectée côté UI, en plus du garde .trim()
+// ajouté dans App.jsx.
+describe("EditProfileForm — validation du prénom", () => {
+  it("désactive « Enregistrer » quand le prénom est vide", () => {
+    setup({ editForm: { ...baseEditForm, name: "" } });
+    expect(screen.getByRole("button", { name: /Enregistrer/ })).toBeDisabled();
+  });
+
+  it("désactive « Enregistrer » quand le prénom ne contient que des espaces", () => {
+    setup({ editForm: { ...baseEditForm, name: "   " } });
+    expect(screen.getByRole("button", { name: /Enregistrer/ })).toBeDisabled();
+  });
+
+  it("active « Enregistrer » pour un prénom valide", () => {
+    setup({ editForm: { ...baseEditForm, name: "Awa" } });
+    expect(screen.getByRole("button", { name: /Enregistrer/ })).not.toBeDisabled();
+  });
+});
