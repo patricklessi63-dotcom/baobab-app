@@ -804,12 +804,28 @@ export default function App() {
   // refreshMessages plus bas).
   useEffect(() => {
     if (!currentUser || !activeMatch) return;
-    const key = matchKey(currentUser.id, activeMatch.id);
+    // Bug corrigé (audit retrySend) : la clé utilisée ici était recalculée
+    // depuis "activeMatch", pas depuis "messages" lui-même. Entre le moment
+    // où on ouvre une AUTRE conversation (setActiveMatch bascule tout de
+    // suite) et celui où refreshMessages() a fini de charger ses messages
+    // (requête réseau, donc un ou plusieurs rendus plus tard), cet effet
+    // s'exécutait au moins une fois avec activeMatch = nouvelle conversation
+    // mais messages = ANCIENS messages (encore ceux de la conversation
+    // quittée). Si cette dernière avait un message en échec, il se
+    // retrouvait recopié sous la clé de la nouvelle conversation —
+    // corrompant son cache et le faisant apparaître, avec son bouton
+    // "Réessayer", dans la MAUVAISE conversation (et un "Réessayer" cliqué
+    // là l'aurait renvoyé dans cette mauvaise conversation, via
+    // sendMessageText/sendMediaMessage qui s'appuient sur activeMatch).
+    // On déduit donc la conversation propriétaire du propre match_key des
+    // messages en échec plutôt que de l'état de navigation courant, qui peut
+    // être transitoirement désynchronisé de "messages".
     const failed = messages.filter((m) => m._status === "failed");
+    const ownerKey = failed[0]?.match_key || matchKey(currentUser.id, activeMatch.id);
     if (failed.length > 0) {
-      pendingFailedMessagesRef.current[key] = failed;
+      pendingFailedMessagesRef.current[ownerKey] = failed;
     } else {
-      delete pendingFailedMessagesRef.current[key];
+      delete pendingFailedMessagesRef.current[ownerKey];
     }
   }, [messages, activeMatch, currentUser]);
 
