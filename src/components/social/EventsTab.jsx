@@ -551,6 +551,21 @@ export default function EventsTab({ currentUser, onError, onBack = () => {}, ini
     } catch (e) {
       console.error(e);
       onError("Impossible de charger cet événement.");
+      // Bug corrigé à l'audit "Mes événements" (ProfileTab.jsx) : cette liste
+      // n'est rechargée qu'au montage de l'onglet Profil, jamais en temps
+      // réel. Si l'organisateur supprime entièrement un événement (pas une
+      // simple annulation) pendant que "Mes événements" reste affiché avec
+      // cette entrée en cache, cliquer dessus appelle goDetail() avec un id
+      // qui n'existe plus en base : le .single() ci-dessus échoue (0 ligne),
+      // et comme la vue "detail" est déjà affichée avec event=null (voir
+      // plus haut), seul un SkeletonCard est rendu (if (!event) return
+      // <SkeletonCard />) — sans ce retour à l'accueil, l'utilisateur restait
+      // bloqué indéfiniment sur ce chargement, sans bouton retour visible,
+      // avec pour seul indice un toast d'erreur qui disparaît tout seul.
+      // Même garde de séquence que les autres aiguillages de detailRequestRef :
+      // une navigation plus récente ne doit pas être annulée par l'échec
+      // tardif d'une requête déjà abandonnée.
+      if (detailRequestRef.current === requestId) goHome();
     }
   };
 
