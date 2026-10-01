@@ -1,6 +1,7 @@
 import React from "react";
 import { MessageCircle } from "lucide-react";
 import { computeMatch } from "../../lib/matching/matchingService";
+import { normalizeForSearch } from "../../lib/searchQuery";
 import { primary, bg, body, primaryRgb } from "./theme";
 
 // Génère jusqu'à 3 suggestions d'ouverture, uniquement à partir de données
@@ -32,8 +33,13 @@ function buildStarters(currentUser, match) {
   // voyait quand même révélée ici, dans une phrase toute faite.
   const matchCity = match.show_city === false ? "" : match.city;
   const matchCountry = match.show_country === false ? "" : match.country;
-  const sameCity = currentUser.city && matchCity && currentUser.city.trim().toLowerCase() === matchCity.trim().toLowerCase();
-  const sameCountry = currentUser.country && matchCountry && currentUser.country.trim().toLowerCase() === matchCountry.trim().toLowerCase();
+  // Bug corrigé (même audit que matchingService.js) : "Ville" et "Pays
+  // d'origine" sont des champs texte libre — un simple .toLowerCase() est
+  // insensible à la casse mais pas aux accents ("Montréal" vs "Montreal",
+  // "Haïti" vs "Haiti"), ce qui pouvait priver silencieusement deux personnes
+  // réellement dans la même ville/pays de cette suggestion d'ouverture.
+  const sameCity = currentUser.city && matchCity && normalizeForSearch(currentUser.city.trim()) === normalizeForSearch(matchCity.trim());
+  const sameCountry = currentUser.country && matchCountry && normalizeForSearch(currentUser.country.trim()) === normalizeForSearch(matchCountry.trim());
   if (sameCity) {
     suggestions.push(`Vous êtes tous les deux à ${matchCity} ! Tu es arrivé(e) depuis combien de temps ?`);
   } else if (sameCountry) {
