@@ -21,6 +21,14 @@ describe("scoreCommunity", () => {
     expect(res.reasons[0]).toContain("Montréal");
   });
 
+  it("+3 pour une ville identique insensible aux accents (ville = champ texte libre, non normalisé à la saisie)", () => {
+    // Même bug/correctif que matchingService.js : "Montreal" (sans accent)
+    // et "Montréal" sont la même ville réelle.
+    const res = scoreCommunity({ city: "Montreal" }, community({ city: "Montréal" }));
+    expect(res.score).toBe(3);
+    expect(res.reasons[0]).toContain("Montréal");
+  });
+
   it("+2 par intérêt trouvé dans catégorie/nom/description", () => {
     const res = scoreCommunity(
       { interests: "sport, cuisine" },

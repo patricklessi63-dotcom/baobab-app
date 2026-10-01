@@ -1,5 +1,6 @@
 import { parseInterests } from "../parseInterests";
 import { categoryLabel } from "./eventConfig";
+import { normalizeForSearch } from "../searchQuery";
 
 // Score déterministe — PAS de l'IA (même discipline que
 // communities/recommendations.js) : ville partagée, mots-clés d'intérêts,
@@ -8,7 +9,11 @@ export function scoreEvent(user, event, myCommunityIds = []) {
   let score = 0;
   const reasons = [];
 
-  if (user?.city && event.city && user.city.trim().toLowerCase() === event.city.trim().toLowerCase()) {
+  // Bug corrigé (même audit que matchingService.js/EventsTab.jsx) : "Ville"
+  // est un champ texte libre, insensible aux accents avec un simple
+  // .toLowerCase() ("Montréal" vs "Montreal") — voir
+  // communities/recommendations.js pour le même correctif.
+  if (user?.city && event.city && normalizeForSearch(user.city.trim()) === normalizeForSearch(event.city.trim())) {
     score += 3;
     reasons.push(`À ${event.city}, comme toi`);
   }

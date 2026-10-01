@@ -1,5 +1,6 @@
 import { parseInterests } from "../parseInterests";
 import { categoryLabel } from "./communityConfig";
+import { normalizeForSearch } from "../searchQuery";
 
 // Score déterministe — PAS de l'IA (item 52) : simple recoupement
 // d'intérêts déclarés, de ville et de mots-clés, comme
@@ -10,7 +11,13 @@ export function scoreCommunity(user, community) {
   let score = 0;
   const reasons = [];
 
-  if (user?.city && community.city && user.city.trim().toLowerCase() === community.city.trim().toLowerCase()) {
+  // Bug corrigé (même audit que matchingService.js/CommunitiesTab.jsx) :
+  // "Ville" est un champ texte libre (EditProfileForm.jsx / formulaire de
+  // création de communauté) — un simple .toLowerCase() est insensible à la
+  // casse mais pas aux accents ("Montréal" vs "Montreal"), ce qui pouvait
+  // faire manquer silencieusement la raison "À <ville>, comme toi" et les
+  // points associés pour deux personnes pourtant dans la même ville.
+  if (user?.city && community.city && normalizeForSearch(user.city.trim()) === normalizeForSearch(community.city.trim())) {
     score += 3;
     reasons.push(`À ${community.city}, comme toi`);
   }
