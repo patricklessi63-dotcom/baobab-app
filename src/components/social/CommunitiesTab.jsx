@@ -689,15 +689,33 @@ export default function CommunitiesTab({ currentUser, onError, onBack = () => {}
     try {
       if (comm.visibility === "public") {
         const { error } = await supabase.from("community_members").insert({ community_id: comm.id, profile_id: currentUser.id, role: "member" });
-        if (error) throw error;
-        setMyMemberships((m) => ({ ...m, [comm.id]: "member" }));
-        adjustMemberCount(comm.id, 1);
-        if (selectedId === comm.id) setMemberCount((n) => n + 1);
-        onCommunitiesChanged?.();
-        trackActivation(currentUser.id, "community_joined");
+        // Même motif que handlePass/handleLike (App.jsx) et toggleFollow/
+        // toggleFavorite (SocialShell.jsx) : contrainte unique(community_id,
+        // profile_id) sur "community_members". Un conflit (23505) — déjà
+        // membre depuis un autre onglet/appareil avant que myMemberships ne
+        // se synchronise, ou double-tap — signifie que l'adhésion est déjà
+        // acquise en base : avant ce correctif, le catch générique laissait
+        // "Rejoindre" affiché indéfiniment (myMemberships jamais mis à jour)
+        // et un nouveau clic retombait sur la même erreur en boucle, alors
+        // que cette personne est bel et bien déjà membre. On ne ré-incrémente
+        // pas le compteur de membres dans ce cas : il compte déjà cette
+        // adhésion existante.
+        if (error && error.code !== "23505") throw error;
+        setMyMemberships((m) => ({ ...m, [comm.id]: m[comm.id] || "member" }));
+        if (!error) {
+          adjustMemberCount(comm.id, 1);
+          if (selectedId === comm.id) setMemberCount((n) => n + 1);
+          onCommunitiesChanged?.();
+          trackActivation(currentUser.id, "community_joined");
+        }
       } else if (comm.visibility === "private") {
         const { error } = await supabase.from("community_join_requests").insert({ community_id: comm.id, profile_id: currentUser.id });
-        if (error) throw error;
+        // Même correctif que ci-dessus : "community_join_requests" a un index
+        // unique PARTIEL sur (community_id, profile_id) où status='pending'
+        // (supabase-communities.sql) — une demande déjà en attente (autre
+        // onglet/appareil, double-tap) fait remonter le même code 23505. La
+        // demande existe déjà : ce n'est pas un échec.
+        if (error && error.code !== "23505") throw error;
         setMyPending((s) => new Set(s).add(comm.id));
       }
     } catch (e) {
@@ -1060,7 +1078,14 @@ export default function CommunitiesTab({ currentUser, onError, onBack = () => {}
         if (error) throw error;
       } else {
         const { error } = await supabase.from("community_post_likes").insert({ post_id: post.id, profile_id: currentUser.id, emoji });
-        if (error) throw error;
+        // Même motif que toggleFavorite/toggleFollow (SocialShell.jsx) et le
+        // like des publications du fil (PostsFeed.jsx) : contrainte
+        // unique(post_id, profile_id) sur "community_post_likes". Un conflit
+        // (23505) — déjà réagi depuis un autre onglet/appareil avant que
+        // myReactions ne se synchronise, ou double-tap — ne doit pas annuler
+        // la mise à jour optimiste ci-dessus : une réaction existe déjà en
+        // base pour ce post et ce profil.
+        if (error && error.code !== "23505") throw error;
       }
     } catch (e) {
       console.error(e);
