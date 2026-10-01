@@ -48,4 +48,44 @@ describe("detectMoneyRequest", () => {
     // Les deux catégories sont bien relevées, immigration_doc en tête.
     expect(r.categories).toEqual(["immigration_doc", "money"]);
   });
+
+  // --- Audit normalisation (30/09/2026) ---------------------------------
+
+  it("détecte une demande d'argent même sans apostrophe (élision tapée collée)", () => {
+    // Très fréquent en français familier/texto : "largent" au lieu de
+    // "l'argent". Avant le correctif, un simple .toLowerCase() ne trouvait
+    // pas ce cas puisque le mot-clé exige une apostrophe droite.
+    const r = detectMoneyRequest("stp envoie-moi de largent");
+    expect(r.flagged).toBe(true);
+    expect(r.categories).toContain("money");
+  });
+
+  it("détecte une demande d'argent avec une apostrophe courbe (correction automatique iOS/Mac)", () => {
+    const r = detectMoneyRequest("j’ai besoin d’argent très vite");
+    expect(r.flagged).toBe(true);
+    expect(r.categories).toContain("money");
+  });
+
+  it("détecte un mot-clé accentué même tapé sans accent (cohérence avec normalizeForSearch)", () => {
+    // "urgence financière" n'avait pas de doublon sans accent dans la liste,
+    // contrairement à d'autres entrées — un vrai trou de couverture.
+    const r = detectMoneyRequest("c'est une urgence financiere, aide-moi");
+    expect(r.flagged).toBe(true);
+    expect(r.categories).toContain("money");
+  });
+
+  // --- Audit faux positifs culturels (30/09/2026) ------------------------
+
+  it("ne signale pas un virement bancaire mentionné dans un contexte ordinaire", () => {
+    // Discussion normale et fréquente pour un public immigrant (envoyer de
+    // l'argent à sa famille) : ne doit pas déclencher l'avertissement "ne
+    // fais jamais de virement à quelqu'un rencontré sur Baobab".
+    const r = detectMoneyRequest("Je dois faire un virement à ma famille au pays ce soir");
+    expect(r.flagged).toBe(false);
+  });
+
+  it("ne signale pas une annonce de fiançailles/mariage légitime comme arnaque sentimentale", () => {
+    const r = detectMoneyRequest("Il m'a fait sa demande en mariage hier, je suis trop contente, on se marie l'été prochain");
+    expect(r.flagged).toBe(false);
+  });
 });

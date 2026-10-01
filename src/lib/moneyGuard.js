@@ -10,7 +10,35 @@
 // que de risquer d'abîmer une conversation légitime. Isolé dans un module pur
 // pour rester facile à étendre ou à remplacer plus tard par une vraie
 // modération (ex. appel à un service de détection).
+//
+// Normalisation (audit du 30/09/2026) : la comparaison se faisait avant via un
+// simple `.toLowerCase()`, incohérent avec `normalizeForSearch` (searchQuery.js)
+// déjà utilisé ailleurs dans l'app pour toute recherche texte côté client.
+// Deux conséquences concrètes :
+//  - accents : la liste ne couvrait pas systématiquement les deux variantes
+//    (ex. "urgence financière" / "prêt d'argent" n'avaient PAS de doublon sans
+//    accent, contrairement à "numéro de carte"/"numero de carte") — un message
+//    tapé sans accent ("urgence financiere") passait inaperçu ;
+//  - apostrophes : la quasi-totalité des mots-clés les plus critiques
+//    contiennent une élision ("l'argent", "j'ai besoin", "t'épouser"...). Une
+//    apostrophe courbe ’ (très fréquente avec la correction automatique
+//    iOS/Mac — déjà vu pour "œ"/"æ" dans searchQuery.js) ou son absence totale
+//    (élision tapée collée, courante en français familier/texto : "largent",
+//    "jai besoin") ne correspondait à AUCUNE entrée de la liste, qui n'utilise
+//    que l'apostrophe droite ' — un message "ENVOIE-MOI DE L'ARGENT" avec
+//    apostrophe courbe, ou "envoie-moi de largent" sans apostrophe, échappait
+//    donc totalement à la détection alors que l'intention est identique.
+// On réutilise normalizeForSearch (accents + casse) et on retire en plus
+// toute apostrophe (droite, courbe, ou en accent grave de clavier) des deux
+// côtés de la comparaison avant de chercher les sous-chaînes.
 // ============================================================================
+import { normalizeForSearch } from "./searchQuery.js";
+
+const APOSTROPHES_RE = /['’ʼ`]/g;
+
+function normalizeForMatch(text) {
+  return normalizeForSearch(text).replace(APOSTROPHES_RE, "");
+}
 
 const MONEY_KEYWORDS = [
   "envoie-moi de l'argent",
@@ -21,7 +49,16 @@ const MONEY_KEYWORDS = [
   "prête-moi",
   "prete moi",
   "prêt d'argent",
-  "virement",
+  // "virement" seul retiré (audit du 30/09/2026) : c'est le mot le plus
+  // générique de toute la liste (= "transfert bancaire") et déclenchait
+  // l'avertissement "ne fais jamais de virement" sur des messages tout à
+  // fait légitimes et probablement très fréquents pour ce public immigrant
+  // (envoyer de l'argent à sa famille restée au pays, virement Interac pour
+  // le loyer, virement de paie...). Les services de transfert réellement
+  // associés aux arnaques (Western Union, MoneyGram, mandat cash) restent
+  // couverts explicitement ci-dessous, tout comme les demandes directes
+  // ("envoie-moi de l'argent", "j'ai besoin d'argent"...) : la couverture
+  // du signal "demande d'argent" n'est donc pas significativement réduite.
   "western union",
   "moneygram",
   "mandat cash",
@@ -63,13 +100,21 @@ const SPONSORSHIP_KEYWORDS = [
   "te parrainer rapidement",
   "parrainage rapide",
   "mariage blanc",
-  "on se marie",
-  "on va se marier",
+  // "on se marie" / "on va se marier" / "demande en mariage" retirés (audit
+  // du 30/09/2026) : contrairement aux autres entrées de cette liste, ces
+  // trois phrases ne portent aucun marqueur de précipitation ou de fraude
+  // ("rapide", "blanc"...) — ce sont simplement les mots qu'utiliserait un
+  // couple réel annonçant de bonne foi ses fiançailles/son mariage, ce qui
+  // arrive normalement sur une appli de rencontre, y compris après un vrai
+  // parrainage de conjoint. Les retirer évite d'accueillir une annonce de
+  // fiançailles légitime par un avertissement "signal classique d'arnaque
+  // sentimentale", sans réduire la détection des promesses rapides/suspectes
+  // (toujours couvertes par "parrainage rapide", "te parrainer rapidement",
+  // "mariage blanc", "épouse-moi"...).
   "épouse-moi",
   "epouse-moi",
   "je veux t'épouser",
   "je veux t'epouser",
-  "demande en mariage",
 ];
 
 // Pression pour quitter la plateforme — précède souvent une arnaque, en
@@ -97,20 +142,44 @@ const CATEGORY_MESSAGES = {
 };
 const CATEGORY_PRIORITY = ["immigration_doc", "sponsorship", "money", "leave_platform"];
 
-function matchKeywords(lower, keywords) {
-  return keywords.filter((kw) => lower.includes(kw));
+// Normalisé une seule fois par liste (au chargement du module) plutôt qu'à
+// chaque appel de detectMoneyRequest : les listes sont figées, pas besoin de
+// refaire le travail de normalizeForMatch sur chaque mot-clé à chaque frappe.
+function buildMatchers(keywords) {
+  return keywords.map((kw) => ({ original: kw, normalized: normalizeForMatch(kw) }));
+}
+
+const MONEY_MATCHERS = buildMatchers(MONEY_KEYWORDS);
+const IMMIGRATION_DOC_MATCHERS = buildMatchers(IMMIGRATION_DOC_KEYWORDS);
+const SPONSORSHIP_MATCHERS = buildMatchers(SPONSORSHIP_KEYWORDS);
+const LEAVE_PLATFORM_MATCHERS = buildMatchers(LEAVE_PLATFORM_KEYWORDS);
+
+function matchKeywords(normalizedText, matchers) {
+  // Dédoublonne par forme normalisée : avec les accents normalisés, deux
+  // entrées comme "numéro de carte"/"numero de carte" correspondent toutes
+  // les deux au même texte — on ne garde que la première pour ne pas
+  // remonter deux fois "le même" terme dans matchedTerms.
+  const seen = new Set();
+  const result = [];
+  for (const { original, normalized } of matchers) {
+    if (normalized && normalizedText.includes(normalized) && !seen.has(normalized)) {
+      seen.add(normalized);
+      result.push(original);
+    }
+  }
+  return result;
 }
 
 export function detectMoneyRequest(text) {
   const value = (text || "").trim();
   if (!value) return { flagged: false, matchedTerms: [], categories: [], message: "" };
 
-  const lower = value.toLowerCase();
+  const normalized = normalizeForMatch(value);
   const byCategory = {
-    money: matchKeywords(lower, MONEY_KEYWORDS),
-    immigration_doc: matchKeywords(lower, IMMIGRATION_DOC_KEYWORDS),
-    sponsorship: matchKeywords(lower, SPONSORSHIP_KEYWORDS),
-    leave_platform: matchKeywords(lower, LEAVE_PLATFORM_KEYWORDS),
+    money: matchKeywords(normalized, MONEY_MATCHERS),
+    immigration_doc: matchKeywords(normalized, IMMIGRATION_DOC_MATCHERS),
+    sponsorship: matchKeywords(normalized, SPONSORSHIP_MATCHERS),
+    leave_platform: matchKeywords(normalized, LEAVE_PLATFORM_MATCHERS),
   };
   if (IBAN_PATTERN.test(value)) byCategory.money.push("format IBAN détecté");
 
