@@ -1356,8 +1356,21 @@ export default function App() {
       const { error: blockError } = await supabase
         .from("blocks")
         .insert({ from_id: currentUser.id, to_id: target.id });
-      if (blockError) throw blockError;
-      setBlockPairs((b) => [...b, { from_id: currentUser.id, to_id: target.id }]);
+      // Même famille de bug que handlePass/handleLike (contrainte
+      // unique(from_id,to_id) sur "blocks") : un double clic sur "Confirmer"
+      // avant la fin du premier appel, ou ce profil déjà bloqué depuis un
+      // autre onglet/appareil, fait remonter un conflit (23505) alors que le
+      // blocage est déjà effectif en base. Sans ce correctif, blockPairs/
+      // blockedProfilesRaw n'étaient jamais mis à jour dans ce cas précis :
+      // ce profil restait visible comme "non bloqué" dans Découverte/Matches
+      // pour le reste de la session, malgré un blocage pourtant déjà réel
+      // côté serveur.
+      if (blockError && blockError.code !== "23505") throw blockError;
+      setBlockPairs((b) =>
+        b.some((p) => p.from_id === currentUser.id && p.to_id === target.id)
+          ? b
+          : [...b, { from_id: currentUser.id, to_id: target.id }]
+      );
       // Tient blockedProfilesRaw à jour immédiatement (sans attendre un
       // prochain loadAll) — même logique que setBlockPairs ci-dessus, pour
       // que la modale "Comptes bloqués" reflète ce blocage tout de suite.
@@ -2151,8 +2164,23 @@ export default function App() {
       const { error: likeError } = await supabase
         .from("likes")
         .insert({ from_id: currentUser.id, to_id: target.id });
-      if (likeError) throw likeError;
-      setLikePairs((k) => [...k, { from_id: currentUser.id, to_id: target.id }]);
+      // Même bug que handlePass ci-dessous (corrigé à l'audit, contrainte
+      // unique(from_id,to_id) sur "likes") : deux onglets/appareils du même
+      // compte, ou un profil réapparu dans la pile avant que l'abonnement
+      // Realtime "likes" ne rattrape son retard, peuvent faire liker la même
+      // personne une seconde fois côté client alors que c'est déjà fait en
+      // base. Avant ce correctif, le conflit (23505) remontait comme une
+      // erreur générique : decideSwipe() débloquait la carte en mode Pile
+      // mais réaffichait la MÊME personne sans jamais avancer, un nouveau
+      // "Se rencontrer" retombant sur la même erreur en boucle. L'état voulu
+      // (cette personne est likée) est déjà atteint en base : ce n'est pas un
+      // échec réel.
+      if (likeError && likeError.code !== "23505") throw likeError;
+      setLikePairs((k) =>
+        k.some((l) => l.from_id === currentUser.id && l.to_id === target.id)
+          ? k
+          : [...k, { from_id: currentUser.id, to_id: target.id }]
+      );
       trackActivation(currentUser.id, "first_like");
       // Vérifié en base plutôt que via hasLiked()/le cache local likePairs :
       // ce cache n'est chargé qu'une fois par session (loadAll) et n'est
