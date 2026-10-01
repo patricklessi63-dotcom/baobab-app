@@ -1270,9 +1270,15 @@ export default function SocialShell({
       .then(({ data, error }) => {
         if (!alive) return;
         if (error) { console.error(error.message, error.code, error.details, error.hint); setMyUpcomingEventsLoading(false); return; }
+        // Bug corrigé à l'audit "Mes événements" (ProfileTab.jsx) : "status"
+        // (going/interested/waitlisted) était bien sélectionné ci-dessus mais
+        // jeté ici par un .map((r) => r.events) qui ne gardait que l'objet
+        // événement imbriqué. ProfileTab n'avait donc tout simplement aucune
+        // donnée de statut à afficher pour distinguer un événement confirmé
+        // d'un événement seulement "intéressé" ou en liste d'attente.
         const upcoming = (data || [])
           .filter((r) => r.events && !r.events.canceled_at && new Date(r.events.event_date) >= new Date())
-          .map((r) => r.events)
+          .map((r) => ({ ...r.events, myStatus: r.status }))
           .sort((a, b) => new Date(a.event_date) - new Date(b.event_date));
         setMyUpcomingEvents(upcoming);
         setMyUpcomingEventsLoading(false);

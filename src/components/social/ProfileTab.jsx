@@ -13,7 +13,17 @@ import { formatEventWhen, visibleAge } from "../../utils/format";
 import { usePremiumStatus } from "../../lib/premium/usePremiumStatus";
 import { PREMIUM_FEATURES, PREMIUM_PLANS } from "../../lib/premium/premiumConfig";
 import { openBillingPortal } from "../../lib/premium/checkout";
-import { primary, navy, green, coral, coralText, gold, bg, muted, online, verified, primaryRgb, leaf } from "./theme";
+import { primary, navy, green, coral, coralText, gold, goldText, bg, muted, online, verified, primaryRgb, leaf } from "./theme";
+
+// Même mapping que EventCard.jsx/EventParticipantsList.jsx (badge de statut
+// de participation) — repris ici pour "Mes événements" (onglet Profil), qui
+// n'affichait jusqu'ici aucun badge alors que ce statut (going/interested/
+// waitlisted) est bien connu pour chaque événement listé (voir SocialShell.jsx).
+const MY_EVENT_STATUS_BADGE = {
+  going: { label: "Tu participes ✓", color: green },
+  interested: { label: "Intéressé(e)", color: goldText },
+  waitlisted: { label: "Liste d'attente", color: goldText },
+};
 
 // Barre de sections du profil. Défile horizontalement sur mobile ; affiche un
 // dégradé sur les bords quand il reste des onglets hors écran (repère standard
@@ -416,7 +426,9 @@ export default function ProfileTab({
                     </div>
                   ) : (
                     <div className="grid sm:grid-cols-2 gap-3">
-                      {myUpcomingEvents.map((ev) => (
+                      {myUpcomingEvents.map((ev) => {
+                        const statusBadge = MY_EVENT_STATUS_BADGE[ev.myStatus];
+                        return (
                         <button key={ev.id} onClick={() => onOpenEvents(ev.id)} className="text-left rounded-2xl p-4 flex items-center gap-3 focus-visible:outline focus-visible:outline-2" style={{ background: bg }}>
                           <div className="h-11 w-11 rounded-xl flex-shrink-0 flex items-center justify-center text-lg" style={{ background: ev.cover_url ? `url(${ev.cover_url}) center/cover` : `linear-gradient(150deg,${gold},${coral})` }}>
                             {!ev.cover_url && eventCategoryIcon(ev.category)}
@@ -426,9 +438,13 @@ export default function ProfileTab({
                             <div className="text-[11px] truncate flex items-center gap-1" style={{ color: muted }}>
                               {eventCategoryLabel(ev.category)} · {formatEventWhen(ev.event_date, ev.timezone)}
                             </div>
+                            {statusBadge && (
+                              <div className="text-[11px] font-bold mt-1" style={{ color: statusBadge.color }}>{statusBadge.label}</div>
+                            )}
                           </div>
                         </button>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </div>
