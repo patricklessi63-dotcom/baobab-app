@@ -29,4 +29,14 @@ describe("detectPersonalCoordinates", () => {
     expect(detectPersonalCoordinates("j'ai 3 chats et 2 plantes")).toBe(false);
     expect(detectPersonalCoordinates("rendez-vous à 14h30")).toBe(false);
   });
+
+  it("détecte une adresse email", () => {
+    expect(detectPersonalCoordinates("mon email est jean.dupont@gmail.com")).toBe(true);
+    expect(detectPersonalCoordinates("contacte-moi: jean+baobab@example.co")).toBe(true);
+    expect(detectPersonalCoordinates("écris-moi à Jean_D99@outlook.fr si tu veux")).toBe(true);
+  });
+
+  it("ne signale pas un simple @ sans domaine valide", () => {
+    expect(detectPersonalCoordinates("on se parle @ 18h")).toBe(false);
+  });
 });

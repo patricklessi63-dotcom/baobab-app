@@ -1,9 +1,10 @@
 // ============================================================================
-// Détection heuristique d'un numéro de téléphone ou d'une adresse dans un
-// brouillon de message — déclenche un rappel non intrusif ("pense à un lieu
-// public pour une première rencontre") AVANT l'envoi, pas après (voir
-// prompt-messagerie-baobab.md, section Sécurité). Aucun blocage : l'envoi
-// reste toujours possible, le rappel se contente d'informer.
+// Détection heuristique d'un numéro de téléphone, d'une adresse email ou
+// d'une adresse postale dans un brouillon de message — déclenche un rappel
+// non intrusif ("pense à un lieu public pour une première rencontre") AVANT
+// l'envoi, pas après (voir prompt-messagerie-baobab.md, section Sécurité).
+// Aucun blocage : l'envoi reste toujours possible, le rappel se contente
+// d'informer.
 // ============================================================================
 
 // Numéro nord-américain, avec ou sans indicatif/formatage.
@@ -13,8 +14,13 @@ const PHONE_PATTERN = /(\+?1[\s.-]?)?\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}\b/;
 // positifs acceptés, jamais de blocage) plutôt que de rater une vraie adresse.
 const ADDRESS_PATTERN = /\b\d{1,5}\s+([a-zà-ÿ'-]+\s+){0,3}(rue|avenue|av\.?|boulevard|blvd\.?|chemin|route|rte\.?|street|st\.?|road|rd\.?|drive|dr\.?)\b/i;
 
+// Adresse email — oubliée jusqu'ici : le rappel ne couvrait que téléphone et
+// adresse postale alors que "coordonnées personnelles" (texte du rappel :
+// "sur le point de partager tes coordonnées ?") inclut aussi l'email.
+const EMAIL_PATTERN = /[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/i;
+
 export function detectPersonalCoordinates(text) {
   const value = (text || "").trim();
   if (!value) return false;
-  return PHONE_PATTERN.test(value) || ADDRESS_PATTERN.test(value);
+  return PHONE_PATTERN.test(value) || ADDRESS_PATTERN.test(value) || EMAIL_PATTERN.test(value);
 }
