@@ -2222,8 +2222,25 @@ export default function App() {
       const { error: passError } = await supabase
         .from("passes")
         .insert({ from_id: currentUser.id, to_id: target.id });
-      if (passError) throw passError;
-      setPassPairs((k) => [...k, { from_id: currentUser.id, to_id: target.id }]);
+      // Bug corrigé à l'audit (unique(from_id,to_id) sur "passes") : cette
+      // personne peut avoir déjà été passée côté serveur une fraction de
+      // seconde plus tôt sans que ce client ne le sache encore (ex. deux
+      // onglets/appareils ouverts sur le même compte — l'abonnement Realtime
+      // "passes" plus bas comble ce retard mais pas instantanément, ou un
+      // profil réapparu dans la pile après un bug de filtrage côté candidats).
+      // Avant ce correctif, l'INSERT en conflit remontait ici comme une
+      // erreur générique ("Réessaie.") : la carte en mode Pile se débloquait
+      // (voir decideSwipe) mais réaffichait la MÊME personne sans jamais
+      // avancer, et un nouveau "Passer" retombait sur la même erreur en
+      // boucle. Or l'état voulu (cette personne est passée) est déjà atteint
+      // en base : ce n'est pas un échec réel, même motif que
+      // useHiddenRecommendations.hide() pour "déjà masqué".
+      if (passError && passError.code !== "23505") throw passError;
+      setPassPairs((k) =>
+        k.some((p) => p.from_id === currentUser.id && p.to_id === target.id)
+          ? k
+          : [...k, { from_id: currentUser.id, to_id: target.id }]
+      );
       return true;
     } catch (e) {
       console.error(e);
