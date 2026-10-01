@@ -506,7 +506,16 @@ export default function SocialShell({
         const { error } = await supabase
           .from("favorites")
           .insert({ from_id: currentUser.id, to_id: profile.id });
-        if (error) throw error;
+        // Même famille de bug que handlePass/handleLike (App.jsx) : contrainte
+        // unique(from_id,to_id) sur "favorites". Un double-tap avant la mise à
+        // jour de favoriteIds, ou ce profil déjà mis en favori depuis un autre
+        // onglet/appareil, fait remonter un conflit (23505) alors que l'état
+        // voulu (en favori) est déjà atteint en base. Avant ce correctif, le
+        // catch ci-dessous annulait alors la mise à jour optimiste et
+        // repassait le bouton sur "pas en favori" alors que ce profil l'est
+        // bel et bien côté serveur — état local incohérent jusqu'au prochain
+        // rechargement complet.
+        if (error && error.code !== "23505") throw error;
       }
     } catch (e) {
       console.error(e.message, e.code, e.details, e.hint);
@@ -711,7 +720,13 @@ export default function SocialShell({
         const { error } = await supabase
           .from("follows")
           .insert({ from_id: currentUser.id, to_id: profile.id });
-        if (error) throw error;
+        // Même correctif que toggleFavorite ci-dessus (même motif que
+        // handlePass/handleLike, App.jsx) : contrainte unique(from_id,to_id)
+        // sur "follows". Sans ce garde, un conflit (23505) — déjà suivi depuis
+        // un autre onglet/appareil, ou double-tap — annulait la mise à jour
+        // optimiste et repassait le bouton sur "ne plus suivre" alors que cet
+        // abonnement est déjà bien réel côté serveur.
+        if (error && error.code !== "23505") throw error;
       }
     } catch (e) {
       console.error(e.message, e.code, e.details, e.hint);
