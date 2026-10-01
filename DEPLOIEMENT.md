@@ -495,3 +495,50 @@ réagir, commenter, quitter, accepter/décliner une invitation, etc.) sont déj�
 protégées par `try/catch` avec un message d'erreur générique ou
 `friendlyDbError()` : un refus RLS remonte proprement comme une erreur
 affichée, jamais comme un crash silencieux.
+
+---
+
+## 7. Audit du rate-limit serveur de `ai-assist` (30 septembre 2026) — pas de
+problème de fiabilité trouvé, lecture seule sur l'edge function
+
+Question posée : la fonction `ai-assist` étant déployée et facturée au token
+(API Anthropic), le rate-limit CÔTÉ SERVEUR (la seule protection fiable,
+puisqu'un appel direct à l'API peut contourner le client) a-t-il déjà été
+vérifié ?
+
+**Constat : le rate-limit serveur est solide, pas de bug trouvé.**
+
+- Il n'est **pas** en mémoire (pas de variable globale Deno fragile face aux
+  cold starts) : `ai-assist/index.ts` (~ligne 51-61) compte les lignes de la
+  table `ai_usage` (`supabase-intelligence.sql`, §4) créées dans la dernière
+  heure pour le `profile_id` courant (`select count(*) ... where profile_id =
+  ... and created_at >= now() - 1h`), via le client `service_role` (RLS
+  contourné pour la lecture globale, mais aucune policy INSERT cliente —
+  seule la fonction peut écrire). Un index dédié existe déjà
+  (`idx_ai_usage_profile_time on ai_usage(profile_id, created_at)`). Cette
+  limite **survit** aux redémarrages/redéploiements de la fonction — pas de
+  trou de fiabilité ici, contrairement à l'hypothèse initiale de l'audit.
+- Limite réelle : `AI_RATE_LIMIT_PER_HOUR` (défaut 20/h par profil, fenêtre
+  glissante d'1h recalculée à chaque appel). Raisonnable compte tenu du coût :
+  modèle `claude-3-5-haiku-latest` (le moins cher), `max_tokens: 400` en
+  sortie, entrées tronquées à 400-1000 caractères selon l'action — coût
+  largement contenu même à 20 appels/h/utilisateur. Rien à corriger ici.
+- Cohérence client/serveur déjà bonne : au dépassement, le serveur répond
+  HTTP 429 avec `{"error": "Limite de suggestions IA atteinte pour cette
+  heure. Réessaie plus tard."}` (texte explicite, pas une panne). Côté client,
+  `invokeAI` (`src/lib/ai/aiClient.js`, `readServerErrorMessage`) relit déjà
+  ce corps JSON depuis `error.context` (`FunctionsHttpError` de supabase-js —
+  jamais dans `data` pour un statut non-2xx) et le propage tel quel ; ce n'est
+  QUE si ce corps est illisible (panne réseau/relais réelle) que le message
+  générique "Le service IA n'a pas pu répondre. Réessaie." apparaît. Tous les
+  appelants (`AiSuggestButton`, `AiConversationSuggestions`,
+  `CommunityCreateForm`, `ConversationPane.handleTranslate`) affichent cette
+  chaîne telle quelle — l'utilisateur voit donc bien le message de limite
+  horaire, distinct de la panne générique. Ce correctif existait déjà (commit
+  `531f12c`, avant cet audit) mais n'avait, contrairement au même motif pour
+  `create-checkout-session`/`create-portal-session`
+  (`src/lib/premium/checkout.test.js`), **aucun test** : ajouté dans cette
+  session (`src/lib/ai/aiClient.test.js`, 7 cas — message de limite horaire,
+  autres messages précis du serveur, repli générique, anti-rebond client).
+
+Rien à déployer ni corriger côté SQL/edge function suite à cet audit.
