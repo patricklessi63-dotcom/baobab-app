@@ -719,7 +719,12 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
         if (error) throw error;
       } else {
         const { error } = await supabase.from("post_likes").insert({ post_id: post.id, profile_id: currentUser.id });
-        if (error) throw error;
+        // Même motif que toggleFavorite/toggleFollow (SocialShell.jsx) et
+        // handlePass/handleLike (App.jsx) : contrainte unique(post_id,
+        // profile_id) sur "post_likes". Un conflit (23505) — déjà liké depuis
+        // un autre onglet/appareil, ou double-tap — ne doit pas annuler la
+        // mise à jour optimiste ci-dessus : ce like est déjà réel en base.
+        if (error && error.code !== "23505") throw error;
       }
     } catch (e) {
       console.error(e);

@@ -316,7 +316,13 @@ export default function ImmigrationNewsView({ onBack, onError, currentUser }) {
         if (error) throw error;
       } else {
         const { error } = await supabase.from("immigration_news_favorites").insert({ profile_id: currentUser.id, news_id: newsId });
-        if (error) throw error;
+        // Même motif que toggleFavorite/toggleFollow (SocialShell.jsx), le
+        // like des publications (PostsFeed.jsx) et handlePass/handleLike
+        // (App.jsx) : contrainte unique(profile_id,news_id) sur
+        // "immigration_news_favorites". Un conflit (23505) ne doit pas
+        // annuler la mise à jour optimiste ci-dessus : cet article est déjà
+        // bien en favori côté serveur.
+        if (error && error.code !== "23505") throw error;
       }
     } catch (e) {
       console.error(e);
