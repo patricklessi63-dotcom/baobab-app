@@ -1217,7 +1217,7 @@ export default function EventsTab({ currentUser, onError, onBack = () => {}, ini
   // Bug corrigé : comparaison insensible aux accents (normalizeForSearch), pas
   // seulement à la casse (.toLowerCase()) — même correctif que
   // CommunitiesTab.jsx/matchingService.js (voir leurs commentaires).
-  const nearby = isNeutralHome && currentUser?.city ? events.filter((e) => e.city && normalizeForSearch(e.city) === normalizeForSearch(currentUser.city)).slice(0, 6) : [];
+  const nearby = isNeutralHome && currentUser?.city ? events.filter((e) => e.city && normalizeForSearch(e.city.trim()) === normalizeForSearch(currentUser.city.trim())).slice(0, 6) : [];
   const upcoming = isNeutralHome ? events.slice(0, 6) : [];
   const fromCommunities = isNeutralHome ? events.filter((e) => e.community_id && myCommunityIds.includes(e.community_id)).slice(0, 6) : [];
   const mine = isNeutralHome && currentUser ? events.filter((e) => myStatuses[e.id] === "going" || myStatuses[e.id] === "interested" || myStatuses[e.id] === "waitlisted").slice(0, 6) : [];

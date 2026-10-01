@@ -1549,7 +1549,7 @@ export default function CommunitiesTab({ currentUser, onError, onBack = () => {}
   // de toi" pour un utilisateur ayant tapé "Montreal" (sans accent) comme
   // ville, alors qu'il s'agit bien de la même ville. Même correctif dans
   // EventsTab.jsx et matchingService.js (score/filtre "Ma ville uniquement").
-  const nearby = isNeutralHome && currentUser?.city ? communities.filter((c) => c.city && normalizeForSearch(c.city) === normalizeForSearch(currentUser.city)).slice(0, 6) : [];
+  const nearby = isNeutralHome && currentUser?.city ? communities.filter((c) => c.city && normalizeForSearch(c.city.trim()) === normalizeForSearch(currentUser.city.trim())).slice(0, 6) : [];
   const newest = isNeutralHome ? [...communities].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 6) : [];
 
   const renderGrid = (list) => (
