@@ -697,7 +697,7 @@ export default function ConversationPane({
                   <span className="flex items-center gap-2">
                     {goTab && (
                       <button onClick={() => goTab("premium")} className="font-bold underline" style={{ color: primary }}>
-                        Passer Premium
+                        Passer à Premium
                       </button>
                     )}
                     {/* Reste disponible pour le cas où l'abonnement vient d'être
