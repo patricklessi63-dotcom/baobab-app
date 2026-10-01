@@ -19,7 +19,7 @@ import { rankEvents } from "../../lib/events/recommendations";
 import { EVENT_REPORT_CATEGORIES } from "../../lib/events/eventConfig";
 import { trackActivation } from "../../lib/trackActivation";
 import { friendlyDbError } from "../../lib/friendlyDbError";
-import { escapeLikePattern, escapeOrFilterValue } from "../../lib/searchQuery";
+import { escapeLikePattern, escapeOrFilterValue, normalizeForSearch } from "../../lib/searchQuery";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { primary, coralText, muted, bg, card, primaryRgb, navy } from "./theme";
@@ -1214,7 +1214,10 @@ export default function EventsTab({ currentUser, onError, onBack = () => {}, ini
   // ---------- Accueil / liste ----------
   const recommended = isNeutralHome ? rankEvents(currentUser, events, myCommunityIds).filter((r) => r.score > 0).slice(0, 6).map((r) => r.event) : [];
   const popular = isNeutralHome ? [...events].sort((a, b) => b.participantCount - a.participantCount).slice(0, 6) : [];
-  const nearby = isNeutralHome && currentUser?.city ? events.filter((e) => e.city && e.city.toLowerCase() === currentUser.city.toLowerCase()).slice(0, 6) : [];
+  // Bug corrigé : comparaison insensible aux accents (normalizeForSearch), pas
+  // seulement à la casse (.toLowerCase()) — même correctif que
+  // CommunitiesTab.jsx/matchingService.js (voir leurs commentaires).
+  const nearby = isNeutralHome && currentUser?.city ? events.filter((e) => e.city && normalizeForSearch(e.city) === normalizeForSearch(currentUser.city)).slice(0, 6) : [];
   const upcoming = isNeutralHome ? events.slice(0, 6) : [];
   const fromCommunities = isNeutralHome ? events.filter((e) => e.community_id && myCommunityIds.includes(e.community_id)).slice(0, 6) : [];
   const mine = isNeutralHome && currentUser ? events.filter((e) => myStatuses[e.id] === "going" || myStatuses[e.id] === "interested" || myStatuses[e.id] === "waitlisted").slice(0, 6) : [];

@@ -9,6 +9,24 @@
 // ============================================================================
 
 import { MATCH_WEIGHTS, SCORE_FLOOR, SCORE_CEIL, DISCLAIMER, ROMANTIC_INTENTION_MARKERS } from "./matchingConfig.js";
+import { normalizeForSearch } from "../searchQuery.js";
+
+// Bug corrigé : toutes les comparaisons de ville ci-dessous (sameCity dans
+// scorePreferences/filterCandidatesByPreferences, cityA/cityB dans
+// scoreLocation) ne faisaient que .trim().toLowerCase() — insensible à la
+// casse mais PAS aux accents. "Ville" est un champ texte libre
+// (EditProfileForm.jsx) sans normalisation à la saisie : deux personnes
+// réellement dans la même ville mais ayant tapé "Montréal" pour l'une et
+// "Montreal" (clavier anglais, saisie rapide) pour l'autre ne se
+// retrouvaient JAMAIS comme "même ville" — ni pour le score/libellé affiché,
+// ni (plus grave) pour le filtre DUR "Ma ville uniquement", qui pouvait
+// exclure silencieusement un candidat pourtant dans la même ville. Même
+// fonction normalizeForSearch déjà utilisée pour la recherche globale
+// (SocialShell.jsx) et les communautés/événements "Près de toi"
+// (CommunitiesTab.jsx/EventsTab.jsx, corrigé dans le même passage).
+function sameCityNormalized(cityA, cityB) {
+  return Boolean(cityA && cityB && normalizeForSearch(cityA) === normalizeForSearch(cityB));
+}
 
 function parseList(text) {
   return (text || "")
@@ -147,7 +165,7 @@ function scorePreferences(userA, userB) {
   const distancePref = userA.pref_distance || "";
   const cityBForDistance = visibleCity(userB);
   const countryBForDistance = visibleCountry(userB);
-  const sameCity = Boolean(userA.city && cityBForDistance && userA.city.trim().toLowerCase() === cityBForDistance.trim().toLowerCase());
+  const sameCity = sameCityNormalized(userA.city, cityBForDistance);
   const sameCountry = Boolean(userA.country && countryBForDistance && userA.country.trim().toLowerCase() === countryBForDistance.trim().toLowerCase());
   if (distancePref === "Ma ville uniquement" && sameCity) distancePoints = 7;
   else if (distancePref === "Ma ville ou mon pays" && (sameCity || sameCountry)) distancePoints = 7;
@@ -183,12 +201,10 @@ function visibleCountry(profile) {
 function scoreLocation(userA, userB) {
   const cityBRaw = visibleCity(userB);
   const countryBRaw = visibleCountry(userB);
-  const cityA = (userA.city || "").trim().toLowerCase();
-  const cityB = (cityBRaw || "").trim().toLowerCase();
   const countryA = (userA.country || "").trim().toLowerCase();
   const countryB = (countryBRaw || "").trim().toLowerCase();
 
-  if (cityA && cityB && cityA === cityB) {
+  if (sameCityNormalized(userA.city, cityBRaw)) {
     return { points: MATCH_WEIGHTS.location, level: "same_city", label: `Même ville (${cityBRaw})` };
   }
   if (countryA && countryB && countryA === countryB) {
@@ -304,10 +320,10 @@ export function filterCandidatesByPreferences(currentUser, candidates) {
     const cityBForFilter = visibleCity(c);
     const countryBForFilter = visibleCountry(c);
     if (distance === "Ma ville uniquement") {
-      const sameCity = currentUser.city && cityBForFilter && cityBForFilter.trim().toLowerCase() === currentUser.city.trim().toLowerCase();
+      const sameCity = sameCityNormalized(currentUser.city, cityBForFilter);
       if (!sameCity) return false;
     } else if (distance === "Ma ville ou mon pays") {
-      const sameCity = currentUser.city && cityBForFilter && cityBForFilter.trim().toLowerCase() === currentUser.city.trim().toLowerCase();
+      const sameCity = sameCityNormalized(currentUser.city, cityBForFilter);
       const sameCountry = currentUser.country && countryBForFilter && countryBForFilter.trim().toLowerCase() === currentUser.country.trim().toLowerCase();
       if (!sameCity && !sameCountry) return false;
     }

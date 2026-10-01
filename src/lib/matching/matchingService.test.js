@@ -51,6 +51,20 @@ describe("filterCandidatesByPreferences", () => {
     expect(out.map((c) => c.id)).toEqual(["same"]);
   });
 
+  it("distance 'Ma ville uniquement' : insensible aux accents (ville = champ texte libre, non normalisé à la saisie)", () => {
+    // Bug corrigé : "Montréal" (saisie accentuée) et "Montreal" (clavier
+    // anglais/saisie rapide, même ville réelle) ne se reconnaissaient pas
+    // comme "même ville" avec un simple .toLowerCase() — ce filtre DUR
+    // excluait alors silencieusement un candidat pourtant dans la même ville.
+    const user = { city: "Montréal", pref_distance: "Ma ville uniquement" };
+    const out = filterCandidatesByPreferences(user, [
+      { id: "sansAccent", city: "Montreal" },
+      { id: "majuscules", city: "MONTREAL" },
+      { id: "autreVille", city: "Quebec" },
+    ]);
+    expect(out.map((c) => c.id)).toEqual(["sansAccent", "majuscules"]);
+  });
+
   it("distance : un candidat ayant masqué sa ville (show_city:false) est traité comme sans ville", () => {
     const user = { city: "Montréal", pref_distance: "Ma ville uniquement" };
     const out = filterCandidatesByPreferences(user, [{ id: "hidden", city: "Montréal", show_city: false }]);
@@ -195,6 +209,18 @@ describe("computeMatch", () => {
     expect(visible.reasons).toContain("Son âge correspond à tes préférences");
     expect(hidden.breakdown.preferences).toBe(0);
     expect(hidden.reasons).not.toContain("Son âge correspond à tes préférences");
+  });
+
+  it("scoreLocation : 'Même ville' détectée même si l'un des deux a tapé la ville sans accent", () => {
+    // Bug corrigé : "Montréal" vs "Montreal" (saisie libre, pas de
+    // normalisation à l'édition du profil) ne déclenchait ni les points de
+    // localisation ni le libellé "Même ville (...)" avec un simple
+    // .toLowerCase(). Le libellé doit conserver l'orthographe DU CANDIDAT
+    // (cityBRaw), pas celle normalisée utilisée pour la comparaison.
+    const a = { id: "a", city: "Montréal" };
+    const match = computeMatch(a, { id: "b", city: "Montreal" });
+    expect(match.breakdown.location).toBeGreaterThan(0);
+    expect(match.locationLabel).toBe("Même ville (Montreal)");
   });
 
   it("respecte la confidentialité : ville/pays masqués (show_city/show_country:false) ne rapportent aucun point de localisation ni libellé", () => {

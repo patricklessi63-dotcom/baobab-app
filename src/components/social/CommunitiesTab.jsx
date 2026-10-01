@@ -21,7 +21,7 @@ import { validateMediaFile } from "../../lib/mediaValidation";
 import { compressImageIfNeeded } from "../../lib/imageCompression";
 import { extFromMime } from "../../lib/mediaConstants";
 import { uploadWithProgress } from "../../lib/uploadWithProgress";
-import { escapeLikePattern, escapeOrFilterValue } from "../../lib/searchQuery";
+import { escapeLikePattern, escapeOrFilterValue, normalizeForSearch } from "../../lib/searchQuery";
 import { wouldOrphanCommunity } from "../../lib/communities/permissions";
 import { primary, muted, bg, card, navy } from "./theme";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
@@ -1542,7 +1542,14 @@ export default function CommunitiesTab({ currentUser, onError, onBack = () => {}
   // ---------- Liste ----------
   const recommended = isNeutralHome ? rankCommunities(currentUser, communities).filter((r) => r.score > 0).slice(0, 6).map((r) => r.community) : [];
   const popular = isNeutralHome ? [...communities].sort((a, b) => b.memberCount - a.memberCount).slice(0, 6) : [];
-  const nearby = isNeutralHome && currentUser?.city ? communities.filter((c) => c.city && c.city.toLowerCase() === currentUser.city.toLowerCase()).slice(0, 6) : [];
+  // Bug corrigé : comparaison insensible aux accents (normalizeForSearch), pas
+  // seulement à la casse (.toLowerCase()) — "Ville" est un champ texte libre
+  // (EditProfileForm.jsx) sans normalisation à la saisie. Sans ce correctif,
+  // une communauté enregistrée à "Montréal" n'apparaissait jamais dans "Près
+  // de toi" pour un utilisateur ayant tapé "Montreal" (sans accent) comme
+  // ville, alors qu'il s'agit bien de la même ville. Même correctif dans
+  // EventsTab.jsx et matchingService.js (score/filtre "Ma ville uniquement").
+  const nearby = isNeutralHome && currentUser?.city ? communities.filter((c) => c.city && normalizeForSearch(c.city) === normalizeForSearch(currentUser.city)).slice(0, 6) : [];
   const newest = isNeutralHome ? [...communities].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 6) : [];
 
   const renderGrid = (list) => (
