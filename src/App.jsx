@@ -2653,24 +2653,32 @@ export default function App() {
     }
   }
 
+  // Retourne la promesse de l'envoi (bug corrigé — audit retrySend) : sans
+  // ça, l'effet de reconnexion ci-dessous ne pouvait pas attendre qu'UN
+  // renvoi soit terminé avant de déclencher le suivant. Plusieurs messages
+  // en échec dans la même conversation étaient donc tous relancés en
+  // parallèle : leurs INSERT arrivaient en base dans un ordre dépendant de
+  // la course réseau, pas de l'ordre réel de composition — un message tapé
+  // en second pouvait recevoir un created_at plus ancien que celui tapé en
+  // premier, inversant leur ordre d'affichage pour les DEUX participants dès
+  // le prochain rechargement (voir sortMessagesChronologically/
+  // refreshMessages, qui trient uniquement sur created_at).
   function retrySend(msg) {
     if (msg._file) {
-      sendMediaMessage(msg._file, msg.kind, msg.id);
-      return;
+      return sendMediaMessage(msg._file, msg.kind, msg.id);
     }
     if (msg.kind === "sticker") {
       setMessages((m) => m.map((x) => (x.id === msg.id ? { ...x, _status: "sending" } : x)));
-      insertMessageRow(
+      return insertMessageRow(
         { match_key: msg.match_key, from_id: currentUser.id, kind: "sticker", text: null, media_path: null, media_meta: msg.media_meta, reply_to_id: msg.reply_to_id || null },
         msg.id
       );
-      return;
     }
     setMessages((m) => m.map((x) => (x.id === msg.id ? { ...x, _status: "sending" } : x)));
     // Bug corrigé : le reply_to_id du message optimiste n'était jamais
     // repassé ici — réessayer un message-réponse en échec le renvoyait
     // comme un message normal, sans lien vers le message cité.
-    sendMessageText(msg.text, msg.id, msg.reply_to_id);
+    return sendMessageText(msg.text, msg.id, msg.reply_to_id);
   }
 
   // Dégradation propre en cas de connexion instable (Baobab 3.0) : un message
@@ -2709,7 +2717,35 @@ export default function App() {
     // à l'identique (et re-uploaderait un média en pure perte) — voir le
     // commentaire dans insertMessageRow ci-dessus.
     const failed = messagesRef.current.filter((msg) => msg._status === "failed" && !msg._premiumBlocked);
-    failed.forEach((msg) => retrySend(msg));
+    // Bug corrigé (audit retrySend) : "forEach" ne patiente pas entre deux
+    // itérations — tous les messages en échec repartaient donc en parallèle.
+    // Si plusieurs messages avaient échoué dans cette conversation pendant
+    // la coupure, l'ordre dans lequel leurs INSERT atteignaient réellement
+    // la base (et donc leur created_at, seul critère de tri — voir
+    // sortMessagesChronologically) dépendait de la course réseau entre ces
+    // requêtes concurrentes, pas de l'ordre dans lequel l'utilisateur les
+    // avait composés : un message tapé en second pouvait doubler celui tapé
+    // en premier, inversant leur ordre d'affichage pour les deux
+    // participants dès le rechargement suivant. On les rejoue maintenant
+    // un par un, dans l'ordre chronologique déjà garanti par "messages"
+    // (retrySend() ne rejette jamais — ses erreurs sont déjà interceptées
+    // plus bas et se traduisent par un nouveau "_status: failed" — donc
+    // l'échec d'un renvoi n'empêche pas d'enchaîner sur le suivant).
+    (async () => {
+      for (const msg of failed) {
+        // try/catch défensif : retrySend()/sendMediaMessage() interceptent
+        // déjà leurs erreurs d'envoi, mais une étape non protégée en amont
+        // (ex. compressImageIfNeeded sur une image corrompue) pourrait
+        // encore rejeter — sans ce filet, ça romprait la boucle "for" et
+        // laisserait tous les messages suivants bloqués en "failed" sans
+        // même être retentés.
+        try {
+          await retrySend(msg);
+        } catch (e) {
+          console.error(e);
+        }
+      }
+    })();
     if (activeMatchRef.current) refreshMessages(activeMatchRef.current);
     // Bug corrigé (même famille que e7a7cdd/16d03ee/4fd74c8) : si le
     // chargement initial (loadAll — candidates, matches/likes/passes/
