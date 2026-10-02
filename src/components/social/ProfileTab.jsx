@@ -490,13 +490,21 @@ export default function ProfileTab({
                     // utilisateur qui cliquait dessus souscrivait un DEUXIÈME abonnement
                     // Stripe (même client, nouvelle session Checkout) au lieu de simplement
                     // mettre à jour son moyen de paiement sur l'abonnement existant.
+                    //
+                    // Bug corrigé : le texte ci-dessous affirmait "ton abonnement est
+                    // toujours actif chez Stripe", ce qui est vrai pour l'objet Stripe
+                    // mais trompeur pour l'utilisateur — is_premium() (supabase-premium.sql)
+                    // exclut délibérément "past_due" des statuts Premium ("active"/"trialing"
+                    // uniquement), donc l'accès Premium est DÉJÀ coupé côté serveur (ex. le
+                    // paywall messagerie, qui appelle is_premium() directement) dès ce
+                    // premier échec de paiement, pas seulement à l'annulation future.
                     <div className="rounded-2xl p-4" style={{ background: "rgba(217,88,60,.12)", border: "1px solid rgba(217,88,60,.35)" }}>
                       <div className="flex items-center gap-2">
                         <span style={{ fontSize: 20 }}>⚠️</span>
                         <span className="text-sm font-black" style={{ color: primary }}>Échec de ton dernier paiement</span>
                       </div>
                       <p className="text-sm mt-2" style={{ color: "rgba(var(--bb-ink-rgb),0.72)" }}>
-                        Ton abonnement {subscription?.plan === "yearly" ? "annuel" : "mensuel"} est toujours actif chez Stripe, mais le dernier prélèvement a échoué. Mets à jour ton moyen de paiement pour éviter l'annulation.
+                        Le dernier prélèvement de ton abonnement {subscription?.plan === "yearly" ? "annuel" : "mensuel"} a échoué : ton accès Premium est suspendu. Stripe retente automatiquement le paiement pendant plusieurs jours — mets à jour ton moyen de paiement pour le récupérer avant l'annulation définitive.
                       </p>
                       <button onClick={handleManageSubscription} disabled={managingSubscription} className="bb-btn-gold mt-3 px-4 py-2.5 rounded-xl font-bold text-sm disabled:opacity-60 focus-visible:outline focus-visible:outline-2">
                         {managingSubscription ? "Ouverture..." : "Mettre à jour mon moyen de paiement"}

@@ -158,11 +158,21 @@ export default function PremiumPage({ currentUser, onBack, onError, justSubscrib
         // "s'abonner" créait alors une session Checkout qui ouvrait un DEUXIÈME
         // abonnement Stripe en plus du premier (toujours vivant, en cours de
         // relance), au lieu de simplement corriger le moyen de paiement.
+        //
+        // Bug corrigé : le texte ci-dessous affirmait "ton abonnement est
+        // toujours actif", alors qu'is_premium() (supabase-premium.sql) ne
+        // traite que "active"/"trialing" comme Premium — "past_due" en est
+        // délibérément exclu. L'accès Premium est donc DÉJÀ coupé côté
+        // serveur dès ce premier échec de paiement (ex. le paywall messagerie,
+        // qui appelle is_premium() directement). Un utilisateur lisant
+        // "toujours actif" pouvait donc croire avoir encore accès à Premium
+        // et voir ses actions Premium échouer ailleurs sans comprendre
+        // pourquoi, au lieu d'être prévenu que l'accès est déjà suspendu.
         <div className={`${card} p-6 text-center`}>
           <span style={{ fontSize: 32 }}>⚠️</span>
           <h2 className="text-lg font-black mt-2" style={{ color: primary }}>Échec de ton dernier paiement</h2>
           <p className="text-sm mt-1" style={{ color: muted }}>
-            Ton abonnement {subscription?.plan === "yearly" ? "annuel" : "mensuel"} est toujours actif, mais le dernier prélèvement a échoué. Mets à jour ton moyen de paiement pour éviter l'annulation.
+            Le dernier prélèvement de ton abonnement {subscription?.plan === "yearly" ? "annuel" : "mensuel"} a échoué : ton accès Premium est suspendu. Stripe retente automatiquement le paiement pendant plusieurs jours — mets à jour ton moyen de paiement pour le récupérer avant l'annulation définitive.
           </p>
           <button onClick={handleManagePastDue} disabled={submitting} className="mt-4 px-5 py-3 rounded-2xl text-sm font-bold text-white disabled:opacity-60" style={{ background: `linear-gradient(135deg, ${coral}, ${gold})` }}>
             {submitting ? "Ouverture..." : "Mettre à jour mon moyen de paiement"}
