@@ -218,7 +218,33 @@ export default function App() {
   const activeMatchRef = useRef(null); // lu par l'abonnement realtime "blocks-passes" sans le forcer à se réabonner à chaque changement de conversation ouverte
   const currentUserRef = useRef(null); // lu par resyncSocialGraph() (effet de reconnexion, deps [isOnline]) sans le forcer à se relancer à chaque édition de profil
   const likesChannelRef = useRef(null);
-  const [matchNotice, setMatchNotice] = useState(null);
+  // File d'attente (et non une simple valeur) : corrige un bug réel repéré à
+  // l'audit (célébration de match, 2 oct. 2026) où deux matchs mutuels
+  // quasi simultanés (ex. je like rapidement deux personnes qui m'avaient
+  // déjà liké en retour toutes les deux) faisaient que le second
+  // setMatchNotice(...) écrasait silencieusement le premier avant même que
+  // l'utilisateur n'ait vu la modale du premier match — il ne saurait jamais
+  // qu'il a eu 2 matchs, pensant n'en avoir eu qu'un seul. "matchNotice" est
+  // dérivé du premier élément de la file ; fermer/démarrer une conversation
+  // dépile vers le match suivant au lieu de tout effacer.
+  const [matchNoticeQueue, setMatchNoticeQueue] = useState([]);
+  const matchNotice = matchNoticeQueue[0] || null;
+  function pushMatchNotice(profile) {
+    setMatchNoticeQueue((q) => (q.some((p) => p.id === profile.id) ? q : [...q, profile]));
+  }
+  // Bug corrigé au même audit : si la personne qui vient tout juste de
+  // matcher est bloquée/débloquée ou si le match est rompu dans la fraction
+  // de seconde qui suit (depuis l'autre appareil — voir les canaux Realtime
+  // "likes"/"blocks" plus bas, et performBlock/confirmUnmatch ci-dessous),
+  // la modale de célébration restait affichée (ou en file) pour un match qui
+  // n'existe déjà plus côté serveur : "Commencer la conversation" ouvrait
+  // alors un chat mort, l'envoi de message échouant ensuite silencieusement
+  // (policy RLS exigeant un like mutuel encore présent). Même principe que
+  // activeMatchRef.current?.id === ... → setActiveMatch(null) déjà en place
+  // pour la conversation ouverte, appliqué ici à la file de célébrations.
+  function dismissMatchNoticeFor(id) {
+    setMatchNoticeQueue((q) => q.filter((p) => p.id !== id));
+  }
   const [activeMatch, setActiveMatch] = useState(null);
   // Bug corrigé à l'audit : ouvrir une conversation (liste des messages →
   // conversation) ne poussait aucune entrée d'historique, contrairement
@@ -1418,6 +1444,10 @@ export default function App() {
       if (activeMatch?.id === target.id) {
         setActiveMatch(null);
       }
+      // Voir le commentaire sur dismissMatchNoticeFor : cette personne vient
+      // d'être bloquée, une éventuelle célébration de match en attente pour
+      // elle (modale affichée ou en file) n'a plus lieu d'être.
+      dismissMatchNoticeFor(target.id);
     } catch (e) {
       console.error(e);
       setError("Impossible de bloquer ce profil.");
@@ -1527,6 +1557,9 @@ export default function App() {
       );
       setPassPairs((k) => [...k, { from_id: currentUser.id, to_id: target.id }, { from_id: target.id, to_id: currentUser.id }]);
       if (activeMatch?.id === target.id) closeChat();
+      // Même raison que dans performBlock : ce match vient d'être rompu, une
+      // célébration encore en attente pour cette personne n'a plus de sens.
+      dismissMatchNoticeFor(target.id);
     } catch (e) {
       console.error(e);
       // unmatch_profile() (supabase-dating-2.sql) lève des messages déjà
@@ -2302,7 +2335,7 @@ export default function App() {
         .eq("to_id", currentUser.id)
         .maybeSingle();
       if (reciprocal) {
-        setMatchNotice(target);
+        pushMatchNotice(target);
         trackActivation(currentUser.id, "first_match");
         // target basculait d'admirateur·ice à sens unique (compté dans
         // admirersCount) à match mutuel (jamais compté dedans) — voir
@@ -3012,7 +3045,7 @@ export default function App() {
             if (!fromProfile) return;
             setLikerProfilesRaw((prev) => (prev.some((p) => p.id === fromId) ? prev : [fromProfile, ...prev]));
             if (alreadyMutual) {
-              setMatchNotice(fromProfile);
+              pushMatchNotice(fromProfile);
               trackActivation(currentUser.id, "first_match");
             }
           })();
@@ -3059,6 +3092,7 @@ export default function App() {
           // "Impossible d'envoyer le message. Réessayer" en boucle sans que
           // "Réessayer" ne puisse jamais aboutir.
           if (activeMatchRef.current?.id === toId) setActiveMatch(null);
+          dismissMatchNoticeFor(toId);
         }
       )
       // Bug corrigé (audit "explication du score"/unlike côté récepteur) :
@@ -3103,6 +3137,7 @@ export default function App() {
           // (activeMatchRef.current?.id === fromId/toId → setActiveMatch(null)
           // en temps réel des DEUX côtés).
           if (activeMatchRef.current?.id === fromId) setActiveMatch(null);
+          dismissMatchNoticeFor(fromId);
         }
       )
       .subscribe();
@@ -3139,6 +3174,7 @@ export default function App() {
           const toId = payload.new.to_id;
           setBlockPairs((prev) => (prev.some((b) => b.from_id === currentUser.id && b.to_id === toId) ? prev : [...prev, { from_id: currentUser.id, to_id: toId }]));
           if (activeMatchRef.current?.id === toId) setActiveMatch(null);
+          dismissMatchNoticeFor(toId);
           (async () => {
             // select(OTHER_PROFILE_COLUMNS) et non select("*") (même correctif
             // que loadAll() ci-dessus — voir le commentaire sur
@@ -3183,6 +3219,7 @@ export default function App() {
           const fromId = payload.new.from_id;
           setBlockPairs((prev) => (prev.some((b) => b.from_id === fromId && b.to_id === currentUser.id) ? prev : [...prev, { from_id: fromId, to_id: currentUser.id }]));
           if (activeMatchRef.current?.id === fromId) setActiveMatch(null);
+          dismissMatchNoticeFor(fromId);
         }
       )
       .on(
@@ -3467,8 +3504,8 @@ export default function App() {
           <MatchCelebrationModal
             match={matchNotice}
             currentUser={currentUser}
-            onStartChat={() => { const m = matchNotice; setMatchNotice(null); openChat(m); }}
-            onDismiss={() => setMatchNotice(null)}
+            onStartChat={() => { const m = matchNotice; setMatchNoticeQueue((q) => q.slice(1)); openChat(m); }}
+            onDismiss={() => setMatchNoticeQueue((q) => q.slice(1))}
           />
         )}
         {successNotice && (
