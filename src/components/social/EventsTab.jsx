@@ -431,7 +431,12 @@ export default function EventsTab({ currentUser, onError, onBack = () => {}, ini
         // is_founder/is_premium/email_verified/phone_verified ajoutés (même
         // correctif que CommunityMemberRow/CommunitiesTab.jsx) pour que
         // EventParticipantsList puisse afficher les badges de statut.
-        .select("*, profiles(id, name, avatar_url, city, show_city, is_founder, is_premium, email_verified, phone_verified)")
+        // banned_at/suspended_until ajoutés (bug corrigé à l'audit, même
+        // famille que CommunitiesTab.jsx/FavoritesModal.jsx/ProfileTab.jsx) :
+        // sans ces deux colonnes, EventParticipantsList affichait un·e
+        // participant·e banni·e ou suspendu·e par un·e admin comme un compte
+        // parfaitement normal, sans la moindre indication.
+        .select("*, profiles(id, name, avatar_url, city, show_city, is_founder, is_premium, email_verified, phone_verified, banned_at, suspended_until)")
         .eq("event_id", id)
         .order("created_at", { ascending: true })
         // Limite ajoutée (bug corrigé à l'audit, angle "nombre de lignes non

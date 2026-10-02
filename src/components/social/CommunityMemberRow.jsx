@@ -5,7 +5,7 @@ import StatusBadge from "../StatusBadge";
 import ConfirmModal from "./ConfirmModal";
 import { roleLabel } from "../../lib/communities/communityConfig";
 import { canSetRole, canRemoveMember } from "../../lib/communities/permissions";
-import { primary, coral, goldText, muted } from "./theme";
+import { primary, coral, coralText, goldText, muted } from "./theme";
 
 export default function CommunityMemberRow({ member, viewerRole, currentUserId, onViewProfile, onSetRole, onRemove }) {
   // Remplace l'ancien window.confirm() de retrait — voir ConfirmModal.jsx.
@@ -16,6 +16,12 @@ export default function CommunityMemberRow({ member, viewerRole, currentUserId, 
   // composé sans trait d'union ("Marie Claude", "Ana Maria") au premier
   // mot ; truncate (ligne ci-dessous) gère déjà le débordement visuel.
   const firstName = (profile.name || "").trim() || "?";
+  // Bug corrigé à l'audit, même famille que FavoritesModal.jsx/ProfileTab.jsx/
+  // MessagesTab.jsx/ConversationCard.jsx (banned_at/suspended_until) : un
+  // membre banni ou suspendu par un·e admin restait affiché ici comme un
+  // compte parfaitement normal (ville, badges...), sans la moindre
+  // indication, contrairement à ces autres listes déjà corrigées.
+  const unavailable = Boolean(profile.banned_at) || Boolean(profile.suspended_until && new Date(profile.suspended_until) > new Date());
   const isSelf = member.profile_id === currentUserId;
   const canPromoteToMod = canSetRole(viewerRole, member.role, "moderator") && member.role === "member";
   const canDemoteToMember = canSetRole(viewerRole, member.role, "member") && member.role === "moderator";
@@ -67,7 +73,11 @@ export default function CommunityMemberRow({ member, viewerRole, currentUserId, 
               </span>
             )}
           </div>
-          {profile.show_city !== false && profile.city && <div className="text-xs truncate" style={{ color: muted }}>📍 {profile.city}</div>}
+          {unavailable ? (
+            <div className="text-xs truncate" style={{ color: coralText }}>Ce compte n'est plus disponible</div>
+          ) : (
+            profile.show_city !== false && profile.city && <div className="text-xs truncate" style={{ color: muted }}>📍 {profile.city}</div>
+          )}
         </div>
       </button>
       {(canPromoteToMod || canDemoteToMember || canPromoteToAdmin || canDemoteToModerator || canRemove) && (

@@ -448,6 +448,12 @@ export default function CommunitiesTab({ currentUser, onError, onBack = () => {}
         // CommunityMemberRow ne peut afficher les badges de statut (parité
         // avec MatchCard/DiscoverTab pour ce même profil) que si ces champs
         // sont chargés ici.
+        // banned_at/suspended_until ajoutés (bug corrigé à l'audit, même
+        // famille que FavoritesModal.jsx/ProfileTab.jsx/MessagesTab.jsx/
+        // ConversationCard.jsx) : sans ces deux colonnes, CommunityMemberRow
+        // affichait un membre banni ou suspendu par un·e admin comme un
+        // compte parfaitement normal (ville, badges...), sans la moindre
+        // indication.
         // { count: "exact" } + .limit() ajoutés (bug corrigé à l'audit,
         // angle "nombre de lignes non borné" — même famille que les
         // correctifs select('*') sur profils tiers de cette même session,
@@ -459,7 +465,7 @@ export default function CommunitiesTab({ currentUser, onError, onBack = () => {}
         // count exact est demandé séparément pour que memberCount (utilisé
         // ailleurs à l'écran) reste exact même quand la liste réellement
         // affichée est tronquée par la limite.
-        .select("*, profiles(id, name, avatar_url, city, show_city, is_founder, is_premium, email_verified, phone_verified)", { count: "exact" })
+        .select("*, profiles(id, name, avatar_url, city, show_city, is_founder, is_premium, email_verified, phone_verified, banned_at, suspended_until)", { count: "exact" })
         .eq("community_id", id)
         .order("joined_at", { ascending: true })
         .limit(1000);

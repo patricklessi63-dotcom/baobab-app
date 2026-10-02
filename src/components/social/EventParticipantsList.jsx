@@ -2,7 +2,7 @@ import React from "react";
 import Avatar from "../Avatar";
 import StatusBadge from "../StatusBadge";
 import EmptyState from "../home/EmptyState";
-import { primary, goldText, muted } from "./theme";
+import { primary, coralText, goldText, muted } from "./theme";
 
 const STATUS_BADGE = {
   interested: { label: "Intéressé(e)", color: goldText, bg: "var(--bb-surface-2)" },
@@ -30,6 +30,12 @@ export default function EventParticipantsList({ participants = [], blockedIds = 
         const firstName = (profile.name || "").trim() || "?";
         const badge = STATUS_BADGE[p.status];
         const isSelf = p.profile_id === currentUserId;
+        // Bug corrigé à l'audit, même famille que CommunityMemberRow.jsx/
+        // FavoritesModal.jsx/ProfileTab.jsx/MessagesTab.jsx/ConversationCard.jsx
+        // (banned_at/suspended_until) : un·e participant·e banni·e ou
+        // suspendu·e par un·e admin restait affiché·e ici comme un compte
+        // parfaitement normal (ville, badges...), sans la moindre indication.
+        const unavailable = Boolean(profile.banned_at) || Boolean(profile.suspended_until && new Date(profile.suspended_until) > new Date());
         return (
           // Bug corrigé à l'audit du flux de signalement : sans la garde
           // `isSelf` ci-dessous, cliquer sur sa propre ligne dans la liste
@@ -53,7 +59,11 @@ export default function EventParticipantsList({ participants = [], blockedIds = 
                     loadParticipants() (EventsTab.jsx). */}
                 <StatusBadge isFounder={profile.is_founder} isPremium={profile.is_premium} emailVerified={profile.email_verified} phoneVerified={profile.phone_verified} size={12} />
               </div>
-              {profile.show_city !== false && profile.city && <div className="text-xs truncate" style={{ color: muted }}>📍 {profile.city}</div>}
+              {unavailable ? (
+                <div className="text-xs truncate" style={{ color: coralText }}>Ce compte n'est plus disponible</div>
+              ) : (
+                profile.show_city !== false && profile.city && <div className="text-xs truncate" style={{ color: muted }}>📍 {profile.city}</div>
+              )}
             </div>
             {badge && (
               <span className="text-[10px] font-black px-2 py-1 rounded-full flex-shrink-0" style={{ background: badge.bg, border: "1px solid var(--bb-border)", color: badge.color }}>
