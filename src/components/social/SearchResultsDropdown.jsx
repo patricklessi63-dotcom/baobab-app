@@ -2,7 +2,21 @@ import React from "react";
 import Avatar from "../Avatar";
 import StatusBadge from "../StatusBadge";
 import { matchKey, visibleAge } from "../../utils/format";
-import { muted } from "./theme";
+import { muted, coralText } from "./theme";
+
+// Bug corrigé à l'audit, même famille que CommunityMemberRow.jsx/
+// FavoritesModal.jsx/ConversationCard.jsx (banned_at/suspended_until) : ces
+// deux colonnes sont déjà chargées pour conversationResults (matches, voir
+// ConversationCard.jsx) et pour searchResults (OTHER_PROFILE_COLUMNS, voir
+// lib/otherProfileColumns.js, utilisé par les deux requêtes "profiles" de
+// SocialShell.jsx qui alimentent ce dropdown), mais rien ici ne les
+// consultait — un compte banni ou suspendu par un·e admin restait affiché
+// dans la recherche globale du header comme un profil parfaitement normal
+// (ville, point "En ligne" implicite via Discussions...), sans la moindre
+// indication, contrairement aux autres listes déjà corrigées.
+function isUnavailable(p) {
+  return Boolean(p.banned_at) || Boolean(p.suspended_until && new Date(p.suspended_until) > new Date());
+}
 
 // Dropdown de résultats de la barre de recherche du header de
 // SocialShell.jsx (liste "Discussions" + "Personnes" affichée sous le champ
@@ -33,17 +47,23 @@ export default function SearchResultsDropdown({
           <div className="px-3 py-2 text-[11px] font-black uppercase tracking-wider" style={{ color: muted }}>Discussions</div>
           {conversationResults.slice(0, 5).map((m) => {
             const last = lastByKey[matchKey(currentUser?.id, m.id)];
+            const unavailable = isUnavailable(m);
             return (
               <button key={m.id} onClick={() => { setSearch(""); openChat(m); }} className="w-full flex items-center gap-3 p-2.5 rounded-xl hover:bg-[var(--bb-bg)] text-left">
                 <Avatar name={m.name} url={m.avatar_url} size={38} />
-                <div className="min-w-0"><div className="text-sm font-bold truncate">{m.name}</div><div className="text-xs truncate" style={{ color: muted }}>{last?.text || "Discussion"}</div></div>
+                <div className="min-w-0">
+                  <div className="text-sm font-bold truncate">{m.name}</div>
+                  <div className="text-xs truncate" style={{ color: unavailable ? coralText : muted }}>{unavailable ? "Ce compte n'est plus disponible" : (last?.text || "Discussion")}</div>
+                </div>
               </button>
             );
           })}
         </>
       )}
       <div className="px-3 py-2 text-[11px] font-black uppercase tracking-wider" style={{ color: muted }}>Personnes</div>
-      {searchResults.slice(0, 8).map((p) => (
+      {searchResults.slice(0, 8).map((p) => {
+        const unavailable = isUnavailable(p);
+        return (
         <button key={p.id} onClick={() => { setSearch(""); setViewedProfileId(p.id); }} className="w-full flex items-center gap-3 p-2.5 rounded-xl hover:bg-[var(--bb-bg)] text-left">
           <Avatar name={p.name} url={p.avatar_url} size={38} />
           {/* Confidentialité par champ (voir PrivacyFieldsModal.jsx) — la
@@ -61,10 +81,15 @@ export default function SearchResultsDropdown({
                   contrairement à DiscoverTab/MatchCard pour ce même profil. */}
               <StatusBadge isFounder={p.is_founder} isPremium={p.is_premium} emailVerified={p.email_verified} phoneVerified={p.phone_verified} size={12} />
             </div>
-            <div className="text-xs" style={{ color: muted }}>{[p.show_city !== false && p.city, p.show_country !== false && p.country].filter(Boolean).join(" · ") || "Canada"}</div>
+            {unavailable ? (
+              <div className="text-xs" style={{ color: coralText }}>Ce compte n'est plus disponible</div>
+            ) : (
+              <div className="text-xs" style={{ color: muted }}>{[p.show_city !== false && p.city, p.show_country !== false && p.country].filter(Boolean).join(" · ") || "Canada"}</div>
+            )}
           </div>
         </button>
-      ))}
+        );
+      })}
       {searchResults.length === 0 && conversationResults.length === 0 && <div className="px-3 py-3 text-sm" style={{ color: muted }}>Aucun résultat.</div>}
     </div>
   );
