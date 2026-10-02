@@ -8,7 +8,7 @@ import { useEscapeKey } from "../../hooks/useEscapeKey";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { usePremiumStatus } from "../../lib/premium/usePremiumStatus";
 import { visibleAge } from "../../utils/format";
-import { primary, coral, muted, card, primaryRgb } from "./theme";
+import { primary, coral, coralText, muted, card, primaryRgb } from "./theme";
 
 // Avantage Premium : qui m'a aimé·e sans réciprocité pour l'instant (voir
 // getAdmirers() dans App.jsx). Non-Premium : le nombre reste visible via
@@ -69,7 +69,17 @@ export default function AdmirersModal({ open, onClose, admirerProfiles = [], adm
           />
         ) : (
           <div className="flex flex-col gap-2">
-            {admirerProfiles.map((p) => (
+            {admirerProfiles.map((p) => {
+              // Bug corrigé à l'audit, même famille que CommunityMemberRow.jsx/
+              // FavoritesModal.jsx/MessagesTab.jsx (banned_at/suspended_until) :
+              // profile_public_json() (supabase-likers-profile-overexposure-fix.sql)
+              // renvoie déjà ces deux colonnes pour chaque admirateur·ice, mais
+              // rien ici ne les consultait — un compte banni ou suspendu après
+              // avoir aimé le mien restait affiché dans "Qui m'a aimé" comme un
+              // profil parfaitement normal (ville, badges...), sans la moindre
+              // indication, contrairement à mes favoris/conversations.
+              const unavailable = Boolean(p.banned_at) || Boolean(p.suspended_until && new Date(p.suspended_until) > new Date());
+              return (
               <div key={p.id} className="flex items-center gap-3 p-2.5 rounded-xl" style={{ background: `rgba(${primaryRgb},.03)` }}>
                 <button onClick={() => onViewProfile?.(p)} className="flex items-center gap-3 flex-1 min-w-0 text-left focus-visible:outline focus-visible:outline-2">
                   <Avatar name={p.name} url={p.avatar_url} size={44} />
@@ -89,7 +99,11 @@ export default function AdmirersModal({ open, onClose, admirerProfiles = [], adm
                         modale affichait la ville sans consulter show_city, alors que
                         MatchCard/PublicProfileModal le respectent déjà : un profil ayant
                         masqué sa ville restait quand même visible dans "Qui m'a aimé". */}
-                    {p.show_city !== false && p.city && <div className="text-xs truncate" style={{ color: muted }}>{p.city}</div>}
+                    {unavailable ? (
+                      <div className="text-xs truncate" style={{ color: coralText }}>Ce compte n'est plus disponible</div>
+                    ) : (
+                      p.show_city !== false && p.city && <div className="text-xs truncate" style={{ color: muted }}>{p.city}</div>
+                    )}
                   </div>
                 </button>
                 <button
@@ -101,7 +115,8 @@ export default function AdmirersModal({ open, onClose, admirerProfiles = [], adm
                   <Heart size={15} color={coral} fill={coral} />
                 </button>
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
 
