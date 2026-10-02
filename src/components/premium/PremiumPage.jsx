@@ -116,11 +116,28 @@ export default function PremiumPage({ currentUser, onBack, onError, justSubscrib
 
       {isPremium ? (
         <div className={`${card} p-6 text-center`}>
-          <span style={{ fontSize: 32 }}>💎</span>
-          <h2 className="text-lg font-black mt-2" style={{ color: primary }}>Tu es déjà Premium</h2>
+          {/* Bug corrigé : un essai gratuit Stripe (statut "trialing", supporté
+              par create-checkout-session via STRIPE_TRIAL_DAYS) est traité par
+              isPremium exactement comme un abonnement payant actif — à raison
+              pour l'accès aux fonctionnalités, mais cette carte affichait donc
+              "Tu es déjà Premium" + "renouvellement le X" même pendant l'essai,
+              AUCUN prélèvement n'ayant encore eu lieu. Un utilisateur en essai
+              pouvait donc croire avoir déjà payé, et la date affichée (fin de
+              l'essai / premier prélèvement réel) se lisait comme une date de
+              "renouvellement" alors qu'il s'agit de la toute première facturation. */}
+          <span style={{ fontSize: 32 }}>{subscription?.status === "trialing" ? "🎁" : "💎"}</span>
+          <h2 className="text-lg font-black mt-2" style={{ color: primary }}>
+            {subscription?.status === "trialing" ? "Ton essai gratuit Premium est en cours" : "Tu es déjà Premium"}
+          </h2>
           <p className="text-sm mt-1" style={{ color: muted }}>
             {subscription?.plan === "yearly" ? "Plan annuel" : "Plan mensuel"}
-            {subscription?.current_period_end && ` — renouvellement le ${new Date(subscription.current_period_end).toLocaleDateString("fr-CA")}`}
+            {subscription?.current_period_end && (
+              subscription?.status === "trialing"
+                ? (subscription?.cancel_at_period_end
+                    ? ` — essai annulé : se termine le ${new Date(subscription.current_period_end).toLocaleDateString("fr-CA")} sans aucun prélèvement`
+                    : ` — aucun prélèvement pour l'instant, premier paiement le ${new Date(subscription.current_period_end).toLocaleDateString("fr-CA")} sauf annulation avant cette date`)
+                : ` — renouvellement le ${new Date(subscription.current_period_end).toLocaleDateString("fr-CA")}`
+            )}
             {/* Bug corrigé : contrairement à ProfileTab.jsx (onglet "Abonnement"),
                 cette carte affichait "renouvellement le X" pour TOUS les
                 abonnements actifs, y compris ceux déjà annulés côté Stripe
@@ -129,7 +146,7 @@ export default function PremiumPage({ currentUser, onBack, onError, justSubscrib
                 donc ici le même message qu'un abonnement qui va bien se
                 renouveler, et pouvait croire à tort ne pas avoir besoin de se
                 réabonner avant la date affichée. */}
-            {subscription?.cancel_at_period_end && " (annulation programmée à cette date, aucun renouvellement)"}
+            {subscription?.status !== "trialing" && subscription?.cancel_at_period_end && " (annulation programmée à cette date, aucun renouvellement)"}
           </p>
           <p className="text-xs mt-3" style={{ color: muted }}>Gère ton abonnement depuis ton profil, onglet "Abonnement".</p>
         </div>

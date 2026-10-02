@@ -452,14 +452,29 @@ export default function ProfileTab({
                 <div className="p-5">
                   {isPremium ? (
                     <div className="rounded-2xl p-4" style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)" }}>
+                      {/* Bug corrigé (même famille que PremiumPage.jsx) : un essai
+                          gratuit Stripe (statut "trialing") est traité par isPremium
+                          comme un abonnement actif à raison, mais ce bloc affichait
+                          "Baobab Premium actif" + "renouvellement le X" même pendant
+                          l'essai, alors qu'aucun prélèvement n'a encore eu lieu — la
+                          date affichée est celle du PREMIER paiement, pas d'un
+                          renouvellement. */}
                       <div className="flex items-center gap-2">
-                        <span style={{ fontSize: 20 }}>💎</span>
-                        <span className="text-sm font-black" style={{ color: primary }}>Baobab Premium actif</span>
+                        <span style={{ fontSize: 20 }}>{subscription?.status === "trialing" ? "🎁" : "💎"}</span>
+                        <span className="text-sm font-black" style={{ color: primary }}>
+                          {subscription?.status === "trialing" ? "Essai gratuit Premium en cours" : "Baobab Premium actif"}
+                        </span>
                       </div>
                       <p className="text-sm mt-2" style={{ color: "rgba(var(--bb-ink-rgb),0.72)" }}>
                         Plan {subscription?.plan === "yearly" ? "annuel" : "mensuel"}
-                        {subscription?.current_period_end && ` — renouvellement le ${new Date(subscription.current_period_end).toLocaleDateString("fr-CA")}`}
-                        {subscription?.cancel_at_period_end && " (annulation programmée à cette date)"}
+                        {subscription?.current_period_end && (
+                          subscription?.status === "trialing"
+                            ? (subscription?.cancel_at_period_end
+                                ? ` — essai annulé : se termine le ${new Date(subscription.current_period_end).toLocaleDateString("fr-CA")} sans aucun prélèvement`
+                                : ` — aucun prélèvement pour l'instant, premier paiement le ${new Date(subscription.current_period_end).toLocaleDateString("fr-CA")} sauf annulation avant cette date`)
+                            : ` — renouvellement le ${new Date(subscription.current_period_end).toLocaleDateString("fr-CA")}`
+                        )}
+                        {subscription?.status !== "trialing" && subscription?.cancel_at_period_end && " (annulation programmée à cette date)"}
                       </p>
                       <button onClick={handleManageSubscription} disabled={managingSubscription} className="bb-btn-gold mt-3 px-4 py-2.5 rounded-xl font-bold text-sm disabled:opacity-60 focus-visible:outline focus-visible:outline-2">
                         {managingSubscription ? "Ouverture..." : "Gérer mon abonnement"}
