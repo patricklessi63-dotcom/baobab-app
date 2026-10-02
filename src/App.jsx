@@ -32,6 +32,7 @@ import { useOnlineStatus } from "./hooks/useOnlineStatus";
 import { OTHER_PROFILE_COLUMNS } from "./lib/otherProfileColumns";
 import { buildOlderMessagesFilter } from "./lib/messagesPagination";
 import { startHeartbeatInterval } from "./lib/presenceHeartbeat";
+import { createFieldWriteQueue } from "./lib/fieldWriteQueue";
 
 const PUBLIC_ONLY_PATHS = new Set(["/connexion", "/inscription", "/a-propos", "/confidentialite", "/conditions"]);
 
@@ -187,6 +188,21 @@ export default function App() {
   // en parallèle la même série de requêtes (dont la génération d'URLs
   // signées) et déclenchait deux téléchargements du même fichier.
   const exportDataInFlightRef = useRef(false);
+  // handleToggleField (ex. show_city, show_country, personalization_enabled...
+  // — PrivacyFieldsModal.jsx) : deux bascules rapprochées sur le MÊME champ
+  // envoyaient chacune un UPDATE réseau indépendant, sans garde. Rien ne
+  // garantissait que leur ordre d'exécution côté serveur corresponde à
+  // l'ordre réel des clics (latence variable) : la requête du PREMIER clic
+  // pouvait atteindre la base APRÈS celle du second, laissant en base la
+  // valeur du premier choix alors que l'UI affichait déjà le second — voir
+  // lib/fieldWriteQueue.js pour le détail du scénario et la garde.
+  const fieldWriteQueueRef = useRef(null);
+  if (!fieldWriteQueueRef.current) fieldWriteQueueRef.current = createFieldWriteQueue();
+  // Valeur du DERNIER clic par champ — permet à handleToggleField de ne
+  // revenir en arrière après un échec réseau que si aucune bascule plus
+  // récente du même champ n'a eu lieu entre-temps (sinon l'échec d'un
+  // ancien clic écraserait à tort un choix plus récent déjà affiché).
+  const fieldToggleLatestRef = useRef({});
   const likePairsRef = useRef(likePairs); // lu par l'abonnement realtime "likes" sans le forcer à se réabonner à chaque like
   const profilesRef = useRef(profiles); // idem, pour retrouver le profil qui vient de matcher
   const likerProfilesRawRef = useRef(likerProfilesRaw); // lu par l'abonnement realtime "likes" sans le forcer à se réabonner
@@ -1499,17 +1515,29 @@ export default function App() {
 
   async function handleToggleField(field, checked) {
     if (!currentUser) return;
+    const userId = currentUser.id;
     setCurrentUser((u) => ({ ...u, [field]: checked }));
+    fieldToggleLatestRef.current[field] = checked;
     try {
-      const { error: toggleError } = await supabase
-        .from("profiles")
-        .update({ [field]: checked })
-        .eq("id", currentUser.id);
-      if (toggleError) throw toggleError;
+      // Sérialisé par champ (voir fieldWriteQueueRef ci-dessus) : si une
+      // écriture est déjà en cours pour ce même `field`, celle-ci n'est
+      // envoyée qu'une fois la précédente terminée, dans l'ordre des clics.
+      await fieldWriteQueueRef.current.enqueue(field, async () => {
+        const { error: toggleError } = await supabase
+          .from("profiles")
+          .update({ [field]: checked })
+          .eq("id", userId);
+        if (toggleError) throw toggleError;
+      });
     } catch (e) {
       console.error(e);
-      setCurrentUser((u) => ({ ...u, [field]: !checked }));
-      setError("Impossible de mettre à jour ce paramètre.");
+      // Ne revient en arrière que si aucune bascule plus récente de ce même
+      // champ n'a eu lieu depuis ce clic (sinon on écraserait un choix plus
+      // récent avec l'échec d'un clic déjà obsolète).
+      if (fieldToggleLatestRef.current[field] === checked) {
+        setCurrentUser((u) => ({ ...u, [field]: !checked }));
+        setError("Impossible de mettre à jour ce paramètre.");
+      }
     }
   }
 
