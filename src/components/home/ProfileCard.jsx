@@ -4,6 +4,18 @@ import StatusBadge from "../StatusBadge";
 import { visibleAge } from "../../utils/format";
 import { coralText, gold, green, muted, bg, primaryRgb } from "../social/theme";
 
+// Bug corrigé à l'audit, même famille que CommunityMemberRow.jsx/
+// FavoritesModal.jsx/ConversationCard.jsx (banned_at/suspended_until) :
+// followedProfiles (onglet Fil > Suivis, voir FeedTab.jsx) vient directement
+// de la table "follows", dont la jointure côté SocialShell.jsx charge déjà
+// ces deux colonnes — mais rien ici ne les consultait, donc un profil suivi
+// banni ou suspendu par un·e admin restait affiché comme un membre
+// parfaitement normal (ville, bouton "J'aime"...), sans la moindre
+// indication, contrairement à mes favoris/conversations.
+function isUnavailable(profile) {
+  return Boolean(profile.banned_at) || Boolean(profile.suspended_until && new Date(profile.suspended_until) > new Date());
+}
+
 export default function ProfileCard({
   profile,
   highlight,
@@ -22,6 +34,7 @@ export default function ProfileCard({
   isLiked = false,
 }) {
   const hasStatusBadge = Boolean(profile.is_founder || profile.email_verified || profile.phone_verified || profile.is_premium);
+  const unavailable = isUnavailable(profile);
   // show_canada_journey vérifié (bug corrigé à l'audit, même famille que
   // show_city déjà corrigé juste en dessous) : cette carte affichait
   // arrived_since sans jamais consulter le réglage de confidentialité
@@ -82,7 +95,11 @@ export default function ProfileCard({
             (recommandations, "Autour de toi"...) affichait la ville sans
             consulter show_city, alors que MatchCard/PublicProfileModal le
             respectent déjà. */}
-        {profile.show_city !== false && profile.city && <div className="text-[11px] truncate mt-0.5" style={{ color: muted }}>{profile.city}</div>}
+        {unavailable ? (
+          <div className="text-[11px] truncate mt-0.5" style={{ color: coralText }}>Ce compte n'est plus disponible</div>
+        ) : (
+          profile.show_city !== false && profile.city && <div className="text-[11px] truncate mt-0.5" style={{ color: muted }}>{profile.city}</div>
+        )}
         {highlightText && <div className="text-[11px] mt-1 truncate" style={{ color: coralText }}>{highlightText}</div>}
         {commonInterestsCount > 0 && (
           <div className="text-[10px] mt-1 truncate font-semibold" style={{ color: green }}>
