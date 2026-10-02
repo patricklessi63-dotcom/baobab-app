@@ -687,7 +687,14 @@ export default function ConversationPane({
                       isMine={isMine}
                       align={isMine ? "right" : "left"}
                       onReact={(emoji) => toggleReaction(m, emoji)}
-                      onReply={() => setReplyingTo(m)}
+                      // otherUnavailable : onReply omis volontairement (pas onReact, voir
+                      // plus bas) — "Répondre" mène vers une barre de saisie elle-même
+                      // masquée dans ce cas, alors que réagir à un message reste possible
+                      // (message_reactions_insert_own, supabase-content-account-state-
+                      // block-guards-remaining-fix.sql, ne vérifie que l'état du compte de
+                      // l'acteur et un blocage mutuel — jamais l'état banni/suspendu de
+                      // l'autre participant — donc une réaction aboutit réellement).
+                      onReply={otherUnavailable ? undefined : () => setReplyingTo(m)}
                       onCopy={() => navigator.clipboard?.writeText(m.text || "")}
                       onDeleteForMe={() => deleteMessageForMe(m)}
                       onDeleteForEveryone={() => handleDeleteForEveryone(m)}
@@ -766,95 +773,129 @@ export default function ConversationPane({
         </p>
       )}
 
-      {showCoordsNudge && (
-        <div className="px-4 pt-2 flex items-start gap-2 shrink-0 bg-[var(--bb-surface)]" style={{ borderTop: `1px solid rgba(${primaryRgb},.08)` }}>
-          <MapPin size={13} className="flex-shrink-0 mt-0.5" color={coral} />
-          <span className="text-xs flex-1" style={{ color: coralText }}>Sur le point de partager tes coordonnées ? Pour une première rencontre, privilégie un lieu public.</span>
-          <button onClick={() => setCoordsNudgeDismissed(true)} aria-label="Ignorer ce rappel" className="flex-shrink-0"><X size={13} color={muted} /></button>
+      {/* otherUnavailable : toute la barre de composition (emoji, sticker/
+      photo/vidéo, suggestions IA, champ de texte, micro/envoi) est remplacée
+      par un simple message — même principe que ConversationStarters.jsx
+      (commit "Masque les questions brise-glace...") et que l'omission
+      d'onReply ci-dessus. Un message texte/sticker/média envoyé ici
+      échouerait de toute façon : la policy RLS INSERT de "messages"
+      (supabase-target-account-state-guards-CONSOLIDATED-fix.sql) vérifie déjà
+      banned_at/suspended_until des DEUX participants, pas seulement de
+      l'expéditeur. Mais laisser la barre pleinement active jusqu'à cet échec
+      est doublement trompeur : (1) l'en-tête affiche déjà "Ce compte n'est
+      plus disponible" juste au-dessus, et (2) l'échec retomberait sur le
+      message générique "Impossible d'envoyer le message." (friendlyDbError
+      ne reconnaît que le code Postgres P0001 des exceptions applicatives
+      [limites Premium...] — un rejet RLS est un code 42501 tout différent,
+      donc jamais traduit) avec un "Réessayer" qui échouera indéfiniment à
+      l'identique, au lieu d'expliquer la vraie raison comme pour
+      FREE_MESSAGE_LIMIT_REACHED/PREMIUM_MEDIA_REQUIRED un peu plus haut.
+      Mieux vaut ne jamais tenter l'envoi puisque banned_at/suspended_until
+      sont déjà connus côté client (activeMatch). Le champ de recherche, le
+      menu "Options de la conversation", la traduction et les réactions
+      restent fonctionnels (lecture d'historique / réaction déjà couverte par
+      sa propre policy RLS, voir onReply juste au-dessus). */}
+      {otherUnavailable ? (
+        <div
+          className="px-4 py-3 flex items-center gap-2 text-xs shrink-0 sticky bottom-0 bg-[var(--bb-surface)]"
+          style={{ borderTop: `1px solid rgba(${primaryRgb},.08)`, color: coralText, paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
+        >
+          <Ban size={14} className="flex-shrink-0" />
+          Ce compte n'est plus disponible : tu ne peux plus lui écrire.
         </div>
-      )}
+      ) : (
+        <>
+          {showCoordsNudge && (
+            <div className="px-4 pt-2 flex items-start gap-2 shrink-0 bg-[var(--bb-surface)]" style={{ borderTop: `1px solid rgba(${primaryRgb},.08)` }}>
+              <MapPin size={13} className="flex-shrink-0 mt-0.5" color={coral} />
+              <span className="text-xs flex-1" style={{ color: coralText }}>Sur le point de partager tes coordonnées ? Pour une première rencontre, privilégie un lieu public.</span>
+              <button onClick={() => setCoordsNudgeDismissed(true)} aria-label="Ignorer ce rappel" className="flex-shrink-0"><X size={13} color={muted} /></button>
+            </div>
+          )}
 
-      {replyingTo && (
-        <div className="px-4 pt-2 flex items-center justify-between gap-2 shrink-0 bg-[var(--bb-surface)]" style={{ borderTop: `1px solid rgba(${primaryRgb},.08)` }}>
-          <div className="min-w-0 flex items-center gap-1.5 text-xs" style={{ color: muted }}>
-            <Reply size={12} className="flex-shrink-0" />
-            <span className="truncate">Réponse à : {replyingTo.kind === "text" ? replyingTo.text : "Média"}</span>
+          {replyingTo && (
+            <div className="px-4 pt-2 flex items-center justify-between gap-2 shrink-0 bg-[var(--bb-surface)]" style={{ borderTop: `1px solid rgba(${primaryRgb},.08)` }}>
+              <div className="min-w-0 flex items-center gap-1.5 text-xs" style={{ color: muted }}>
+                <Reply size={12} className="flex-shrink-0" />
+                <span className="truncate">Réponse à : {replyingTo.kind === "text" ? replyingTo.text : "Média"}</span>
+              </div>
+              <button onClick={() => setReplyingTo(null)} aria-label="Annuler la réponse" className="flex-shrink-0">
+                <X size={14} color={muted} />
+              </button>
+            </div>
+          )}
+
+          {/* ai_suggestions_enabled vérifié (bug corrigé à l'audit, même famille que
+          EditProfileForm/CommunityCreateForm/EventCreateForm/PostComposerModal) :
+          PrivacyFieldsModal promet explicitement de couvrir "bio, publications,
+          conversations…" et l'Edge Function ai-assist refuse déjà la requête
+          côté serveur (profile.ai_suggestions_enabled === false), mais ce bouton
+          de reformulation restait affiché ici — un utilisateur ayant désactivé
+          le réglage cliquait dans le vide et recevait une erreur au lieu de ne
+          pas voir le bouton du tout. */}
+          {!recorderActive && messageDraft.trim() && currentUser?.ai_suggestions_enabled !== false && (
+            <div className="px-4 pt-2 shrink-0 bg-[var(--bb-surface)]">
+              <AiSuggestButton
+                action="reformulate_message"
+                buildPayload={() => ({ text: messageDraft })}
+                onApply={(text) => setMessageDraft(truncateUnicodeSafe(text, 4000))}
+                label="Reformuler avec l'IA"
+              />
+            </div>
+          )}
+          <div className="bb-composer-bar p-4 flex gap-2 items-end shrink-0 sticky bottom-0 bg-[var(--bb-surface)]" style={{ borderTop: replyingTo ? "none" : `1px solid rgba(${primaryRgb},.08)`, paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}>
+            {/* truncateUnicodeSafe(…, 4000) : comme pour la reformulation IA et les suggestions IA
+                ci-dessus, l'ajout d'un emoji passe par setMessageDraft() en dehors de l'événement
+                onChange du textarea, donc l'attribut maxLength du textarea (saisie clavier) ne
+                s'applique pas ici — sans troncature explicite, un emoji ajouté à un brouillon déjà
+                proche de 4000 caractères pouvait dépasser la limite envoyée au serveur. La version
+                "safe" évite en plus de couper l'emoji tout juste ajouté en deux s'il chevauche la
+                limite (paire surrogate coupée en son milieu). */}
+            {!recorderActive && <EmojiPicker onPick={(emoji) => setMessageDraft((d) => truncateUnicodeSafe(d + emoji, 4000))} currentUserId={currentUser.id} />}
+            {!recorderActive && (
+              <MessageMediaPicker
+                onPickFile={(file, kind) => guardedSend(sendMediaMessage)(file, kind)}
+                onPickSticker={(sticker) => guardedSend(sendStickerMessage)(sticker)}
+              />
+            )}
+            {/* ai_suggestions_enabled vérifié (bug corrigé à l'audit, même famille que
+            EditProfileForm/CommunityCreateForm/EventCreateForm/PostComposerModal) :
+            même défaut que la reformulation ci-dessus, sur le bouton "Suggestions IA". */}
+            {!recorderActive && currentUser?.ai_suggestions_enabled !== false && (
+              <AiConversationSuggestions currentUser={currentUser} match={activeMatch} onPick={(text) => setMessageDraft(truncateUnicodeSafe(text, 4000))} />
+            )}
+            {!recorderActive && (
+              <textarea
+                dir="auto"
+                value={messageDraft}
+                onChange={(e) => { setMessageDraft(e.target.value); broadcastTyping(); }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); }
+                }}
+                placeholder="Écris un message..."
+                aria-label="Écrire un message"
+                rows={1}
+                maxLength={4000}
+                // min-w-0 : sans lui, le <textarea> (flex-1) garde son
+                // min-width:auto par défaut — dérivé de son attribut "cols"
+                // implicite (~20 caractères) — et refuse de rétrécir sous cette
+                // largeur. Avec emoji + pièce jointe + IA + micro/envoi à côté
+                // (~216px de boutons fixes + paddings/gaps), ça dépassait déjà la
+                // largeur d'un écran de 320-375px avant même que le texte soit
+                // pris en compte, débordant la barre de saisie hors de l'écran.
+                className="bb-composer-input flex-1 min-w-0 text-sm rounded-2xl px-4 py-3 outline-none resize-none"
+                style={{ background: bg, fontSize: 16, maxHeight: 120 }}
+              />
+            )}
+            <AudioRecorder
+              hasDraft={Boolean(messageDraft.trim())}
+              onSendText={handleSend}
+              onSendAudio={(file) => guardedSend(sendMediaMessage)(file, "audio")}
+              onActiveChange={setRecorderActive}
+            />
           </div>
-          <button onClick={() => setReplyingTo(null)} aria-label="Annuler la réponse" className="flex-shrink-0">
-            <X size={14} color={muted} />
-          </button>
-        </div>
+        </>
       )}
-
-      {/* ai_suggestions_enabled vérifié (bug corrigé à l'audit, même famille que
-      EditProfileForm/CommunityCreateForm/EventCreateForm/PostComposerModal) :
-      PrivacyFieldsModal promet explicitement de couvrir "bio, publications,
-      conversations…" et l'Edge Function ai-assist refuse déjà la requête
-      côté serveur (profile.ai_suggestions_enabled === false), mais ce bouton
-      de reformulation restait affiché ici — un utilisateur ayant désactivé
-      le réglage cliquait dans le vide et recevait une erreur au lieu de ne
-      pas voir le bouton du tout. */}
-      {!recorderActive && messageDraft.trim() && currentUser?.ai_suggestions_enabled !== false && (
-        <div className="px-4 pt-2 shrink-0 bg-[var(--bb-surface)]">
-          <AiSuggestButton
-            action="reformulate_message"
-            buildPayload={() => ({ text: messageDraft })}
-            onApply={(text) => setMessageDraft(truncateUnicodeSafe(text, 4000))}
-            label="Reformuler avec l'IA"
-          />
-        </div>
-      )}
-      <div className="bb-composer-bar p-4 flex gap-2 items-end shrink-0 sticky bottom-0 bg-[var(--bb-surface)]" style={{ borderTop: replyingTo ? "none" : `1px solid rgba(${primaryRgb},.08)`, paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}>
-        {/* truncateUnicodeSafe(…, 4000) : comme pour la reformulation IA et les suggestions IA
-            ci-dessus, l'ajout d'un emoji passe par setMessageDraft() en dehors de l'événement
-            onChange du textarea, donc l'attribut maxLength du textarea (saisie clavier) ne
-            s'applique pas ici — sans troncature explicite, un emoji ajouté à un brouillon déjà
-            proche de 4000 caractères pouvait dépasser la limite envoyée au serveur. La version
-            "safe" évite en plus de couper l'emoji tout juste ajouté en deux s'il chevauche la
-            limite (paire surrogate coupée en son milieu). */}
-        {!recorderActive && <EmojiPicker onPick={(emoji) => setMessageDraft((d) => truncateUnicodeSafe(d + emoji, 4000))} currentUserId={currentUser.id} />}
-        {!recorderActive && (
-          <MessageMediaPicker
-            onPickFile={(file, kind) => guardedSend(sendMediaMessage)(file, kind)}
-            onPickSticker={(sticker) => guardedSend(sendStickerMessage)(sticker)}
-          />
-        )}
-        {/* ai_suggestions_enabled vérifié (bug corrigé à l'audit, même famille que
-        EditProfileForm/CommunityCreateForm/EventCreateForm/PostComposerModal) :
-        même défaut que la reformulation ci-dessus, sur le bouton "Suggestions IA". */}
-        {!recorderActive && currentUser?.ai_suggestions_enabled !== false && (
-          <AiConversationSuggestions currentUser={currentUser} match={activeMatch} onPick={(text) => setMessageDraft(truncateUnicodeSafe(text, 4000))} />
-        )}
-        {!recorderActive && (
-          <textarea
-            dir="auto"
-            value={messageDraft}
-            onChange={(e) => { setMessageDraft(e.target.value); broadcastTyping(); }}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); }
-            }}
-            placeholder="Écris un message..."
-            aria-label="Écrire un message"
-            rows={1}
-            maxLength={4000}
-            // min-w-0 : sans lui, le <textarea> (flex-1) garde son
-            // min-width:auto par défaut — dérivé de son attribut "cols"
-            // implicite (~20 caractères) — et refuse de rétrécir sous cette
-            // largeur. Avec emoji + pièce jointe + IA + micro/envoi à côté
-            // (~216px de boutons fixes + paddings/gaps), ça dépassait déjà la
-            // largeur d'un écran de 320-375px avant même que le texte soit
-            // pris en compte, débordant la barre de saisie hors de l'écran.
-            className="bb-composer-input flex-1 min-w-0 text-sm rounded-2xl px-4 py-3 outline-none resize-none"
-            style={{ background: bg, fontSize: 16, maxHeight: 120 }}
-          />
-        )}
-        <AudioRecorder
-          hasDraft={Boolean(messageDraft.trim())}
-          onSendText={handleSend}
-          onSendAudio={(file) => guardedSend(sendMediaMessage)(file, "audio")}
-          onActiveChange={setRecorderActive}
-        />
-      </div>
 
       <ConfirmModal
         open={Boolean(pendingDeleteForEveryone)}

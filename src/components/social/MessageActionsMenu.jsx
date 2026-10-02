@@ -18,9 +18,16 @@ export default function MessageActionsMenu({ message, isMine, align, onReact, on
           </button>
         ))}
       </div>
-      <button role="menuitem" onClick={() => { onReply(); onClose(); }} className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-left" style={{ color: primary }}>
-        <Reply size={14} /> Répondre
-      </button>
+      {/* onReply omis (plutôt que Boolean) par ConversationPane.jsx quand
+      l'autre personne de la conversation n'est plus disponible (banni/
+      suspendu) : répondre configurerait un bandeau "Réponse à..." au-dessus
+      d'une barre de saisie elle-même masquée dans ce cas (voir otherUnavailable
+      dans ConversationPane.jsx) — un clic qui ne mènerait jamais nulle part. */}
+      {onReply && (
+        <button role="menuitem" onClick={() => { onReply(); onClose(); }} className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-left" style={{ color: primary }}>
+          <Reply size={14} /> Répondre
+        </button>
+      )}
       {message.kind === "text" && (
         <button role="menuitem" onClick={() => { onCopy(); onClose(); }} className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-left" style={{ color: primary, borderTop: `1px solid rgba(${primaryRgb},.08)` }}>
           <Copy size={14} /> Copier
