@@ -175,8 +175,14 @@ export default function EventDetailView({
                         "Modifier"/"Participer"/"Annuler l'événement" juste à
                         côté, déjà masqués dans ce cas. Rien n'empêchait donc
                         quelqu'un d'ajouter à tort à son agenda personnel un
-                        événement qui n'aura pas lieu. */}
-                    {!canceled && (
+                        événement qui n'aura pas lieu.
+                        Bug identifié à l'audit des événements passés : même
+                        problème pour un événement simplement terminé
+                        (`isPast`, ni annulé ni modifié) — rien n'empêchait non
+                        plus d'ajouter à son agenda un événement déjà passé,
+                        alors que "Participer" disparaît déjà dans ce cas
+                        (voir plus bas). */}
+                    {!canceled && !isPast && (
                       <>
                         <button onClick={() => { setShareOpen(false); downloadIcs(event); }} className="w-full text-left px-3 py-2.5 rounded-xl text-sm hover:bg-[var(--bb-bg)]">📅 Télécharger (.ics)</button>
                         <a href={googleCalendarUrl(event)} target="_blank" rel="noreferrer" onClick={() => setShareOpen(false)} className="block px-3 py-2.5 rounded-xl text-sm hover:bg-[var(--bb-bg)]">🗓️ Ajouter à Google Calendar</a>
