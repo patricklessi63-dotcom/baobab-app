@@ -1,5 +1,5 @@
 import React, { useRef } from "react";
-import { ArrowLeft, MapPin, Flag, Briefcase, GraduationCap, Plane, Sparkles, Heart, Wand2, Cake, CheckCheck } from "lucide-react";
+import { ArrowLeft, MapPin, Flag, Briefcase, GraduationCap, Plane, Sparkles, Heart, Wand2, Cake, CheckCheck, PartyPopper } from "lucide-react";
 import { useEscapeKey } from "../hooks/useEscapeKey";
 import { useFocusTrap } from "../hooks/useFocusTrap";
 
@@ -33,6 +33,19 @@ const MESSAGING_FIELDS = [
 const PERSONALIZATION_FIELDS = [
   { key: "personalization_enabled", label: "Recommandations personnalisées", icon: Sparkles },
   { key: "ai_suggestions_enabled", label: "Suggestions IA (bio, publications, conversations…)", icon: Wand2 },
+];
+
+// Bug corrigé à l'audit de cette modale : profiles.show_upcoming_events
+// (supabase-events-v2.sql, "affichage optionnel des evenements a venir...
+// uniquement si l'utilisateur a choisi de l'afficher") est bien lu par
+// SocialShell.jsx pour décider d'afficher ou non la liste dans l'onglet
+// "Mes événements" (ProfileTab.jsx), mais n'était proposé NULLE PART comme
+// un choix — ni ici, ni dans la modale Paramètres (AppModals.jsx). La valeur
+// par défaut (true) masquait le problème, mais personne ne pouvait jamais la
+// désactiver : un réglage câblé côté lecture sans aucun interrupteur côté
+// écriture.
+const PROFILE_DISPLAY_FIELDS = [
+  { key: "show_upcoming_events", label: "Afficher \"Mes événements\" sur mon profil", icon: PartyPopper },
 ];
 
 export default function PrivacyFieldsModal({ open, onClose, onBack, currentUser, onToggleField }) {
@@ -95,6 +108,19 @@ export default function PrivacyFieldsModal({ open, onClose, onBack, currentUser,
 
         <div className="mt-4 mb-1 text-xs font-black uppercase tracking-wider" style={{ color: "rgba(var(--bb-ink-rgb),0.5)" }}>Personnalisation</div>
         {PERSONALIZATION_FIELDS.map(({ key, label, icon: Icon }) => (
+          <label key={key} className="flex items-center justify-between py-2.5" style={{ borderTop: "1px solid rgba(var(--bb-ink-rgb),0.08)", minHeight: 44 }}>
+            <div className="flex items-center gap-2 text-sm"><Icon size={14} color="var(--bb-text)" /> {label}</div>
+            <input
+              type="checkbox"
+              checked={currentUser?.[key] !== false}
+              onChange={(e) => onToggleField?.(key, e.target.checked)}
+              style={{ width: 18, height: 18 }}
+            />
+          </label>
+        ))}
+
+        <div className="mt-4 mb-1 text-xs font-black uppercase tracking-wider" style={{ color: "rgba(var(--bb-ink-rgb),0.5)" }}>Profil</div>
+        {PROFILE_DISPLAY_FIELDS.map(({ key, label, icon: Icon }) => (
           <label key={key} className="flex items-center justify-between py-2.5" style={{ borderTop: "1px solid rgba(var(--bb-ink-rgb),0.08)", minHeight: 44 }}>
             <div className="flex items-center gap-2 text-sm"><Icon size={14} color="var(--bb-text)" /> {label}</div>
             <input
