@@ -1909,7 +1909,11 @@ export default function SocialShell({
       // corrigé à l'audit, même famille que favorites/follows ci-dessus) :
       // StoryViewerModal ne pouvait pas afficher StatusBadge pour la liste
       // des personnes ayant vu un statut.
-      supabase.from("story_views").select("viewer_id, viewed_at, profile:viewer_id(name, avatar_url, is_founder, is_premium, email_verified, phone_verified)").eq("story_id", storyId).order("viewed_at", { ascending: false }),
+      // banned_at/suspended_until ajoutés (bug corrigé à l'audit, même
+      // famille que favorites/follows ci-dessus) : sans eux, une personne
+      // ayant vu mon statut puis bannie/suspendue par un·e admin restait
+      // affichée dans ce panneau comme un profil parfaitement normal.
+      supabase.from("story_views").select("viewer_id, viewed_at, profile:viewer_id(name, avatar_url, is_founder, is_premium, email_verified, phone_verified, banned_at, suspended_until)").eq("story_id", storyId).order("viewed_at", { ascending: false }),
       supabase.from("story_reactions").select("profile_id, emoji").eq("story_id", storyId),
     ]);
     // Même jeton de course que loadStoryViewCount/loadMyStoryReaction
@@ -1928,6 +1932,8 @@ export default function SocialShell({
       is_premium: v.profile?.is_premium || false,
       email_verified: v.profile?.email_verified || false,
       phone_verified: v.profile?.phone_verified || false,
+      banned_at: v.profile?.banned_at || null,
+      suspended_until: v.profile?.suspended_until || null,
       viewed_at: v.viewed_at,
       reaction: reactionByProfile[v.viewer_id] || null,
     })));

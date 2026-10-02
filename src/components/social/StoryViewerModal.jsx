@@ -372,7 +372,15 @@ export default function StoryViewerModal({
               ) : storyViewers.length === 0 ? (
                 <p className="text-sm text-center py-6" style={{ color: "rgba(var(--bb-ink-rgb),0.5)" }}>Personne n'a encore vu ce statut.</p>
               ) : (
-                storyViewers.map((v) => (
+                storyViewers.map((v) => {
+                  // Bug corrigé à l'audit, même famille que CommunityMemberRow.jsx/
+                  // FavoritesModal.jsx/ConversationCard.jsx (banned_at/suspended_until) :
+                  // désormais chargés dans loadStoryViewers() (SocialShell.jsx), mais
+                  // rien ici ne les consultait — une personne ayant vu mon statut puis
+                  // bannie/suspendue par un·e admin restait affichée ici comme un
+                  // profil parfaitement normal.
+                  const unavailable = Boolean(v.banned_at) || Boolean(v.suspended_until && new Date(v.suspended_until) > new Date());
+                  return (
                   <button key={v.profile_id} onClick={() => { closeStoryViewers(); closeStoryViewer(); onOpenProfile?.(v.profile_id); }} className="w-full flex items-center gap-3 py-2.5 text-left focus-visible:outline focus-visible:outline-2">
                     <Avatar name={v.name} url={v.avatar_url} size={36} />
                     <div className="min-w-0 flex-1">
@@ -383,11 +391,16 @@ export default function StoryViewerModal({
                             désormais chargés dans loadStoryViewers() (SocialShell.jsx). */}
                         <StatusBadge isFounder={v.is_founder} isPremium={v.is_premium} emailVerified={v.email_verified} phoneVerified={v.phone_verified} size={12} />
                       </div>
-                      <div className="text-xs" style={{ color: "rgba(var(--bb-ink-rgb),0.5)" }}>{timeAgo(v.viewed_at)}</div>
+                      {unavailable ? (
+                        <div className="text-xs" style={{ color: coralText }}>Ce compte n'est plus disponible</div>
+                      ) : (
+                        <div className="text-xs" style={{ color: "rgba(var(--bb-ink-rgb),0.5)" }}>{timeAgo(v.viewed_at)}</div>
+                      )}
                     </div>
                     {v.reaction && <span className="text-lg shrink-0">{v.reaction}</span>}
                   </button>
-                ))
+                  );
+                })
               )}
             </div>
           </div>
