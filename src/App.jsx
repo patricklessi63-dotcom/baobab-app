@@ -196,6 +196,14 @@ export default function App() {
   // pouvait atteindre la base APRÈS celle du second, laissant en base la
   // valeur du premier choix alors que l'UI affichait déjà le second — voir
   // lib/fieldWriteQueue.js pour le détail du scénario et la garde.
+  // Même queue partagée réutilisée par handleToggleOnlineStatus,
+  // handleToggleDating, handleUpdateNotificationPreference et les handlers
+  // de localisation (handleEnableLocation/handleDisableLocation/
+  // handleUpdateLocationPref) — audit croisé du 1er octobre : ces bascules
+  // écrivaient, elles aussi, directement en base sans aucune sérialisation,
+  // exposées exactement à la même course réseau. Chaque appelant choisit sa
+  // propre clé (nom de champ, "notification_preferences", "user_locations"),
+  // donc les bascules sans rapport entre elles restent indépendantes.
   const fieldWriteQueueRef = useRef(null);
   if (!fieldWriteQueueRef.current) fieldWriteQueueRef.current = createFieldWriteQueue();
   // Valeur du DERNIER clic par champ — permet à handleToggleField de ne
@@ -1446,33 +1454,53 @@ export default function App() {
 
   async function handleToggleOnlineStatus(checked) {
     if (!currentUser) return;
+    const userId = currentUser.id;
     setCurrentUser((u) => ({ ...u, show_online_status: checked }));
+    fieldToggleLatestRef.current.show_online_status = checked;
     try {
-      const { error: toggleError } = await supabase
-        .from("profiles")
-        .update({ show_online_status: checked })
-        .eq("id", currentUser.id);
-      if (toggleError) throw toggleError;
+      // Même course que handleToggleField (voir fieldWriteQueueRef) : sans
+      // cette sérialisation, décocher puis recocher rapidement "Statut en
+      // ligne visible" (AppModals.jsx) envoyait deux UPDATE concurrents dont
+      // l'ordre d'arrivée en base n'était pas garanti.
+      await fieldWriteQueueRef.current.enqueue("show_online_status", async () => {
+        const { error: toggleError } = await supabase
+          .from("profiles")
+          .update({ show_online_status: checked })
+          .eq("id", userId);
+        if (toggleError) throw toggleError;
+      });
     } catch (e) {
       console.error(e);
-      setCurrentUser((u) => ({ ...u, show_online_status: !checked }));
-      setError("Impossible de mettre à jour ce paramètre.");
+      if (fieldToggleLatestRef.current.show_online_status === checked) {
+        setCurrentUser((u) => ({ ...u, show_online_status: !checked }));
+        setError("Impossible de mettre à jour ce paramètre.");
+      }
     }
   }
 
   async function handleToggleDating(checked) {
     if (!currentUser) return;
+    const userId = currentUser.id;
     setCurrentUser((u) => ({ ...u, dating_enabled: checked }));
+    fieldToggleLatestRef.current.dating_enabled = checked;
     try {
-      const { error: toggleError } = await supabase
-        .from("profiles")
-        .update({ dating_enabled: checked })
-        .eq("id", currentUser.id);
-      if (toggleError) throw toggleError;
+      // Même course que handleToggleField (voir fieldWriteQueueRef) : sans
+      // cette sérialisation, décocher puis recocher rapidement "Activer les
+      // Rencontres" (AppModals.jsx) envoyait deux UPDATE concurrents dont
+      // l'ordre d'arrivée en base n'était pas garanti.
+      await fieldWriteQueueRef.current.enqueue("dating_enabled", async () => {
+        const { error: toggleError } = await supabase
+          .from("profiles")
+          .update({ dating_enabled: checked })
+          .eq("id", userId);
+        if (toggleError) throw toggleError;
+      });
     } catch (e) {
       console.error(e);
-      setCurrentUser((u) => ({ ...u, dating_enabled: !checked }));
-      setError("Impossible de mettre à jour ce paramètre.");
+      if (fieldToggleLatestRef.current.dating_enabled === checked) {
+        setCurrentUser((u) => ({ ...u, dating_enabled: !checked }));
+        setError("Impossible de mettre à jour ce paramètre.");
+      }
     }
   }
 
@@ -1547,10 +1575,17 @@ export default function App() {
     // pouvoir mettre à jour myLocation, sinon une réponse en retard (ex.
     // l'upsert périodique last_in_canada_at) peut écraser un changement plus
     // récent (activer/désactiver/modifier une préférence) avec des données
-    // obsolètes.
+    // obsolètes. Ce jeton protège l'état LOCAL ; il ne garantit pas, à lui
+    // seul, l'ordre d'arrivée en base des écritures réseau elles-mêmes —
+    // d'où l'enqueue ci-dessous (clé partagée "user_locations", même course
+    // que handleToggleField : voir fieldWriteQueueRef) pour que les bascules
+    // de LocationSettingsModal.jsx (activer/désactiver/préférences) partent
+    // dans l'ordre des clics et que la base retienne bien le dernier choix.
     const token = ++myLocationWriteTokenRef.current;
     try {
-      const row = await upsertMyLocation({ location_enabled: true, latitude_approx: latitude, longitude_approx: longitude });
+      const row = await fieldWriteQueueRef.current.enqueue("user_locations", () =>
+        upsertMyLocation({ location_enabled: true, latitude_approx: latitude, longitude_approx: longitude })
+      );
       if (myLocationWriteTokenRef.current === token) setMyLocation(row);
     } catch (e) {
       console.error(e);
@@ -1563,7 +1598,7 @@ export default function App() {
     const token = ++myLocationWriteTokenRef.current;
     setMyLocation((l) => (l ? { ...l, location_enabled: false } : l));
     try {
-      const row = await disableMyLocation();
+      const row = await fieldWriteQueueRef.current.enqueue("user_locations", () => disableMyLocation());
       if (myLocationWriteTokenRef.current === token) setMyLocation(row);
     } catch (e) {
       console.error(e);
@@ -1577,7 +1612,7 @@ export default function App() {
     const token = ++myLocationWriteTokenRef.current;
     setMyLocation((l) => (l ? { ...l, [field]: value } : l));
     try {
-      const row = await upsertMyLocation({ [field]: value });
+      const row = await fieldWriteQueueRef.current.enqueue("user_locations", () => upsertMyLocation({ [field]: value }));
       if (myLocationWriteTokenRef.current === token) setMyLocation(row);
     } catch (e) {
       console.error(e);
@@ -1588,19 +1623,32 @@ export default function App() {
 
   async function handleUpdateNotificationPreference(category, enabled) {
     if (!currentUser) return;
+    const userId = currentUser.id;
     const previousPrefs = currentUser.notification_preferences || {};
     const nextPrefs = { ...previousPrefs, [category]: enabled };
     setCurrentUser((u) => (u ? { ...u, notification_preferences: nextPrefs } : u));
+    // Même course que handleToggleField (voir fieldWriteQueueRef) : chaque
+    // bascule (NotificationPreferencesModal.jsx) réécrivait la colonne
+    // notification_preferences ENTIÈRE sans aucune garde. Décocher puis
+    // recocher rapidement la même catégorie envoyait deux UPDATE concurrents
+    // sur cette même colonne, sans garantie d'ordre d'arrivée en base — objet
+    // `nextPrefs` utilisé comme marqueur du dernier appel en date (chaque
+    // appel crée une nouvelle référence).
+    fieldToggleLatestRef.current.notification_preferences = nextPrefs;
     try {
-      const { error: prefError } = await supabase
-        .from("profiles")
-        .update({ notification_preferences: nextPrefs })
-        .eq("id", currentUser.id);
-      if (prefError) throw prefError;
+      await fieldWriteQueueRef.current.enqueue("notification_preferences", async () => {
+        const { error: prefError } = await supabase
+          .from("profiles")
+          .update({ notification_preferences: nextPrefs })
+          .eq("id", userId);
+        if (prefError) throw prefError;
+      });
     } catch (e) {
       console.error(e.message, e.code, e.details, e.hint);
-      setCurrentUser((u) => (u ? { ...u, notification_preferences: previousPrefs } : u));
-      setError("Impossible de mettre à jour ce paramètre.");
+      if (fieldToggleLatestRef.current.notification_preferences === nextPrefs) {
+        setCurrentUser((u) => (u ? { ...u, notification_preferences: previousPrefs } : u));
+        setError("Impossible de mettre à jour ce paramètre.");
+      }
     }
   }
 
