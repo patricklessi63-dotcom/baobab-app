@@ -86,6 +86,38 @@ describe("StoryViewerModal — réponse à un statut", () => {
   });
 });
 
+// Bug corrigé à l'audit (fonctionnalité "répondre à un statut") : la barre de
+// réponse ne consultait jamais banned_at/suspended_until de l'auteur·ice du
+// statut affiché, contrairement au composeur équivalent de ConversationPane.jsx
+// — un envoi vers un compte banni/suspendu échouerait de toute façon côté RLS
+// (policy INSERT de "messages"), mais seulement après fermeture du visualiseur.
+describe("StoryViewerModal — réponse à un statut d'un compte banni/suspendu", () => {
+  it("compte banni : masque le champ de réponse et affiche un message d'indisponibilité", () => {
+    setup({ stories: [{ ...story, banned_at: "2026-09-15T00:00:00Z" }] });
+    expect(screen.queryByPlaceholderText(/Répondre à/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Envoyer la réponse" })).not.toBeInTheDocument();
+    expect(screen.getByText("Ce compte n'est plus disponible : tu ne peux plus lui répondre.")).toBeInTheDocument();
+  });
+
+  it("compte suspendu (date future) : masque le champ de réponse", () => {
+    setup({ stories: [{ ...story, suspended_until: new Date(Date.now() + 60 * 60 * 1000).toISOString() }] });
+    expect(screen.queryByPlaceholderText(/Répondre à/)).not.toBeInTheDocument();
+    expect(screen.getByText("Ce compte n'est plus disponible : tu ne peux plus lui répondre.")).toBeInTheDocument();
+  });
+
+  it("suspension déjà expirée : le champ de réponse redevient actif", () => {
+    setup({ stories: [{ ...story, suspended_until: new Date(Date.now() - 60 * 60 * 1000).toISOString() }] });
+    expect(screen.getByPlaceholderText(/Répondre à/)).toBeInTheDocument();
+    expect(screen.queryByText("Ce compte n'est plus disponible : tu ne peux plus lui répondre.")).not.toBeInTheDocument();
+  });
+
+  it("compte actif normal : affiche bien le champ de réponse (pas de régression)", () => {
+    setup();
+    expect(screen.getByPlaceholderText(/Répondre à/)).toBeInTheDocument();
+    expect(screen.queryByText("Ce compte n'est plus disponible : tu ne peux plus lui répondre.")).not.toBeInTheDocument();
+  });
+});
+
 describe("StoryViewerModal — statut photo dont le média devient indisponible", () => {
   // Scénario concret : le propriétaire supprime son statut (deleteOwnStory,
   // SocialShell.jsx) pendant qu'un·e autre utilisateur·ice l'a encore ouvert

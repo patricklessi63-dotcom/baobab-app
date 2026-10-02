@@ -109,6 +109,27 @@ export default function StoryViewerModal({
   if (!active) return null;
   const story = stories[storyViewerIndex];
 
+  // Bug corrigé à l'audit (fonctionnalité "répondre à un statut", non
+  // couverte par l'audit banni/suspendu du jour sur ce fichier) : même
+  // famille que le composeur de ConversationPane.jsx et les questions
+  // brise-glace de ConversationStarters.jsx (déjà corrigés aujourd'hui) —
+  // contrairement à eux, la barre de réponse ci-dessous ne consultait
+  // jamais banned_at/suspended_until de l'auteur·ice du statut affiché. La
+  // policy SELECT de "stories" (supabase-stories.sql) ne filtre que le
+  // blocage et l'expiration, jamais l'état banni/suspendu : un match tout
+  // juste banni par un·e admin pendant que je regarde son statut (ou banni
+  // avant, simplement pas encore expiré) laissait donc le champ de réponse
+  // pleinement actif. L'envoi échouerait de toute façon — la policy RLS
+  // INSERT de "messages" vérifie déjà banned_at/suspended_until des DEUX
+  // participants (supabase-COMBINED-pending-fixes.sql) — mais seulement
+  // après fermeture du visualiseur (sendStoryReply, SocialShell.jsx), ce qui
+  // est trompeur. Les réactions, elles, restent volontairement actives :
+  // leur policy RLS ("story_reactions", supabase-stories-2.sql) ne garde que
+  // l'état de compte de l'acteur, jamais celui de l'auteur·ice du statut —
+  // une réaction aboutit donc réellement, même logique que ConversationPane.jsx
+  // pour les réactions aux messages.
+  const authorUnavailable = !story.own && (Boolean(story.banned_at) || Boolean(story.suspended_until && new Date(story.suspended_until) > new Date()));
+
   const applyVideoDuration = (d) => {
     if (Number.isFinite(d) && d > 0) {
       onVideoDuration?.(Math.min(Math.max(Math.round(d * 1000), 3000), 60000));
@@ -326,6 +347,14 @@ export default function StoryViewerModal({
                 </button>
               </>
             )
+          ) : authorUnavailable ? (
+            <div
+              className="flex-1 flex items-center gap-2 rounded-full px-4 py-2.5 text-xs font-semibold text-white"
+              style={{ background: "rgba(255,255,255,.12)" }}
+            >
+              <Ban size={14} className="flex-shrink-0" />
+              Ce compte n'est plus disponible : tu ne peux plus lui répondre.
+            </div>
           ) : (
             <>
               <input

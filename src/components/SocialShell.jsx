@@ -316,7 +316,12 @@ export default function SocialShell({
     let alive = true;
     supabase
       .from("stories")
-      .select("id, profile_id, text, media_url, media_kind, bg_color, created_at, profile:profile_id(name, avatar_url)")
+      // banned_at/suspended_until (bug corrigé à l'audit "réponse à un statut") :
+      // nécessaires à StoryViewerModal.jsx pour désactiver la barre de réponse
+      // envers l'auteur·ice d'un statut banni/suspendu — même donnée déjà
+      // chargée pour le panneau "Personnes ayant vu ton statut" ci-dessous
+      // (loadStoryViewers), mais jamais pour l'auteur·ice du statut affiché lui-même.
+      .select("id, profile_id, text, media_url, media_kind, bg_color, created_at, profile:profile_id(name, avatar_url, banned_at, suspended_until)")
       .gt("expires_at", new Date().toISOString())
       .order("created_at", { ascending: false })
       .limit(500)
@@ -347,6 +352,8 @@ export default function SocialShell({
             media_kind: row?.media_kind || null,
             bg_color: row?.bg_color || null,
             created_at: row?.created_at || null,
+            banned_at: isOwn ? null : row?.profile?.banned_at || null,
+            suspended_until: isOwn ? null : row?.profile?.suspended_until || null,
           };
         };
         setStories([toEntry(ownRow, true), ...latestPerProfile.map((r) => toEntry(r, false))]);
