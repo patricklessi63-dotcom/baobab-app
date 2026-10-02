@@ -912,7 +912,20 @@ export default function CommunitiesTab({ currentUser, onError, onBack = () => {}
       const { error } = await supabase.rpc("accept_join_request", { p_request_id: req.id });
       if (error) throw error;
       setJoinRequests((r) => r.filter((x) => x.id !== req.id));
-      adjustMemberCount(req.community_id, 1);
+      // Rafraîchit depuis la base plutôt qu'un +1 optimiste : même bug que
+      // celui déjà corrigé pour handleAcceptInvite ci-dessus (voir
+      // refreshMemberCount) — accept_join_request (supabase-communities.sql)
+      // insère aussi avec "on conflict (community_id, profile_id) do
+      // nothing", donc réussit silencieusement SANS ajouter de membre si le
+      // ou la demandeur·se est déjà membre au moment où le staff accepte
+      // (ex. une invitation à cette même communauté, acceptée en parallèle
+      // pendant que cette demande restait affichée comme "en attente" dans
+      // l'onglet Gestion, elle-même non temps réel — voir commentaire sur
+      // isAlreadyDecidedError plus haut). Un adjustMemberCount(+1)
+      // inconditionnel ici gonflait durablement de 1 le compteur affiché
+      // dans la liste des communautés, sans qu'aucun membre supplémentaire
+      // n'ait réellement été ajouté.
+      refreshMemberCount(req.community_id);
       loadMembers(req.community_id);
     } catch (e) {
       console.error(e);
