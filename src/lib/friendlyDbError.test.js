@@ -26,12 +26,32 @@ describe("friendlyDbError", () => {
     expect(friendlyDbError({ code: "P0001", message: "" })).toBeNull();
     expect(friendlyDbError({ code: "P0001", message: "RATE_LIMIT: " })).toBeNull();
   });
+
+  it("reconnaît le rejet RLS (code 42501, \"permission denied\") avec un message dédié", () => {
+    // Contrairement à P0001, Postgres ne fournit aucun message exploitable
+    // pour un rejet RLS : le message serveur brut est ignoré, un message fixe
+    // est retourné à la place (voir audit commit 794cb5d - barre de
+    // composition masquée pour un match banni/suspendu).
+    expect(
+      friendlyDbError({ code: "42501", message: "permission denied for table messages" }),
+    ).toBe("Tu n'as pas la permission d'effectuer cette action.");
+    expect(friendlyDbError({ code: "42501" })).toBe("Tu n'as pas la permission d'effectuer cette action.");
+  });
+
+  it("ne confond pas 42501 avec P0001 (pas de collision de branche)", () => {
+    expect(friendlyDbError({ code: "42501", message: "FREE_MESSAGE_LIMIT_REACHED: x" })).toBe(
+      "Tu n'as pas la permission d'effectuer cette action.",
+    );
+  });
 });
 
 describe("dbErrorCode", () => {
   it("retourne null si le code n'est pas P0001", () => {
     expect(dbErrorCode(null)).toBeNull();
     expect(dbErrorCode({ code: "23505", message: "FREE_MESSAGE_LIMIT_REACHED: x" })).toBeNull();
+    // 42501 (RLS) n'a pas de préfixe technique à extraire : reste null, même
+    // si friendlyDbError() reconnaît désormais ce code.
+    expect(dbErrorCode({ code: "42501", message: "permission denied for table messages" })).toBeNull();
   });
 
   it("extrait le préfixe technique en majuscules d'une exception P0001", () => {

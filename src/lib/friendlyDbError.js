@@ -5,8 +5,25 @@
 // ("Réessaie"), qui masque la vraie raison (ex. limite de débit atteinte) et
 // fait relancer en boucle une action qui échouera à l'identique.
 export function friendlyDbError(e) {
-  if (e?.code !== "P0001") return null;
-  return (e.message || "").replace(/^[A-Z_]+:\s*/, "") || null;
+  if (e?.code === "P0001") {
+    return (e.message || "").replace(/^[A-Z_]+:\s*/, "") || null;
+  }
+  // Rejet par une policy RLS ("permission denied for table ...", code Postgres
+  // 42501) : contrairement à P0001 ci-dessus, Postgres/PostgREST ne fournit
+  // aucun message exploitable, juste un refus générique. Sans le reconnaître
+  // ici, tout appelant retombe sur SON message générique fixe (souvent suivi
+  // d'un "Réessaie" - voir App.jsx/ConversationPane.jsx), qui laisse croire à
+  // tort à un problème réseau transitoire alors que c'est un blocage de
+  // permission qui échouera à l'identique tant que la condition bloquante
+  // persiste (ex. policy appliquant une règle qu'un garde côté client aurait
+  // dû prévenir mais a ratée - cas limite, race condition, bug pas encore
+  // corrigé). Message volontairement générique : impossible de savoir ici
+  // QUELLE policy a bloqué l'action, seulement QUE c'est une question de
+  // permission et non un aléa réseau.
+  if (e?.code === "42501") {
+    return "Tu n'as pas la permission d'effectuer cette action.";
+  }
+  return null;
 }
 
 // Certains codes techniques ci-dessus ne signalent pas une erreur transitoire
