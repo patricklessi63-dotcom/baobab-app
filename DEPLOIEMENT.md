@@ -48,6 +48,22 @@ Mise à jour 2026-09-30.
   rétrograder lui-même sans qu'aucun autre owner/admin ne reste. Resserre
   uniquement la branche "owner modifie sa propre ligne" de la policy UPDATE
   existante, en réutilisant `community_would_be_orphaned_by_leaving()`.
+- ⬜ `supabase-community-orphan-account-deletion-fix.sql` — **ajouté le
+  2026-10-02** : même bug "communauté orpheline" que les deux fichiers
+  ci-dessus, mais par un troisième chemin jamais vérifié jusqu'ici — la
+  SUPPRESSION DE COMPTE. `community_members.profile_id` est en
+  `on delete cascade` sur `profiles` : supprimer le profil d'un owner/admin
+  unique supprime aussi sa ligne `community_members` par cascade, un chemin
+  qu'aucune policy RLS ne peut intercepter (ni une suppression cascade ni un
+  appel service role, utilisé par `process-scheduled-deletions`, ne passent
+  par la RLS). Contrairement aux deux fichiers précédents (qui resserrent
+  une policy RLS), celui-ci ajoute un trigger `BEFORE DELETE` sur
+  `community_members` qui transfère automatiquement la propriété au membre
+  restant le mieux placé plutôt que de bloquer la suppression de compte
+  (bloquer aurait fait échouer silencieusement et indéfiniment la
+  suppression de ce compte précis). Voir l'en-tête du fichier pour le
+  raisonnement complet et la limite résiduelle documentée (communauté à un
+  seul membre).
 - ⬜ `supabase-community-invite-block-bypass-fix.sql` et
   `supabase-community-join-request-block-bypass-fix.sql` — **ajoutés le
   2026-09-25**, non encore listés ici : les notifications d'invitation et
@@ -288,6 +304,61 @@ bloqué.
 **Comment :**
 1. Ouvre le **SQL Editor** de Supabase (projet `vozehymbihnckzklxesw`).
 2. Colle tout le contenu de `supabase-community-orphan-guard-fix.sql`.
+3. Exécute en une fois (additif et idempotent — rejouable sans erreur), après
+   `supabase-communities.sql`.
+
+Requêtes de vérification en fin de fichier SQL.
+
+---
+
+## 1e. SQL — `supabase-community-orphan-account-deletion-fix.sql` — ⬜ JAMAIS EXÉCUTÉ
+
+**Quoi :** troisième variante du bug "communauté orpheline" (après le départ
+volontaire, §1d, et l'auto-rétrogradation par UPDATE), trouvée lors de
+l'audit autonome du 2 octobre 2026 : la SUPPRESSION DE COMPTE.
+
+`community_members.profile_id` référence `profiles(id) on delete cascade`
+(`supabase-communities.sql`). Supprimer la ligne `profiles` d'un owner/admin
+unique supprime donc automatiquement sa ligne `community_members` par
+cascade — y compris si ce profil est owner/admin d'une communauté. Vérifié
+par lecture seule :
+
+- Une suppression cascade n'est pas un `DELETE` explicite soumis à la RLS de
+  `community_members` : les deux garde-fous RLS déjà livrés (§1d et la
+  variante UPDATE) sont donc structurellement invisibles à ce chemin, quelle
+  que soit leur rigueur.
+- `process-scheduled-deletions` (edge function qui traite la suppression
+  différée après le délai de grâce de 24h, voir `supabase-account-deletion
+  .sql`) appelle `admin.auth.admin.deleteUser(...)` avec le client
+  **service role**, qui contourne toujours la RLS par conception — une
+  seconde raison indépendante.
+
+Conséquence réelle, confirmée : un·e owner/admin unique d'une communauté qui
+supprime son compte l'orpheline exactement comme le départ volontaire déjà
+corrigé — plus personne ne peut gérer les membres, les demandes d'adhésion
+ni les signalements. Vérifié séparément côté client (`CommunitiesTab.jsx`,
+`CommunityDetailView.jsx`) : aucun plantage, `isStaff`/`isMod`/
+`viewerRole === "owner"` gèrent déjà une absence de staff avec grâce (les
+boutons de gestion disparaissent simplement) — rien à corriger côté `.jsx`
+pour ce chemin précis.
+
+**Approche retenue :** pas un trigger qui bloque la suppression du profil
+(ça ferait échouer silencieusement et indéfiniment la suppression de ce
+compte précis à chaque passage du cron, sans jamais prévenir
+l'utilisateur·rice). À la place, un trigger `BEFORE DELETE` sur
+`community_members` lui-même (qui se déclenche aussi pour les suppressions
+cascade) transfère automatiquement la propriété ("owner") au membre restant
+le mieux placé (modérateur existant en priorité, sinon le plus ancien)
+juste avant que la ligne ne disparaisse — la suppression de compte continue
+de réussir normalement, la communauté garde toujours un responsable tant
+qu'il lui reste au moins un autre membre. Limite résiduelle documentée dans
+l'en-tête du fichier : une communauté à un seul membre (celui qui vient de
+supprimer son compte) reste sans owner/admin, mais seule échappatoire déjà
+existante (suppression par un admin plateforme) reste disponible.
+
+**Comment :**
+1. Ouvre le **SQL Editor** de Supabase (projet `vozehymbihnckzklxesw`).
+2. Colle tout le contenu de `supabase-community-orphan-account-deletion-fix.sql`.
 3. Exécute en une fois (additif et idempotent — rejouable sans erreur), après
    `supabase-communities.sql`.
 
