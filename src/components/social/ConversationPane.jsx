@@ -481,7 +481,7 @@ export default function ConversationPane({
           </button>
         )}
 
-        {messages.length === 0 && (
+        {messages.length === 0 && !otherUnavailable && (
           // truncateUnicodeSafe(…, 4000) : même contrainte que TOUS les autres chemins qui
           // écrivent dans messageDraft (frappe clavier via maxLength, emoji,
           // reformulation IA, suggestions de réponse IA — voir plus bas) —
@@ -489,6 +489,17 @@ export default function ConversationPane({
           // nom/la ville/le pays du match (texte libre, sans plafond strict)
           // : sans troncature, un texte anormalement long aurait pu porter
           // messageDraft au-delà de la limite avant même la première frappe.
+          //
+          // !otherUnavailable (bug corrigé à l'audit de ConversationStarters.jsx) :
+          // ce composant ne consultait pas banned_at/suspended_until (même
+          // garde que le statut "En ligne"/"Vu il y a X" ci-dessus et que
+          // MessagesTab.jsx). Pour une conversation tout juste créée (match
+          // mutuel sans message échangé) dont l'autre personne est bannie ou
+          // suspendue entre-temps, l'en-tête affichait déjà "Ce compte n'est
+          // plus disponible" pendant que cette zone proposait quand même des
+          // questions brise-glace ("Vous êtes tous les deux à...") pour
+          // engager une conversation avec un compte qui ne répondra jamais —
+          // incohérent et trompeur pour l'utilisateur restant.
           <ConversationStarters currentUser={currentUser} match={activeMatch} onPick={(text) => setMessageDraft(truncateUnicodeSafe(text, 4000))} />
         )}
         {q && visibleMessages.length === 0 && (
