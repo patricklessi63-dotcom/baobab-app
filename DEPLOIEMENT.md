@@ -64,6 +64,32 @@ Mise à jour 2026-09-30.
   suppression de ce compte précis). Voir l'en-tête du fichier pour le
   raisonnement complet et la limite résiduelle documentée (communauté à un
   seul membre).
+- ⬜ `supabase-event-orphan-account-deletion-fix.sql` — **ajouté le
+  2026-10-02** : même bug "orphelin par suppression de compte" que
+  `supabase-community-orphan-account-deletion-fix.sql` ci-dessus, vérifié
+  pour les ÉVÉNEMENTS (`event_staff`, rôle organizer/co_organizer/moderator).
+  `event_staff.profile_id` est aussi en `on delete cascade` sur `profiles` :
+  supprimer le profil d'un organisateur supprime sa ligne `event_staff` par
+  cascade, un chemin qu'aucune policy RLS ni le client service role de
+  `process-scheduled-deletions` ne peuvent intercepter — même raisonnement
+  que pour les communautés. Nuance confirmée (pas supposée par analogie) : la
+  policy DELETE de `event_staff` interdisait déjà, depuis l'origine, le
+  départ volontaire d'un organisateur unique ; seul le chemin cascade/service
+  role restait un trou. Ajoute un trigger `BEFORE DELETE` sur `event_staff`
+  qui transfère automatiquement le rôle 'organizer' au meilleur candidat
+  restant (co_organizer en priorité, sinon moderator, sinon le plus ancien).
+  Limite réaliste documentée dans l'en-tête du fichier : la fonctionnalité
+  "ajouter un co-organisateur" n'est jamais câblée côté client aujourd'hui
+  (vérifié : `canManageEventStaff`/`canSetEventRole`/`canRemoveEventStaff`
+  dans `src/lib/events/permissions.js` ne sont appelés nulle part), donc la
+  quasi-totalité des événements n'ont qu'une seule ligne `event_staff` — le
+  trigger ne trouvera presque jamais de successeur, et la plupart des
+  événements dont le créateur supprime son compte deviendront des coquilles
+  sans organisateur. Limite déjà inhérente à l'app, pas une régression de ce
+  trigger. Vérifié côté client (`EventsTab.jsx`/`EventDetailView.jsx`) :
+  aucun plantage sur un événement sans staff (la seule requête `event_staff`
+  utilise `.maybeSingle()` et gère déjà un résultat vide ; `organizerName`
+  n'est affiché que `if (data.created_by)`) — rien à corriger côté `.jsx`.
 - ⬜ `supabase-community-invite-block-bypass-fix.sql` et
   `supabase-community-join-request-block-bypass-fix.sql` — **ajoutés le
   2026-09-25**, non encore listés ici : les notifications d'invitation et
@@ -361,6 +387,68 @@ existante (suppression par un admin plateforme) reste disponible.
 2. Colle tout le contenu de `supabase-community-orphan-account-deletion-fix.sql`.
 3. Exécute en une fois (additif et idempotent — rejouable sans erreur), après
    `supabase-communities.sql`.
+
+Requêtes de vérification en fin de fichier SQL.
+
+---
+
+## 1f. SQL — `supabase-event-orphan-account-deletion-fix.sql` — ⬜ JAMAIS EXÉCUTÉ
+
+**Quoi :** vérification demandée le 2 octobre 2026 du même bug "orphelin par
+suppression de compte" (§1e) pour les ÉVÉNEMENTS plutôt que les communautés.
+
+`event_staff.profile_id` référence aussi `profiles(id) on delete cascade`
+(`supabase-events-v2.sql`). Supprimer la ligne `profiles` d'un organisateur
+supprime donc automatiquement sa ligne `event_staff` par cascade.
+
+Différence confirmée avec le cas communauté (pas supposée par analogie) : la
+policy DELETE de `event_staff` ("Quitter le staff ou etre retire par
+l'organisateur") interdisait déjà, depuis l'origine, à un organisateur de
+supprimer sa propre ligne par un appel direct (`role <> 'organizer'` exigé
+sur la branche self-delete) — contrairement à `community_members`, aucun
+correctif de policy RLS n'était donc nécessaire ici. Mais exactement comme
+pour les communautés, cette policy reste structurellement invisible à une
+suppression cascade, et la suppression de compte réelle passe de toute façon
+par le client service role de `process-scheduled-deletions`, qui contourne
+toujours la RLS.
+
+Conséquence confirmée : un organisateur d'événement qui supprime son compte
+orpheline son événement (plus personne ne peut l'éditer, l'annuler, modérer
+ses signalements, ni jamais réattribuer le rôle 'organizer', réservé à un
+organizer déjà existant par la policy UPDATE).
+
+**Limite réaliste documentée** (vérifiée, pas supposée) : la fonctionnalité
+"ajouter un co-organisateur" n'est jamais câblée côté client —
+`canManageEventStaff()`, `canSetEventRole()` et `canRemoveEventStaff()`
+existent dans `src/lib/events/permissions.js` mais ne sont importés par
+aucun composant, et le seul point d'insertion dans `event_staff` dans tout
+le dépôt SQL (`create_event()`) n'insère qu'une seule ligne 'organizer' par
+événement. En pratique, la quasi-totalité des événements n'ont donc qu'UN
+seul membre de staff : le trigger de transfert ci-dessous ne trouvera
+presque jamais de successeur à promouvoir, et la plupart des événements dont
+le créateur supprime son compte deviendront des coquilles sans organisateur.
+Ce n'est pas une régression introduite par ce fichier, mais une limite déjà
+inhérente à l'absence de la fonctionnalité co-organisateur dans l'app.
+
+**Approche retenue :** même logique que §1e — un trigger `BEFORE DELETE` sur
+`event_staff` (pas un blocage de la suppression de compte, qui échouerait
+silencieusement et indéfiniment) transfère automatiquement le rôle
+'organizer' au membre restant le mieux placé (co_organizer en priorité,
+sinon moderator, sinon le plus ancien) quand c'est possible.
+
+Vérifié séparément côté client (`EventsTab.jsx`, `EventDetailView.jsx`) :
+aucun plantage sur un événement sans staff. La seule requête `event_staff`
+(`.eq('profile_id', currentUser.id).maybeSingle()`) gère déjà un résultat
+vide (`role = null`, `isEventStaff(null)` → false), et `organizerName` n'est
+renseigné que `if (data.created_by)` (déjà `null` après la suppression du
+compte créateur, `events.created_by` étant en `on delete set null`). Rien à
+corriger côté `.jsx` pour ce chemin précis.
+
+**Comment :**
+1. Ouvre le **SQL Editor** de Supabase (projet `vozehymbihnckzklxesw`).
+2. Colle tout le contenu de `supabase-event-orphan-account-deletion-fix.sql`.
+3. Exécute en une fois (additif et idempotent — rejouable sans erreur), après
+   `supabase-events-v2.sql`.
 
 Requêtes de vérification en fin de fichier SQL.
 
