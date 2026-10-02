@@ -69,6 +69,19 @@ export default function PublicProfileModal({
   const showLifeProject = profile.show_life_project !== false;
   const showInterests = profile.show_interests !== false;
 
+  // Bug corrigé à l'audit, même famille que CommunityMemberRow.jsx/
+  // FavoritesModal.jsx/ConversationCard.jsx/MessagesTab.jsx (banned_at/
+  // suspended_until) : ces deux colonnes sont déjà chargées pour tout profil
+  // tiers ouvert ici (OTHER_PROFILE_COLUMNS, voir lib/otherProfileColumns.js,
+  // utilisé par chaque requête "profiles" de SocialShell.jsx qui alimente
+  // cette modale — recherche, favoris, notifications, réponse à un statut...),
+  // mais rien ici ne les consultait. Cette fiche profil complète, pourtant
+  // reliée depuis TOUTES les listes déjà corrigées ailleurs (favoris,
+  // conversations, membres d'une communauté...), restait donc la seule
+  // destination où un compte banni ou suspendu par un·e admin s'affichait
+  // encore comme un profil parfaitement normal dès qu'on cliquait dessus.
+  const unavailable = Boolean(profile.banned_at) || Boolean(profile.suspended_until && new Date(profile.suspended_until) > new Date());
+
   const lifeProjectParts = [profile.wants_children, profile.family_importance, profile.career_goal, profile.geographic_openness].filter(Boolean);
   // Bug corrigé à l'audit "profil public" : personality_evening/
   // personality_travel/relationship_needs sont saisis à l'étape 9 de
@@ -142,10 +155,14 @@ export default function PublicProfileModal({
             <StatusBadge emailVerified={profile.email_verified} phoneVerified={profile.phone_verified} isFounder={profile.is_founder} isPremium={profile.is_premium} />
           </div>
 
-          {(showCity && profile.city) && (
-            <p className="text-sm mt-0.5" style={{ color: muted }}>
-              📍 {profile.city}{showCountry && profile.country ? ` · ${profile.country}` : ""}
-            </p>
+          {unavailable ? (
+            <p className="text-sm mt-0.5" style={{ color: coralText }}>Ce compte n'est plus disponible</p>
+          ) : (
+            (showCity && profile.city) && (
+              <p className="text-sm mt-0.5" style={{ color: muted }}>
+                📍 {profile.city}{showCountry && profile.country ? ` · ${profile.country}` : ""}
+              </p>
+            )
           )}
 
           <div className="mt-2">
