@@ -1,6 +1,6 @@
 # Déploiement en attente — Baobab
 
-Mise à jour 2026-09-30.
+Mise à jour 2026-10-02.
 
 **FAIT :**
 - ✅ `supabase-COMBINED-pending-fixes.sql` exécuté en prod (vérifié : RLS/RPC OK).
@@ -194,6 +194,43 @@ Mise à jour 2026-09-30.
   update') sur "events" que join_event/accept_event_invitation, plus
   vérification défensive du statut avant la promotion finale. Voir
   l'en-tête du fichier pour le détail du scénario.
+- ⬜ `supabase-community-event-governance-banned-staff-fix.sql` — **ajouté le
+  2026-10-02**, audit "owner de communauté/organisateur d'événement banni
+  par un admin plateforme" (bannissement, PAS suppression de compte — la
+  ligne `community_members`/`event_staff` reste intacte, `banned_at` est
+  juste posé sur `profiles`). Confirmé : `App.jsx`
+  (`own.banned_at → setView('banned')`, `applyOwnProfile()`) bloque bien
+  TOUT compte banni dès son prochain chargement de session, sans trou
+  spécifique au rôle owner/organisateur — mais, comme déjà trouvé et corrigé
+  à plusieurs reprises pour les tables de contenu (posts/likes/comments/
+  reactions...), ce blocage n'a toujours été qu'un garde CLIENT. Aucune
+  policy RLS ni RPC de gestion de communauté/événement ne vérifie l'état du
+  compte de l'acteur : `communities` (UPDATE/DELETE), `community_members`
+  (changement de rôle/exclusion), `community_reports`/`community_invites`
+  (traitement/création/révocation), `accept_join_request`/
+  `reject_join_request`, et l'équivalent événement — `events` (UPDATE),
+  `event_staff` (changement de rôle/exclusion), `event_reports`/
+  `event_invitations`. Un owner/organisateur banni dont le JWT Supabase
+  reste valide (session déjà ouverte, ou appel API direct) peut donc
+  continuer à gérer entièrement sa communauté/son événement malgré l'écran
+  "compte banni" affiché par l'app. Une fois ce fichier exécuté, un
+  owner/organisateur banni devient un vrai "owner fantôme" (ligne
+  `community_members`/`event_staff` intacte mais plus aucune action
+  possible) — conforme au comportement attendu, mais qui met en lumière une
+  lacune FONCTIONNELLE distincte et déjà confirmée par ailleurs : aucun
+  mécanisme de transfert de propriété forcé par un admin plateforme
+  n'existe pour réaffecter une communauté/un événement laissé sans
+  owner/organisateur actif. Volontairement non traitée ici (hors périmètre
+  d'un correctif livré un jour de lancement — demanderait une nouvelle RPC
+  `admin_reassign_community_owner` ou équivalent, avec ses propres règles de
+  choix du nouveau owner). Voir l'en-tête du fichier pour le détail complet,
+  y compris pourquoi `community_members` (UPDATE/DELETE) est redéfini dans
+  son état le plus récent connu (celui de
+  `supabase-community-orphan-guard-fix.sql`/
+  `supabase-community-role-change-orphan-fix.sql` ci-dessus, encore jamais
+  exécutés) pour ne régresser aucune garde anti-orpheline quel que soit
+  l'ordre d'exécution choisi. À exécuter après `supabase-communities.sql` et
+  `supabase-events-v2.sql`.
 
 Le §1 ci-dessous est conservé pour référence mais **n'est plus à faire**.
 
