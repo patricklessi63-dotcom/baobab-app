@@ -18,6 +18,7 @@ import { SkeletonCard } from "../Skeleton";
 import { rankEvents } from "../../lib/events/recommendations";
 import { EVENT_REPORT_CATEGORIES } from "../../lib/events/eventConfig";
 import { isHiddenByDeclinedInvite } from "../../lib/events/invitations";
+import { buildEventShareMeta } from "../../lib/events/shareCard";
 import { trackActivation } from "../../lib/trackActivation";
 import { friendlyDbError } from "../../lib/friendlyDbError";
 import { escapeLikePattern, escapeOrFilterValue, normalizeForSearch } from "../../lib/searchQuery";
@@ -1089,14 +1090,8 @@ export default function EventsTab({ currentUser, onError, onBack = () => {}, ini
         match_key: matchKey(currentUser.id, profile.id),
         from_id: currentUser.id,
         kind: "event",
-        media_meta: {
-          event_id: shareEvent.id,
-          title: shareEvent.title,
-          cover_url: shareEvent.cover_url || null,
-          event_date: shareEvent.event_date,
-          timezone: shareEvent.timezone || null,
-          city: shareEvent.city,
-        },
+        // cover_url (URL signée) n'est incluse que pour un événement public.
+        media_meta: buildEventShareMeta(shareEvent),
       });
       if (error) throw error;
       setShareOpen(false);

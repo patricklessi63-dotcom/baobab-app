@@ -898,3 +898,23 @@ where m.kind = 'event'
 (L'URL signée déjà émise reste valide jusqu'à son expiration même après ce
 nettoyage ; seule la suppression/le remplacement du fichier de couverture la
 neutralise immédiatement.)
+
+### ⬜ Confidentialité — carte d'un événement `community` partagée à un non-membre (décision produit : Patrick)
+
+**Corrigé côté client (5 oct. 2026)** : pour un événement dont la visibilité n'est
+pas `public` (donc `community`), la carte partagée en conversation n'embarque plus
+`cover_url` (l'URL signée du bucket privé `event-covers` contournait la RLS : un
+destinataire non membre de la communauté liée pouvait ouvrir la couverture).
+La carte retombe sur son dégradé décoratif. Voir `buildEventShareMeta()`
+(`src/lib/events/shareCard.js`) ; pour un événement `public`, rien ne change.
+
+**Reste visible, volontairement non modifié** : le **titre, la date et la ville**
+de la carte d'un événement `community` partagé restent lisibles par un
+destinataire qui n'est pas membre de la communauté. L'option de partage n'a pas
+été retirée (elle sert peut-être à inviter quelqu'un). **À trancher par
+Patrick** : (a) accepter cette exposition minimale, (b) retirer « Dans une
+conversation » pour `community` comme pour `private`, ou (c) ne l'autoriser que
+vers des membres de la communauté (vérification serveur nécessaire : la RLS ne
+s'évalue pas pour le destinataire). Les cartes `community` déjà envoyées gardent
+leur `cover_url` en base (l'URL signée expire d'elle-même) ; un nettoyage SQL
+analogue à celui ci-dessus est possible sur `visibility = 'community'` si besoin.
