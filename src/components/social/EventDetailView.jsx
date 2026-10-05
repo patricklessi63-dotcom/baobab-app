@@ -36,6 +36,14 @@ export default function EventDetailView({
   onLeave,
   onShareFeed,
   onShareMessage,
+  // Invitation en attente de la personne qui consulte la fiche (ligne
+  // event_invitations "pending", voir EventsTab.goDetail) : sans elle, une
+  // personne invitée à un événement privé ne pouvait qu'appuyer sur
+  // "Participer" (join_event), jamais Accepter/Refuser l'invitation depuis
+  // la fiche — l'invitation restait "pending" à jamais.
+  pendingInvite = null,
+  onAcceptInvite = () => {},
+  onDeclineInvite = () => {},
   onOpenInvite,
   onReportEvent,
   onEdit,
@@ -87,6 +95,13 @@ export default function EventDetailView({
   // de rejoindre pour un événement passé, tout en laissant "Ne plus
   // participer" pour corriger un statut existant.
   const isPast = new Date(event.event_date).getTime() < Date.now();
+  // Option "Dans une conversation" : jamais pour un événement privé (la carte
+  // envoyée embarque titre/date/ville/URL signée de couverture, lisibles par
+  // quelqu'un qui n'a aucun accès à l'événement — voir EventsTab.
+  // handleSendEventMessage) ; on invite la personne à la place.
+  const canShareMessage = !isPrivate;
+  const canAddToCalendar = !canceled && !isPast;
+  const hasShareOptions = canShareMessage || canAddToCalendar;
   const tabs = mod ? [...SUB_TABS, ["admin", "Gestion"]] : SUB_TABS;
 
   return (
@@ -159,13 +174,15 @@ export default function EventDetailView({
                   <Pencil size={14} color={primary} />
                 </button>
               )}
-              <div className="relative">
+              {hasShareOptions && <div className="relative">
                 <button onClick={() => setShareOpen((v) => !v)} aria-label="Partager" aria-expanded={shareOpen} className="h-9 w-9 rounded-full flex items-center justify-center" style={{ background: bg }}>
                   <Share2 size={15} color={primary} />
                 </button>
                 {shareOpen && (
                   <div className="absolute right-0 top-11 w-56 bg-[var(--bb-surface)] rounded-2xl border border-[var(--bb-border)] shadow-2xl p-1.5 z-20">
-                    <button onClick={() => { setShareOpen(false); onShareMessage(event); }} className="w-full text-left px-3 py-2.5 rounded-xl text-sm hover:bg-[var(--bb-bg)]">💬 Dans une conversation</button>
+                    {canShareMessage && (
+                      <button onClick={() => { setShareOpen(false); onShareMessage(event); }} className="w-full text-left px-3 py-2.5 rounded-xl text-sm hover:bg-[var(--bb-bg)]">💬 Dans une conversation</button>
+                    )}
                     {!isPrivate && !isCommunityOnly && (
                       <button onClick={() => { setShareOpen(false); onShareFeed(event); }} className="w-full text-left px-3 py-2.5 rounded-xl text-sm hover:bg-[var(--bb-bg)]">📰 Dans le fil Baobab</button>
                     )}
@@ -182,7 +199,7 @@ export default function EventDetailView({
                         plus d'ajouter à son agenda un événement déjà passé,
                         alors que "Participer" disparaît déjà dans ce cas
                         (voir plus bas). */}
-                    {!canceled && !isPast && (
+                    {canAddToCalendar && (
                       <>
                         <button onClick={() => { setShareOpen(false); downloadIcs(event); }} className="w-full text-left px-3 py-2.5 rounded-xl text-sm hover:bg-[var(--bb-bg)]">📅 Télécharger (.ics)</button>
                         <a href={googleCalendarUrl(event)} target="_blank" rel="noreferrer" onClick={() => setShareOpen(false)} className="block px-3 py-2.5 rounded-xl text-sm hover:bg-[var(--bb-bg)]">🗓️ Ajouter à Google Calendar</a>
@@ -190,7 +207,7 @@ export default function EventDetailView({
                     )}
                   </div>
                 )}
-              </div>
+              </div>}
               {(isPrivate || isCommunityOnly) && !canceled && (
                 <button onClick={() => onOpenInvite(event)} aria-label="Inviter" className="h-9 w-9 rounded-full flex items-center justify-center" style={{ background: bg }}>
                   <UserPlus size={15} color={primary} />
@@ -228,6 +245,18 @@ export default function EventDetailView({
                     <button onClick={() => onLeave(event)} className="px-4 py-2.5 rounded-full text-sm font-bold" style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)", color: goldText }}>
                       Sur liste d'attente — Quitter
                     </button>
+                  ) : pendingInvite && !isPast ? (
+                    <>
+                      <span className="text-xs font-bold w-full" style={{ color: muted }}>
+                        💌 Invité·e par {pendingInvite.inviter?.name || "un membre"}
+                      </span>
+                      <button onClick={() => onAcceptInvite(pendingInvite)} className="bb-btn-gold px-5 py-2.5 rounded-full text-sm font-bold">
+                        {full ? "Accepter (liste d'attente)" : "Accepter l'invitation"}
+                      </button>
+                      <button onClick={() => onDeclineInvite(pendingInvite)} className="px-4 py-2.5 rounded-full text-sm font-bold" style={{ background: bg, color: muted }}>
+                        Refuser
+                      </button>
+                    </>
                   ) : isPast ? (
                     <span className="px-4 py-2.5 rounded-full text-sm font-bold" style={{ background: bg, color: muted }}>
                       Cet événement est déjà passé

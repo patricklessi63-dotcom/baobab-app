@@ -17,6 +17,7 @@ import InfoTipCard from "../InfoTipCard";
 import { SkeletonCard } from "../Skeleton";
 import { rankEvents } from "../../lib/events/recommendations";
 import { EVENT_REPORT_CATEGORIES } from "../../lib/events/eventConfig";
+import { isHiddenByDeclinedInvite } from "../../lib/events/invitations";
 import { trackActivation } from "../../lib/trackActivation";
 import { friendlyDbError } from "../../lib/friendlyDbError";
 import { escapeLikePattern, escapeOrFilterValue, normalizeForSearch } from "../../lib/searchQuery";
@@ -121,6 +122,13 @@ export default function EventsTab({ currentUser, onError, onBack = () => {}, ini
   // event_invitations à jamais "pending" et decline_event_invitation()
   // totalement inatteignable depuis l'app.
   const [myEventInvites, setMyEventInvites] = useState([]);
+  // Événements privés dont J'AI refusé l'invitation (ou dont le staff a
+  // révoqué la mienne : les deux posent le même statut "declined"). Voir
+  // isHiddenByDeclinedInvite() : tant que can_view_event() (SQL) laisse
+  // passer toute ligne event_invitations quel que soit son statut, la RLS
+  // continue de renvoyer ces événements ; on les masque donc aussi côté
+  // client pour que refuser/être révoqué fasse bien perdre l'accès affiché.
+  const [declinedEventIds, setDeclinedEventIds] = useState(() => new Set());
   const [myCommunityIds, setMyCommunityIds] = useState([]);
   const [myMutualProfiles, setMyMutualProfiles] = useState([]); // connexions mutuelles réelles (likes croisés)
 
@@ -277,13 +285,23 @@ export default function EventsTab({ currentUser, onError, onBack = () => {}, ini
     // simplement pas avant).
     supabase
       .from("event_invitations")
-      .select("id, event_id, invited_by, events(title, cover_url), inviter:invited_by(name)")
+      .select("id, event_id, invited_by, events(title, cover_url, visibility), inviter:invited_by(name)")
       .eq("invited_profile_id", currentUser.id)
       .eq("status", "pending")
       .then(({ data, error }) => {
         if (!alive) return;
         if (error) { console.error(error); return; }
         setMyEventInvites(data || []);
+      });
+    supabase
+      .from("event_invitations")
+      .select("event_id")
+      .eq("invited_profile_id", currentUser.id)
+      .eq("status", "declined")
+      .then(({ data, error }) => {
+        if (!alive) return;
+        if (error) { console.error(error); return; }
+        setDeclinedEventIds(new Set((data || []).map((r) => r.event_id)));
       });
     supabase.from("community_members").select("community_id").eq("profile_id", currentUser.id).then(({ data, error }) => {
       if (!alive || error) { if (error) console.error(error); return; }
@@ -546,6 +564,30 @@ export default function EventsTab({ currentUser, onError, onBack = () => {}, ini
       }
       if (detailRequestRef.current !== requestId) return;
       setStaffRole(role);
+
+      // Invitation en attente pour CET événement : la liste "Tes invitations"
+      // (myEventInvites) n'est chargée qu'une fois au montage de l'onglet, donc
+      // une invitation reçue depuis (ou déjà traitée ailleurs) y serait
+      // absente/périmée. Sans cette vérification fraîche, la fiche d'un
+      // événement privé proposait un simple "Participer" (join_event) qui
+      // laisse l'invitation "pending" à jamais, sans moyen de la refuser.
+      if (currentUser) {
+        const { data: invRows, error: invError } = await supabase
+          .from("event_invitations")
+          .select("id, event_id, invited_by, inviter:invited_by(name)")
+          .eq("event_id", ev.id)
+          .eq("invited_profile_id", currentUser.id)
+          .eq("status", "pending")
+          .limit(1);
+        if (detailRequestRef.current !== requestId) return;
+        if (!invError) {
+          const inv = invRows?.[0] || null;
+          setMyEventInvites((list) => {
+            const others = list.filter((x) => x.event_id !== ev.id);
+            return inv ? [...others, { ...inv, events: { title: data.title, cover_url: data.cover_url, visibility: data.visibility } }] : others;
+          });
+        }
+      }
 
       await Promise.all([
         loadParticipants(ev.id, requestId),
@@ -1003,6 +1045,16 @@ export default function EventsTab({ currentUser, onError, onBack = () => {}, ini
       const { error } = await supabase.rpc("decline_event_invitation", { p_invitation_id: invite.id });
       if (error) throw error;
       setMyEventInvites((inv) => inv.filter((x) => x.id !== invite.id));
+      // Refuser l'invitation à un événement PRIVÉ = perdre l'accès à sa fiche
+      // (c'est le seul lien de cette personne avec l'événement). On le masque
+      // tout de suite de la liste et, si la fiche est ouverte (refus depuis
+      // la fiche), on revient à l'accueil. Pour un événement de communauté ou
+      // public, refuser l'invitation ne retire rien : la fiche reste visible.
+      const wasPrivate = invite.events?.visibility === "private" || (event?.id === invite.event_id && event?.visibility === "private");
+      if (wasPrivate) {
+        setDeclinedEventIds((s) => new Set(s).add(invite.event_id));
+        if (selectedId === invite.event_id) goHome();
+      }
     } catch (e) {
       console.error(e);
       onError(friendlyDbError(e) || "Impossible de refuser cette invitation.");
@@ -1019,6 +1071,18 @@ export default function EventsTab({ currentUser, onError, onBack = () => {}, ini
 
   const handleSendEventMessage = async (profile) => {
     if (!shareEvent || !currentUser) return;
+    // Un événement PRIVÉ n'est visible que de ses organisateurs, participants
+    // et invités (can_view_event) : le message "carte d'événement" embarque
+    // titre, date, ville ET l'URL signée de la couverture (event-covers est un
+    // bucket privé, mais cette URL en contourne la RLS), lisibles par la
+    // personne destinataire même sans accès à l'événement. EventDetailView
+    // n'offre déjà plus ce partage ; garde défensive ici. Pour faire entrer
+    // quelqu'un, il faut l'inviter (event_invitations), pas lui envoyer une carte.
+    if (shareEvent.visibility === "private") {
+      setShareOpen(false);
+      onError("Un événement privé ne se partage pas dans une conversation : invite la personne à la place.");
+      return;
+    }
     setShareSending(true);
     try {
       const { error } = await supabase.from("messages").insert({
@@ -1124,6 +1188,9 @@ export default function EventsTab({ currentUser, onError, onBack = () => {}, ini
           onLeave={handleLeave}
           onShareFeed={handleShareFeed}
           onShareMessage={openShareMessage}
+          pendingInvite={myEventInvites.find((i) => i.event_id === event.id) || null}
+          onAcceptInvite={handleAcceptEventInvite}
+          onDeclineInvite={handleDeclineEventInvite}
           onOpenInvite={openInvite}
           onReportEvent={openReport}
           onEdit={() => setView("edit")}
@@ -1232,15 +1299,16 @@ export default function EventsTab({ currentUser, onError, onBack = () => {}, ini
   }
 
   // ---------- Accueil / liste ----------
-  const recommended = isNeutralHome ? rankEvents(currentUser, events, myCommunityIds).filter((r) => r.score > 0).slice(0, 6).map((r) => r.event) : [];
-  const popular = isNeutralHome ? [...events].sort((a, b) => b.participantCount - a.participantCount).slice(0, 6) : [];
+  const visibleEvents = events.filter((e) => !isHiddenByDeclinedInvite(e, { declinedIds: declinedEventIds, myStatuses, currentUserId: currentUser?.id }));
+  const recommended = isNeutralHome ? rankEvents(currentUser, visibleEvents, myCommunityIds).filter((r) => r.score > 0).slice(0, 6).map((r) => r.event) : [];
+  const popular = isNeutralHome ? [...visibleEvents].sort((a, b) => b.participantCount - a.participantCount).slice(0, 6) : [];
   // Bug corrigé : comparaison insensible aux accents (normalizeForSearch), pas
   // seulement à la casse (.toLowerCase()) — même correctif que
   // CommunitiesTab.jsx/matchingService.js (voir leurs commentaires).
-  const nearby = isNeutralHome && currentUser?.city ? events.filter((e) => e.city && normalizeForSearch(e.city.trim()) === normalizeForSearch(currentUser.city.trim())).slice(0, 6) : [];
-  const upcoming = isNeutralHome ? events.slice(0, 6) : [];
-  const fromCommunities = isNeutralHome ? events.filter((e) => e.community_id && myCommunityIds.includes(e.community_id)).slice(0, 6) : [];
-  const mine = isNeutralHome && currentUser ? events.filter((e) => myStatuses[e.id] === "going" || myStatuses[e.id] === "interested" || myStatuses[e.id] === "waitlisted").slice(0, 6) : [];
+  const nearby = isNeutralHome && currentUser?.city ? visibleEvents.filter((e) => e.city && normalizeForSearch(e.city.trim()) === normalizeForSearch(currentUser.city.trim())).slice(0, 6) : [];
+  const upcoming = isNeutralHome ? visibleEvents.slice(0, 6) : [];
+  const fromCommunities = isNeutralHome ? visibleEvents.filter((e) => e.community_id && myCommunityIds.includes(e.community_id)).slice(0, 6) : [];
+  const mine = isNeutralHome && currentUser ? visibleEvents.filter((e) => myStatuses[e.id] === "going" || myStatuses[e.id] === "interested" || myStatuses[e.id] === "waitlisted").slice(0, 6) : [];
 
   const renderGrid = (list) => (
     <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -1325,7 +1393,7 @@ export default function EventsTab({ currentUser, onError, onBack = () => {}, ini
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} />)}
         </div>
-      ) : events.length === 0 ? (
+      ) : visibleEvents.length === 0 ? (
         <EmptyState
           icon={PartyPopper}
           title={isNeutralHome ? "Il n'y a aucun événement pour le moment." : "Aucun événement ne correspond à ta recherche."}
@@ -1361,10 +1429,10 @@ export default function EventsTab({ currentUser, onError, onBack = () => {}, ini
           {renderSection("🌍 De tes communautés", fromCommunities)}
           {renderSection("🎟️ Mes événements", mine)}
           <h2 className="text-sm font-black mb-3" style={{ color: primary }}>Tous les événements</h2>
-          {renderGrid(events)}
+          {renderGrid(visibleEvents)}
         </>
       ) : (
-        renderGrid(events)
+        renderGrid(visibleEvents)
       )}
 
       {/* Bug corrigé à l'audit (angle "pagination cassée") : la condition
