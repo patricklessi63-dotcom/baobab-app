@@ -16,6 +16,9 @@ Mise à jour 2026-10-02.
   silencieusement ces payloads.
 
 **RESTE (SQL, écrit mais jamais exécuté — voir §1b, §1c et §1d) :**
+- ⬜ **§8 (5 oct. 2026) — correctif SQL `can_view_event()`** : refuser ou se
+  faire révoquer une invitation à un événement privé ne retire pas l'accès (+
+  filet optionnel anti-partage de carte d'événement privé en conversation).
 - ⬜ `supabase-unaccent-search.sql` — recherche insensible aux accents
   (extension `unaccent` + index trigram) pour les communautés, événements et
   la recherche de profils à inviter. Additif et idempotent, mais livré
@@ -738,3 +741,160 @@ vérifié ?
   autres messages précis du serveur, repli générique, anti-rebond client).
 
 Rien à déployer ni corriger côté SQL/edge function suite à cet audit.
+
+---
+
+## 8. Audit des événements PRIVÉS (5 octobre 2026) — 1 correctif SQL à exécuter, 1 choix produit à valider
+
+### Constat — ce qui est correct (aucune action)
+
+- **Liste / Près de toi / Populaires / Recommandés / Recherche** (`EventsTab.jsx`,
+  `recommendations.js`) : tout part d'un seul `supabase.from("events")` filtré par
+  la RLS `can_view_event(id)` (`supabase-events-v2.sql`), aucun chemin ne la
+  contourne. `FeedTab.jsx` filtre en plus `.eq("visibility", "public")`.
+  `CommunitiesTab.loadEvents` (événements d'une communauté) passe aussi par la
+  RLS : un événement privé rattaché à une communauté n'y apparaît que pour les
+  organisateurs/participants/invités. `event_attendees`, `event_comments`,
+  `event_media`, buckets `event-media`/`event-covers` : tous gardés par
+  `can_view_event()`. Le compteur `event_participant_count(uuid)` a sa garde
+  depuis `supabase-event-participant-count-authz-fix.sql`.
+- Une personne invitée voit bien l'événement dans sa liste (`can_view_event`
+  accepte une ligne `event_invitations`) et peut ouvrir la fiche.
+
+### Corrigé côté CLIENT (déjà dans le code)
+
+1. **Accepter/Refuser depuis la fiche** (même bug que les communautés
+   `invite_only`) : la fiche d'un événement privé n'offrait qu'un « Participer »
+   (`join_event`) qui laissait l'invitation `pending` à jamais ; Accepter/Refuser
+   n'existaient que dans le bloc « Tes invitations » de l'accueil. La fiche
+   affiche maintenant « Invité·e par X — Accepter l'invitation / Refuser »
+   (invitation re-vérifiée à l'ouverture de la fiche).
+2. **Refus = perte d'accès affichée** : refuser l'invitation à un événement privé
+   ramène à l'accueil et le masque de la liste (`isHiddenByDeclinedInvite`,
+   `src/lib/events/invitations.js`).
+3. **Partage dans une conversation** : retiré pour les événements privés (voir le
+   point « Confidentialité » ci-dessous) + garde défensive dans
+   `handleSendEventMessage`.
+
+### ⬜ Correctif SQL à exécuter — `can_view_event()` garde l'accès après un refus/une révocation
+
+**Problème réel.** Dans `can_view_event()` (`supabase-events-v2.sql`), la branche
+`private` accepte *n'importe quelle* ligne `event_invitations` de la personne,
+**quel que soit son `status`** :
+
+```sql
+or exists (select 1 from event_invitations where event_id = ev.id and invited_profile_id = current_profile_id())
+```
+
+Conséquences :
+- une personne qui **refuse** l'invitation (`decline_event_invitation` → `declined`)
+  continue de voir titre, lieu, date, description, discussion, photos et (si
+  `participants_visible`) participants de l'événement privé, indéfiniment ;
+- surtout, **la révocation par le staff est sans effet** : la policy « Le staff
+  revoque une invitation » ne fait que passer le statut à `declined` — la
+  personne révoquée garde l'accès complet. Le seul moyen de la sortir serait de
+  supprimer la ligne, ce que la RLS n'autorise pas (aucune policy DELETE sur
+  `event_invitations`).
+
+Le filtre client ci-dessus masque l'événement dans la liste, mais ne protège pas
+contre un appel API direct : c'est la RLS qui doit trancher.
+
+**Correctif** (à exécuter dans le SQL Editor ; ne remplace que cette fonction,
+dont la seule définition est celle de `supabase-events-v2.sql`) :
+
+```sql
+create or replace function can_view_event(p_event_id uuid)
+returns boolean language sql stable security definer set search_path = public as $$
+  select case ev.visibility
+    when 'public' then true
+    when 'community' then is_community_member(ev.community_id)
+    when 'private' then (
+      is_event_mod(ev.id) or is_event_participant(ev.id)
+      or exists (
+        select 1 from event_invitations
+        where event_id = ev.id and invited_profile_id = current_profile_id()
+          and status <> 'declined'
+      )
+    )
+    else false end
+  from events ev where ev.id = p_event_id;
+$$;
+```
+
+Effets de bord à connaître :
+- `accept_event_invitation` / `decline_event_invitation` ne dépendent que du statut
+  `pending` : inchangés. Une personne qui a **déjà accepté** (`accepted`) garde
+  l'accès (comportement voulu : elle peut se réinscrire).
+- Une personne **déjà participante** (ligne `event_attendees` going/interested/
+  waitlisted) garde l'accès même avec une invitation `declined` (via
+  `is_event_participant`). Pour exclure quelqu'un de façon complète, le staff doit
+  donc aussi le retirer des participants (le bouton existe déjà).
+- Limite connue, non traitée ici : `unique (event_id, invited_profile_id)` empêche
+  de **ré-inviter** quelqu'un qui a refusé (erreur 23505 « Cette personne est déjà
+  invitée »). À trancher côté produit (ex. autoriser le staff à repasser une
+  invitation `declined` en `pending`).
+
+Vérification : en tant que A invité·e, `select count(*) from events where id = '<id privé>'`
+→ 1 ; après `select decline_event_invitation('<invitation>')` → 0.
+
+### ⬜ Confidentialité — partage d'un événement privé dans une conversation (choix produit)
+
+**Problème réel (point 4 de l'audit).** « Partager → Dans une conversation »
+écrivait dans `messages` une ligne `kind='event'` avec
+`media_meta = { event_id, title, cover_url, event_date, timezone, city }`, pour
+n'importe quel participant·e (pas seulement l'organisateur) et pour n'importe
+quelle connexion mutuelle, invitée ou non. Ce message est lisible par les deux
+personnes de la conversation **sans aucun contrôle `can_view_event`** : le
+destinataire non invité lisait titre, date, ville — et surtout `cover_url`, une
+**URL signée** du bucket privé `event-covers` (durée `COVER_URL_EXPIRY`) qui
+contourne la RLS du bucket. La carte n'est pas cliquable pour lui, mais
+l'information a déjà fuité.
+
+**Décision prise côté client (réversible, à valider)** : l'option
+« Dans une conversation » n'est plus proposée pour un événement privé (le
+partage vers le fil ne l'était déjà pas) ; pour faire entrer quelqu'un, on utilise
+« Inviter », qui crée une vraie invitation. Si tu préfères autoriser le partage
+vers des personnes *déjà invitées uniquement*, il faut une vérification serveur
+(`can_view_event()` s'évalue pour l'utilisateur courant, pas pour le
+destinataire : il faudrait une variante prenant un `profile_id`). Le même
+raisonnement vaut pour les événements `community` partagés à un non-membre (hors
+périmètre de cet audit, déjà traité côté communautés).
+
+**Filet côté base (optionnel mais recommandé : un client modifié peut contourner
+l'UI)** — rejette l'insertion d'une carte d'événement privé :
+
+```sql
+create or replace function block_private_event_share()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare v_event_id uuid;
+begin
+  if new.kind = 'event' and (new.media_meta->>'event_id') ~* '^[0-9a-f-]{36}$' then
+    v_event_id := (new.media_meta->>'event_id')::uuid;
+    if exists (select 1 from events where id = v_event_id and visibility = 'private') then
+      raise exception 'Un evenement prive ne se partage pas dans une conversation';
+    end if;
+  end if;
+  return new;
+end; $$;
+drop trigger if exists trg_block_private_event_share on messages;
+create trigger trg_block_private_event_share before insert on messages
+for each row execute function block_private_event_share();
+```
+
+**Nettoyage des cartes déjà envoyées (optionnel)** — retire les champs sensibles des
+messages existants qui partagent un événement privé (à exécuter une seule fois ;
+vérifier d'abord qu'aucun trigger `BEFORE UPDATE` sur `messages` ne pose problème) :
+
+```sql
+update messages m
+set media_meta = jsonb_build_object('event_id', m.media_meta->>'event_id')
+from events e
+where m.kind = 'event'
+  and (m.media_meta->>'event_id') ~* '^[0-9a-f-]{36}$'
+  and e.id = (m.media_meta->>'event_id')::uuid
+  and e.visibility = 'private';
+```
+
+(L'URL signée déjà émise reste valide jusqu'à son expiration même après ce
+nettoyage ; seule la suppression/le remplacement du fichier de couverture la
+neutralise immédiatement.)
