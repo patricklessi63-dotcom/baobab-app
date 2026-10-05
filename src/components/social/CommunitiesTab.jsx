@@ -1470,6 +1470,9 @@ export default function CommunitiesTab({ currentUser, onError, onBack = () => {}
           memberCount={memberCount}
           viewerRole={role}
           viewerPending={myPending.has(community.id)}
+          viewerInvite={myInvites.find((i) => i.community_id === community.id) || null}
+          onAcceptInvite={handleAcceptInvite}
+          onDeclineInvite={handleDeclineInvite}
           currentUser={currentUser}
           onBack={goList}
           onJoin={handleJoin}
@@ -1596,6 +1599,7 @@ export default function CommunitiesTab({ currentUser, onError, onBack = () => {}
           memberCount={c.memberCount}
           joined={Boolean(myMemberships[c.id])}
           pending={myPending.has(c.id)}
+          invited={myInvites.some((i) => i.community_id === c.id)}
           onView={goDetail}
           onJoin={handleJoin}
         />
@@ -1615,6 +1619,7 @@ export default function CommunitiesTab({ currentUser, onError, onBack = () => {}
             memberCount={c.memberCount}
             joined={Boolean(myMemberships[c.id])}
             pending={myPending.has(c.id)}
+            invited={myInvites.some((i) => i.community_id === c.id)}
             onView={goDetail}
             onJoin={handleJoin}
           />

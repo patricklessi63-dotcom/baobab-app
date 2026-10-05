@@ -6,13 +6,19 @@ import { primary, green, gold, bg, muted, card, primaryRgb } from "./theme";
 // Nommée "CommunityGroupCard" (pas "CommunityCard") pour éviter la
 // collision avec src/components/home/CommunityCard.jsx, qui est un
 // concept différent (carte "N personnes dans cette ville").
-export default function CommunityGroupCard({ community, memberCount = 0, joined, pending, onView, onJoin }) {
+export default function CommunityGroupCard({ community, memberCount = 0, joined, pending, invited = false, onView, onJoin }) {
   const isPrivate = community.visibility === "private";
   const isInviteOnly = community.visibility === "invite_only";
 
   let cta = null;
   if (joined) {
     cta = <span className="text-xs font-bold px-3 py-2 rounded-full" style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)", color: green }}>Membre</span>;
+  } else if (invited && community.visibility !== "public") {
+    // Invitation en attente pour cette communauté : sans ce cas, la carte
+    // affichait « Sur invitation » (ou « Demander à rejoindre » pour une
+    // communauté privée) alors que la personne EST invitée — elle ouvre la
+    // fiche, où elle peut accepter/refuser (voir CommunityDetailView).
+    cta = <span className="text-xs font-bold px-3 py-2 rounded-full flex items-center gap-1" style={{ background: bg, color: green }}><Mail size={12} /> Invitation reçue</span>;
   } else if (isInviteOnly) {
     cta = <span className="text-xs font-bold px-3 py-2 rounded-full flex items-center gap-1" style={{ background: bg, color: muted }}><Mail size={12} /> Sur invitation</span>;
   } else if (pending) {

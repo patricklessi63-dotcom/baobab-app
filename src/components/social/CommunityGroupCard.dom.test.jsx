@@ -82,3 +82,22 @@ describe("CommunityGroupCard", () => {
     expect(screen.getByText("Demande envoyée")).toBeInTheDocument();
   });
 });
+
+describe("CommunityGroupCard — invitation reçue", () => {
+  it("sur invitation + invité·e : « Invitation reçue » au lieu de « Sur invitation »", () => {
+    setup({ community: { ...base.community, visibility: "invite_only" }, invited: true });
+    expect(screen.getByText("Invitation reçue")).toBeInTheDocument();
+    expect(screen.queryByText("Sur invitation")).toBeNull();
+  });
+
+  it("privée + invité·e : pas de « Demander à rejoindre »", () => {
+    setup({ community: { ...base.community, visibility: "private" }, invited: true });
+    expect(screen.getByText("Invitation reçue")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Demander à rejoindre" })).toBeNull();
+  });
+
+  it("publique + invité·e : « Rejoindre » reste disponible", () => {
+    setup({ invited: true });
+    expect(screen.getByRole("button", { name: "Rejoindre" })).toBeInTheDocument();
+  });
+});

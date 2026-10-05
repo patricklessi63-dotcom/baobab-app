@@ -20,6 +20,9 @@ export default function CommunityDetailView({
   memberCount,
   viewerRole,
   viewerPending,
+  viewerInvite = null,
+  onAcceptInvite = () => {},
+  onDeclineInvite = () => {},
   currentUser,
   onBack,
   onJoin,
@@ -79,6 +82,7 @@ export default function CommunityDetailView({
   const mod = isMod(viewerRole);
   const isPrivate = community.visibility === "private";
   const isInviteOnly = community.visibility === "invite_only";
+  const isPublic = community.visibility === "public";
   const canSeeContent = community.visibility === "public" || Boolean(viewerRole);
 
   const tabs = mod ? [...SUB_TABS, ["admin", "Gestion"]] : SUB_TABS;
@@ -133,6 +137,22 @@ export default function CommunityDetailView({
                   Quitter la communauté
                 </button>
               )
+            ) : viewerInvite && !isPublic ? (
+              // Invitation en attente : acceptable/refusable ici même. Avant,
+              // seul le bloc « Tes invitations » de la liste (accueil sans
+              // recherche ni filtre) le permettait — depuis la fiche, une
+              // communauté sur invitation affichait « accessible uniquement
+              // sur invitation » (sans bouton) et une communauté privée
+              // « Demander à rejoindre », à une personne pourtant invitée.
+              <div className="w-full">
+                <p className="text-sm font-semibold mb-3" style={{ color: body }}>
+                  Tu as été invité·e à rejoindre cette communauté{viewerInvite.inviter?.name ? ` par ${viewerInvite.inviter.name}` : ""}.
+                </p>
+                <div className="flex gap-2">
+                  <button onClick={() => onDeclineInvite(viewerInvite)} className="px-4 py-2.5 rounded-full text-sm font-bold" style={{ background: bg, color: muted }}>Refuser</button>
+                  <button onClick={() => onAcceptInvite(viewerInvite)} className="bb-btn-gold px-5 py-2.5 rounded-full text-sm font-bold">Accepter l'invitation</button>
+                </div>
+              </div>
             ) : isInviteOnly ? (
               <span className="text-sm font-semibold" style={{ color: muted }}>Cette communauté est accessible uniquement sur invitation.</span>
             ) : viewerPending ? (
