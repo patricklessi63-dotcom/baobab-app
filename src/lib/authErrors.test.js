@@ -55,6 +55,20 @@ describe("traduireAuthErreur — mapping code -> message FR", () => {
     expect(traduireAuthErreur({})).toBe("Une erreur est survenue. Réessaie dans un instant.");
   });
 
+  it("weak_password + reason pwned : message dédié (mot de passe compromis)", () => {
+    const out = traduireAuthErreur({ code: "weak_password", message: "Password is known to be weak and easy to guess", reasons: ["pwned"] });
+    expect(out).toMatch(/fuites de données/);
+  });
+
+  it("weak_password + reason characters : demande un caractère spécial", () => {
+    const out = traduireAuthErreur({ code: "weak_password", message: "Password should contain at least one character of each", reasons: ["characters"] });
+    expect(out).toMatch(/caractère spécial/);
+  });
+
+  it("weak_password sans reason exploitable : message générique conservé", () => {
+    expect(traduireAuthErreur({ code: "weak_password", message: "x", reasons: ["length"] })).toBe("Le mot de passe ne respecte pas les règles minimales.");
+  });
+
   it("signale l'absence de connexion quand navigator.onLine est faux", () => {
     vi.stubGlobal("navigator", { onLine: false });
     expect(traduireAuthErreur({ code: "some_unknown_code", message: "peu importe" })).toBe("Pas de connexion internet.");

@@ -14,8 +14,20 @@ export function traduireAuthErreur(err) {
     return "Cette adresse email est déjà associée à un compte Baobab.";
   if (code === "same_password" || msg.includes("should be different from the old password"))
     return "Ton nouveau mot de passe doit être différent de l'ancien.";
-  if (code === "weak_password" || msg.includes("Password should be at least"))
+  if (code === "weak_password" || msg.includes("Password should be at least")) {
+    // Le serveur Supabase peut rejeter un mot de passe que la jauge client juge
+    // valide : protection « mots de passe compromis » (HaveIBeenPwned, reason
+    // "pwned") ou exigences plus strictes que le client, ex. caractère spécial
+    // ("characters"). `reasons` accompagne l'erreur weak_password. Sans cas
+    // dédié, l'utilisateur voyait « ne respecte pas les règles minimales »
+    // alors que la checklist affichée était entièrement cochée.
+    const reasons = Array.isArray(err?.reasons) ? err.reasons : [];
+    if (reasons.includes("pwned"))
+      return "Ce mot de passe apparaît dans des fuites de données connues. Choisis-en un autre, plus original.";
+    if (reasons.includes("characters"))
+      return "Ajoute un caractère spécial (ex. ! ? # %) à ton mot de passe.";
     return "Le mot de passe ne respecte pas les règles minimales.";
+  }
   if (code === "validation_failed" || msg.includes("Unable to validate email address"))
     return "Entre une adresse email valide.";
   if (code === "over_email_send_rate_limit" || msg.includes("rate limit"))
