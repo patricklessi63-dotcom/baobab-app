@@ -1043,6 +1043,16 @@ le sitemap. `PublicPageShell` ajuste désormais le canonical à la page courante
    (1 000 onglets visibles : ~33 -> ~17 écritures/s). Sans effet visible (le badge
    « En ligne » exige `last_seen` de moins de 10 min). Pour revenir en arrière :
    `HEARTBEAT_INTERVAL_MS` dans `src/lib/presenceHeartbeat.js`.
+8. **Même famille de bug que le n°5, croisement exhaustif des `.in()`** (limite d'URL
+   de la passerelle, ~38 caractères par uuid, seuil prudent 6 000 caractères) :
+   corrigés par lots via `src/lib/inChunks.js` (`selectInChunks`, s'appuie sur `chunk.js`,
+   parallélisme borné, un lot en erreur ne fait pas perdre les autres) —
+   `CommunitiesTab` (likes, commentaires, statuts de participation, nettoyage au départ
+   d'une communauté), `EventsTab` (profils des connexions mutuelles), `SocialShell`
+   (aperçu des conversations, lots de 50 clés). Déjà sûrs, non modifiés : `PostsFeed`
+   (3 sites, 20 posts/page), `loadReactionsFor` (30 messages/page), suppression des
+   photos d'un échec d'enregistrement (≤ 6 `MAX_PHOTOS`), statuts `event_attendees` du
+   profil (3 valeurs constantes).
 
 ### ⬜ SQL à exécuter — `supabase-indexes-launch-fix.sql`
 
@@ -1073,20 +1083,23 @@ suppression de compte (`messages.from_id`, `notifications.actor_id`,
   canal par utilisateur, ou supprimer `global-messages` (l'aperçu est déjà alimenté par
   `conversations-preview`, filtré par `match_key`) en y déplaçant le compteur de
   non-lus. À surveiller dans Supabase : Realtime > Reports.
-- **`conversations-preview`** : filtre `match_key=in.(...)` — Realtime limite `in` à
-  **100 valeurs** : au-delà de 100 matches l'abonnement échoue silencieusement
-  (`global-messages` continue d'alimenter l'aperçu). La requête d'aperçu
-  (`.in("match_key", [...])`, 73 caractères par clé) dépasse la limite d'URL vers ~110
-  matches, et ne lit que les 500 derniers messages de toutes les conversations (les
-  compteurs de non-lus sont sous-estimés au-delà).
+- **`conversations-preview`** (partiellement corrigé, n°8) : l'URL de la requête d'aperçu est
+  désormais découpée en lots de 50 clés, et au-delà de 100 matches le canal Realtime
+  s'abonne **sans** filtre `in` (limite Realtime de 100 valeurs ; la RLS borne la diffusion
+  et les gestionnaires filtrent déjà par clé). Reste documenté : l'aperçu ne lit que les
+  500 messages les plus récents de toutes les conversations (les compteurs de non-lus sont
+  sous-estimés au-delà), et chaque lot est une requête de plus au démarrage (7 requêtes à
+  350 matches).
 - **Chargement initial lourd** : 500 profils (`OTHER_PROFILE_COLUMNS`) + 3200 photos
   `select("*")` à chaque session, avant d'afficher le Fil — le vrai remède est un
   classement/pagination côté serveur (voir le commentaire « item 12/13 » de `loadAll`).
   Au-delà de 500 comptes, la Découverte ne voit que les 500 plus anciens.
-- **Ouverture d'une communauté** (`CommunitiesTab`) : tous les posts, sans `limit`, puis
-  `.in("post_id", [tous les ids])` pour likes et commentaires : dès ~200 posts l'URL
-  dépasse la limite de la passerelle et les compteurs restent vides (erreur non
-  vérifiée). Nécessite une pagination (comme `PostsFeed`) — non fait ici.
+- **Ouverture d'une communauté** (`CommunitiesTab`) : tous les posts et tous les événements
+  sont toujours chargés sans `limit` (aucun « charger plus » dans cet écran, donc pas de
+  borne ajoutée sans changement visible). Les compteurs likes/commentaires et les statuts
+  de participation passent désormais par lots de 100 ids (n°8) et ne tombent plus en silence
+  dès ~200 posts, mais le volume lu croît toujours avec la communauté : une pagination (comme
+  `PostsFeed`) reste à faire pour les grosses communautés.
 - **Journal d'écran beta** : `trackBetaEvent("screen_view")` écrit une ligne dans
   `beta_events` à CHAQUE changement d'onglet (sans purge) — à retirer ou échantillonner
   pour le lancement public (décision produit).
