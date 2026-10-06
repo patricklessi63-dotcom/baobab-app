@@ -93,6 +93,7 @@ function makeDb() {
     insertCalls: 0,
     messageSelectCalls: 0,
     deferInserts: false,
+    insertError: null, // erreur définitive renvoyée par le serveur (avec code)
     pending: [], // INSERT différés
     resolve(ctx, single) {
       if (ctx.table === "profiles" && single) {
@@ -100,6 +101,7 @@ function makeDb() {
       }
       if (ctx.table === "messages" && ctx.op === "insert") {
         state.insertCalls += 1;
+        if (state.insertError) return { data: null, error: state.insertError };
         const persist = () => {
           const saved = { id: state.nextId++, created_at: new Date().toISOString(), read_at: null, ...ctx.row };
           state.messages.push(saved);
@@ -218,5 +220,31 @@ describe("App — envoi de message, chemin normal (réseau OK)", () => {
     await act(async () => { await new Promise((r) => setTimeout(r, 30)); });
     expect(screen.queryByText("secret pour Awa")).toBeNull();
     expect(mocks.shell.props.messages.every((m) => m.match_key === keyWith(OTHER2))).toBe(true);
+  });
+
+  describe('pièce jointe', () => {
+    const makeFile = () => new File(['bonjour'], 'note.txt', { type: 'text/plain' });
+
+    it('upload OK puis INSERT OK : une ligne, une bulle, le fichier est conservé, aucune sonde', async () => {
+      await mountAndOpenChat();
+      const readsBefore = mocks.db.messageSelectCalls;
+      await act(async () => { await mocks.shell.props.sendMediaMessage(makeFile(), 'file'); });
+      await waitFor(() => expect(screen.getByTestId('msg')).toHaveAttribute('data-status', 'ok'));
+      expect(screen.getAllByTestId('msg')).toHaveLength(1);
+      expect(mocks.db.insertCalls).toBe(1);
+      expect(mocks.uploadSpy).toHaveBeenCalledTimes(1);
+      expect(mocks.removeSpy).not.toHaveBeenCalled();
+      expect(mocks.db.messageSelectCalls).toBe(readsBefore);
+    });
+
+    it('INSERT refusé par le serveur (erreur AVEC code) : bulle en échec, fichier nettoyé, aucune sonde fantôme', async () => {
+      await mountAndOpenChat();
+      mocks.db.insertError = { message: 'new row violates row-level security policy', code: '42501' };
+      const readsBefore = mocks.db.messageSelectCalls;
+      await act(async () => { await mocks.shell.props.sendMediaMessage(makeFile(), 'file'); });
+      await waitFor(() => expect(screen.getByTestId('msg')).toHaveAttribute('data-status', 'failed'));
+      expect(mocks.removeSpy).toHaveBeenCalledTimes(1);
+      expect(mocks.db.messageSelectCalls).toBe(readsBefore);
+    });
   });
 });
