@@ -93,6 +93,8 @@ function makeDb() {
     insertCalls: 0,
     messageSelectCalls: 0,
     deferInserts: false,
+    holdSelects: false,
+    heldSelects: [],
     insertError: null, // erreur définitive renvoyée par le serveur (avec code)
     pending: [], // INSERT différés
     resolve(ctx, single) {
@@ -119,7 +121,10 @@ function makeDb() {
       if (ctx.table === "messages" && ctx.op === "select") {
         state.messageSelectCalls += 1;
         const rows = state.messages.filter((r) => ctx.filters.every((f) => f(r)));
-        return { data: rows.slice().reverse(), error: null };
+        const snapshot = { data: rows.slice().reverse(), error: null };
+        // Rechargement retenu : l'instantané est pris MAINTENANT, la réponse arrive plus tard.
+        if (state.holdSelects) return new Promise((resolveSelect) => state.heldSelects.push(() => resolveSelect(snapshot)));
+        return snapshot;
       }
       return { data: single ? null : [], error: null };
     },
@@ -220,6 +225,18 @@ describe("App — envoi de message, chemin normal (réseau OK)", () => {
     await act(async () => { await new Promise((r) => setTimeout(r, 30)); });
     expect(screen.queryByText("secret pour Awa")).toBeNull();
     expect(mocks.shell.props.messages.every((m) => m.match_key === keyWith(OTHER2))).toBe(true);
+  });
+
+  it("rechargement de la conversation en vol pendant qu'un message est envoyé puis confirmé : le message ne disparaît pas", async () => {
+    await mountAndOpenChat();
+    mocks.db.holdSelects = true;
+    let refresh;
+    act(() => { refresh = mocks.shell.props.openChat(OTHER_PROFILE); });
+    await waitFor(() => expect(mocks.db.heldSelects).toHaveLength(1));
+    await typeAndSend('envoyé pendant le rechargement');
+    await waitFor(() => expect(screen.getByTestId('msg')).toHaveAttribute('data-status', 'ok'));
+    await act(async () => { mocks.db.heldSelects[0](); await refresh; });
+    expect(screen.getAllByTestId('msg').map((el) => el.textContent)).toEqual(['envoyé pendant le rechargement']);
   });
 
   describe('pièce jointe', () => {

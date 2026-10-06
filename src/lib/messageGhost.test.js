@@ -227,12 +227,16 @@ describe("mergeRefreshedMessages — rechargement de la conversation", () => {
     const out = mergeRefreshedMessages({ serverRows: page, current, cachedFailed: [], key: KEY });
     expect(out.map((m) => m.id)).toEqual([3, 4, 10, 11]);
   });
-  it("un message de la page rechargée qui a disparu côté serveur (supprimé) n'est pas ressuscité", () => {
+  it("garde un message arrivé (écho/accusé) PENDANT la requête de rechargement, absent de son instantané", () => {
     const t = (n) => `2026-10-0${n}T10:00:00.000000+00:00`;
     const page = [{ id: 10, match_key: KEY, created_at: t(5) }];
-    const current = [{ id: 10, match_key: KEY, created_at: t(5) }, { id: 11, match_key: KEY, created_at: t(6) }];
+    const current = [
+      { id: 10, match_key: KEY, created_at: t(5) },
+      { id: 11, match_key: KEY, created_at: t(6) },
+      { id: 12, match_key: "autre", created_at: t(6) },
+    ];
     const out = mergeRefreshedMessages({ serverRows: page, current, cachedFailed: [], key: KEY });
-    expect(out.map((m) => m.id)).toEqual([10]);
+    expect(out.map((m) => m.id)).toEqual([10, 11]);
   });
   it("dédoublonne un échec présent à la fois dans l'état courant et le cache", () => {
     const failed = { id: "temp-f", match_key: KEY, _status: "failed" };

@@ -169,5 +169,13 @@ export function mergeRefreshedMessages({ serverRows, current, cachedFailed, key 
         return Number.isFinite(t) && (t < firstTime || (t === firstTime && m.id < first.id));
       })
     : [];
-  return [...older, ...serverRows, ...temps];
+  // Lignes réelles PLUS RÉCENTES que la dernière ligne lue : arrivées (écho
+  // Realtime, accusé d'un envoi qui vient d'aboutir) pendant que la requête de
+  // rechargement était en vol — absentes de son instantané, elles disparaissaient
+  // jusqu'au rechargement suivant. Les ids (identity) sont croissants.
+  const maxServerId = serverRows.reduce((max, r) => (typeof r.id === "number" && r.id > max ? r.id : max), 0);
+  const newer = (current || []).filter(
+    (m) => m.match_key === key && typeof m.id === "number" && !serverIds.has(m.id) && m.id > maxServerId
+  );
+  return [...older, ...serverRows, ...newer, ...temps];
 }
