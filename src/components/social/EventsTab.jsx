@@ -20,7 +20,7 @@ import { EVENT_REPORT_CATEGORIES } from "../../lib/events/eventConfig";
 import { isHiddenByDeclinedInvite } from "../../lib/events/invitations";
 import { buildEventShareMeta } from "../../lib/events/shareCard";
 import { trackActivation } from "../../lib/trackActivation";
-import { selectInChunks } from "../../lib/inChunks";
+import { selectInChunks, selectAllPages } from "../../lib/inChunks";
 import { friendlyDbError } from "../../lib/friendlyDbError";
 import { escapeLikePattern, escapeOrFilterValue, normalizeForSearch } from "../../lib/searchQuery";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
@@ -310,9 +310,13 @@ export default function EventsTab({ currentUser, onError, onBack = () => {}, ini
       setMyCommunityIds((data || []).map((r) => r.community_id));
     });
     (async () => {
+      // Plafond PostgREST (max_rows, 1000 par défaut, troncature SILENCIEUSE) :
+      // au-delà de 1000 likes envoyés ou reçus, des connexions mutuelles
+      // disparaissaient (liste d'invitation/partage incomplète). Pagination
+      // .order("id").range() (id unique, pages stables).
       const [{ data: sent }, { data: received }] = await Promise.all([
-        supabase.from("likes").select("to_id").eq("from_id", currentUser.id),
-        supabase.from("likes").select("from_id").eq("to_id", currentUser.id),
+        selectAllPages((from, to) => supabase.from("likes").select("to_id").eq("from_id", currentUser.id).order("id").range(from, to)),
+        selectAllPages((from, to) => supabase.from("likes").select("from_id").eq("to_id", currentUser.id).order("id").range(from, to)),
       ]);
       const sentIds = new Set((sent || []).map((r) => r.to_id));
       const mutualIds = (received || []).map((r) => r.from_id).filter((id) => sentIds.has(id));

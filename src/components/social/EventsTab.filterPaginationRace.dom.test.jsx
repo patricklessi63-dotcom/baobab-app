@@ -24,7 +24,7 @@ const mocks = vi.hoisted(() => ({ fromMock: vi.fn(), events: null }));
 function makeGenericChain(responder) {
   const calls = [];
   const chain = {};
-  ["select", "eq", "order", "limit", "is", "in", "ilike", "or", "gte", "lte", "match", "contains", "not", "delete", "update", "insert"].forEach((m) => {
+  ["select", "eq", "order", "limit", "range", "is", "in", "ilike", "or", "gte", "lte", "match", "contains", "not", "delete", "update", "insert"].forEach((m) => {
     chain[m] = vi.fn((...args) => { calls.push([m, args]); return chain; });
   });
   chain.maybeSingle = vi.fn(() => Promise.resolve(responder(calls, "maybeSingle")));
@@ -40,7 +40,7 @@ function makeGenericChain(responder) {
 function makeEventsChain(state) {
   const calls = [];
   const chain = {};
-  ["select", "eq", "order", "limit", "is", "in", "ilike", "or", "gte", "lte"].forEach((m) => {
+  ["select", "eq", "order", "limit", "range", "is", "in", "ilike", "or", "gte", "lte"].forEach((m) => {
     chain[m] = vi.fn((...args) => { calls.push([m, args]); return chain; });
   });
   chain.single = vi.fn(() => Promise.resolve({ data: null, error: null }));

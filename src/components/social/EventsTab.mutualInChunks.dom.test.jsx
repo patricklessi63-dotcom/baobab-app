@@ -20,7 +20,7 @@ const MUTUAL_IDS = Array.from({ length: N }, (_, i) => pad(i));
 function makeChain(responder) {
   const calls = [];
   const chain = {};
-  ["select", "eq", "order", "limit", "is", "in", "ilike", "or", "gte", "lte", "match", "contains", "not", "delete", "update", "insert"].forEach((m) => {
+  ["select", "eq", "order", "limit", "range", "is", "in", "ilike", "or", "gte", "lte", "match", "contains", "not", "delete", "update", "insert"].forEach((m) => {
     chain[m] = vi.fn((...args) => { calls.push([m, args]); return chain; });
   });
   chain.maybeSingle = vi.fn(() => Promise.resolve(responder(calls, "maybeSingle")));
@@ -37,6 +37,10 @@ const EVENT_ROW = {
 };
 
 let profileInCalls = [];
+// Jeu de likes côté "serveur" (par défaut : les N connexions mutuelles). Le faux
+// PostgREST TRONQUE à 1000 lignes par réponse, comme le vrai (max_rows).
+let likesSentRows = null;
+let likesReceivedRows = null;
 let failFirstProfilesLot = false;
 
 const tableResponders = {
@@ -46,8 +50,13 @@ const tableResponders = {
   community_members: () => ({ data: [], error: null }),
   likes: (calls) => {
     const eqCall = calls.find(([m]) => m === "eq");
-    if (eqCall?.[1]?.[0] === "from_id") return { data: MUTUAL_IDS.map((id) => ({ to_id: id })), error: null };
-    return { data: MUTUAL_IDS.map((id) => ({ from_id: id })), error: null };
+    const sent = eqCall?.[1]?.[0] === "from_id";
+    const all = sent
+      ? (likesSentRows || MUTUAL_IDS.map((id) => ({ to_id: id })))
+      : (likesReceivedRows || MUTUAL_IDS.map((id) => ({ from_id: id })));
+    const rangeCall = calls.find(([m]) => m === "range");
+    const rows = rangeCall ? all.slice(rangeCall[1][0], rangeCall[1][1] + 1) : all;
+    return { data: rows.slice(0, 1000), error: null };
   },
   profiles: (calls, kind) => {
     if (kind === "single") return { data: { name: "Organisateur" }, error: null };
@@ -95,6 +104,8 @@ beforeEach(() => {
   vi.clearAllMocks();
   profileInCalls = [];
   failFirstProfilesLot = false;
+  likesSentRows = null;
+  likesReceivedRows = null;
   mocks.fromMock.mockImplementation((table) =>
     makeChain((calls, kind) => (tableResponders[table] ? tableResponders[table](calls, kind) : { data: [], error: null, count: 0 }))
   );
@@ -122,6 +133,15 @@ describe("EventsTab — profils des connexions mutuelles chargés par lots", () 
     expect(new Set(profileInCalls.flat()).size).toBe(N);
     await waitFor(() => expect(dialog.querySelectorAll("button.w-full.text-left")).toHaveLength(N));
   }, 30000);
+
+  it("plafond PostgREST de 1000 lignes : 1500 likes envoyés ET reçus, les 1500 connexions mutuelles sont toutes trouvées (sans pagination, 1000 au plus)", async () => {
+    const big = Array.from({ length: 1500 }, (_, i) => pad(i));
+    likesSentRows = big.map((id) => ({ to_id: id }));
+    likesReceivedRows = big.map((id) => ({ from_id: id }));
+    await openShareDialog();
+    await waitFor(() => expect(profileInCalls.flat()).toHaveLength(1500), { timeout: 10000 });
+    expect(new Set(profileInCalls.flat()).size).toBe(1500);
+  }, 60000);
 
   it("un lot en erreur est journalisé et les profils des autres lots restent affichés", async () => {
     failFirstProfilesLot = true;

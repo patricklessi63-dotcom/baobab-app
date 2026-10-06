@@ -19,7 +19,7 @@ const mocks = vi.hoisted(() => ({ fromMock: vi.fn() }));
 
 function makeGenericChain(responder) {
   const chain = {};
-  ["select", "eq", "order", "limit", "is", "in", "ilike", "or", "gte", "lte"].forEach((m) => {
+  ["select", "eq", "order", "limit", "range", "is", "in", "ilike", "or", "gte", "lte"].forEach((m) => {
     chain[m] = vi.fn(() => chain);
   });
   chain.maybeSingle = vi.fn(() => Promise.resolve(responder("maybeSingle")));

@@ -26,7 +26,7 @@ const EVENT_A = {
 function makeGenericChain(responder) {
   const calls = [];
   const chain = {};
-  ["select", "eq", "order", "limit", "is", "in", "ilike", "or", "gte", "lte", "match", "contains", "not"].forEach((m) => {
+  ["select", "eq", "order", "limit", "range", "is", "in", "ilike", "or", "gte", "lte", "match", "contains", "not"].forEach((m) => {
     chain[m] = vi.fn((...args) => { calls.push([m, args]); return chain; });
   });
   chain.maybeSingle = vi.fn(() => Promise.resolve(responder(calls, "maybeSingle")));
@@ -37,7 +37,7 @@ function makeGenericChain(responder) {
 
 function makeEventsChain() {
   const chain = {};
-  ["select", "eq", "order", "limit", "is", "in", "ilike", "or", "gte", "lte"].forEach((m) => {
+  ["select", "eq", "order", "limit", "range", "is", "in", "ilike", "or", "gte", "lte"].forEach((m) => {
     chain[m] = vi.fn(() => chain);
   });
   chain.single = vi.fn(() => Promise.resolve({ data: EVENT_A, error: null }));

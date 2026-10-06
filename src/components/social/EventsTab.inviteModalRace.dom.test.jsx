@@ -42,7 +42,7 @@ const EVENT_B = makeEvent("eB", "Soirée B");
 function makeGenericChain(responder) {
   const calls = [];
   const chain = {};
-  ["select", "eq", "order", "limit", "is", "in", "ilike", "or", "gte", "lte", "match", "contains", "not"].forEach((m) => {
+  ["select", "eq", "order", "limit", "range", "is", "in", "ilike", "or", "gte", "lte", "match", "contains", "not"].forEach((m) => {
     chain[m] = vi.fn((...args) => { calls.push([m, args]); return chain; });
   });
   chain.maybeSingle = vi.fn(() => Promise.resolve(responder(calls, "maybeSingle")));
@@ -56,7 +56,7 @@ function makeGenericChain(responder) {
 function makeEventsChain() {
   const calls = [];
   const chain = {};
-  ["select", "eq", "order", "limit", "is", "in", "ilike", "or", "gte", "lte"].forEach((m) => {
+  ["select", "eq", "order", "limit", "range", "is", "in", "ilike", "or", "gte", "lte"].forEach((m) => {
     chain[m] = vi.fn((...args) => { calls.push([m, args]); return chain; });
   });
   chain.single = vi.fn(() => {
@@ -78,7 +78,7 @@ function makeEventsChain() {
 function makeEventInvitationsChain(state) {
   const calls = [];
   const chain = {};
-  ["select", "eq", "order", "limit"].forEach((m) => {
+  ["select", "eq", "order", "limit", "range"].forEach((m) => {
     chain[m] = vi.fn((...args) => { calls.push([m, args]); return chain; });
   });
   chain.then = (resolve, reject) => {

@@ -41,7 +41,7 @@ const mocks = vi.hoisted(() => ({ fromMock: vi.fn(), channelCalls: [] }));
 function makeChain(responder) {
   const calls = [];
   const chain = {};
-  ["select", "eq", "order", "limit", "is", "in", "ilike", "or", "gte", "lte", "match", "contains", "not", "update", "insert"].forEach((m) => {
+  ["select", "eq", "order", "limit", "range", "is", "in", "ilike", "or", "gte", "lte", "match", "contains", "not", "update", "insert"].forEach((m) => {
     chain[m] = vi.fn((...args) => { calls.push([m, args]); return chain; });
   });
   chain.maybeSingle = vi.fn(() => Promise.resolve(responder(calls, "maybeSingle")));
@@ -56,7 +56,7 @@ function makeChain(responder) {
 // combien d'appels réseau réels partent.
 function makeEventCommentsBuilder({ comment, deleteCalls }) {
   const builder = {};
-  ["select", "eq", "order"].forEach((m) => { builder[m] = vi.fn(() => builder); });
+  ["select", "eq", "order", "range"].forEach((m) => { builder[m] = vi.fn(() => builder); });
   builder.then = (resolve, reject) => Promise.resolve({ data: [comment], error: null }).then(resolve, reject);
   builder.delete = vi.fn(() => {
     const delBuilder = {};
