@@ -5,15 +5,17 @@ import { insertWithRecovery, findRecentOwnDuplicate } from "./writeRecovery";
 function makeClient({ rows = [], readsFail = false } = {}) {
   const table = [...rows];
   const state = { readsFail };
+  const eqCols = [];
   return {
     table,
     state,
+    eqCols,
     from() {
       return {
         select() {
           const filters = [];
           const b = {
-            eq: (c, v) => { filters.push((r) => r[c] === v); return b; },
+            eq: (c, v) => { eqCols.push(c); filters.push((r) => r[c] === v); return b; },
             gt: (c, v) => { filters.push((r) => r[c] > v); return b; },
             order: () => b,
             limit: () => b,
@@ -38,6 +40,18 @@ describe("findRecentOwnDuplicate", () => {
     const c = makeClient({ rows: [row("old", "salut", 2 * 3600_000), row("known", "salut"), row("fresh", "salut")] });
     const r = await findRecentOwnDuplicate(c, "posts", { author_id: "me", body: "salut" }, { knownIds: new Set(["known"]) });
     expect(r.row.id).toBe("fresh");
+  });
+  it("texte très long : jamais dans l'URL (filtre côté client), la ligne identique est retrouvée, pas une autre", async () => {
+    const long = "😀".repeat(1000);
+    const c = makeClient({ rows: [row("autre", "tout autre texte"), row("mienne", long)] });
+    const r = await findRecentOwnDuplicate(c, "posts", { author_id: "me", body: long });
+    expect(c.eqCols).toEqual(["author_id"]);
+    expect(r.row.id).toBe("mienne");
+  });
+  it("texte court : filtré côté serveur", async () => {
+    const c = makeClient({ rows: [row("a", "salut")] });
+    await findRecentOwnDuplicate(c, "posts", { author_id: "me", body: "salut" });
+    expect(c.eqCols).toEqual(["author_id", "body"]);
   });
   it("lecture impossible : error, jamais d'exception", async () => {
     const c = makeClient({ readsFail: true });

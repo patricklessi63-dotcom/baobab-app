@@ -12,19 +12,27 @@
 import { isAmbiguousWriteError } from "./networkError";
 
 const WINDOW_MS = 60 * 60 * 1000;
+// Au-delà (octets une fois encodés), une valeur de filtre dépasserait la limite
+// d'URL de la passerelle (414/431) à CHAQUE vérification et bloquerait à jamais le
+// renvoi (publication de 4000 caractères avec émojis...) : on la compare côté client.
+const MAX_URL_FILTER_LENGTH = 1500;
 
 // Cherche une ligne récente correspondant à `filters` (égalités) et absente de
 // `knownIds`. Ne lève jamais : { row, error }.
 export async function findRecentOwnDuplicate(client, table, filters, { select = "*", knownIds = new Set(), now = Date.now() } = {}) {
   try {
     let query = client.from(table).select(select);
-    for (const [column, value] of Object.entries(filters)) query = query.eq(column, value);
+    const clientFilters = [];
+    for (const [column, value] of Object.entries(filters)) {
+      if (typeof value === "string" && encodeURIComponent(value).length > MAX_URL_FILTER_LENGTH) clientFilters.push([column, value]);
+      else query = query.eq(column, value);
+    }
     const { data, error } = await query
       .gt("created_at", new Date(now - WINDOW_MS).toISOString())
       .order("created_at", { ascending: false })
       .limit(10);
     if (error) return { row: null, error };
-    return { row: (data || []).find((r) => !knownIds.has(r.id)) || null, error: null };
+    return { row: (data || []).find((r) => !knownIds.has(r.id) && clientFilters.every(([column, value]) => r[column] === value)) || null, error: null };
   } catch (e) {
     return { row: null, error: e };
   }
