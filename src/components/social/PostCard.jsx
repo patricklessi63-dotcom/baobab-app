@@ -54,11 +54,14 @@ export default function PostCard({
     if (next && !commentsLoaded) onLoadComments(post.id);
   };
 
-  const submitComment = () => {
+  const submitComment = async () => {
     const text = commentDraft.trim();
     if (!text) return;
-    onSubmitComment(post.id, text);
     setCommentDraft("");
+    const ok = await onSubmitComment(post.id, text);
+    // Échec (réseau coupé...) : le texte tapé était effacé sans retour possible ;
+    // on le remet dans le champ, sauf si une nouvelle saisie a déjà commencé.
+    if (ok === false) setCommentDraft((d) => d || text);
   };
 
   const startEdit = () => { setEditDraft(post.body); setEditing(true); };

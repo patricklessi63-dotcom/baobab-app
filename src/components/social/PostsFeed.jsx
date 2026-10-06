@@ -16,6 +16,8 @@ import { friendlyDbError } from "../../lib/friendlyDbError";
 import { selectAllPages } from "../../lib/inChunks";
 import { useOnlineStatus } from "../../hooks/useOnlineStatus";
 import { useResumeTick } from "../../hooks/useResumeTick";
+import { insertWithRecovery } from "../../lib/writeRecovery";
+import { isAmbiguousWriteError, isNetworkFailure, networkFailureMessage } from "../../lib/networkError";
 import { primary, navy, coral, muted, bg, card } from "./theme";
 
 const PAGE_SIZE = 20;
@@ -120,6 +122,11 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
   // reçus pendant que l'app était hors ligne.
   const postsRef = useRef(posts);
   postsRef.current = posts;
+  // Écritures dont une coupure a laissé l'issue incertaine (la ligne existe
+  // peut-être déjà) : le prochain essai identique vérifie d'abord, pour ne pas
+  // publier/commenter deux fois (voir lib/writeRecovery.js).
+  const ambiguousPublishBodyRef = useRef(null);
+  const ambiguousCommentsRef = useRef(new Set());
   const blockedIdsRef = useRef(blockedIds);
   blockedIdsRef.current = blockedIds;
 
@@ -560,9 +567,23 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
         .select()
         .single();
       if (mediaError) {
-        // Upload Storage réussi mais insertion post_media échouée : sans ce
-        // nettoyage le fichier restait orphelin dans le bucket pour toujours
-        // (rien en base ne le référence, "Réessayer" uploade un nouveau
+        // Issue incertaine (coupure PENDANT l'insertion : la ligne existe peut-être
+        // déjà) : on la cherche par son url, unique pour ce fichier. Trouvée = la
+        // photo est bien attachée, rien à nettoyer ni à réessayer (sinon "Réessayer"
+        // l'attachait une seconde fois) ; vérification impossible = on garde le
+        // fichier (supprimer casserait une ligne qui existe).
+        if (isAmbiguousWriteError(mediaError)) {
+          const { data: existing, error: lookupError } = await supabase
+            .from("post_media").select("*").eq("post_id", postId).eq("url", publicUrlData.publicUrl).maybeSingle();
+          if (!lookupError && existing) {
+            setUploadStates((prev) => ({ ...prev, [item.id]: { status: "done", progress: 100 } }));
+            return existing;
+          }
+          if (lookupError) throw mediaError;
+        }
+        // Upload Storage réussi mais insertion post_media définitivement refusée :
+        // sans ce nettoyage le fichier restait orphelin dans le bucket pour
+        // toujours (rien en base ne le référence, "Réessayer" uploade un nouveau
         // chemin sans jamais toucher à celui-ci).
         supabase.storage.from(POST_MEDIA_BUCKET).remove([path]).catch(() => {});
         throw mediaError;
@@ -617,12 +638,19 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
     setPublishing(true);
     try {
       const body = draft.trim() || PLACEHOLDER_BODY;
-      const { data: inserted, error } = await supabase
-        .from("posts")
-        .insert({ author_id: currentUser.id, body })
-        .select("*, profiles(name, avatar_url, is_founder, is_premium, email_verified, phone_verified)")
-        .single();
-      if (error) throw error;
+      const postSelect = "*, profiles(name, avatar_url, is_founder, is_premium, email_verified, phone_verified)";
+      const outcome = await insertWithRecovery({
+        client: supabase,
+        table: "posts",
+        attempt: () => supabase.from("posts").insert({ author_id: currentUser.id, body }).select(postSelect).single(),
+        filters: { author_id: currentUser.id, body },
+        select: postSelect,
+        knownIds: new Set(postsRef.current.map((p) => p.id)),
+        retry: ambiguousPublishBodyRef.current === body,
+      });
+      ambiguousPublishBodyRef.current = outcome.error && outcome.ambiguous ? body : null;
+      if (outcome.error) throw outcome.error;
+      const inserted = outcome.data;
       setPublishedPostId(inserted.id);
       // Répercute la création sur un compteur affiché ailleurs (ex. tuile
       // "Publications" du profil, qui ne remonte jamais dans cet arbre de
@@ -667,7 +695,7 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
       // est atteinte — ce catch affichait avant un "Impossible de publier.
       // Réessaie." générique qui masquait cette vraie raison et poussait à
       // réessayer en boucle, même motif que addStory() (SocialShell.jsx).
-      onError(friendlyDbError(e) || "Impossible de publier. Réessaie.");
+      onError(friendlyDbError(e) || (isNetworkFailure(e) ? `${networkFailureMessage()} Ta publication n'a pas pu être vérifiée : réessaie.` : "Impossible de publier. Réessaie."));
     } finally {
       publishingRef.current = false;
       setPublishing(false);
@@ -777,19 +805,32 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
   };
 
   const submitComment = async (postId, text) => {
-    if (!currentUser) return;
-    if (commentSubmittingRef.current.has(postId)) return;
+    if (!currentUser) return false;
+    if (commentSubmittingRef.current.has(postId)) return false;
     commentSubmittingRef.current.add(postId);
     try {
-      const { data, error } = await supabase
-        .from("post_comments").insert({ post_id: postId, author_id: currentUser.id, body: text })
-        .select("*, profiles(name, avatar_url, is_founder, is_premium, email_verified, phone_verified)").single();
-      if (error) throw error;
-      setCommentsByPost((c) => ({ ...c, [postId]: { items: [...(c[postId]?.items || []), data] } }));
+      const commentSelect = "*, profiles(name, avatar_url, is_founder, is_premium, email_verified, phone_verified)";
+      const attemptKey = `${postId}:${text}`;
+      const outcome = await insertWithRecovery({
+        client: supabase,
+        table: "post_comments",
+        attempt: () => supabase.from("post_comments").insert({ post_id: postId, author_id: currentUser.id, body: text }).select(commentSelect).single(),
+        filters: { post_id: postId, author_id: currentUser.id, body: text },
+        select: commentSelect,
+        knownIds: new Set((commentsByPost[postId]?.items || []).map((c) => c.id)),
+        retry: ambiguousCommentsRef.current.has(attemptKey),
+      });
+      if (outcome.error && outcome.ambiguous) ambiguousCommentsRef.current.add(attemptKey);
+      else ambiguousCommentsRef.current.delete(attemptKey);
+      if (outcome.error) throw outcome.error;
+      const data = outcome.data;
+      setCommentsByPost((c) => ({ ...c, [postId]: { items: [...(c[postId]?.items || []).filter((x) => x.id !== data.id), data] } }));
       setPostCommentCounts((c) => ({ ...c, [postId]: (c[postId] || 0) + 1 }));
+      return true;
     } catch (e) {
       console.error(e);
-      onError("Impossible d'envoyer ce commentaire.");
+      onError(isNetworkFailure(e) ? `${networkFailureMessage()} Impossible d'envoyer ce commentaire.` : "Impossible d'envoyer ce commentaire.");
+      return false;
     } finally {
       commentSubmittingRef.current.delete(postId);
     }
