@@ -12,7 +12,11 @@ const mocks = vi.hoisted(() => ({
   shell: { props: null },
   channels: [],
   db: null,
+  removeSpy: vi.fn(() => Promise.resolve({})),
+  uploadSpy: vi.fn(() => Promise.resolve()),
 }));
+
+vi.mock("./lib/uploadWithProgress", () => ({ uploadWithProgress: (...args) => mocks.uploadSpy(...args) }));
 
 vi.mock("./components/SocialShell", () => ({
   default: (props) => {
@@ -68,7 +72,7 @@ vi.mock("./supabaseClient", () => {
       return ch;
     }),
     removeChannel: vi.fn(),
-    storage: { from: vi.fn(() => ({ upload: vi.fn(), remove: vi.fn(() => Promise.resolve({})), getPublicUrl: vi.fn(() => ({ data: { publicUrl: "" } })) })) },
+    storage: { from: vi.fn(() => ({ upload: vi.fn(), remove: (...args) => mocks.removeSpy(...args), getPublicUrl: vi.fn(() => ({ data: { publicUrl: "" } })) })) },
     functions: { invoke: vi.fn(() => Promise.resolve({ data: null, error: null })) },
   };
   return { supabase };
@@ -180,6 +184,101 @@ describe("App — écran « profil impossible à charger » (lancement sans rés
     setOnLine(true);
     await screen.findByTestId("shell", {}, { timeout: 5000 });
     expect(screen.queryByText(/Impossible de charger ton profil/)).toBeNull();
+  });
+});
+
+describe("App — envoi de message coupé en plein vol", () => {
+  it("INSERT exécuté mais réponse perdue : le message n'est PAS marqué en échec, une seule ligne, aucun doublon", async () => {
+    await mountAndOpenChat();
+    mocks.db.insertMode = "lost-response";
+    await typeAndSend("salut");
+    await waitFor(() => expect(screen.getAllByTestId("msg")).toHaveLength(1));
+    await waitFor(() => expect(screen.getByTestId("msg")).toHaveAttribute("data-status", "ok"));
+    expect(mocks.db.messages).toHaveLength(1);
+    expect(mocks.db.insertCalls).toBe(1);
+  });
+
+  it("réseau coupé jusqu'au bout puis rétabli : le renvoi automatique n'insère PAS une seconde fois un message déjà livré", async () => {
+    await mountAndOpenChat();
+    mocks.db.insertMode = "lost-response";
+    mocks.db.messageReadsFail = true; // la vérification immédiate échoue aussi
+    setOnLine(false);
+    await typeAndSend("salut");
+    await waitFor(() => expect(screen.getByTestId("msg")).toHaveAttribute("data-status", "failed"));
+    expect(mocks.db.messages).toHaveLength(1); // déjà livré côté serveur
+
+    // Le réseau revient : renvoi automatique des messages en échec.
+    mocks.db.messageReadsFail = false;
+    mocks.db.insertMode = "ok";
+    setOnLine(true);
+    await waitFor(() => expect(screen.getAllByTestId("msg").every((el) => el.getAttribute("data-status") === "ok")).toBe(true));
+    expect(screen.getAllByTestId("msg")).toHaveLength(1);
+    expect(mocks.db.messages).toHaveLength(1);
+    expect(mocks.db.insertCalls).toBe(1);
+  });
+
+  it("échec incertain puis écho Realtime du vrai message : la bulle « échec » disparaît (pas deux fois le même message)", async () => {
+    await mountAndOpenChat();
+    mocks.db.insertMode = "lost-response";
+    mocks.db.messageReadsFail = true;
+    setOnLine(false);
+    await typeAndSend("salut");
+    await waitFor(() => expect(screen.getByTestId("msg")).toHaveAttribute("data-status", "failed"));
+    // Écho Realtime du message réellement inséré.
+    const channel = mocks.channels.find((c) => c.name === `messages:${KEY}`);
+    const insertHandler = channel.handlers.find((h) => h.type === "postgres_changes" && h.opts.event === "INSERT");
+    act(() => insertHandler.cb({ new: mocks.db.messages[0] }));
+    await waitFor(() => expect(screen.getAllByTestId("msg")).toHaveLength(1));
+    expect(screen.getByTestId("msg")).toHaveAttribute("data-status", "ok");
+  });
+
+  it("requête jamais partie (réseau coupé) : échec, puis renvoi au retour en ligne, une seule ligne", async () => {
+    await mountAndOpenChat();
+    mocks.db.insertMode = "never-sent";
+    mocks.db.messageReadsFail = true;
+    setOnLine(false);
+    await typeAndSend("salut");
+    await waitFor(() => expect(screen.getByTestId("msg")).toHaveAttribute("data-status", "failed"));
+    mocks.db.messageReadsFail = false;
+    mocks.db.insertMode = "ok";
+    setOnLine(true);
+    await waitFor(() => expect(screen.getByTestId("msg")).toHaveAttribute("data-status", "ok"));
+    expect(mocks.db.messages).toHaveLength(1);
+  });
+});
+
+describe("App — envoi d'une pièce jointe coupé en plein vol", () => {
+  const makeFile = () => new File(["bonjour"], "note.txt", { type: "text/plain" });
+
+  it("INSERT exécuté mais réponse perdue : le fichier Storage n'est PAS supprimé (la ligne existe), le renvoi le réutilise sans doublon", async () => {
+    await mountAndOpenChat();
+    mocks.db.insertMode = "lost-response";
+    mocks.db.messageReadsFail = true;
+    setOnLine(false);
+    await act(async () => { await mocks.shell.props.sendMediaMessage(makeFile(), "file"); });
+    await waitFor(() => expect(screen.getByTestId("msg")).toHaveAttribute("data-status", "failed"));
+    expect(mocks.uploadSpy).toHaveBeenCalledTimes(1);
+    // Avant correctif : le fichier était supprimé alors que le message livré le référence.
+    expect(mocks.removeSpy).not.toHaveBeenCalled();
+    expect(mocks.db.messages).toHaveLength(1);
+
+    mocks.db.messageReadsFail = false;
+    mocks.db.insertMode = "ok";
+    setOnLine(true);
+    await waitFor(() => expect(screen.getByTestId("msg")).toHaveAttribute("data-status", "ok"));
+    expect(screen.getAllByTestId("msg")).toHaveLength(1);
+    expect(mocks.db.messages).toHaveLength(1);
+    expect(mocks.db.insertCalls).toBe(1);
+    expect(mocks.uploadSpy).toHaveBeenCalledTimes(1); // pas de second upload (données mobiles)
+    expect(mocks.removeSpy).not.toHaveBeenCalled();
+  });
+
+  it("refus/échec DÉFINITIF de l'INSERT (réseau revenu, rien écrit) : le fichier est bien nettoyé (pas d'orphelin)", async () => {
+    await mountAndOpenChat();
+    mocks.db.insertMode = "never-sent";
+    await act(async () => { await mocks.shell.props.sendMediaMessage(makeFile(), "file"); });
+    await waitFor(() => expect(screen.getByTestId("msg")).toHaveAttribute("data-status", "failed"));
+    expect(mocks.removeSpy).toHaveBeenCalledTimes(1);
   });
 });
 

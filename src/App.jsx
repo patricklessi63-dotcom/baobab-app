@@ -25,6 +25,7 @@ import { disablePushNotifications } from "./lib/pushNotifications";
 import { isLikelyInCanada, TRAVEL_GRACE_PERIOD_MS } from "./lib/canadaGate";
 import { friendlyDbError, dbErrorCode } from "./lib/friendlyDbError";
 import { isNetworkFailure, networkFailureMessage } from "./lib/networkError";
+import { insertMessageWithRecovery, maxRealMessageId, dropGhostTemps, mergeRefreshedMessages } from "./lib/messageGhost";
 import { usePathname } from "./hooks/usePathname";
 import { useEscapeKey } from "./hooks/useEscapeKey";
 import LandingPage from "./screens/public/LandingPage";
@@ -2450,9 +2451,13 @@ export default function App() {
       const chronological = (data || []).slice().reverse();
       // Réinjecte les messages en échec d'envoi mis en cache pour cette
       // conversation (voir pendingFailedMessagesRef) : ils n'existent pas en
-      // base (leur INSERT a échoué), donc absents de "data" ci-dessus.
-      const cachedFailed = pendingFailedMessagesRef.current[matchKey(currentUser.id, match.id)] || [];
-      setMessages(cachedFailed.length > 0 ? [...chronological, ...cachedFailed] : chronological);
+      // base (leur INSERT a échoué), donc absents de "data" ci-dessus. Et
+      // conserve ceux en cours d'envoi/d'upload (audit réseau, 6 oct. 2026) :
+      // le rechargement déclenché au retour en ligne/de l'arrière-plan les
+      // effaçait, leur accusé de réception ne trouvait plus rien à remplacer.
+      const key = matchKey(currentUser.id, match.id);
+      const cachedFailed = pendingFailedMessagesRef.current[key] || [];
+      setMessages(mergeRefreshedMessages({ serverRows: chronological, current: messagesRef.current, cachedFailed, key }));
       setHasMoreHistory((data || []).length === MESSAGES_PAGE_SIZE);
       markConversationRead(match);
       loadReactionsFor(chronological.map((m) => m.id));
@@ -2517,21 +2522,33 @@ export default function App() {
   // média/réessai) : dédoublonnage contre l'écho Realtime, _status:"failed"
   // en cas d'erreur. "row" est un objet explicite — jamais les champs
   // locaux (_file/_progress/_status) d'un message optimiste.
+  //
+  // Audit réseau (6 oct. 2026) : voir lib/messageGhost.js. Une coupure PENDANT
+  // l'INSERT laisse l'issue incertaine (le message existe peut-être déjà côté
+  // serveur) : on vérifie avant de marquer l'échec ou de réinsérer, pour ne
+  // jamais créer de doublon chez le destinataire ni de bulle « échec » à côté
+  // d'un message en réalité livré. Retourne true (envoyé/adopté), false
+  // (échec définitif) ou "ambiguous" (échec dont l'issue est inconnue : le
+  // média déjà uploadé ne doit PAS être supprimé).
   async function insertMessageRow(row, tempId) {
+    const existing = messagesRef.current.find((msg) => msg.id === tempId);
+    const retry = Boolean(existing?._maybeSent);
+    const afterId = existing?._afterId ?? maxRealMessageId(messagesRef.current);
     try {
-      const { data, error: sendError } = await supabase
-        .from("messages")
-        .insert(row)
-        .select()
-        .single();
-      if (sendError) throw sendError;
-      // Bug corrigé à l'audit pièces jointes : sans le tri chronologique
+      const result = await insertMessageWithRecovery(supabase, row, { afterId, retry });
+      if (result.outcome === "failed") throw Object.assign(result.error || new Error("Envoi impossible"), { _ambiguous: result.ambiguous });
+      const data = result.data;
+      // Bug corrigé à l'audit pièces jointes à l'audit pièces jointes : sans le tri chronologique
       // ci-dessous, remplacer le message optimiste "à sa place" dans le
       // tableau ne suffit pas — voir lib/messageOrdering.js pour le
       // scénario concret (photo à l'upload lent + texte envoyé juste
       // après, inséré en base avant elle).
       setMessages((m) => {
         const withoutRealtimeDupe = m.filter((msg) => msg.id !== data.id);
+        // Le message optimiste a pu disparaître entre-temps (rechargement de la
+        // conversation qui l'a reconnu comme déjà en base) : le vrai message doit
+        // alors être AJOUTÉ, pas seulement « remplacé » — sinon il s'évaporait.
+        if (!withoutRealtimeDupe.some((msg) => msg.id === tempId)) return sortMessagesChronologically([...withoutRealtimeDupe, data]);
         return sortMessagesChronologically(withoutRealtimeDupe.map((msg) => (msg.id === tempId ? data : msg)));
       });
       trackActivation(currentUser.id, "first_message");
@@ -2548,8 +2565,20 @@ export default function App() {
       // "Réessayer" muet (voir ConversationPane.jsx).
       const code = dbErrorCode(e);
       const premiumBlocked = code === "FREE_MESSAGE_LIMIT_REACHED" || code === "PREMIUM_MEDIA_REQUIRED";
-      setMessages((m) => m.map((msg) => (msg.id === tempId ? { ...msg, _status: "failed", _error: friendlyDbError(e), _premiumBlocked: premiumBlocked } : msg)));
-      return false;
+      const ambiguous = Boolean(e?._ambiguous);
+      setMessages((m) => m.map((msg) => (msg.id === tempId ? {
+        ...msg,
+        _status: "failed",
+        _error: friendlyDbError(e) || (isNetworkFailure(e) ? networkFailureMessage() : undefined),
+        _premiumBlocked: premiumBlocked,
+        // Issue inconnue : le renvoi (manuel ou auto) vérifiera d'abord que le
+        // message n'existe pas déjà ; `_afterId` borne cette recherche, et
+        // `_uploadedPath` conserve le fichier déjà uploadé d'un média.
+        _maybeSent: ambiguous,
+        _afterId: afterId,
+        _uploadedPath: ambiguous ? row.media_path || undefined : undefined,
+      } : msg)));
+      return ambiguous ? "ambiguous" : false;
     }
   }
 
@@ -2690,26 +2719,36 @@ export default function App() {
       setReplyingTo(null);
     }
 
-    const path = `${key}/${Date.now()}-${Math.random().toString(36).slice(2)}.${extFromMime(file.type)}`;
-    try {
-      await uploadWithProgress({
-        bucket: MEDIA_BUCKET,
-        path,
-        file,
-        onProgress: (pct) => setMessages((m) => m.map((msg) => (msg.id === tempId ? { ...msg, _progress: pct } : msg))),
-      });
-    } catch (e) {
-      console.error(e);
-      setMessages((m) => m.map((msg) => (msg.id === tempId ? { ...msg, _status: "failed" } : msg)));
-      return;
+    // Renvoi d'un média dont l'INSERT a échoué de façon incertaine : le fichier
+    // est DÉJÀ dans Storage (voir insertMessageRow), on le réutilise au lieu de
+    // le ré-uploader (données mobiles) — et l'INSERT ne crée alors jamais de
+    // second fichier orphelin ni de doublon (vérification du fantôme d'abord).
+    const reusedPath = tempIdOverride ? messagesRef.current.find((msg) => msg.id === tempId)?._uploadedPath : undefined;
+    const path = reusedPath || `${key}/${Date.now()}-${Math.random().toString(36).slice(2)}.${extFromMime(file.type)}`;
+    if (!reusedPath) {
+      try {
+        await uploadWithProgress({
+          bucket: MEDIA_BUCKET,
+          path,
+          file,
+          onProgress: (pct) => setMessages((m) => m.map((msg) => (msg.id === tempId ? { ...msg, _progress: pct } : msg))),
+        });
+      } catch (e) {
+        console.error(e);
+        setMessages((m) => m.map((msg) => (msg.id === tempId ? { ...msg, _status: "failed" } : msg)));
+        return;
+      }
     }
 
     const inserted = await insertMessageRow(
       { match_key: key, from_id: currentUser.id, kind, text: null, media_path: path, media_meta, reply_to_id: replyToId },
       tempId
     );
-    if (!inserted) {
-      // Upload Storage réussi mais INSERT échoué : jamais de fichier orphelin.
+    if (inserted === false) {
+      // Upload Storage réussi mais INSERT définitivement refusé : jamais de
+      // fichier orphelin. PAS pour un échec "ambiguous" (coupure pendant
+      // l'INSERT) : la ligne existe peut-être, supprimer le fichier livrerait
+      // un message avec une pièce jointe cassée — le renvoi le réutilise.
       supabase.storage.from(MEDIA_BUCKET).remove([path]).catch(() => {});
     }
   }
@@ -2860,8 +2899,11 @@ export default function App() {
           // après celui du texte — sans tri, ce média resterait affiché après
           // le texte ici alors qu'un rechargement (refreshMessages, trié par
           // created_at) l'afficherait avant.
+          // dropGhostTemps : si cet écho est le vrai message d'un envoi resté en
+          // échec « incertain » (coupure pendant l'envoi), on retire la bulle
+          // d'échec pour ne pas afficher le même message deux fois.
           setMessages((prev) =>
-            prev.some((m) => m.id === payload.new.id) ? prev : sortMessagesChronologically([...prev, payload.new])
+            prev.some((m) => m.id === payload.new.id) ? prev : sortMessagesChronologically([...dropGhostTemps(prev, payload.new), payload.new])
           );
           if (payload.new.from_id !== currentUser.id) markConversationRead(activeMatch);
         }
