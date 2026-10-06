@@ -18,7 +18,7 @@ import {
 function makeClient({ rows = [], insertMode = "ok", readsFail = false } = {}) {
   const table = [...rows];
   let nextId = Math.max(0, ...rows.map((r) => r.id)) + 1;
-  const calls = { inserts: 0, selects: 0 };
+  const calls = { inserts: 0, selects: 0, eq: [] };
   const netErr = { message: "TypeError: Failed to fetch", code: "" };
   const state = { insertMode, readsFail };
   const client = {
@@ -44,7 +44,7 @@ function makeClient({ rows = [], insertMode = "ok", readsFail = false } = {}) {
         select() {
           const filters = [];
           const b = {
-            eq: (c, v) => { filters.push((r) => r[c] === v); return b; },
+            eq: (c, v) => { calls.eq.push(c); filters.push((r) => r[c] === v); return b; },
             gt: (c, v) => { filters.push((r) => r[c] > v); return b; },
             order: () => b,
             limit: () => b,
@@ -74,6 +74,21 @@ describe("insertMessageWithRecovery — réponse perdue pendant l'envoi", () => 
     const r = await insertMessageWithRecovery(c, textRow("salut"), { afterId: 0 });
     expect(r.outcome).toBe("sent");
     expect(c.table).toHaveLength(1);
+  });
+
+  it("texte très long (émojis) : le texte n'est PAS mis dans l'URL de la vérification, le fantôme est tout de même retrouvé", async () => {
+    const long = "😀".repeat(1000); // ~12 000 caractères d'URL une fois encodé
+    const c = makeClient({ insertMode: "lost-response" });
+    const r = await insertMessageWithRecovery(c, textRow(long), { afterId: 0 });
+    expect(c.calls.eq).not.toContain("text");
+    expect(r.outcome).toBe("adopted");
+    expect(c.table).toHaveLength(1);
+  });
+
+  it("texte courant : filtré côté serveur (une seule ligne candidate)", async () => {
+    const c = makeClient({ insertMode: "lost-response" });
+    await insertMessageWithRecovery(c, textRow("salut"), { afterId: 0 });
+    expect(c.calls.eq).toContain("text");
   });
 
   it("réponse perdue mais message bien enregistré : adopté, PAS marqué en échec, pas de doublon", async () => {

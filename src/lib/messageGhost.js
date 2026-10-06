@@ -27,6 +27,8 @@
 
 import { isAmbiguousWriteError } from "./networkError";
 
+const MAX_TEXT_FILTER_LENGTH = 1500;
+
 // Sérialisation JSON à clés triées : jsonb renvoie les clés dans un autre ordre
 // que celui d'envoi, une comparaison naïve de JSON.stringify échouerait.
 function stable(value) {
@@ -75,7 +77,12 @@ export async function fetchGhostCandidates(client, candidate, afterId) {
       .gt("id", afterId || 0);
     const path = candidate.media_path || candidate._uploadedPath || null;
     if (path) query = query.eq("media_path", path);
-    else if (candidate.kind === "text" && typeof candidate.text === "string") query = query.eq("text", candidate.text);
+    // Texte très long (jusqu'à 4000 caractères, parfois des émojis = 12 octets
+    // chacun une fois encodés) : le filtre irait dans l'URL de la requête GET et
+    // dépasserait la limite de la passerelle (414/431) — la vérification échouerait
+    // alors À CHAQUE essai et le message resterait bloqué en échec. On filtre alors
+    // côté client (isGhostOf compare le texte exact sur les 50 lignes récentes).
+    else if (candidate.kind === "text" && typeof candidate.text === "string" && encodeURIComponent(candidate.text).length <= MAX_TEXT_FILTER_LENGTH) query = query.eq("text", candidate.text);
     const { data, error } = await query.order("id", { ascending: true }).limit(50);
     if (error) return { rows: [], error };
     return { rows: data || [], error: null };
