@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { createClient } from "@supabase/supabase-js";
 import { createTimeoutFetch } from "./timeoutFetch";
+import { isAmbiguousWriteError, isNetworkFailure } from "./networkError";
 
 afterEach(() => vi.useRealTimers());
 
@@ -47,5 +48,48 @@ describe("timeoutFetch avec le vrai client supabase-js", () => {
     expect(result).toBeDefined();
     expect(base).toHaveBeenCalledTimes(1);
     expect(result.error.code).toBeFalsy();
+  });
+
+  // Seules les lectures (GET/HEAD) sont rejouées par postgrest-js : une écriture
+  // dont le délai est dépassé ne doit JAMAIS être renvoyée seule (doublon). Même
+  // verdict pour PATCH (update), DELETE et RPC (POST).
+  it.each([
+    ["PATCH (update)", (c) => c.from("messages").update({ read_at: "x" }).eq("id", 1)],
+    ["DELETE", (c) => c.from("messages").delete().eq("id", 1)],
+    ["RPC (POST)", (c) => c.rpc("une_fonction", { a: 1 })],
+    ["upsert (POST)", (c) => c.from("messages").upsert({ id: 1, text: "a" })],
+  ])("%s sur réseau muet : une seule tentative, erreur sans code (issue incertaine), reconnue comme panne réseau", async (_label, build) => {
+    vi.useFakeTimers();
+    const base = hangingFetch();
+    const client = createClient("https://x.supabase.co", "anon-key", {
+      global: { fetch: createTimeoutFetch(base, 1000) },
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    let result;
+    build(client).then((r) => { result = r; });
+    await vi.advanceTimersByTimeAsync(1001);
+    await vi.advanceTimersByTimeAsync(10_000); // aucune nouvelle tentative même après les pauses de postgrest
+    expect(result).toBeDefined();
+    expect(base).toHaveBeenCalledTimes(1);
+    expect(result.error.code).toBeFalsy();
+    expect(isAmbiguousWriteError(result.error)).toBe(true);
+    expect(isNetworkFailure(result.error)).toBe(true);
+  });
+
+  it("annulation par l'appelant (signal amont) : une seule tentative, pas de rejeu", async () => {
+    vi.useFakeTimers();
+    const base = hangingFetch();
+    const client = createClient("https://x.supabase.co", "anon-key", {
+      global: { fetch: createTimeoutFetch(base, 45_000) },
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    const ac = new AbortController();
+    let result;
+    client.from("posts").select("*").abortSignal(ac.signal).then((r) => { result = r; });
+    await vi.advanceTimersByTimeAsync(10);
+    ac.abort();
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(result).toBeDefined();
+    expect(base).toHaveBeenCalledTimes(1);
   });
 });
