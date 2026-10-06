@@ -2296,6 +2296,12 @@ export default function SocialShell({
       </header>
 
       <main className="bb-content-in relative z-10 max-w-7xl mx-auto px-4 lg:px-8 pb-28 pt-6">
+        {/* Filet de sécurité pour les onglets NON lazy (fil, découverte, messages,
+            profil) : sans lui, un crash de rendu dans l'un d'eux remontait
+            jusqu'au RootErrorBoundary et remplaçait toute la coquille (barre de
+            navigation comprise). key={tab} : changer d'onglet réinitialise l'état
+            d'erreur, un onglet planté ne reste donc pas planté après navigation. */}
+        <ChunkErrorBoundary key={tab}>
         {tab === "feed" && (
           <FeedTab
             currentUser={currentUser}
@@ -2541,6 +2547,7 @@ export default function SocialShell({
             </Suspense>
           </ChunkErrorBoundary>
         )}
+        </ChunkErrorBoundary>
       </main>
 
 
