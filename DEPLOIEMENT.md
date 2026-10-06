@@ -1177,3 +1177,98 @@ revisiter si la base grossit. Conséquence = liste/compteur incomplet, **jamais 
 - **RPC** : `get_my_likers()` renvoie un seul jsonb (non concerné par `max_rows`) ;
   `nearby_profiles` (`limit 100`) et les listes admin (`limit 200`) sont bornées côté SQL.
   Au-delà de 200 signalements/retours ouverts, la file d'administration n'en montre que 200.
+
+### Robustesse réseau (audit transversal du 6 oct. 2026) — aucun SQL à exécuter ce soir ; 3 améliorations serveur proposées
+
+Public cible : mobile, réseau instable. Tout ce qui suit est corrigé **dans le code** (tests
+ajoutés, dont des tests d'intégration montés sur le vrai `App.jsx` : `App.networkResilience.dom.test.jsx`).
+
+**Corrigé côté client**
+- **Envoi de message coupé en plein vol** (`lib/messageGhost.js`) : `messages.id` est une identity
+  serveur, donc aucune clé d'idempotence. Une réponse perdue après un INSERT réussi laissait le
+  message en « échec » chez l'expéditeur alors que le destinataire l'avait reçu ; le renvoi
+  **automatique** au retour en ligne le réinsérait (doublon) ; l'écho Realtime s'affichait à côté
+  de la bulle d'échec ; un média voyait son fichier Storage supprimé alors que la ligne existait
+  (pièce jointe cassée). Maintenant : après une erreur « sans code » (= issue incertaine, voir
+  `lib/networkError.js`), on cherche le fantôme (ligne de moi, même conversation/contenu, `id`
+  supérieur au dernier id connu à l'envoi — aucune dépendance à l'horloge du téléphone) et on
+  l'adopte ; réseau toujours coupé = on n'insère pas à l'aveugle ; le fichier d'un média en
+  échec incertain est conservé et réutilisé (pas de second upload). Le rechargement de la
+  conversation conserve les messages en cours d'envoi/d'upload.
+- **Publication, commentaire, ligne `post_media`** (`lib/writeRecovery.js`) : même défaut, même
+  traitement (ligne identique de moi, créée dans l'heure, absente de l'écran). Le texte d'un
+  commentaire en échec est remis dans le champ. Une ligne `post_media` créée mais non confirmée
+  n'entraîne plus la suppression du fichier ni un second rattachement par « Réessayer ».
+- **« Participer » à un événement** : après une coupure pendant `join_event()`, on relit le statut
+  réel (voir la proposition n°2 ci-dessous pour la cause côté serveur).
+- **Reprise après veille** (`hooks/useResumeTick.js`) : un téléphone mis en veille n'émet **aucun**
+  évènement `online` alors que le système coupe le websocket Realtime ; les rattrapages existants
+  (branchés sur `online` seulement) ne se déclenchaient jamais. Retour de visibilité après > 60 s
+  (15 s mini entre deux signaux) => rattrapage borné de : conversation ouverte, graphe social (ou
+  `loadAll` s'il avait échoué), aperçu des conversations + badge de non-lus, notifications,
+  bandeau « nouvelles publications ». Pas de rechargement initial complet.
+- **Pas de lecture anonyme au réveil** (`lib/sessionGuard.js`) : si le jeton (~1 h) est expiré et que
+  le rafraîchissement échoue, supabase-js retombe sur la clé anonyme ; sous RLS une lecture
+  anonyme renvoie une liste **vide** sans erreur, ce qui aurait vidé conversation/aperçus/badges.
+  Tous les rattrapages (online et reprise) vérifient d'abord qu'une session est utilisable.
+- **Écrans** : un échec de chargement n'est plus présenté comme « vide » — Fil, communautés,
+  événements, actualités affichent une erreur avec « Réessayer » et se relancent au retour du
+  réseau / de la veille (`components/LoadErrorNotice.jsx`, `hooks/useReconnectTick.js`) ; un échec
+  de rechargement de conversation ne la vide plus ; l'écran « profil impossible à charger » affiche
+  un message lisible, un bandeau hors ligne (le chargement initial n'en avait pas) et se relance
+  tout seul au retour du réseau ; message « connexion instable » à la connexion.
+- **Requêtes qui ne répondent jamais** (`lib/timeoutFetch.js`) : délai de 45 s sur `/rest/v1/`
+  (spinner infini / envoi bloqué en « lie-fi »). Storage, Edge Functions, auth et Realtime inchangés.
+  À ajuster via `REST_TIMEOUT_MS` si une requête légitime devait dépasser (le `statement_timeout`
+  Supabase d'un utilisateur connecté est de 8 s par défaut).
+- **PWA / chunks** : `public/sw.js` ne met **rien** en cache (push uniquement), donc aucun
+  `index.html` périmé ne peut être servi par un service worker. `ChunkErrorBoundary` enveloppe tous
+  les `lazy()` (7 écrans de `App.jsx`, 5 onglets et 6 modales de `SocialShell`) et il n'existe aucun
+  `import()` dynamique hors `lazy()`. Corrigé : hors ligne, un chunk jamais chargé déclenchait un
+  rechargement de page SANS réseau (page d'erreur du navigateur à la place de l'app, brouillon perdu) ;
+  on attend maintenant l'évènement `online`. Safari/iOS formule l'échec « Importing a module script
+  failed » (sans les mots-clés de Chrome/Firefox) : le rechargement automatique ne s'y déclenchait
+  jamais — ajouté. `sessionStorage` sous `try/catch` aussi dans `App.jsx`.
+
+**Déjà correct (aucune action)** : likes, abonnements, favoris, adhésion à une communauté, blocage
+(contrainte unique + `23505` traité comme succès, rollback optimiste) ; suppressions et
+désinscriptions (idempotentes) ; session expirée en cours d'usage (`SIGNED_OUT` => formulaire de
+connexion + message dédié ; supabase-js rafraîchit le jeton avant chaque requête et au retour de
+visibilité) ; bandeau « Connexion interrompue/rétablie » ; renvoi automatique des messages
+(texte/sticker) en échec au retour en ligne, dans l'ordre.
+
+**Documenté, NON fait (nécessite du SQL ou une décision) — propositions en prose, aucun `.sql` modifié**
+1. **Vraie clé d'idempotence serveur** (remplacerait les heuristiques « fantôme » ci-dessus) :
+   ajouter une colonne `client_token uuid` (nullable) à `messages`, `posts`, `post_comments`,
+   `community_posts`, `community_comments`, `events` (et stories), avec un index unique partiel
+   `(auteur, client_token) where client_token is not null` ; le client génère un uuid par envoi
+   (réutilisé aux renvois) et traite l'erreur `23505` comme un succès en relisant la ligne. À
+   faire avant d'étendre les protections ci-dessous. Même idée pour `post_media` :
+   `unique (post_id, url)`.
+2. **`join_event()` n'est pas idempotente pour une personne déjà `going`** : elle recompte les
+   `going` en s'y incluant (`v_going`), donc sur un événement plein un second appel (réponse
+   perdue puis nouveau clic) rétrograde la personne en `waitlisted`. Correctif SQL : exclure la
+   personne du comptage (`and profile_id <> current_profile_id()`) ou renvoyer la ligne existante
+   si elle est déjà `going`. Idem `accept_event_invitation()` / `accept_invite()` : après un succès
+   dont la réponse est perdue, le renvoi lève « Invitation introuvable ou deja traitee » (message
+   trompeur, aucune donnée perdue). Atténué côté client pour `join_event` (relecture du statut).
+3. **Sites non couverts côté client** (même défaut « doublon après réponse perdue », 1 correctif
+   par site, mieux traités par le n°1) : publications et commentaires de communauté
+   (`CommunitiesTab`), création d'événement, commentaires d'événement, statuts (`addStory`),
+   invitations. Aucune perte de données, un doublon visible au pire.
+- **Fichiers Storage orphelins** : un upload dont la réponse est perdue (objet écrit, jamais
+  référencé) ou un message/post abandonné après un échec incertain laisse un fichier sans ligne
+  (buckets `chat-media`, `post-media`). Pas de nettoyage automatique ; piste : tâche planifiée qui
+  liste `storage.objects` plus anciens que 24 h et sans référence (`messages.media_path`,
+  `post_media.url`) — décision/Edge Function à valider.
+- **Aucun mode hors ligne** : pas de cache applicatif (le service worker ne gère que le push) ; hors
+  ligne l'app montre le bandeau et des erreurs lisibles, mais ne peut rien afficher de nouveau. Un
+  cache « app shell » serait possible mais risqué (un `index.html` périmé référençant des chunks
+  supprimés = écran blanc) : non fait.
+- **`vercel.json`** : la règle `/(.*)` -> `/index.html` sert aussi `/assets/<ancien-hash>.js` (HTML en
+  200, avec l'en-tête `immutable`) au lieu d'un 404. Sans conséquence visible (le rechargement
+  récupère le nouvel `index.html`), mais exclure `/assets/` de la réécriture serait plus propre ;
+  non modifié (impossible à valider hors Vercel).
+- **Canaux Realtime** : `subscribe()` est appelé sans fonction de statut (aucune détection de
+  `CHANNEL_ERROR`/`TIMED_OUT`) ; on compense par les rattrapages ci-dessus. Piste : brancher le
+  statut `SUBSCRIBED` après un `CLOSED` sur le même rattrapage.
