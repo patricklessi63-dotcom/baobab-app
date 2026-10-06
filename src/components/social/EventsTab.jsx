@@ -20,6 +20,7 @@ import { EVENT_REPORT_CATEGORIES } from "../../lib/events/eventConfig";
 import { isHiddenByDeclinedInvite } from "../../lib/events/invitations";
 import { buildEventShareMeta } from "../../lib/events/shareCard";
 import { trackActivation } from "../../lib/trackActivation";
+import { selectInChunks } from "../../lib/inChunks";
 import { friendlyDbError } from "../../lib/friendlyDbError";
 import { escapeLikePattern, escapeOrFilterValue, normalizeForSearch } from "../../lib/searchQuery";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
@@ -320,8 +321,16 @@ export default function EventsTab({ currentUser, onError, onBack = () => {}, ini
       // corrigé à l'audit, même famille que PostsFeed.jsx) : sans eux,
       // EventInviteModal ne peut jamais afficher StatusBadge pour ces
       // candidats.
-      const { data: profilesData } = await supabase.from("profiles").select("id, name, avatar_url, is_founder, is_premium, email_verified, phone_verified").in("id", mutualIds);
-      if (alive) setMyMutualProfiles(profilesData || []);
+      // Audit (6 oct. 2026) : `mutualIds` n'est pas borné (toutes les
+      // connexions mutuelles) ; en une seule requête, l'URL dépasse la limite
+      // de la passerelle dès ~220 connexions et la liste d'invitation/partage
+      // restait vide sans erreur. Lots de 100 ids ; un lot en erreur est
+      // journalisé sans perdre les profils des autres lots.
+      const { data: profilesData, errors: profilesErrors } = await selectInChunks(mutualIds, (lot) =>
+        supabase.from("profiles").select("id, name, avatar_url, is_founder, is_premium, email_verified, phone_verified").in("id", lot)
+      );
+      profilesErrors.forEach((err) => console.error(err));
+      if (alive) setMyMutualProfiles(profilesData);
     })();
     return () => { alive = false; };
   }, [currentUser?.id]);
