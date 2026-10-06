@@ -9,6 +9,7 @@ import { useFocusReturn } from "../hooks/useFocusReturn";
 import { useOnlineStatus } from "../hooks/useOnlineStatus";
 import { primary, navy, coral, bg, muted, buttonBase, body, primaryRgb } from "./social/theme";
 import { NOTIF_CATEGORIES } from "../lib/notificationLabels";
+import { selectInChunks } from "../lib/inChunks";
 import Skeleton from "./Skeleton";
 import NotificationsDropdown from "./social/NotificationsDropdown";
 import ProfileMenu from "./social/ProfileMenu";
@@ -107,6 +108,9 @@ function defaultFeedTab(usageGoals) {
   if (goals.includes("Événements")) return "local";
   return "pourtoi";
 }
+
+// Limite de valeurs d'un filtre Realtime `in` (postgres_changes).
+const REALTIME_IN_LIMIT = 100;
 
 export default function SocialShell({
   currentUser,
@@ -782,17 +786,29 @@ export default function SocialShell({
     if (!currentUser || !matchIdsKey) { setLastByKey({}); setUnreadByKey({}); return; }
     let alive = true;
     const keys = matchIdsKey.split(",").map((id) => matchKey(currentUser.id, id));
-    const fetchPreview = () => supabase
+    // Audit (6 oct. 2026) : une clé de conversation pèse ~73 caractères dans
+    // l'URL, donc un seul `.in("match_key", keys)` dépassait la limite de la
+    // passerelle (8-16 ko) vers ~110 matches (requête refusée, erreur seulement
+    // journalisée : plus d'aperçu ni de non-lus). Lots de 50 clés (~3,8 ko) ;
+    // chaque lot garde `limit(500)`, puis l'union est retriée et plafonnée à
+    // 500 : même résultat que la requête unique d'origine (les 500 messages les
+    // plus récents de toutes les conversations).
+    const fetchPreview = () => selectInChunks(keys, (lot) => supabase
       .from("messages")
       .select("id, match_key, from_id, kind, text, media_path, media_meta, created_at, read_at, deleted_at, deleted_for")
-      .in("match_key", keys)
+      .in("match_key", lot)
       .order("created_at", { ascending: false })
-      .limit(500)
-      .then(({ data, error }) => {
+      .limit(500), { size: 50 })
+      .then(({ data: rows, errors, failedLots }) => {
         if (!alive) return;
-        if (error) { console.error(error.message, error.code, error.details, error.hint); return; }
+        for (const error of errors) console.error(error.message, error.code, error.details, error.hint);
+        // Tous les lots en erreur : on garde l'état précédent (comportement d'origine).
+        if (errors.length > 0 && rows.length === 0 && failedLots.flat().length === keys.length) return;
+        const data = rows
+          .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+          .slice(0, 500);
         const lastMap = {}, unreadMap = {};
-        for (const m of data || []) {
+        for (const m of data) {
           // Un message supprimé "pour moi" (deleted_for) ne doit ni servir
           // d'aperçu dans la liste des conversations, ni compter comme non
           // lu pour moi — avant ce correctif, deleted_for/deleted_at
@@ -805,8 +821,17 @@ export default function SocialShell({
           if (!lastMap[m.match_key]) lastMap[m.match_key] = m;
           if (m.from_id !== currentUser.id && !m.read_at) unreadMap[m.match_key] = (unreadMap[m.match_key] || 0) + 1;
         }
-        setLastByKey(lastMap);
-        setUnreadByKey(unreadMap);
+        if (failedLots.length === 0) {
+          setLastByKey(lastMap);
+          setUnreadByKey(unreadMap);
+        } else {
+          // Échec partiel : ne pas effacer l'aperçu/les non-lus déjà connus des
+          // conversations dont le lot a échoué.
+          const failedKeys = new Set(failedLots.flat());
+          const keepFailed = (prev) => Object.fromEntries(Object.entries(prev).filter(([k]) => failedKeys.has(k)));
+          setLastByKey((prev) => ({ ...lastMap, ...keepFailed(prev) }));
+          setUnreadByKey((prev) => ({ ...unreadMap, ...keepFailed(prev) }));
+        }
       });
     fetchConversationsPreviewRef.current = fetchPreview;
     fetchPreview();
@@ -843,11 +868,18 @@ export default function SocialShell({
   useEffect(() => {
     if (!currentUser || !matchIdsKey) return;
     const keys = new Set(matchIdsKey.split(",").map((id) => matchKey(currentUser.id, id)));
+    // Realtime limite le filtre `in` à 100 valeurs : au-delà, l'abonnement
+    // échouait. Sans filtre serveur, la RLS de "messages" borne déjà la
+    // diffusion aux conversations de l'utilisateur et les gestionnaires
+    // ci-dessous ignorent toute clé hors de `keys` (même principe que le canal
+    // global-messages) : le résultat est identique, seule la sélection se fait
+    // côté client.
+    const messagesKeyFilter = (ks) => (ks.size <= REALTIME_IN_LIMIT ? { filter: `match_key=in.(${[...ks].join(",")})` } : {});
     const channel = supabase
       .channel(`conversations-preview:${currentUser.id}`)
       .on(
         "postgres_changes",
-        { event: "INSERT", schema: "public", table: "messages", filter: `match_key=in.(${[...keys].join(",")})` },
+        { event: "INSERT", schema: "public", table: "messages", ...messagesKeyFilter(keys) },
         (payload) => {
           const mk = payload.new.match_key;
           if (!keys.has(mk)) return;
@@ -862,7 +894,7 @@ export default function SocialShell({
       )
       .on(
         "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "messages", filter: `match_key=in.(${[...keys].join(",")})` },
+        { event: "UPDATE", schema: "public", table: "messages", ...messagesKeyFilter(keys) },
         (payload) => {
           const mk = payload.new.match_key;
           if (!keys.has(mk)) return;
