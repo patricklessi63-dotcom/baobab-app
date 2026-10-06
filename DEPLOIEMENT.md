@@ -1072,7 +1072,8 @@ le sitemap. `PublicPageShell` ajuste désormais le canonical à la page courante
    un serveur qui tronque à 1000 :
    - **Chargement initial** (`lib/initialLoad.js`) : `limit(3200)` sur `profile_photos` ne livrait
      que **1000 photos** (profils au-delà de la 1000e photo, ordre `profile_id`, sans galerie
-     dès ~170 comptes à 6 photos) ; *likes/passes/blocks* du graphe social et liste « Comptes
+     dès ~170 comptes à 6 photos ; puis remplacé par une lecture par lots d'ids des profils
+     chargés, voir plus bas) ; *likes/passes/blocks* du graphe social et liste « Comptes
      bloqués » (**sécurité/vie privée : une liste de blocages tronquée faisait réapparaître des
      utilisateurs bloqués** dans Découverte/matches/conversations, `blockedIds` vient d'ici ;
      seul le filtrage côté client était touché, la RLS serveur sur le contenu restait active).
@@ -1160,12 +1161,19 @@ revisiter si la base grossit. Conséquence = liste/compteur incomplet, **jamais 
   du compte, favoris envoyés (`SocialShell`), `immigration_news_favorites`, signalements
   déposés. Favoris **reçus** (`SocialShell`, compteur « incomingFavoritesCount ») : un profil
   très populaire (> 1000 favoris) verrait ce compteur plafonné à 1000.
-- **Chargement initial** : les 500 profils chargés sont les 500 plus anciens
-  (`created_at`), alors que les photos sont lues par `profile_id` (uuid, ordre sans lien
-  avec l'ancienneté) : au-delà de ~500 comptes, une partie des 500 profils chargés n'a pas
-  sa galerie dans le lot de 3200 photos. Le vrai remède (photos `.in("profile_id", ids)` par
-  lots après les profils, ou pagination serveur de la Découverte) touche la cascade de
-  chargement : hors périmètre, à traiter avec le point « Chargement initial lourd » ci-dessus.
+- **Chargement initial — photos : CORRIGÉ** (auparavant : les 500 profils chargés sont les 500
+  plus anciens par `created_at`, les photos étaient lues par `profile_id` (uuid, ordre sans
+  lien) avec une borne de 3200 : au-delà de ~500 comptes, des profils chargés n'avaient pas
+  leur galerie et des photos de profils non chargés occupaient la borne). Maintenant
+  `lib/initialLoad.js` lit les photos APRÈS les profils, `.in("profile_id", ids)` par lots de
+  100 (`selectInChunks`, concurrence 5 = les 500 profils en une vague de 5 requêtes ; un lot =
+  au plus 100 x 6 = 600 lignes < 1000, `selectAllPages` en filet), le propre profil étant
+  ajouté aux ids (sa galerie sert à l'édition). Le graphe social ne les attend pas (il part dès
+  que le propre profil répond). Erreur : un lot en échec = échec du chargement, comme avant
+  (jamais une galerie partielle). Cascade : de `max(profils, 4 pages de photos en série)` à
+  `profils -> 1 vague de 5 requêtes` ; 5-6 requêtes de photos au lieu de 4, mais plus
+  petites. Reste hors périmètre : au-delà de 500 comptes, les profils eux-mêmes (les 500
+  plus anciens) ne couvrent pas tous les comptes (pagination serveur de la Découverte).
 - **RPC** : `get_my_likers()` renvoie un seul jsonb (non concerné par `max_rows`) ;
   `nearby_profiles` (`limit 100`) et les listes admin (`limit 200`) sont bornées côté SQL.
   Au-delà de 200 signalements/retours ouverts, la file d'administration n'en montre que 200.

@@ -355,10 +355,10 @@ export default function App() {
 
   const loadAll = useCallback(async () => {
     try {
-      // Voir lib/initialLoad.js (fetchInitialData) : le propre profil, les 500
-      // profils, les 3200 photos puis le graphe social sont chargés en
-      // parallèle, le graphe social partant dès que l'id du profil courant est
-      // connu — sans attendre les 2 grosses requêtes. getSession() est relu là-
+      // Voir lib/initialLoad.js (fetchInitialData) : le propre profil et les 500
+      // profils partent en parallèle (leurs photos, par lots d'ids, juste après les
+      // profils), le graphe social partant dès que l'id du profil courant est
+      // connu — sans attendre les profils ni les photos. getSession() est relu là-
       // bas (plutôt que de fermer sur le state "session" du composant) car
       // loadAll a des deps [] pour rester une référence stable — fermer sur
       // "session" produirait un closure figé sur sa toute première valeur.

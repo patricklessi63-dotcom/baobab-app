@@ -18,7 +18,7 @@ function makeFakeClient({ authUserId = "auth-1" } = {}) {
   }
   function makeBuilder(key) {
     const b = {};
-    ["select", "order", "limit", "eq", "range"].forEach((m) => { b[m] = () => b; });
+    ["select", "order", "limit", "eq", "range", "in"].forEach((m) => { b[m] = () => b; });
     b.or = (f) => { filters[key] = f; return b; };
     const start = () => {
       if (!started.includes(key)) started.push(key);
@@ -48,7 +48,7 @@ function makeFakeClient({ authUserId = "auth-1" } = {}) {
   };
   function rekey(key) {
     const nb = makeBuilder(key);
-    ["select", "order", "limit", "eq", "range"].forEach((m) => { nb[m] = () => nb; });
+    ["select", "order", "limit", "eq", "range", "in"].forEach((m) => { nb[m] = () => nb; });
     nb.or = (f) => { filters[key] = f; return nb; };
     nb.maybeSingle = () => nb;
     return nb;
@@ -64,13 +64,15 @@ function makeFakeClient({ authUserId = "auth-1" } = {}) {
 const ok = (data) => ({ data, error: null });
 
 describe("fetchInitialData — pas de cascade profils -> graphe social -> propre profil", () => {
-  it("le graphe social part dès que le propre profil répond, SANS attendre les 500 profils ni les 3200 photos", async () => {
+  it("le graphe social part dès que le propre profil répond, SANS attendre les 500 profils ni leurs photos", async () => {
     const fake = makeFakeClient();
     const promise = fetchInitialData(fake.client);
 
-    // Les 3 requêtes de la phase 1 partent ensemble.
+    // Phase 1 : profils et propre profil partent ensemble. Les photos dépendent
+    // des profils (.in("profile_id", ids)) : elles ne partent qu'ensuite.
     await new Promise((r) => setTimeout(r, 0));
-    expect(fake.started).toEqual(expect.arrayContaining(["profiles:list", "profile_photos", "profiles:own"]));
+    expect(fake.started).toEqual(expect.arrayContaining(["profiles:list", "profiles:own"]));
+    expect(fake.started).not.toContain("profile_photos");
     expect(fake.started).not.toContain("likes"); // id du profil pas encore connu
 
     // Seul le propre profil répond : les 2 grosses requêtes sont toujours en vol.
@@ -79,8 +81,10 @@ describe("fetchInitialData — pas de cascade profils -> graphe social -> propre
     expect(fake.started).toEqual(expect.arrayContaining(["likes", "passes", "blocks:list", "rpc:get_my_likers", "blocks:withProfile"]));
     expect(fake.filters.likes).toBe("from_id.eq.me-1,to_id.eq.me-1");
 
-    // Fin du chargement : tout est renvoyé.
+    // Fin du chargement : les profils répondent, les photos de CES profils partent, tout est renvoyé.
     fake.resolve("profiles:list", ok([{ id: "p1" }]));
+    await new Promise((r) => setTimeout(r, 0));
+    expect(fake.started).toContain("profile_photos");
     fake.resolve("profile_photos", ok([]));
     fake.resolve("likes", ok([{ from_id: "me-1", to_id: "p1" }]));
     fake.resolve("passes", ok([]));
@@ -199,7 +203,7 @@ function makeScriptedClient(ownResponses) {
   const calls = { own: 0, likesFilters: [], started: [] };
   const builder = (table, opts = {}) => {
     const b = {};
-    ["select", "order", "limit", "eq", "range"].forEach((m) => { b[m] = () => b; });
+    ["select", "order", "limit", "eq", "range", "in"].forEach((m) => { b[m] = () => b; });
     b.or = (f) => { if (table === "likes") calls.likesFilters.push(f); return b; };
     b.maybeSingle = () => { opts.own = true; return b; };
     b.then = (res, rej) => {
@@ -247,11 +251,12 @@ describe("fetchInitialData — échec ponctuel du propre profil (régression de 
 function makeCappedClient(data, { authUserId = "auth-1" } = {}) {
   const requests = [];
   function builder(table) {
-    const state = { table, order: [], range: null, selectCols: "", own: false, limit: null };
+    const state = { table, order: [], range: null, selectCols: "", own: false, limit: null, inFilter: null };
     const b = {};
     b.select = (cols) => { state.selectCols = cols || ""; return b; };
     b.eq = () => b;
     b.or = () => b;
+    b.in = (col, ids) => { state.inFilter = [col, ids]; return b; };
     b.order = (col) => { state.order.push(col); return b; };
     b.limit = (n) => { state.limit = n; return b; };
     b.range = (from, to) => { state.range = [from, to]; return b; };
@@ -260,7 +265,18 @@ function makeCappedClient(data, { authUserId = "auth-1" } = {}) {
       requests.push(state);
       const key = table === "blocks" && state.selectCols.includes("profile:to_id") ? "blocks:withProfile" : table;
       if (state.own) return Promise.resolve({ data: data.ownProfile, error: null }).then(res, rej);
-      const all = data[key] || [];
+      let all = data[key] || [];
+      // Comme PostgREST : filtre .in() puis tri .order() AVANT range/limit.
+      if (state.inFilter) all = all.filter((r) => state.inFilter[1].includes(r[state.inFilter[0]]));
+      if (state.order.length) {
+        all = [...all].sort((x, y) => {
+          for (const c of state.order) {
+            if (x[c] < y[c]) return -1;
+            if (x[c] > y[c]) return 1;
+          }
+          return 0;
+        });
+      }
       let rows;
       if (state.range) rows = all.slice(state.range[0], state.range[1] + 1);
       else rows = all.slice(0, state.limit ?? all.length);
@@ -281,25 +297,112 @@ function makeCappedClient(data, { authUserId = "auth-1" } = {}) {
 const rows = (n, make) => Array.from({ length: n }, (_, i) => make(i));
 
 describe("plafond PostgREST de 1000 lignes — chargement initial", () => {
-  it("photos : 2500 lignes côté serveur, toutes récupérées (sans pagination, seules 1000 arrivaient)", async () => {
-    const photos = rows(2500, (i) => ({ id: `ph-${i}`, profile_id: `p-${Math.floor(i / 6)}`, position: i % 6 }));
-    const fake = makeCappedClient({ ownProfile: { id: "me-1" }, profiles: [], profile_photos: photos });
+  // Les photos sont lues APRÈS les profils, par lots d'ids de CES profils
+  // (avant : lecture globale dans l'ordre de profile_id, bornée à 3200, sans lien
+  // avec les 500 profils chargés — ordre des profils = created_at, pas profile_id).
+  const loadedProfiles = rows(500, (i) => ({ id: `p-${String(i).padStart(3, "0")}` }));
+  const photosOf = (profileId, n, prefix = "ph") => rows(n, (k) => ({ id: `${prefix}-${profileId}-${k}`, profile_id: profileId, position: k }));
+
+  it("500 profils / 2500 photos dont l'ordre de profile_id diffère de celui des profils : toutes les galeries des profils chargés arrivent, aucune photo de profil non chargé", async () => {
+    // 400 comptes NON chargés (créés après les 500 plus anciens) dont le profile_id
+    // se trie AVANT ceux des profils chargés : l'ancienne lecture globale (ordre
+    // profile_id, borne 3200) leur donnait les 2400 premières places.
+    const others = rows(400, (i) => `a-${String(i).padStart(3, "0")}`).flatMap((id) => photosOf(id, 6));
+    const mine = loadedProfiles.flatMap((p) => photosOf(p.id, 5));
+    const fake = makeCappedClient({ ownProfile: { id: "me-1" }, profiles: loadedProfiles, profile_photos: [...mine, ...others] });
     const { photoRes } = await fetchInitialData(fake.client);
     expect(photoRes.error).toBeNull();
     expect(photoRes.data).toHaveLength(2500);
-    expect(new Set(photoRes.data.map((p) => p.id)).size).toBe(2500);
-    const photoReqs = fake.requests.filter((r) => r.table === "profile_photos");
-    // tri déterministe complet (profile_id, position, id) à chaque page
-    photoReqs.forEach((r) => expect(r.order).toEqual(["profile_id", "position", "id"]));
+    expect(photoRes.data.every((ph) => ph.profile_id.startsWith("p-"))).toBe(true);
+    const perProfile = {};
+    photoRes.data.forEach((ph) => { perProfile[ph.profile_id] = (perProfile[ph.profile_id] || 0) + 1; });
+    expect(Object.keys(perProfile)).toHaveLength(500);
+    expect(Object.values(perProfile).every((n) => n === 5)).toBe(true);
+    // positions croissantes à l'intérieur de chaque galerie (ordre de lecture conservé)
+    const first = photoRes.data.filter((ph) => ph.profile_id === "p-000").map((ph) => ph.position);
+    expect(first).toEqual([0, 1, 2, 3, 4]);
   });
 
-  it("photos : la borne volontaire de 3200 lignes est conservée (pas de 4e page entière)", async () => {
-    const photos = rows(5000, (i) => ({ id: `ph-${i}`, profile_id: `p-${Math.floor(i / 6)}`, position: i % 6 }));
-    const fake = makeCappedClient({ ownProfile: { id: "me-1" }, profiles: [], profile_photos: photos });
+  it("lots de 100 ids : 500 profils = 5 requêtes d'au plus 100 ids, une page chacune (600 lignes max < 1000)", async () => {
+    const mine = loadedProfiles.flatMap((p) => photosOf(p.id, 6));
+    const fake = makeCappedClient({ ownProfile: { id: "me-1" }, profiles: loadedProfiles, profile_photos: mine });
     const { photoRes } = await fetchInitialData(fake.client);
-    expect(photoRes.data).toHaveLength(3200);
-    const ranges = fake.requests.filter((r) => r.table === "profile_photos").map((r) => r.range);
-    expect(ranges).toEqual([[0, 999], [1000, 1999], [2000, 2999], [3000, 3199]]);
+    expect(photoRes.data).toHaveLength(3000); // 3000 lignes au total, aucune troncature (chaque lot < 1000)
+    const reqs = fake.requests.filter((r) => r.table === "profile_photos");
+    // 500 profils + le propre profil (absent des 500) = 501 ids -> 6 lots
+    expect(reqs).toHaveLength(6);
+    reqs.forEach((r) => {
+      expect(r.inFilter[0]).toBe("profile_id");
+      expect(r.inFilter[1].length).toBeLessThanOrEqual(100);
+      expect(r.range).toEqual([0, 999]);
+      expect(r.order).toEqual(["profile_id", "position", "id"]);
+    });
+    expect(new Set(reqs.flatMap((r) => r.inFilter[1])).size).toBe(501);
+  });
+
+  it("le propre profil (au-delà des 500 plus anciens) a quand même sa galerie", async () => {
+    const mine = loadedProfiles.flatMap((p) => photosOf(p.id, 1));
+    const fake = makeCappedClient({ ownProfile: { id: "me-1" }, profiles: loadedProfiles, profile_photos: [...mine, ...photosOf("me-1", 4)] });
+    const { photoRes } = await fetchInitialData(fake.client);
+    expect(photoRes.data.filter((ph) => ph.profile_id === "me-1")).toHaveLength(4);
+  });
+
+  it("un lot qui déborde 1000 lignes est paginé (galerie plus longue que prévu : aucune troncature silencieuse)", async () => {
+    const big = rows(1500, (k) => ({ id: `ph-${String(k).padStart(4, "0")}`, profile_id: "p-000", position: k }));
+    const fake = makeCappedClient({ ownProfile: { id: "me-1" }, profiles: [{ id: "p-000" }], profile_photos: big });
+    const { photoRes } = await fetchInitialData(fake.client);
+    expect(photoRes.data).toHaveLength(1500);
+    expect(fake.requests.filter((r) => r.table === "profile_photos").map((r) => r.range)).toEqual(
+      expect.arrayContaining([[0, 999], [1000, 1999]])
+    );
+  });
+
+  it("erreur sur UN lot de photos : photoRes.error (échec du chargement comme avant), jamais une galerie partielle", async () => {
+    const fake = makeCappedClient({ ownProfile: { id: "me-1" }, profiles: loadedProfiles, profile_photos: loadedProfiles.flatMap((p) => photosOf(p.id, 2)) });
+    const realFrom = fake.client.from;
+    let photoCalls = 0;
+    fake.client.from = (table) => {
+      const b = realFrom(table);
+      if (table !== "profile_photos") return b;
+      const realThen = b.then;
+      b.then = (res, rej) => (++photoCalls === 3 ? Promise.resolve({ data: null, error: { message: "boom" } }).then(res, rej) : realThen(res, rej));
+      return b;
+    };
+    const { photoRes } = await fetchInitialData(fake.client);
+    expect(photoRes.error.message).toBe("boom");
+    expect(photoRes.data).toBeNull();
+  });
+
+  it("profils en erreur : aucune requête de photos, l'erreur des profils est relayée (loadAll lève dessus)", async () => {
+    const fake = makeCappedClient({ ownProfile: { id: "me-1" }, profiles: loadedProfiles, profile_photos: [] });
+    const realFrom = fake.client.from;
+    fake.client.from = (table) => {
+      const b = realFrom(table);
+      if (table === "profiles") {
+        const realThen = b.then;
+        b.then = (res, rej) => (b.__own ? realThen(res, rej) : Promise.resolve({ data: null, error: { message: "profils KO" } }).then(res, rej));
+        const realMaybe = b.maybeSingle;
+        b.maybeSingle = () => { b.__own = true; return realMaybe(); };
+      }
+      return b;
+    };
+    const { profRes, photoRes } = await fetchInitialData(fake.client);
+    expect(profRes.error.message).toBe("profils KO");
+    expect(photoRes.error.message).toBe("profils KO");
+    expect(fake.requests.filter((r) => r.table === "profile_photos")).toHaveLength(0);
+  });
+
+  it("le graphe social ne dépend PAS des photos : il part et se termine pendant que les profils/photos sont encore en vol", async () => {
+    const fake = makeFakeClient();
+    const promise = fetchInitialData(fake.client);
+    fake.resolve("profiles:own", ok({ id: "me-1", user_id: "auth-1" }));
+    ["likes", "passes", "blocks:list", "rpc:get_my_likers", "blocks:withProfile"].forEach((k) => fake.resolve(k, ok([])));
+    await new Promise((r) => setTimeout(r, 0));
+    expect(fake.started).toEqual(expect.arrayContaining(["likes", "passes", "blocks:list", "blocks:withProfile"]));
+    expect(fake.started).not.toContain("profile_photos"); // profils pas encore revenus
+    fake.resolve("profiles:list", ok([{ id: "p1" }]));
+    fake.resolve("profile_photos", ok([]));
+    await promise;
   });
 
   it("graphe social : 2300 likes / 1100 passes / 1700 blocages (dont la liste « Comptes bloqués ») tous récupérés", async () => {

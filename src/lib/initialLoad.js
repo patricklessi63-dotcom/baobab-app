@@ -1,5 +1,5 @@
 import { OTHER_PROFILE_COLUMNS } from "./otherProfileColumns";
-import { selectAllPages } from "./inChunks";
+import { selectAllPages, selectInChunks } from "./inChunks";
 
 // Requêtes du chargement initial d'une session (App.jsx, loadAll) — extraites
 // dans ce module, avec le client Supabase passé en paramètre, pour pouvoir
@@ -53,8 +53,8 @@ export async function fetchSocialGraph(client, myProfileId) {
   return { likeRes, passRes, blockRes, likerRes, blockedProfRes };
 }
 
-// Chargement initial : profils des autres (500) + photos (3200) + propre profil
-// + graphe social.
+// Chargement initial : profils des autres (500) + photos de ces profils (lots de
+// 100 ids, lues après les profils) + propre profil + graphe social.
 //
 // Audit performance (6 oct. 2026) — cascade évitée. Avant : phase 1 (profils 500
 // + photos 3200, les deux requêtes les plus lourdes de l'app) PUIS phase 2
@@ -71,6 +71,11 @@ export async function fetchSocialGraph(client, myProfileId) {
 // App.jsx supprime la requête dédiée. Le coût réseau total ne change pas, et
 // disparaît même pour les comptes au-delà des 500 premiers (plus de requête de
 // repli).
+// Photos (correctif ultérieur) : elles dépendent maintenant des ids des profils
+// chargés, donc partent APRÈS la réponse des profils (5 lots de 100 ids en UNE
+// vague parallèle, 1 page chacune). Chemin critique de la partie lourde :
+// [profils -> 1 vague de lots] au lieu de max(profils, 4 pages de photos en série
+// depuis la pagination par .range) ; le graphe social ne les attend pas.
 // Propre profil complet (select "*"), avec UN nouvel essai en cas d'erreur.
 // Avant f8c7b53, un échec ponctuel de cette requête n'aboutissait qu'à l'écran
 // "profile-load-error" (bouton Réessayer) sans toucher aux données déjà
@@ -90,8 +95,42 @@ function skippedSocialGraph(error) {
   return { likeRes: res(), passRes: res(), blockRes: res(), likerRes: res(), blockedProfRes: res() };
 }
 
-// Borne volontaire du chargement initial des photos (voir fetchInitialData).
-export const PHOTOS_LIMIT = 3200;
+// Photos de galerie du chargement initial : lues APRÈS les profils (voir
+// fetchInitialData), par lots d'ids de ces profils. Lot de 100 : 100 profils x
+// MAX_PHOTOS (6) = 600 lignes < 1000 (plafond PostgREST), donc une seule page
+// par lot ; selectAllPages ne pagine qu'en cas de débordement. Concurrence 5 :
+// les 500 profils (5 lots) partent en UNE vague.
+export const PHOTOS_LOT_SIZE = 100;
+const PHOTOS_CONCURRENCY = 5;
+
+async function fetchPhotosForProfiles(client, profRes, ownRes) {
+  // Échec des profils : loadAll lève sur profRes.error avant de lire les photos.
+  if (profRes?.error) return { data: null, error: profRes.error };
+  // Ids des profils effectivement chargés + propre profil (absent des 500 plus
+  // anciens pour un compte récent ; sa galerie sert à l'édition du profil).
+  // Une erreur du propre profil est ignorée ici (loadAll la traite à part).
+  const ids = new Set((profRes?.data || []).map((p) => p.id).filter(Boolean));
+  const ownId = ownRes && !ownRes.error ? ownRes.data?.id : null;
+  if (ownId) ids.add(ownId);
+  const { data, errors } = await selectInChunks(
+    [...ids],
+    (lot) =>
+      selectAllPages((from, to) =>
+        client
+          .from("profile_photos")
+          .select("*")
+          .in("profile_id", lot)
+          .order("profile_id", { ascending: true })
+          .order("position", { ascending: true })
+          .order("id", { ascending: true })
+          .range(from, to)
+      ),
+    { size: PHOTOS_LOT_SIZE, concurrency: PHOTOS_CONCURRENCY }
+  );
+  // Comme avant : un lot en échec = échec du chargement (jamais une galerie partielle).
+  if (errors.length) return { data: null, error: errors[0] };
+  return { data, error: null };
+}
 
 export async function fetchInitialData(client) {
   const sessionRes = await client.auth.getSession();
@@ -107,29 +146,16 @@ export async function fetchInitialData(client) {
   // profils des AUTRES utilisateurs (Découverte, tri de compatibilité), jamais
   // le sien propre.
   const profilesQuery = client.from("profiles").select(OTHER_PROFILE_COLUMNS).order("created_at", { ascending: true }).limit(500);
-  // Plafonné pour la même raison que "profiles". Trié par profile_id d'abord :
-  // 500 profils × MAX_PHOTOS(6) = 3000 au maximum théorique, donc une
-  // troncature reste possible en bordure — trier uniquement par "position"
-  // rendrait alors la coupe arbitraire (un sous-ensemble différent de photos à
-  // chaque reload) ; trier par profile_id la rend déterministe.
-  // PLAFOND PostgREST : `limit(3200)` ne suffit pas, max_rows (1000 par défaut
-  // sur Supabase, aucun supabase/config.toml dans ce dépôt) tronque la réponse
-  // à 1000 lignes sans erreur — dès ~170 comptes avec 6 photos, les profils
-  // au-delà de la 1000e photo (ordre profile_id) s'affichaient sans photo de
-  // galerie. Pagination `.range()` jusqu'à PHOTOS_LIMIT lignes ; "id" en
-  // dernier critère de tri (profile_id/position ne sont pas uniques ensemble)
-  // pour que les pages ne se chevauchent ni ne laissent de trou.
-  const photosQuery = selectAllPages((from, to) =>
-    client
-      .from("profile_photos")
-      .select("*")
-      .order("profile_id", { ascending: true })
-      .order("position", { ascending: true })
-      .order("id", { ascending: true })
-      .range(from, Math.min(to, PHOTOS_LIMIT - 1))
-  );
+  // Photos : lues APRÈS les profils, avec .in("profile_id", ids de CES profils)
+  // par lots (fetchPhotosForProfiles). Avant, lecture globale dans l'ordre de
+  // profile_id avec une borne de 3200 lignes, sans lien avec les 500 profils
+  // chargés (les plus anciens par created_at) : au-delà de ~500 comptes, des
+  // profils chargés n'avaient pas leur galerie et des photos de profils non
+  // chargés occupaient la borne. Seules les photos dépendent des profils : le
+  // graphe social, lui, ne les attend pas (voir plus bas).
   // Propre profil complet (select "*") : même requête que l'effet
   // "checking-profile" d'App.jsx, qui réutilise ce résultat.
+  const profPromise = Promise.resolve(profilesQuery);
   const ownPromise = authUserId ? fetchOwnProfile(client, authUserId) : Promise.resolve({ data: null, error: null });
   // likes/passes/blocks n'étaient filtrés par personne (audit complémentaire
   // post-palette) : ces 3 tables croissent indéfiniment avec l'activité de TOUS
@@ -142,7 +168,9 @@ export async function fetchInitialData(client) {
   // résultat que loadAll() jette de toute façon (ownRes.error => échec).
   const graphPromise = ownPromise.then((ownRes) => (ownRes?.error ? skippedSocialGraph(ownRes.error) : fetchSocialGraph(client, ownRes?.data?.id || null)));
 
-  const [profRes, photoRes, ownRes, graph] = await Promise.all([profilesQuery, photosQuery, ownPromise, graphPromise]);
+  const photosPromise = Promise.all([profPromise, ownPromise]).then(([profRes, ownRes]) => fetchPhotosForProfiles(client, profRes, ownRes));
+
+  const [profRes, photoRes, ownRes, graph] = await Promise.all([profPromise, photosPromise, ownPromise, graphPromise]);
   return { authUserId, profRes, photoRes, ownRes, ...graph };
 }
 
