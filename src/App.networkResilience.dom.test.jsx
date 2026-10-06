@@ -79,6 +79,7 @@ vi.mock("./supabaseClient", () => {
 });
 
 import App from "./App";
+import { supabase } from "./supabaseClient";
 
 const ME = "profile-me";
 const OTHER = "profile-other";
@@ -93,6 +94,7 @@ function makeDb() {
     ownProfileError: null, // erreur renvoyée par select("*") du propre profil
     insertMode: "ok", // ok | lost-response | never-sent
     messageReadsFail: false,
+    anonymousReads: false,
     insertCalls: 0,
     messageSelectCalls: 0,
     ownProfileCalls: 0,
@@ -116,6 +118,8 @@ function makeDb() {
       if (ctx.table === "messages" && ctx.op === "select") {
         state.messageSelectCalls += 1;
         if (state.messageReadsFail) return { data: null, error: netErr };
+        // Lecture ANONYME (jeton expiré non rafraîchi) : RLS ne renvoie pas d'erreur, une liste vide.
+        if (state.anonymousReads) return { data: [], error: null };
         const rows = state.messages.filter((r) => ctx.filters.every((f) => f(r)));
         return { data: rows.slice().reverse(), error: null };
       }
@@ -304,5 +308,38 @@ describe("App — reprise après une longue mise en veille (sans évènement onl
     act(() => { visibility = "visible"; document.dispatchEvent(new Event("visibilitychange")); });
     await waitFor(() => expect(screen.getAllByTestId("msg")).toHaveLength(1));
     expect(screen.getByText("tu es là ?")).toBeInTheDocument();
+  });
+});
+
+describe("App — jeton expiré non rafraîchi au réveil (lecture anonyme = liste vide sous RLS)", () => {
+  it("la reprise après veille ne vide PAS la conversation quand la session n'est pas récupérable", async () => {
+    await mountAndOpenChat();
+    await typeAndSend("salut");
+    await waitFor(() => expect(screen.getByTestId("msg")).toHaveAttribute("data-status", "ok"));
+
+    // Au réveil : rafraîchissement du jeton impossible -> session nulle, requêtes anonymes.
+    supabase.auth.getSession.mockImplementation(() => Promise.resolve({ data: { session: null }, error: { message: "Failed to fetch" } }));
+    mocks.db.anonymousReads = true;
+    const readsBefore = mocks.db.messageSelectCalls;
+    act(() => { visibility = "hidden"; document.dispatchEvent(new Event("visibilitychange")); });
+    now += 3 * 60_000;
+    act(() => { visibility = "visible"; document.dispatchEvent(new Event("visibilitychange")); });
+    await act(async () => { await new Promise((r) => setTimeout(r, 80)); });
+    expect(mocks.db.messageSelectCalls).toBe(readsBefore); // aucun rattrapage tenté sans session
+    expect(screen.getAllByTestId("msg")).toHaveLength(1); // la conversation reste affichée
+  });
+
+  it("retour en ligne sans session récupérable : même garde, aucun renvoi en anonyme ni rechargement vide", async () => {
+    await mountAndOpenChat();
+    await typeAndSend("salut");
+    await waitFor(() => expect(screen.getByTestId("msg")).toHaveAttribute("data-status", "ok"));
+    setOnLine(false);
+    supabase.auth.getSession.mockImplementation(() => Promise.resolve({ data: { session: null }, error: { message: "Failed to fetch" } }));
+    mocks.db.anonymousReads = true;
+    const readsBefore = mocks.db.messageSelectCalls;
+    setOnLine(true);
+    await act(async () => { await new Promise((r) => setTimeout(r, 80)); });
+    expect(mocks.db.messageSelectCalls).toBe(readsBefore);
+    expect(screen.getAllByTestId("msg")).toHaveLength(1);
   });
 });

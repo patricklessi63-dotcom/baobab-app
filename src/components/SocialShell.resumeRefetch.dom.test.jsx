@@ -11,7 +11,7 @@ import { render, screen, act, waitFor } from "@testing-library/react";
 // puis simule le retour de visibilité après > 60 s : l'aperçu/badge de
 // non-lus doit se mettre à jour et la liste des notifications être relue sans rechargement.
 
-const mocks = vi.hoisted(() => ({ fromMock: vi.fn() }));
+const mocks = vi.hoisted(() => ({ fromMock: vi.fn(), getSession: vi.fn() }));
 
 const ME = "me-0000-4000-8000-000000000000";
 const OTHER = "00000000-0000-4000-8000-000000000001";
@@ -39,6 +39,7 @@ function makeBuilder(getResult) {
 
 vi.mock("./../supabaseClient", () => ({
   supabase: {
+    auth: { getSession: (...args) => mocks.getSession(...args) },
     from: mocks.fromMock,
     channel: vi.fn(() => {
       const ch = {};
@@ -63,6 +64,7 @@ function setVisibility(state) {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.getSession.mockImplementation(() => Promise.resolve({ data: { session: { access_token: "x" } } }));
   server.messages = [];
   server.notifications = [];
   messageReads = 0;
@@ -130,5 +132,25 @@ describe("SocialShell — rattrapage après reprise d'un onglet/téléphone en v
     await act(async () => { await new Promise((r) => setTimeout(r, 60)); });
     expect(messageReads).toBe(m);
     expect(notificationReads).toBe(n);
+  });
+});
+
+describe("SocialShell — réveil avec jeton expiré impossible à rafraîchir", () => {
+  it("aucun rattrapage en lecture anonyme (qui renverrait des listes vides et effacerait aperçus/badges)", async () => {
+    server.messages = [{
+      id: 1, match_key: KEY, from_id: OTHER, kind: "text", text: "Coucou", media_path: null, media_meta: null,
+      created_at: new Date().toISOString(), read_at: null, deleted_at: null, deleted_for: [],
+    }];
+    renderShell();
+    await screen.findByRole("button", { name: /Notifications \(1 non lus\)/ });
+    mocks.getSession.mockImplementation(() => Promise.resolve({ data: { session: null }, error: { message: "Failed to fetch" } }));
+    server.messages = []; // ce que renverrait une lecture anonyme sous RLS
+    const m = messageReads;
+    act(() => setVisibility("hidden"));
+    now += 5 * 60_000;
+    act(() => setVisibility("visible"));
+    await act(async () => { await new Promise((r) => setTimeout(r, 60)); });
+    expect(messageReads).toBe(m);
+    expect(screen.getByRole("button", { name: /Notifications \(1 non lus\)/ })).toBeInTheDocument();
   });
 });

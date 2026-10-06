@@ -32,6 +32,7 @@ import LandingPage from "./screens/public/LandingPage";
 import LocationRequiredGate from "./components/LocationRequiredGate";
 import { useOnlineStatus } from "./hooks/useOnlineStatus";
 import { useResumeTick } from "./hooks/useResumeTick";
+import { hasUsableSession } from "./lib/sessionGuard";
 import { OTHER_PROFILE_COLUMNS } from "./lib/otherProfileColumns";
 import { buildOlderMessagesFilter } from "./lib/messagesPagination";
 import { startHeartbeatInterval } from "./lib/presenceHeartbeat";
@@ -2830,6 +2831,10 @@ export default function App() {
     if (!wasOfflineRef.current) return; // pas une vraie reconnexion (ex. montage initial)
     wasOfflineRef.current = false;
     let alive = true;
+    // Session utilisable ? (voir lib/sessionGuard.js) : si le jeton expiré n'a pas
+    // pu être rafraîchi, les requêtes partiraient en anonyme (listes VIDES sous RLS,
+    // refus d'insertion) — on saute ce rattrapage, le suivant réessaiera.
+    const sessionReady = hasUsableSession(supabase);
     // _premiumBlocked exclu : un retour de wifi ne change ni la limite
     // gratuite ni le statut Premium, donc relancer ces envois-là échouerait
     // à l'identique (et re-uploaderait un média en pure perte) — voir le
@@ -2850,6 +2855,7 @@ export default function App() {
     // plus bas et se traduisent par un nouveau "_status: failed" — donc
     // l'échec d'un renvoi n'empêche pas d'enchaîner sur le suivant).
     (async () => {
+      if (!(await sessionReady) || !alive) return;
       for (const msg of failed) {
         // try/catch défensif : retrySend()/sendMediaMessage() interceptent
         // déjà leurs erreurs d'envoi, mais une étape non protégée en amont
@@ -2864,6 +2870,8 @@ export default function App() {
         }
       }
     })();
+    sessionReady.then((ok) => {
+    if (!ok || !alive) return;
     if (activeMatchRef.current) refreshMessages(activeMatchRef.current, { silent: true });
     // Bug corrigé (même famille que e7a7cdd/16d03ee/4fd74c8) : si le
     // chargement initial (loadAll — candidates, matches/likes/passes/
@@ -2879,6 +2887,7 @@ export default function App() {
     } else {
       resyncSocialGraph(() => alive);
     }
+    });
     return () => { alive = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOnline]);
@@ -2898,9 +2907,12 @@ export default function App() {
     if (!session || !currentUserRef.current) return;
     if (typeof navigator !== "undefined" && navigator.onLine === false) return; // l'évènement online prendra le relais
     let alive = true;
-    if (activeMatchRef.current) refreshMessages(activeMatchRef.current, { silent: true });
-    if (loadAllFailedRef.current) loadAll();
-    else resyncSocialGraph(() => alive);
+    hasUsableSession(supabase).then((ok) => {
+      if (!ok || !alive) return;
+      if (activeMatchRef.current) refreshMessages(activeMatchRef.current, { silent: true });
+      if (loadAllFailedRef.current) loadAll();
+      else resyncSocialGraph(() => alive);
+    });
     return () => { alive = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resumeTick]);

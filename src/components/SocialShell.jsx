@@ -8,6 +8,7 @@ import { useEscapeKey, pushBackEntry } from "../hooks/useEscapeKey";
 import { useFocusReturn } from "../hooks/useFocusReturn";
 import { useOnlineStatus } from "../hooks/useOnlineStatus";
 import { useResumeTick } from "../hooks/useResumeTick";
+import { hasUsableSession } from "../lib/sessionGuard";
 import { primary, navy, coral, bg, muted, buttonBase, body, primaryRgb } from "./social/theme";
 import { NOTIF_CATEGORIES } from "../lib/notificationLabels";
 import { selectInChunks } from "../lib/inChunks";
@@ -860,7 +861,9 @@ export default function SocialShell({
     }
     if (!wasOfflineRef.current) return; // pas une vraie reconnexion (ex. montage initial)
     wasOfflineRef.current = false;
-    fetchConversationsPreviewRef.current?.();
+    // Session utilisable d'abord (lib/sessionGuard.js) : un jeton expiré non
+    // rafraîchi ferait lire en anonyme (liste vide) et effacerait aperçus/badges.
+    hasUsableSession(supabase).then((ok) => { if (ok) fetchConversationsPreviewRef.current?.(); });
   }, [isOnline]);
 
   // Corrige un bug d'incohérence signalé par l'utilisateur : l'effet
@@ -1195,7 +1198,7 @@ export default function SocialShell({
     }
     if (!notificationsWasOfflineRef.current) return; // pas une vraie reconnexion (ex. montage initial)
     notificationsWasOfflineRef.current = false;
-    fetchNotificationsRef.current?.();
+    hasUsableSession(supabase).then((ok) => { if (ok) fetchNotificationsRef.current?.(); });
   }, [isOnline]);
 
   // Reprise après une longue mise en veille / un long passage en arrière-plan
@@ -1207,8 +1210,11 @@ export default function SocialShell({
   useEffect(() => {
     if (resumeTick === 0) return;
     if (typeof navigator !== "undefined" && navigator.onLine === false) return; // l'évènement online prendra le relais
-    fetchConversationsPreviewRef.current?.();
-    fetchNotificationsRef.current?.();
+    hasUsableSession(supabase).then((ok) => {
+      if (!ok) return;
+      fetchConversationsPreviewRef.current?.();
+      fetchNotificationsRef.current?.();
+    });
   }, [resumeTick]);
 
   // Les badges partagent le même compteur brut/mécanisme de remise à zéro
