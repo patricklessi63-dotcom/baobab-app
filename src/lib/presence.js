@@ -1,5 +1,5 @@
 // Dérive si un profil est RÉELLEMENT en ligne, à partir de is_online +
-// last_seen (App.jsx tient ces deux colonnes via un heartbeat de 30s tant
+// last_seen (App.jsx tient ces deux colonnes via un heartbeat de 60s (HEARTBEAT_INTERVAL_MS) tant
 // que l'onglet est visible, et les remet à false au moment où l'onglet
 // passe en arrière-plan/se ferme normalement — voir l'effet "Présence en
 // ligne" dans App.jsx).

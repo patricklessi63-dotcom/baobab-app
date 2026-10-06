@@ -51,3 +51,20 @@ describe("startHeartbeatInterval", () => {
     expect(heartbeat).not.toHaveBeenCalled();
   });
 });
+
+describe("startHeartbeatInterval — fréquence par défaut (audit performance)", () => {
+  afterEach(() => vi.useRealTimers());
+
+  it("1 écriture par minute par onglet visible (et non 2), très en dessous de la fenêtre de 10 min de ONLINE_STALE_MS", () => {
+    vi.useFakeTimers();
+    const heartbeat = vi.fn();
+    const stop = startHeartbeatInterval(heartbeat, { getVisibility: () => "visible" });
+    vi.advanceTimersByTime(59999);
+    expect(heartbeat).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(1);
+    expect(heartbeat).toHaveBeenCalledTimes(1);
+    vi.advanceTimersByTime(60000 * 4);
+    expect(heartbeat).toHaveBeenCalledTimes(5);
+    stop();
+  });
+});

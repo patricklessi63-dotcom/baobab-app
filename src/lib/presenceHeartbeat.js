@@ -18,7 +18,16 @@
 // au premier plan reste couvert immédiatement par le listener
 // "visibilitychange" (qui appelle heartbeat() directement) ; seul le tick
 // périodique doit être filtré par la visibilité courante.
-export function startHeartbeatInterval(heartbeat, { intervalMs = 30000, getVisibility = () => document.visibilityState } = {}) {
+//
+// Audit performance (6 oct. 2026) : l'intervalle par défaut passe de 30 s à 60 s.
+// Chaque tick est un UPDATE sur "profiles" (ligne large, triggers BEFORE UPDATE,
+// RLS) — avec 1 000 onglets visibles simultanés : ~33 écritures/s à 30 s contre
+// ~17/s à 60 s, pour rien de visible : le point "En ligne" n'est affiché que si
+// last_seen date de moins de ONLINE_STALE_MS = 10 min (lib/presence.js), et le
+// retour de focus relance de toute façon un heartbeat immédiat.
+export const HEARTBEAT_INTERVAL_MS = 60000;
+
+export function startHeartbeatInterval(heartbeat, { intervalMs = HEARTBEAT_INTERVAL_MS, getVisibility = () => document.visibilityState } = {}) {
   const timer = setInterval(() => {
     if (getVisibility() === "visible") heartbeat();
   }, intervalMs);
