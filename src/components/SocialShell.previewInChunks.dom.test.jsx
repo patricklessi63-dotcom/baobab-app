@@ -20,7 +20,7 @@ const keyOf = (id) => [ME, id].sort().join("__");
 
 function makeQueryBuilder(result = { data: [], error: null, count: 0 }) {
   const builder = {};
-  ["select", "eq", "neq", "gt", "gte", "lte", "order", "limit", "is", "in", "ilike", "or", "match", "contains", "not"].forEach((m) => {
+  ["select", "eq", "neq", "gt", "gte", "lte", "order", "range", "limit", "is", "in", "ilike", "or", "match", "contains", "not"].forEach((m) => {
     builder[m] = vi.fn(() => builder);
   });
   builder.maybeSingle = vi.fn(() => Promise.resolve({ data: null, error: null }));
@@ -36,7 +36,7 @@ let failFirstLot = false;
 function makeMessagesBuilder() {
   const builder = {};
   let lot = [];
-  ["select", "order", "eq", "is", "neq", "gt", "gte", "lte", "or", "not"].forEach((m) => { builder[m] = vi.fn(() => builder); });
+  ["select", "order", "range", "eq", "is", "neq", "gt", "gte", "lte", "or", "not"].forEach((m) => { builder[m] = vi.fn(() => builder); });
   builder.in = vi.fn((col, keys) => { lot = keys; previewLots.push(keys); return builder; });
   builder.limit = vi.fn(() => builder);
   builder.then = (resolve, reject) => {

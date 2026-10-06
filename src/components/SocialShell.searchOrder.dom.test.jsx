@@ -9,7 +9,7 @@ import { render, screen, act, fireEvent } from "@testing-library/react";
 // ~1528), qui elle ne dépend que de `search`.
 function makeQueryBuilder(result = { data: [], error: null, count: 0 }) {
   const builder = {};
-  ["select", "eq", "neq", "gt", "gte", "lte", "order", "limit", "is", "in", "ilike", "or", "match", "contains", "not"].forEach((m) => {
+  ["select", "eq", "neq", "gt", "gte", "lte", "order", "range", "limit", "is", "in", "ilike", "or", "match", "contains", "not"].forEach((m) => {
     builder[m] = vi.fn(() => builder);
   });
   builder.maybeSingle = vi.fn(() => Promise.resolve({ data: null, error: null }));

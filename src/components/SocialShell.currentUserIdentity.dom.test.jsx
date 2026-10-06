@@ -15,7 +15,7 @@ const mocks = vi.hoisted(() => ({ fromMock: vi.fn(), channelMock: vi.fn(), remov
 
 function makeQueryBuilder(result = { data: [], error: null, count: 0 }) {
   const builder = {};
-  ["select", "eq", "neq", "gt", "gte", "lte", "order", "limit", "is", "in", "ilike", "or", "match", "contains", "not"].forEach((m) => {
+  ["select", "eq", "neq", "gt", "gte", "lte", "order", "range", "limit", "is", "in", "ilike", "or", "match", "contains", "not"].forEach((m) => {
     builder[m] = vi.fn(() => builder);
   });
   builder.maybeSingle = vi.fn(() => Promise.resolve({ data: null, error: null }));

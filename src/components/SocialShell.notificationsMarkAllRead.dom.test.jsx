@@ -29,7 +29,7 @@ const mocks = vi.hoisted(() => ({ fromMock: vi.fn(), channelCalls: [] }));
 
 function makeQueryBuilder(result = { data: [], error: null, count: 0 }) {
   const builder = {};
-  ["select", "eq", "neq", "gt", "gte", "lte", "order", "limit", "is", "in", "ilike", "or", "match", "contains", "not"].forEach((m) => {
+  ["select", "eq", "neq", "gt", "gte", "lte", "order", "range", "limit", "is", "in", "ilike", "or", "match", "contains", "not"].forEach((m) => {
     builder[m] = vi.fn(() => builder);
   });
   builder.maybeSingle = vi.fn(() => Promise.resolve({ data: null, error: null }));
@@ -46,7 +46,7 @@ function makeNotificationsBuilder(initialUnread) {
   function makeChain() {
     const calls = [];
     const chain = {};
-    ["select", "update", "eq", "is", "lte", "order", "limit", "in"].forEach((m) => {
+    ["select", "update", "eq", "is", "lte", "order", "range", "limit", "in"].forEach((m) => {
       chain[m] = vi.fn((...args) => { calls.push([m, args]); return chain; });
     });
     chain.then = (resolve, reject) => {

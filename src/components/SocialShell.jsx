@@ -10,6 +10,7 @@ import { useOnlineStatus } from "../hooks/useOnlineStatus";
 import { primary, navy, coral, bg, muted, buttonBase, body, primaryRgb } from "./social/theme";
 import { NOTIF_CATEGORIES } from "../lib/notificationLabels";
 import { selectInChunks } from "../lib/inChunks";
+import { fetchFollowing, fetchFollowers } from "../lib/followLists";
 import Skeleton from "./Skeleton";
 import NotificationsDropdown from "./social/NotificationsDropdown";
 import ProfileMenu from "./social/ProfileMenu";
@@ -588,8 +589,11 @@ export default function SocialShell({
       // aucune action de l'utilisateur. Tri par created_at décroissant (plus
       // récent d'abord), cohérent avec les autres listes de ce fichier
       // (stories, aperçu de conversations, notifications ci-dessus/dessous).
-      supabase.from("follows").select("to_id, profile:to_id(id,name,avatar_url,city,show_city,age,show_birth_year,looking_for,email_verified,phone_verified,is_founder,is_premium,banned_at,suspended_until)").eq("from_id", currentUser.id).order("created_at", { ascending: false }).limit(2000),
-      supabase.from("follows").select("from_id, profile:from_id(id,name,avatar_url,city,show_city,age,show_birth_year,looking_for,email_verified,phone_verified,is_founder,is_premium,banned_at,suspended_until)").eq("to_id", currentUser.id).order("created_at", { ascending: false }).limit(2000),
+      // Plafond PostgREST (max_rows = 1000, troncature silencieuse) : le .limit(2000)
+      // historique était en fait plafonné à 1000 — pagination .range() dans
+      // lib/followLists.js (même colonnes, même tri, même borne de 2000).
+      fetchFollowing(supabase, currentUser.id),
+      fetchFollowers(supabase, currentUser.id),
     ]).then(([followingRes, followersRes]) => {
       if (!alive) return;
       if (followingRes.error) console.error(followingRes.error.message, followingRes.error.code, followingRes.error.details, followingRes.error.hint);
