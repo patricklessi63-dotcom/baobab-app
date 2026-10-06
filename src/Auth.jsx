@@ -22,6 +22,15 @@ function isValidEmail(value) {
   return EMAIL_RE.test(value.trim());
 }
 
+// Amène le focus sur le champ en erreur (validation JS qui passe après la
+// validation native du navigateur, ex. "a@b" accepté par type="email" mais
+// refusé par EMAIL_RE) : sans cela le focus restait sur le bouton de
+// soumission, loin du champ à corriger — surtout pénible clavier ouvert sur
+// mobile et pour les lecteurs d'écran.
+function focusField(id) {
+  document.getElementById(id)?.focus();
+}
+
 function isEmailNotConfirmed(err) {
   return err?.code === "email_not_confirmed" || (err?.message || "").toLowerCase().includes("email not confirmed");
 }
@@ -102,16 +111,19 @@ export default function Auth({ justVerified = false, onAcknowledgeVerified = () 
 
     if (!isValidEmail(cleanEmail)) {
       setError("Entre une adresse email valide.");
+      focusField("email");
       return;
     }
 
     if (mode === "signup") {
       if (!passwordMeetsMinimum(scorePassword(password).checks)) {
         setError("Ton mot de passe ne respecte pas encore toutes les règles minimales.");
+        focusField("password");
         return;
       }
       if (password !== passwordConfirm) {
         setError("Les mots de passe ne correspondent pas.");
+        focusField("password-confirm");
         return;
       }
       // Double vérification (le bouton "Créer mon compte" est déjà désactivé
@@ -456,7 +468,7 @@ export default function Auth({ justVerified = false, onAcknowledgeVerified = () 
             </>
           )}
 
-          {error && <div role="alert" className="bb-alert-shake mt-5 rounded-2xl px-4 py-3 text-sm"
+          {error && <div id="auth-error" role="alert" className="bb-alert-shake mt-5 rounded-2xl px-4 py-3 text-sm"
             style={{ background: "rgba(229,107,93,0.15)", color: "#F4A48C", border: "1px solid rgba(229,107,93,0.30)" }}>{error}</div>}
 
           {/* Email déjà utilisé à l'inscription : proposer directement les deux issues
@@ -586,8 +598,10 @@ export default function Auth({ justVerified = false, onAcknowledgeVerified = () 
                 <div className="bb-field flex items-center gap-3 rounded-2xl px-4"
                   style={{ background: "rgba(26,54,38,0.78)", border: "1px solid rgba(242,233,220,0.11)" }}>
                   <Mail size={17} color={C.sandDim} />
-                  <input id="email" type="email" placeholder="Ton adresse email" value={email}
+                  <input id="email" name="email" type="email" placeholder="Ton adresse email" value={email}
                     onChange={(e) => setEmail(e.target.value)} required autoComplete="email" inputMode="email"
+                    autoCapitalize="none" autoCorrect="off" spellCheck={false}
+                    aria-describedby={error ? "auth-error" : undefined}
                     className="min-w-0 flex-1 bg-transparent py-4 text-sm outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--bb-leaf)]" style={{ color: C.sand }} />
                 </div>
               </div>
@@ -600,6 +614,7 @@ export default function Auth({ justVerified = false, onAcknowledgeVerified = () 
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   autoComplete="current-password"
+                  describedBy={error ? "auth-error" : undefined}
                 />
               )}
 
@@ -612,8 +627,9 @@ export default function Auth({ justVerified = false, onAcknowledgeVerified = () 
                     onChange={(e) => setPassword(e.target.value)}
                     autoComplete="new-password"
                     minLength={8}
+                    describedBy={["password-strength", error ? "auth-error" : ""].filter(Boolean).join(" ")}
                   />
-                  <PasswordStrengthMeter password={password} />
+                  <PasswordStrengthMeter id="password-strength" password={password} />
                   <PasswordField
                     id="password-confirm"
                     label="Confirmer le mot de passe"
@@ -622,9 +638,10 @@ export default function Auth({ justVerified = false, onAcknowledgeVerified = () 
                     autoComplete="new-password"
                     minLength={8}
                     invalid={confirmMismatch}
+                    describedBy={confirmMatches || confirmMismatch ? "password-confirm-hint" : undefined}
                   />
                   {(confirmMatches || confirmMismatch) && (
-                    <p className="-mt-2.5 text-xs font-semibold flex items-center gap-1.5" style={{ color: confirmMatches ? C.acacia : "#F4A48C" }}>
+                    <p id="password-confirm-hint" role="status" className="-mt-2.5 text-xs font-semibold flex items-center gap-1.5" style={{ color: confirmMatches ? C.acacia : "#F4A48C" }}>
                       {confirmMatches ? "✓ Les mots de passe correspondent" : "⚠ Les mots de passe ne correspondent pas"}
                     </p>
                   )}

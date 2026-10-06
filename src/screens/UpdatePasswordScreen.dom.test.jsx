@@ -107,3 +107,30 @@ describe("UpdatePasswordScreen — bouton \"Retour à la connexion\" (lien expir
     await waitFor(() => expect(signOut).toHaveBeenCalledTimes(1));
   });
 });
+
+describe("UpdatePasswordScreen — attributs de saisie", () => {
+  it("les deux champs sont en new-password, étiquetés, sans autocorrection, bouton submit", () => {
+    render(<UpdatePasswordScreen />);
+    for (const label of ["Nouveau mot de passe", "Confirmer le mot de passe"]) {
+      const input = screen.getByLabelText(label);
+      expect(input).toHaveAttribute("type", "password");
+      expect(input).toHaveAttribute("autocomplete", "new-password");
+      expect(input).toHaveAttribute("autocapitalize", "none");
+      expect(input).toHaveAttribute("autocorrect", "off");
+      expect(input).toHaveAttribute("spellcheck", "false");
+    }
+    const submit = screen.getByRole("button", { name: "Mettre à jour le mot de passe" });
+    expect(submit).toHaveAttribute("type", "submit");
+    expect(submit.closest("form")).not.toBeNull();
+  });
+
+  it("une erreur serveur est reliée au champ via aria-describedby", async () => {
+    const user = userEvent.setup();
+    updateUser.mockResolvedValue({ error: { code: "weak_password", message: "x", reasons: ["pwned"] } });
+    render(<UpdatePasswordScreen />);
+    await fillAndSubmit(user);
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("fuites de données");
+    expect(screen.getByLabelText("Nouveau mot de passe").getAttribute("aria-describedby")).toContain(alert.id);
+  });
+});

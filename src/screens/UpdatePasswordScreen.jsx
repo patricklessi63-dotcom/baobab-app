@@ -125,7 +125,7 @@ export default function UpdatePasswordScreen({ onDone, onSignOut }) {
         ) : (
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             {error && (
-              <div role="alert" className="text-sm rounded-2xl px-4 py-3" style={{ background: "rgba(229,107,93,0.15)", color: "#F4A48C", border: "1px solid rgba(229,107,93,0.30)" }}>
+              <div id="update-password-error" role="alert" className="text-sm rounded-2xl px-4 py-3" style={{ background: "rgba(229,107,93,0.15)", color: "#F4A48C", border: "1px solid rgba(229,107,93,0.30)" }}>
                 {error}
               </div>
             )}
@@ -137,8 +137,9 @@ export default function UpdatePasswordScreen({ onDone, onSignOut }) {
                 onChange={(e) => setPassword(e.target.value)}
                 autoComplete="new-password"
                 minLength={8}
+                describedBy={["new-password-strength", error ? "update-password-error" : ""].filter(Boolean).join(" ")}
               />
-              <PasswordStrengthMeter password={password} />
+              <PasswordStrengthMeter id="new-password-strength" password={password} />
             </div>
             <div>
               <PasswordField
@@ -149,9 +150,10 @@ export default function UpdatePasswordScreen({ onDone, onSignOut }) {
                 autoComplete="new-password"
                 minLength={8}
                 invalid={confirmMismatch}
+                describedBy={confirmMatches || confirmMismatch ? "confirm-password-hint" : undefined}
               />
               {(confirmMatches || confirmMismatch) && (
-                <p className="mt-2 text-xs font-semibold" style={{ color: confirmMatches ? C.acacia : "#F4A48C" }}>
+                <p id="confirm-password-hint" role="status" className="mt-2 text-xs font-semibold" style={{ color: confirmMatches ? C.acacia : "#F4A48C" }}>
                   {confirmMatches ? "✓ Les mots de passe correspondent" : "⚠ Les mots de passe ne correspondent pas"}
                 </p>
               )}

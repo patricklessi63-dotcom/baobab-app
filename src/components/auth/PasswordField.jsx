@@ -6,6 +6,7 @@ import { C } from "./authTheme";
 // à l'identique entre Auth.jsx et UpdatePasswordScreen.jsx).
 export default function PasswordField({
   id,
+  name,
   label,
   labelRight,
   value,
@@ -14,6 +15,7 @@ export default function PasswordField({
   autoComplete = "current-password",
   minLength = 1,
   invalid = false,
+  describedBy,
 }) {
   const [show, setShow] = useState(false);
 
@@ -39,12 +41,29 @@ export default function PasswordField({
           required
           minLength={minLength}
           autoComplete={autoComplete}
+          name={name || id}
+          // Quand le mot de passe est affiché (type="text"), le clavier mobile
+          // le traiterait comme du texte libre : majuscule automatique sur la
+          // première lettre, autocorrection, suggestions. On les coupe pour
+          // les deux états.
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
+          aria-invalid={invalid ? "true" : undefined}
+          aria-describedby={describedBy || undefined}
           className="min-w-0 flex-1 bg-transparent py-4 text-sm outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--bb-leaf)]"
           style={{ color: C.sand, fontSize: 16 }}
         />
         <button
           type="button"
-          aria-label={show ? "Masquer le mot de passe" : "Afficher le mot de passe"}
+          // Libellé fixe + aria-pressed (bouton à bascule) : changer le libellé
+          // ET l'état faisait annoncer « Masquer le mot de passe, activé » aux
+          // lecteurs d'écran, ce qui se lit comme une contradiction.
+          aria-label="Afficher le mot de passe"
+          aria-pressed={show}
+          // Le bouton ne vole plus le focus au champ au toucher/clic : sur
+          // mobile le clavier ne se referme plus et le curseur reste en place.
+          onMouseDown={(e) => e.preventDefault()}
           onClick={() => setShow((v) => !v)}
           className="bb-tap flex items-center justify-center flex-shrink-0"
           style={{ color: C.sandDim, width: 44, marginRight: -8 }}

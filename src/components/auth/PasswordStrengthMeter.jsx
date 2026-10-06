@@ -11,7 +11,7 @@ const BAR_COLORS = [C.coralText, C.coralText, C.ochre, C.acacia, C.acacia];
 // Jauge de force réelle (voir src/lib/passwordStrength.js) + checklist des
 // règles qui se coche en temps réel — le caractère spécial reste marqué
 // "recommandé", jamais bloquant.
-export default function PasswordStrengthMeter({ password }) {
+export default function PasswordStrengthMeter({ password, id }) {
   if (!password) return null;
   const { score, label, checks } = scorePassword(password);
   const barColor = BAR_COLORS[score];
@@ -25,7 +25,7 @@ export default function PasswordStrengthMeter({ password }) {
   ];
 
   return (
-    <div className="mt-2.5">
+    <div id={id} className="mt-2.5">
       <div className="flex items-center gap-2">
         <div className="flex-1 h-1.5 rounded-full overflow-hidden flex gap-1">
           {Array.from({ length: 4 }).map((_, i) => (
@@ -36,18 +36,22 @@ export default function PasswordStrengthMeter({ password }) {
             />
           ))}
         </div>
-        <span className="text-[11px] font-bold flex-shrink-0" style={{ color: barColor }}>{label}</span>
+        <span role="status" className="text-[11px] font-bold flex-shrink-0" style={{ color: barColor }}>{label}</span>
       </div>
       <ul className="mt-2.5 grid grid-cols-2 gap-x-3 gap-y-1.5">
         {items.map((it) => (
           <li key={it.label} className="flex items-center gap-1.5 text-[11px]" style={{ color: it.ok ? "#B9D5B2" : C.sandDim }}>
             <span
+              aria-hidden="true"
               className="flex-shrink-0 h-3.5 w-3.5 rounded-full flex items-center justify-center"
               style={{ background: it.ok ? "rgba(143,174,134,0.28)" : "rgba(242,233,220,0.08)" }}
             >
               {it.ok && <Check size={9} strokeWidth={3} />}
             </span>
             {it.label}
+            {/* L'état coché n'était transmis que par une icône : un lecteur
+                d'écran lisait les règles sans dire lesquelles étaient remplies. */}
+            <span className="sr-only">{it.ok ? " : respecté" : " : manquant"}</span>
           </li>
         ))}
       </ul>
