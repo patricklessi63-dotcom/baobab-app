@@ -13,6 +13,7 @@ import { compressImageIfNeeded } from "../../lib/imageCompression";
 import { uploadWithProgress } from "../../lib/uploadWithProgress";
 import { POST_MEDIA_BUCKET, extFromMime } from "../../lib/mediaConstants";
 import { friendlyDbError } from "../../lib/friendlyDbError";
+import { selectAllPages } from "../../lib/inChunks";
 import { useOnlineStatus } from "../../hooks/useOnlineStatus";
 import { primary, navy, coral, muted, bg, card } from "./theme";
 
@@ -135,9 +136,13 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
       if (replace) { setPostLikeCounts({}); setLikedPostIds(new Set()); setPostCommentCounts({}); }
       return;
     }
+    // Plafond PostgREST (max_rows = 1000, troncature SILENCIEUSE) : 20 posts
+    // dont un viral dépassent 1000 likes/commentaires ; compteurs faux et, pire,
+    // "j'ai déjà liké" perdu (on retentait un like -> doublon 23505). Pagination
+    // .order("id").range() (id unique : pages stables).
     const [likesRes, commentsRes] = await Promise.all([
-      supabase.from("post_likes").select("post_id, profile_id").in("post_id", ids),
-      supabase.from("post_comments").select("post_id").in("post_id", ids),
+      selectAllPages((from, to) => supabase.from("post_likes").select("post_id, profile_id").in("post_id", ids).order("id").range(from, to)),
+      selectAllPages((from, to) => supabase.from("post_comments").select("post_id").in("post_id", ids).order("id").range(from, to)),
     ]);
     const likeCounts = {}; const liked = new Set();
     (likesRes.data || []).forEach((l) => {
