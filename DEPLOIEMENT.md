@@ -1049,8 +1049,8 @@ le sitemap. `PublicPageShell` ajuste désormais le canonical à la page courante
    parallélisme borné, un lot en erreur ne fait pas perdre les autres) —
    `CommunitiesTab` (likes, commentaires, statuts de participation, nettoyage au départ
    d'une communauté), `EventsTab` (profils des connexions mutuelles), `SocialShell`
-   (aperçu des conversations, lots de 50 clés). Déjà sûrs, non modifiés : `PostsFeed`
-   (3 sites, 20 posts/page), `loadReactionsFor` (30 messages/page), suppression des
+   (aperçu des conversations, lots de 50 clés). Sous la limite d'URL, non découpés : `PostsFeed`
+   (3 sites, 20 posts/page ; ses likes/commentaires restent soumis au plafond de 1000 lignes, voir n°9), `loadReactionsFor` (30 messages/page), suppression des
    photos d'un échec d'enregistrement (≤ 6 `MAX_PHOTOS`), statuts `event_attendees` du
    profil (3 valeurs constantes).
    **Plafond PostgREST de 1000 lignes par réponse** (audit de régression, 6 oct.) : un lot
@@ -1062,6 +1062,25 @@ le sitemap. `PublicPageShell` ajuste désormais le canonical à la page courante
    Realtime `conversations-preview` sans filtre au-delà de 100 clés : à vérifier en prod
    (`select policyname, qual from pg_policies where tablename = 'messages'` ne doit pas
    montrer `using (true)`).
+
+9. **Croisement exhaustif du plafond PostgREST de 1000 lignes** (`max_rows`, troncature
+   SILENCIEUSE, sans erreur). Aucun `supabase/config.toml` dans le dépôt : c'est le réglage du
+   projet hébergé (Supabase > Settings > API > « Max rows », 1000 par défaut) qui s'applique —
+   **à vérifier dans le tableau de bord** ; la pagination ajoutée est inoffensive s'il a été
+   relevé. Un `.limit(N)` avec N > 1000 ne protège donc de rien. Corrigés par pagination
+   `.order("id").range()` (`selectAllPages`, `src/lib/inChunks.js`), un test par site simulant
+   un serveur qui tronque à 1000 :
+   - **Chargement initial** (`lib/initialLoad.js`) : `limit(3200)` sur `profile_photos` ne livrait
+     que **1000 photos** (profils au-delà de la 1000e photo, ordre `profile_id`, sans galerie
+     dès ~170 comptes à 6 photos) ; *likes/passes/blocks* du graphe social et liste « Comptes
+     bloqués » (**sécurité/vie privée : une liste de blocages tronquée faisait réapparaître des
+     utilisateurs bloqués** dans Découverte/matches/conversations, `blockedIds` vient d'ici ;
+     seul le filtrage côté client était touché, la RLS serveur sur le contenu restait active).
+   - **Exporter mes données** (`lib/exportData.js`, extrait d'`App.jsx`) : 17 catégories, dont
+     messages envoyés/reçus, tronquées à 1000 lignes sans signal (droit d'accès incomplet).
+   - **Connexions mutuelles** d'`EventsTab` (likes envoyés/reçus), **Abonnements/Abonnés**
+     (`lib/followLists.js`, `.limit(2000)` plafonné à 1000), **compteurs likes/commentaires du
+     Fil** (`PostsFeed`, 20 posts dont un viral).
 
 ### ⬜ SQL à exécuter — `supabase-indexes-launch-fix.sql`
 
@@ -1116,3 +1135,37 @@ suppression de compte (`messages.from_id`, `notifications.actor_id`,
   couvert par celui de `SocialShell`) ; `usePremiumStatus` refait la même requête dans
   4 composants ; `EventsTab` recharge toutes les lignes `likes` du compte alors que
   `likePairs` les a déjà.
+
+### Plafond de 1000 lignes — sites NON corrigés (décision/risque, audit du 6 oct.)
+
+Lecture seule ou borne naturelle très inférieure à 1000 à l'échelle du lancement ; à
+revisiter si la base grossit. Conséquence = liste/compteur incomplet, **jamais de fuite**.
+- **Vie privée / sécurité** — aucun site restant n'a de conséquence de sécurité sans
+  correctif, à une réserve près : `hidden_recommendations` (masquages de communautés/événements
+  recommandés, `FeedTab`, `useHiddenRecommendations`) : au-delà de 1000 masquages d'un seul
+  compte (irréaliste), un élément masqué réapparaîtrait (simple recommandation, rien de
+  privé). Les blocages sont par ailleurs filtrés côté serveur par la RLS pour le contenu.
+- **Contenu d'un seul objet, > 1000 lignes tronquées (le plus récent ou le plus ancien selon
+  le tri)** : commentaires d'un post du Fil (`PostsFeed`, ordre croissant : les derniers
+  commentaires disparaîtraient), commentaires d'un post de communauté et de discussion
+  d'événement (même cas), `event_media` d'un événement, signalements ouverts d'une
+  communauté/d'un événement (modération locale, `CommunitiesTab`/`EventsTab`), liste des
+  personnes ayant vu un statut (`story_views`, le compteur, lui, est exact : `count` exact),
+  posts et événements d'une communauté (tout est chargé sans `limit` : 1000 plus récents),
+  membres d'une communauté et participants d'un événement (`limit(1000)` explicite, déjà
+  documenté). Un post/une communauté à plus de 1000 éléments n'est pas réaliste avant une
+  forte croissance ; correctif prévu : `selectAllPages` (commentaires) ou « charger plus ».
+- **Listes personnelles bornées par l'action de l'utilisateur** (< 1000 en pratique) :
+  adhésions et demandes de communautés, invitations (en attente/déclinées), `event_attendees`
+  du compte, favoris envoyés (`SocialShell`), `immigration_news_favorites`, signalements
+  déposés. Favoris **reçus** (`SocialShell`, compteur « incomingFavoritesCount ») : un profil
+  très populaire (> 1000 favoris) verrait ce compteur plafonné à 1000.
+- **Chargement initial** : les 500 profils chargés sont les 500 plus anciens
+  (`created_at`), alors que les photos sont lues par `profile_id` (uuid, ordre sans lien
+  avec l'ancienneté) : au-delà de ~500 comptes, une partie des 500 profils chargés n'a pas
+  sa galerie dans le lot de 3200 photos. Le vrai remède (photos `.in("profile_id", ids)` par
+  lots après les profils, ou pagination serveur de la Découverte) touche la cascade de
+  chargement : hors périmètre, à traiter avec le point « Chargement initial lourd » ci-dessus.
+- **RPC** : `get_my_likers()` renvoie un seul jsonb (non concerné par `max_rows`) ;
+  `nearby_profiles` (`limit 100`) et les listes admin (`limit 200`) sont bornées côté SQL.
+  Au-delà de 200 signalements/retours ouverts, la file d'administration n'en montre que 200.
