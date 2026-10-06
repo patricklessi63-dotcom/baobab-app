@@ -11,6 +11,30 @@ export default function PublicPageShell({ title, navigate, children }) {
     document.title = title ? `Baobab — ${title}` : "Baobab";
   }, [title]);
 
+  // index.html déclare un <link rel="canonical"> statique vers "/" : comme
+  // vercel.json réécrit TOUTES les routes vers ce même index.html, les pages
+  // /a-propos, /confidentialite et /conditions annonçaient donc aux moteurs de
+  // recherche qu'elles sont un doublon de la page d'accueil (alors que
+  // public/sitemap.xml les liste comme des URL distinctes) — elles ne
+  // seraient jamais indexées sous leur propre adresse. On pointe le canonical
+  // vers la page courante le temps de son affichage, puis on restaure la
+  // valeur d'origine au démontage. L'origine (domaine officiel) est reprise du
+  // canonical existant, pour qu'un changement de domaine ne se fasse qu'à un
+  // seul endroit (index.html).
+  useEffect(() => {
+    const link = document.querySelector('link[rel="canonical"]');
+    if (!link) return undefined;
+    const previous = link.getAttribute("href");
+    try {
+      link.setAttribute("href", new URL(window.location.pathname, previous || window.location.origin).href);
+    } catch {
+      return undefined;
+    }
+    return () => {
+      if (previous !== null) link.setAttribute("href", previous);
+    };
+  }, []);
+
   return (
     <main className="min-h-screen flex flex-col items-center px-4 py-8 sm:px-6"
       style={{ background: C.dusk, color: C.sand, fontFamily: "Inter, system-ui, sans-serif" }}>

@@ -918,3 +918,53 @@ vers des membres de la communauté (vérification serveur nécessaire : la RLS n
 s'évalue pas pour le destinataire). Les cartes `community` déjà envoyées gardent
 leur `cover_url` en base (l'URL signée expire d'elle-même) ; un nettoyage SQL
 analogue à celui ci-dessus est possible sur `visibility = 'community'` si besoin.
+
+
+## 9. Audit de la vitrine publique (5 octobre 2026) — points juridiques/produit à trancher par Patrick
+
+Périmètre vérifié : `index.html`, `public/` (manifest, icônes, robots, sitemap,
+sw.js), `vercel.json` (rewrite + CSP, hashes des 2 scripts inline recalculés
+sur le build : OK), `usePathname.js`, routage de `App.jsx`, `LandingPage`,
+`AboutPage`/`PrivacyPage`/`TermsPage`, `legalContent.jsx`, modales légales
+(`AppModals.jsx`, `Auth.jsx`). Routes testées dans un navigateur
+(`/`, `/connexion`, `/inscription`, `/a-propos`, `/confidentialite`,
+`/conditions`, `/nimportequoi`, retour arrière) : tout fonctionne ; une route
+inconnue affiche la page d'accueil, un utilisateur connecté qui ouvre une route
+publique est renvoyé vers `/`.
+
+**Corrigé dans le code** : le `<link rel="canonical">` de `index.html` pointait
+vers `/` sur toutes les routes (réécrites vers le même fichier) — `/a-propos`,
+`/confidentialite`, `/conditions` se déclaraient doublons de l'accueil malgré
+le sitemap. `PublicPageShell` ajuste désormais le canonical à la page courante.
+
+**À trancher / valider (aucun texte juridique n'a été modifié) :**
+
+1. **Aucune adresse de contact n'existe nulle part** (ni dans l'app, ni dans
+   la landing, ni dans les pages légales). Or la politique de confidentialité
+   (§1, §6, §12) et les CGU (§13) renvoient toutes à « l'adresse de contact
+   indiquée/fournie dans l'application » — qui n'existe pas. Pour exercer ses
+   droits (accès, effacement : exigence LPRPDE/RGPD), un utilisateur n'a aucun
+   moyen de joindre l'exploitant. Il faut choisir une adresse email (ex.
+   `contact@…`) et l'afficher (landing, À propos, légal, Réglages).
+2. **Identité de l'exploitant** : les CGU/confidentialité ne nomment ni
+   entreprise ni personne responsable du traitement ; « droit applicable » reste
+   générique (« province ou pays où le service est exploité »). Seule mention :
+   « BAOBAB — BY LESSI PATRICK » sur la page À propos.
+3. **Texte légal en retard sur les fonctionnalités** (daté du 15 août 2026) :
+   la politique ne mentionne pas la **géolocalisation** (obligatoire à
+   l'inscription), les **paiements Premium (Stripe)**, les **notifications
+   push**, les **messages vocaux / médias**, ni l'identité du fournisseur d'IA.
+   Les CGU ne parlent ni de l'abonnement Premium ni de la facturation. À faire
+   relire par un juriste (le fichier le dit déjà en commentaire).
+4. **Tutoiement/vouvoiement** : toute l'app et la landing tutoient (« tu »),
+   les textes légaux vouvoient (« vous »). Choix éditorial à confirmer (le
+   vouvoiement est classique en juridique).
+5. **Compteur « N membres déjà sur Baobab »** sur la landing (RPC
+   `public_user_count`) : au moment de l'audit il affichait « 4 membres » —
+   mauvais effet de preuve sociale au lancement. Envisager un seuil minimal
+   d'affichage (ex. ≥ 50) ou le retirer ; non modifié (décision produit).
+6. **Domaine** : `og:image`, `og:url`, canonical, sitemap et robots utilisent
+   `https://baobab-app-zeta.vercel.app`. Si un domaine officiel est adopté, mettre
+   à jour ces 4 fichiers (le canonical des pages publiques suit `index.html`).
+7. Mineur : `og:image` est l'icône 512×512 carrée (carte `summary`), pas une
+   image 1200×630 — l'aperçu de partage sera petit. Pas de balise `og:locale`.
