@@ -28,7 +28,15 @@ export function useFocusTrap(active, containerRef) {
     // requestAnimationFrame : laisse le temps au DOM (portail compris) de
     // s'établir avant de déplacer le focus, sinon le premier élément
     // focusable n'existe pas encore lors du montage.
+    //
+    // Ne déplace rien si le focus est DÉJÀ dans la modale (champ en
+    // `autoFocus`, ou élément focalisé par l'utilisateur dans l'intervalle) :
+    // sinon ce rAF différé volait le focus au champ de recherche pour le
+    // donner au premier bouton (« Fermer ») — les caractères tapés juste après
+    // l'ouverture partaient alors dans le vide. Cela rendait aussi flakys,
+    // sous charge, les tests qui tapent juste après le rendu.
     const raf = requestAnimationFrame(() => {
+      if (container.contains(document.activeElement)) return;
       const focusables = container.querySelectorAll(FOCUSABLE_SELECTOR);
       (focusables[0] || container).focus();
     });
