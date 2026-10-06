@@ -234,6 +234,14 @@ Mise à jour 2026-10-02.
   exécutés) pour ne régresser aucune garde anti-orpheline quel que soit
   l'ordre d'exécution choisi. À exécuter après `supabase-communities.sql` et
   `supabase-events-v2.sql`.
+- ⬜ `supabase-indexes-launch-fix.sql` — **ajouté le 2026-10-06** (audit
+  performance, voir §10) : 12 index manquants sur les chemins chauds du client
+  (`favorites(to_id)`, `stories`, `profiles(created_at)`, `profile_photos`,
+  `community_posts`/`community_comments`, invitations...). Additif, idempotent
+  (`create index if not exists`), ignore avec un NOTICE une table/colonne absente.
+  Pas de `concurrently` (refusé par l'éditeur SQL) : verrou d'écriture de
+  quelques ms à quelques secondes par index, à lancer hors pic. À exécuter avant
+  l'afflux du lancement.
 
 Le §1 ci-dessous est conservé pour référence mais **n'est plus à faire**.
 
@@ -968,3 +976,121 @@ le sitemap. `PublicPageShell` ajuste désormais le canonical à la page courante
    à jour ces 4 fichiers (le canonical des pages publiques suit `index.html`).
 7. Mineur : `og:image` est l'icône 512×512 carrée (carte `summary`), pas une
    image 1200×630 — l'aperçu de partage sera petit. Pas de balise `og:locale`.
+
+
+---
+
+## 10. Audit de performance avant le lancement (6 octobre 2026) — 1 script SQL d'index à exécuter, le reste est corrigé dans le code ou documenté
+
+### Chiffres (lecture du code, session type : compte ouvert sur l'onglet « Fil »)
+
+- **Requêtes au démarrage d'une session : ~31** (+ 1 si le compte a des matches) :
+  version (1), `loadAll` (profils 500, photos 3200, propre profil, likes, passes,
+  blocks, `get_my_likers`, blocks+profils : 8), localisation et rôle plateforme (2),
+  coque sociale (stories, favoris envoyés, favoris reçus, 2 listes d'abonnements de
+  2000 lignes, notifications, statut Premium, recommandations masquées, journal
+  d'écran : ~9), onglet Fil (communautés + événements recommandés : 6 ; publications :
+  4), heartbeat (1). Aucune requête N+1 dans les listes de profils/posts (un seul
+  `.in()` par page) ; le seul N+1 trouvé (URLs signées) est corrigé ci-dessous.
+- **Canaux Realtime par client connecté : 7 permanents** (`likes-received`,
+  `blocks-passes-own`, `favorites-own`, `follows-own`, `global-messages`,
+  `notifications`, + `conversations-preview` dès qu'il y a un match), **+1** sur le
+  Fil (`posts-feed`), **+1** sur l'onglet Événements, **+3** par conversation ouverte
+  (`messages`, `typing`, `reactions`). Soit 8 en navigation normale, 11 avec une
+  conversation ouverte. Côté base : **23 abonnements `postgres_changes`** par client
+  (+4 avec une conversation). Tous sont fermés par `removeChannel` au démontage /
+  déconnexion (vérifié canal par canal) ; aucun n'est recréé en boucle (voir le
+  correctif n°4 pour le seul cas de recréation intempestive).
+- **Appels réseau par minute, onglet visible et inactif : ~1,03** (heartbeat 1/min
+  depuis ce correctif, c'était 2/min, + vérification de version toutes les 30 min).
+  **Onglet en arrière-plan : ~0,03/min** (seule la vérification de version continue ;
+  le heartbeat est suspendu et le tick d'horloge des statuts est local, sans réseau).
+  Chaque passage en arrière-plan = 1 UPDATE ; chaque retour de focus = 1 UPDATE + 1
+  fetch de version + (au plus 1/min) le rafraîchissement de présence.
+- **Bundle** (`npm run build`) : chunk principal 124 ko gzip, vendor-supabase 57 ko,
+  vendor-react 45 ko, icônes 9 ko ; Auth, Onboarding, Communautés (19 ko), Événements
+  (18 ko), Admin, Premium... en chunks à la demande. **Rien d'anormal** (seuil de 150 ko
+  gzip non atteint, aucune grosse dépendance dans le chunk principal). Les assets
+  hashés sont servis `immutable` (`vercel.json`).
+
+### Corrigé dans le code (commits atomiques, tests ajoutés)
+
+1. **Chargement initial en cascade** : `loadAll` enchaînait profils+photos, puis le
+   graphe social, puis (après `loadAll`) la requête du propre profil : 3 allers-retours
+   en série (4 au-delà des 500 premiers comptes). Le propre profil part maintenant en
+   parallèle des deux grosses requêtes, le graphe social dès qu'il répond, et l'écran
+   de vérification de profil réutilise ce résultat. `src/lib/initialLoad.js`.
+2. **N+1 des URLs signées** : une conversation de 30 messages dont 20 photos lançait
+   20 POST `/object/sign` (`getSignedUrls`, déjà écrite, n'était appelée nulle part).
+   Regroupement en un seul appel. `src/lib/signedUrlCache.js`.
+3. **POST inutile à chaque like / message** : `trackActivation("first_like"/
+   "first_message")` était rappelé à chaque action et échouait (409) après la première,
+   soit une écriture refusée en plus par message envoyé. Mémorisé désormais.
+4. **Réabonnements Realtime et rechargements à chaque réglage modifié** : 10 effets de
+   `SocialShell` dépendaient de l'objet `currentUser` (remplacé à chaque bascule de
+   confidentialité/préférence/avatar) : ~10 requêtes (2 listes de 2000 abonnements,
+   500 derniers messages) + 3 canaux désabonnés/réabonnés par réglage (écriture dans
+   `realtime.subscription` + fenêtre où un message peut être perdu). Dépendances
+   réduites à `currentUser.id`. Le canal `posts-feed` ne se réabonne plus à chaque
+   blocage.
+5. **Rafraîchissement de présence qui ne pouvait pas fonctionner** : `.in("id", [~500
+   uuids])` en GET (~19 ko d'URL) dépasse la limite de la passerelle ; l'erreur était
+   ignorée, donc la présence des autres ne se rafraîchissait jamais dès ~220 profils.
+   Lots de 100 ids + au plus 1 rafraîchissement par minute.
+6. **Fil** : likes/commentaires chargés en parallèle de `post_media` (2 allers-retours
+   au lieu de 3).
+7. **Heartbeat de présence 30 s -> 60 s** : moitié moins d'UPDATE sur `profiles`
+   (1 000 onglets visibles : ~33 -> ~17 écritures/s). Sans effet visible (le badge
+   « En ligne » exige `last_seen` de moins de 10 min). Pour revenir en arrière :
+   `HEARTBEAT_INTERVAL_MS` dans `src/lib/presenceHeartbeat.js`.
+
+### ⬜ SQL à exécuter — `supabase-indexes-launch-fix.sql`
+
+Index manquants confirmés par rapprochement requêtes client / index déclarés :
+`favorites(to_id)`, `stories(expires_at)` et `(profile_id, created_at)` (table sans
+aucun index, lignes expirées jamais purgées tant que `cleanup-expired-stories` n'est
+pas déployée), `profiles(created_at)` (requête de démarrage de chaque session),
+`profile_photos(profile_id, position)`, `community_posts`, `community_comments`,
+`event_comments`, `event_invitations`, `community_invites`,
+`community_join_requests`, `communities(created_at)`. Idempotent ; pas de
+`concurrently` (l'éditeur SQL exécute dans une transaction) : chaque `create index`
+bloque les écritures de sa table quelques ms à quelques secondes, à lancer hors pic.
+Impact honnête : à l'échelle de la bêta, quasi invisible ; il évite que le coût de
+chaque connexion/ouverture d'écran grandisse avec les tables après le lancement.
+Volontairement NON inclus (hors chemin chaud) : les index de clés étrangères pour la
+suppression de compte (`messages.from_id`, `notifications.actor_id`,
+`story_views.viewer_id`, `community_posts.author_id`...) — à ajouter si
+`process-scheduled-deletions` devient lent.
+
+### Documenté, NON corrigé (refactors ou décisions produit)
+
+- **Canaux Realtime non filtrables** (principal risque de coût à l'échelle) :
+  `global-messages` écoute **tous** les INSERT de `messages` (la RLS borne la
+  livraison, mais Realtime évalue la RLS pour CHAQUE abonné et CHAQUE message : N
+  utilisateurs connectés = N vérifications par message) ; `reactions:<clé>` fait de
+  même sur `message_reactions`. `messages` n'a pas de colonne destinataire, donc pas
+  de filtre serveur possible. Pistes : diffusion « broadcast depuis la base » vers un
+  canal par utilisateur, ou supprimer `global-messages` (l'aperçu est déjà alimenté par
+  `conversations-preview`, filtré par `match_key`) en y déplaçant le compteur de
+  non-lus. À surveiller dans Supabase : Realtime > Reports.
+- **`conversations-preview`** : filtre `match_key=in.(...)` — Realtime limite `in` à
+  **100 valeurs** : au-delà de 100 matches l'abonnement échoue silencieusement
+  (`global-messages` continue d'alimenter l'aperçu). La requête d'aperçu
+  (`.in("match_key", [...])`, 73 caractères par clé) dépasse la limite d'URL vers ~110
+  matches, et ne lit que les 500 derniers messages de toutes les conversations (les
+  compteurs de non-lus sont sous-estimés au-delà).
+- **Chargement initial lourd** : 500 profils (`OTHER_PROFILE_COLUMNS`) + 3200 photos
+  `select("*")` à chaque session, avant d'afficher le Fil — le vrai remède est un
+  classement/pagination côté serveur (voir le commentaire « item 12/13 » de `loadAll`).
+  Au-delà de 500 comptes, la Découverte ne voit que les 500 plus anciens.
+- **Ouverture d'une communauté** (`CommunitiesTab`) : tous les posts, sans `limit`, puis
+  `.in("post_id", [tous les ids])` pour likes et commentaires : dès ~200 posts l'URL
+  dépasse la limite de la passerelle et les compteurs restent vides (erreur non
+  vérifiée). Nécessite une pagination (comme `PostsFeed`) — non fait ici.
+- **Journal d'écran beta** : `trackBetaEvent("screen_view")` écrit une ligne dans
+  `beta_events` à CHAQUE changement d'onglet (sans purge) — à retirer ou échantillonner
+  pour le lancement public (décision produit).
+- **Doublons mineurs** : `EventsTab` ouvre un second canal sur `notifications` (déjà
+  couvert par celui de `SocialShell`) ; `usePremiumStatus` refait la même requête dans
+  4 composants ; `EventsTab` recharge toutes les lignes `likes` du compte alors que
+  `likePairs` les a déjà.
