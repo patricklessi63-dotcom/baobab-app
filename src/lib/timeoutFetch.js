@@ -35,6 +35,12 @@ export function createTimeoutFetch(baseFetch, timeoutMs = REST_TIMEOUT_MS) {
     const timer = setTimeout(() => {
       const reason = new Error("La requête a expiré (réseau trop lent).");
       reason.name = "TimeoutError";
+      // postgrest-js rejoue de lui-même (3 fois, pauses de 1 + 2 + 4 s) toute
+      // lecture dont fetch échoue, SAUF annulation reconnue (name "AbortError"
+      // ou code "ABORT_ERR") : sans ce code, un réseau muet coûtait 4 x 45 s
+      // (~3 min) avant l'erreur au lieu de 45 s. L'erreur rendue reste sans code
+      // (voir networkError.js) : issue incertaine, comportement inchangé.
+      reason.code = "ABORT_ERR";
       controller.abort(reason);
     }, timeoutMs);
     const cleanup = () => {
