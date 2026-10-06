@@ -34,6 +34,7 @@ import { buildOlderMessagesFilter } from "./lib/messagesPagination";
 import { startHeartbeatInterval } from "./lib/presenceHeartbeat";
 import { createFieldWriteQueue } from "./lib/fieldWriteQueue";
 import { chunk } from "./lib/chunk";
+import { fetchSocialGraph as fetchSocialGraphWith, fetchInitialData, createOwnProfilePrefetch } from "./lib/initialLoad";
 
 // Intervalle minimal entre deux rafraîchissements de la présence des autres
 // profils au retour de focus (voir l'effet "Statut en ligne des AUTRES profils").
@@ -82,44 +83,15 @@ function lazyScreen(node) {
 // réutiliser exactement la même liste — voir ce fichier pour le détail du bug
 // et la provenance de la liste.
 
-// Requêtes du "graphe social" du compte courant : likes (reçus ET envoyés, pour
-// recalculer matches + admirersCount), passes, blocages, plus le profil complet
-// des comptes bloqués et la RPC get_my_likers(). Extrait de loadAll() (qui les
-// enchaînait inline) pour que resyncSocialGraph() puisse les REJOUER À
-// L'IDENTIQUE après une reconnexion réseau, sans retoucher aux ~500 profils /
-// ~3200 photos que loadAll() recharge par ailleurs. Ne fait aucun setState ni
-// throw : l'appelant décide quoi faire des résultats.
-async function fetchSocialGraph(myProfileId) {
-  const relFilter = myProfileId ? `from_id.eq.${myProfileId},to_id.eq.${myProfileId}` : null;
-  let likeQuery = supabase.from("likes").select("from_id,to_id");
-  let passQuery = supabase.from("passes").select("from_id,to_id");
-  let blockQuery = supabase.from("blocks").select("from_id,to_id");
-  if (relFilter) {
-    likeQuery = likeQuery.or(relFilter);
-    passQuery = passQuery.or(relFilter);
-    blockQuery = blockQuery.or(relFilter);
-  }
-  // RPC get_my_likers() plutôt qu'une jointure PostgREST directe sur "likes"
-  // (voir supabase-premium-admirers-reveal-fix.sql) : is_premium() appliqué
-  // côté serveur, profil complet seulement pour un match mutuel ou un compte
-  // Premium, sinon un simple compteur sans identité.
-  const likerQuery = myProfileId ? supabase.rpc("get_my_likers") : null;
-  // Même correctif que likerQuery, appliqué à la modale "Comptes bloqués" :
-  // jointure directe sur "blocks" (from_id = moi) et non un filtre du cache
-  // "profiles" plafonné à 500 lignes.
-  const blockedQuery = myProfileId
-    ? supabase.from("blocks").select(`to_id, profile:to_id(${OTHER_PROFILE_COLUMNS})`).eq("from_id", myProfileId)
-    : null;
+// Requêtes du "graphe social" du compte courant (likes, passes, blocages,
+// admirateurs, comptes bloqués) : implémentation dans lib/initialLoad.js (client
+// Supabase injectable pour les tests), partagée par loadAll() et par
+// resyncSocialGraph() (rejeu ciblé après une reconnexion réseau).
+const fetchSocialGraph = (myProfileId) => fetchSocialGraphWith(supabase, myProfileId);
 
-  const [likeRes, passRes, blockRes, likerRes, blockedProfRes] = await Promise.all([
-    likeQuery,
-    passQuery,
-    blockQuery,
-    likerQuery || Promise.resolve({ data: [], error: null }),
-    blockedQuery || Promise.resolve({ data: [], error: null }),
-  ]);
-  return { likeRes, passRes, blockRes, likerRes, blockedProfRes };
-}
+// Propre profil chargé en parallèle des 500 profils/3200 photos par loadAll(),
+// réutilisé une fois par l'effet "checking-profile" (voir lib/initialLoad.js).
+const ownProfilePrefetch = createOwnProfilePrefetch();
 
 export default function App() {
   // Réarme le filet anti-boucle de ChunkErrorBoundary.jsx une fois l'app
@@ -382,57 +354,18 @@ export default function App() {
 
   const loadAll = useCallback(async () => {
     try {
-      // Phase 1 : session + profiles + photos en parallèle. getSession() est
-      // relu ici (plutôt que de fermer sur le state "session" du composant)
-      // car loadAll a des deps [] pour rester une référence stable — fermer
-      // sur "session" produirait un closure figé sur sa toute première valeur.
-      const [sessionRes, profRes, photoRes] = await Promise.all([
-        supabase.auth.getSession(),
-        // Plafonné (item 12/13 de l'audit Phase 10) : charger la table
-        // "profiles" en entier sans limite était le plus gros risque de
-        // scalabilité identifié — un vrai tri/pagination côté serveur
-        // demanderait de déplacer rankCandidates() côté serveur (hors
-        // périmètre de cette phase), donc ce plafond borne le pire cas
-        // sans changer le comportement de classement actuel.
-        // select(OTHER_PROFILE_COLUMNS) et non select("*") (bug corrigé à
-        // l'audit — voir le commentaire sur OTHER_PROFILE_COLUMNS en haut du
-        // fichier) : ce cache sert à afficher/filtrer les profils des AUTRES
-        // utilisateurs (Découverte, tri de compatibilité), jamais le sien
-        // propre — applyOwnProfile()/le profil courant ne dépendent plus de
-        // ce cache (voir plus bas, chargement dédié systématique).
-        supabase.from("profiles").select(OTHER_PROFILE_COLUMNS).order("created_at", { ascending: true }).limit(500),
-        // Plafonné pour la même raison que "profiles" (borne le pire cas
-        // sans dépendre des 500 profils déjà résolus, chargés en parallèle).
-        // Trié par profile_id d'abord : 500 profils × MAX_PHOTOS(6) = 3000
-        // au maximum théorique, donc une troncature reste possible en
-        // bordure — trier uniquement par "position" rendrait alors la coupe
-        // arbitraire (un sous-ensemble différent de photos à chaque reload) ;
-        // trier par profile_id la rend déterministe (toujours les mêmes
-        // profils tronqués, jamais un mélange aléatoire de photos).
-        supabase.from("profile_photos").select("*").order("profile_id", { ascending: true }).order("position", { ascending: true }).limit(3200),
-      ]);
+      // Voir lib/initialLoad.js (fetchInitialData) : le propre profil, les 500
+      // profils, les 3200 photos puis le graphe social sont chargés en
+      // parallèle, le graphe social partant dès que l'id du profil courant est
+      // connu — sans attendre les 2 grosses requêtes. getSession() est relu là-
+      // bas (plutôt que de fermer sur le state "session" du composant) car
+      // loadAll a des deps [] pour rester une référence stable — fermer sur
+      // "session" produirait un closure figé sur sa toute première valeur.
+      const { authUserId, profRes, photoRes, ownRes, likeRes, passRes, blockRes, likerRes, blockedProfRes } = await fetchInitialData(supabase);
       if (profRes.error) throw profRes.error;
       if (photoRes.error) throw photoRes.error;
-
-      // likes/passes/blocks n'étaient filtrés par personne (audit complémentaire
-      // post-palette) : contrairement à "profiles" déjà plafonné ci-dessus,
-      // ces 3 tables croissent indéfiniment avec l'activité de TOUS les
-      // utilisateurs, pas seulement la sienne. hasLiked/hasPassed/hasBlocked
-      // (plus bas) ne sont jamais appelées qu'avec currentUser.id comme l'une
-      // des deux extrémités — donc ne charger que les lignes qui l'impliquent,
-      // via son profile.id. Dérivé du lot déjà chargé (profRes) au lieu d'une
-      // requête dédiée : le cas courant (compte parmi les 500 premiers
-      // profils) ne coûte alors aucun aller-retour réseau supplémentaire.
-      const authUserId = sessionRes.data?.session?.user?.id;
-      let myProfileId = authUserId ? (profRes.data || []).find((p) => p.user_id === authUserId)?.id || null : null;
-      if (authUserId && !myProfileId) {
-        const { data: ownProfile } = await supabase.from("profiles").select("id").eq("user_id", authUserId).maybeSingle();
-        myProfileId = ownProfile?.id || null;
-      }
-      // Requêtes likes/passes/blocages/admirateurs/bloqués extraites dans
-      // fetchSocialGraph() (module) — même lot, rejoué à l'identique par
-      // resyncSocialGraph() après une reconnexion réseau. Voir son commentaire.
-      const { likeRes, passRes, blockRes, likerRes, blockedProfRes } = await fetchSocialGraph(myProfileId);
+      if (ownRes.error) throw ownRes.error;
+      ownProfilePrefetch.store(authUserId, ownRes);
       if (likeRes.error) throw likeRes.error;
       if (passRes.error) throw passRes.error;
       if (blockRes.error) throw blockRes.error;
@@ -1127,7 +1060,15 @@ export default function App() {
     // TOUJOURS le profil complet quel que soit le rang d'ancienneté du
     // compte.
     let alive = true;
-    supabase.from("profiles").select("*").eq("user_id", session.user.id).maybeSingle().then(({ data, error }) => {
+    // Propre profil déjà chargé par loadAll() (lib/initialLoad.js) : réutilisé
+    // une seule fois, pour le même compte et s'il est récent ; sinon (retry
+    // après erreur, retour depuis l'écran de mot de passe, résultat périmé),
+    // requête dédiée comme avant.
+    const prefetched = ownProfilePrefetch.take(session.user.id);
+    const ownProfileQuery = prefetched
+      ? Promise.resolve(prefetched)
+      : supabase.from("profiles").select("*").eq("user_id", session.user.id).maybeSingle();
+    ownProfileQuery.then(({ data, error }) => {
       if (!alive) return;
       if (error) {
         // Échec de la requête (réseau, panne ponctuelle) — distinct d'un
