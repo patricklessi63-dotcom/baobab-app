@@ -24,6 +24,7 @@ import { getCurrentPositionSafe, LOCATION_ERROR_MESSAGES } from "./lib/geolocati
 import { disablePushNotifications } from "./lib/pushNotifications";
 import { isLikelyInCanada, TRAVEL_GRACE_PERIOD_MS } from "./lib/canadaGate";
 import { friendlyDbError, dbErrorCode } from "./lib/friendlyDbError";
+import { isNetworkFailure, networkFailureMessage } from "./lib/networkError";
 import { usePathname } from "./hooks/usePathname";
 import { useEscapeKey } from "./hooks/useEscapeKey";
 import LandingPage from "./screens/public/LandingPage";
@@ -99,7 +100,9 @@ export default function App() {
   // montée avec succès, pour qu'un futur déploiement (nouveaux hashs de
   // chunks) puisse à nouveau déclencher un rechargement automatique.
   useEffect(() => {
-    const t = setTimeout(() => sessionStorage.removeItem("bb-chunk-reload"), 5000);
+    // try/catch : sessionStorage peut jeter (navigation privée stricte, stockage
+    // désactivé) — dans un effet, l'exception démonterait toute l'application.
+    const t = setTimeout(() => { try { sessionStorage.removeItem("bb-chunk-reload"); } catch (_) {} }, 5000);
     return () => clearTimeout(t);
   }, []);
 
@@ -1077,7 +1080,8 @@ export default function App() {
         // n'envoie surtout pas un membre existant vers l'onboarding. Voir
         // le commentaire sur profileLoadError ci-dessus.
         console.error(error.message, error.code, error.details, error.hint);
-        setProfileLoadError(error.message || "Erreur réseau.");
+        // Message réseau lisible plutôt que « TypeError: Failed to fetch » brut.
+        setProfileLoadError(isNetworkFailure(error) ? networkFailureMessage() : error.message || "Erreur réseau.");
         setView("profile-load-error");
         return;
       }
@@ -1097,6 +1101,19 @@ export default function App() {
     setProfileLoadError(null);
     setView("checking-profile");
   }
+
+  // Audit réseau (6 oct. 2026) : l'écran « Impossible de charger ton profil »
+  // (lancement de l'app sans réseau, métro...) restait affiché après le retour
+  // de la connexion tant que la personne ne tapait pas « Réessayer ». On
+  // relance automatiquement, uniquement sur une vraie transition hors ligne ->
+  // en ligne (jamais en boucle sur une panne serveur avec réseau présent).
+  const prevOnlineForProfileRef = useRef(isOnline);
+  useEffect(() => {
+    const wasOnline = prevOnlineForProfileRef.current;
+    prevOnlineForProfileRef.current = isOnline;
+    if (isOnline && !wasOnline && view === "profile-load-error") handleRetryProfileLoad();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOnline]);
 
   function handleAccountDeletionRequested() {
     setCurrentUser((u) => (u ? { ...u, deletion_requested_at: new Date().toISOString() } : u));
@@ -3262,6 +3279,8 @@ export default function App() {
   if (view === "loading" || view === "checking-profile" || session === undefined) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: C.sand }}>
+        {/* Bandeau hors ligne aussi pendant le chargement initial : sans lui, un lancement sans réseau montrait un simple spinner muet. */}
+        <div className="fixed top-0 inset-x-0 z-[95]"><ConnectivityBanner /></div>
         <Loader2 className="animate-spin" color={C.indigo} size={32} />
       </div>
     );
@@ -3273,6 +3292,7 @@ export default function App() {
   if (view === "profile-load-error") {
     return (
       <div className="min-h-screen flex items-center justify-center p-6" style={{ background: C.sand }}>
+        <div className="fixed top-0 inset-x-0 z-[95]"><ConnectivityBanner /></div>
         <div className="bb-card p-8 max-w-sm w-full text-center">
           <div className="text-4xl mb-3">⚠️</div>
           <h1 className="text-lg font-black" style={{ color: "var(--bb-text)" }}>Impossible de charger ton profil</h1>
