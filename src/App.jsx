@@ -251,6 +251,13 @@ export default function App() {
   // après celle de B écrasait les messages de B (déjà affichés sous le bon
   // en-tête) avec ceux de A.
   const chatLoadTokenRef = useRef(0);
+  // match_key de la conversation dont la lecture serveur a abouti (une page, ou
+  // une relecture de fond) : seule une conversation déjà chargée a un historique
+  // affiché CONTIGU jusqu'à la fin (voir planRefresh). Sans cette marque, une
+  // simple ligne arrivée avant la 1re page (écho Realtime, accusé d'envoi) était
+  // prise pour le début de la conversation : le rechargement de fond ne relisait
+  // que depuis elle et « Charger les précédents » disparaissait.
+  const loadedConversationKeyRef = useRef(null);
   // Marque qu'une vraie coupure réseau a eu lieu (par opposition au montage
   // initial du composant, où isOnline vaut déjà true) — lu par l'effet de
   // reconnexion ci-dessous pour ne resynchroniser les messages qu'après un
@@ -1318,6 +1325,7 @@ export default function App() {
     // connectant ensuite ne doit jamais pouvoir le voir réapparaître dans
     // une conversation qui, pour lui, porterait la même clé match_key.
     pendingFailedMessagesRef.current = {};
+    loadedConversationKeyRef.current = null;
   }
 
   const hasLiked = (from, to) => likePairs.some((l) => l.from_id === from && l.to_id === to);
@@ -2454,7 +2462,7 @@ export default function App() {
       // l'ouverture ; sinon TOUT depuis le plus ancien message déjà affiché, pour
       // que l'historique remonté reste contigu (aucun trou) et à jour.
       const key = matchKey(currentUser.id, match.id);
-      const plan = planRefresh({ current: messagesRef.current, key, pageSize: MESSAGES_PAGE_SIZE });
+      const plan = planRefresh({ current: loadedConversationKeyRef.current === key ? messagesRef.current : [], key, pageSize: MESSAGES_PAGE_SIZE });
       let query = supabase
         .from("messages")
         .select("*")
@@ -2469,6 +2477,7 @@ export default function App() {
       // grand pendant cette requête : cette réponse est périmée, on l'ignore
       // pour ne pas écraser les messages de la conversation actuellement affichée.
       if (chatLoadTokenRef.current !== token) return;
+      loadedConversationKeyRef.current = key;
       const chronological = (data || []).slice().reverse();
       // Réinjecte les messages en échec d'envoi mis en cache pour cette
       // conversation (voir pendingFailedMessagesRef) : ils n'existent pas en
@@ -2496,6 +2505,7 @@ export default function App() {
       // autre conversation (messages d'une autre conversation à l'écran).
       const key = matchKey(currentUser.id, match.id);
       if (!messagesRef.current.some((m) => m.match_key === key)) {
+        loadedConversationKeyRef.current = null;
         setMessages([]);
         setHasMoreHistory(false);
       }

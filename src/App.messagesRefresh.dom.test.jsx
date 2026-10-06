@@ -340,3 +340,29 @@ describe("changement rapide de conversation A -> B -> A pendant le rechargement"
     expect(mocks.shell.props.messages.every((m) => m.match_key === keyWith(OTHER2))).toBe(true);
   });
 });
+
+describe("3e passe — historique jamais chargé : un rechargement de fond ne le prend pas pour un historique complet", () => {
+  it("1re ouverture lente + écho Realtime + reprise avant la fin : la dernière page est lue (pas seulement depuis l'écho) et « Charger les précédents » reste proposé", async () => {
+    for (let i = 0; i < 50; i += 1) mocks.db.addRow();
+    await mountShell();
+    mocks.db.holdSelects = true;
+    let open;
+    act(() => { open = mocks.shell.props.openChat(OTHER_PROFILE); });
+    await waitFor(() => expect(mocks.db.heldSelects).toHaveLength(1));
+    // Un message arrive par Realtime AVANT que la 1re page soit revenue : l'état
+    // contient une seule ligne réelle de la conversation, qui n'est PAS son début.
+    const fresh = mocks.db.addRow({ text: "écho" });
+    act(() => handler(KEY, "INSERT").cb({ new: { ...fresh } }));
+    // Reprise : le rechargement de fond invalide la 1re requête.
+    act(() => { visibility = "hidden"; document.dispatchEvent(new Event("visibilitychange")); });
+    now += 3 * 60_000;
+    act(() => { visibility = "visible"; document.dispatchEvent(new Event("visibilitychange")); });
+    await waitFor(() => expect(mocks.db.heldSelects).toHaveLength(2));
+    await act(async () => { mocks.db.heldSelects[0](); mocks.db.heldSelects[1](); await open; });
+    await act(async () => { await new Promise((r) => setTimeout(r, 30)); });
+    expect(mocks.db.selectLog.at(-1)).toEqual({ limit: 30, gte: null });
+    expect(texts()).toHaveLength(30);
+    expect(texts().at(-1)).toBe("écho");
+    expect(screen.getByTestId("has-more").textContent).toBe("oui");
+  });
+});
