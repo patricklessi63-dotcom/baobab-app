@@ -33,6 +33,11 @@ import { OTHER_PROFILE_COLUMNS } from "./lib/otherProfileColumns";
 import { buildOlderMessagesFilter } from "./lib/messagesPagination";
 import { startHeartbeatInterval } from "./lib/presenceHeartbeat";
 import { createFieldWriteQueue } from "./lib/fieldWriteQueue";
+import { chunk } from "./lib/chunk";
+
+// Intervalle minimal entre deux rafraîchissements de la présence des autres
+// profils au retour de focus (voir l'effet "Statut en ligne des AUTRES profils").
+const PEERS_PRESENCE_MIN_INTERVAL_MS = 60 * 1000;
 
 const PUBLIC_ONLY_PATHS = new Set(["/connexion", "/inscription", "/a-propos", "/confidentialite", "/conditions"]);
 
@@ -793,11 +798,23 @@ export default function App() {
       // compte banni/suspendu APRÈS l'ouverture de l'app continuait
       // d'afficher un statut "En ligne"/"Vu il y a X" normal à ses
       // interlocuteurs jusqu'à un rechargement complet de la page.
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("id, is_online, last_seen, show_online_status, banned_at, suspended_until")
-        .in("id", Array.from(ids));
-      if (error || !data) return;
+      // Audit performance (6 oct. 2026) : `.in("id", [~500 uuids])` tenait dans
+      // l'URL du GET (~19 ko) — au-delà de la limite d'URL de la passerelle
+      // (8-16 ko), la requête était refusée, l'erreur ignorée juste en dessous
+      // (`if (error ...) return`) et la présence des autres ne se rafraîchissait
+      // JAMAIS dès ~220 profils en cache, soit dès le lancement. Découpé en
+      // lots de 100 ids (~3,7 ko), envoyés en parallèle ; un lot en erreur
+      // n'empêche pas de fusionner les autres.
+      const results = await Promise.all(
+        chunk(Array.from(ids), 100).map((lot) =>
+          supabase
+            .from("profiles")
+            .select("id, is_online, last_seen, show_online_status, banned_at, suspended_until")
+            .in("id", lot)
+        )
+      );
+      const data = results.flatMap((r) => (r && !r.error && r.data ? r.data : []));
+      if (data.length === 0) return;
       const byId = new Map(data.map((r) => [r.id, r]));
       const merge = (p) => {
         const fresh = byId.get(p.id);
@@ -806,7 +823,19 @@ export default function App() {
       setProfiles((ps) => ps.map(merge));
       setLikerProfilesRaw((ps) => ps.map(merge));
     };
-    const onVisible = () => { if (document.visibilityState === "visible") refreshPeersPresence(); };
+    // Au plus un rafraîchissement par minute : un utilisateur qui jongle entre
+    // deux onglets/applications déclenchait sinon 1 à 5 requêtes (jusqu'à 500
+    // profils renvoyés) à CHAQUE retour de focus, pour une information
+    // (point "En ligne") dont la fenêtre de validité est de 10 minutes
+    // (ONLINE_STALE_MS, lib/presence.js).
+    let lastRefreshAt = 0;
+    const onVisible = () => {
+      if (document.visibilityState !== "visible") return;
+      const now = Date.now();
+      if (now - lastRefreshAt < PEERS_PRESENCE_MIN_INTERVAL_MS) return;
+      lastRefreshAt = now;
+      refreshPeersPresence();
+    };
     document.addEventListener("visibilitychange", onVisible);
     return () => document.removeEventListener("visibilitychange", onVisible);
   }, [session?.user?.id, currentUser?.id]);
