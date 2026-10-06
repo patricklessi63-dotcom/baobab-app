@@ -359,7 +359,7 @@ export default function SocialShell({
         setStories([toEntry(ownRow, true), ...latestPerProfile.map((r) => toEntry(r, false))]);
       });
     return () => { alive = false; };
-  }, [currentUser]);
+  }, [currentUser?.id, currentUser?.name]); // pas [currentUser] : voir le commentaire "audit performance" sur l'effet des notifications
 
   useEffect(() => {
     if (!currentUser) return;
@@ -391,7 +391,7 @@ export default function SocialShell({
         setFavoriteProfilesRaw((data || []).map((r) => r.profile).filter(Boolean));
       });
     return () => { alive = false; };
-  }, [currentUser]);
+  }, [currentUser?.id]);
 
   // Désynchronisation multi-session (même famille de bug que "likes" dans
   // App.jsx, voir son commentaire détaillé) : un favori ajouté/retiré depuis
@@ -600,7 +600,7 @@ export default function SocialShell({
       }
     });
     return () => { alive = false; };
-  }, [currentUser]);
+  }, [currentUser?.id]);
 
   // Même correctif que le canal "favorites-own" ci-dessus, appliqué à
   // "follows" (from_id = moi) : un suivre/ne plus suivre fait sur un autre
@@ -811,7 +811,7 @@ export default function SocialShell({
     fetchConversationsPreviewRef.current = fetchPreview;
     fetchPreview();
     return () => { alive = false; fetchConversationsPreviewRef.current = null; };
-  }, [currentUser, matchIdsKey]);
+  }, [currentUser?.id, matchIdsKey]);
 
   // Bug corrigé : comme pour la conversation ouverte dans App.jsx, les
   // canaux Realtime ci-dessous (INSERT/UPDATE sur "messages") ne rattrapent
@@ -874,7 +874,7 @@ export default function SocialShell({
       )
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [currentUser, matchIdsKey]);
+  }, [currentUser?.id, matchIdsKey]);
 
   // Canal temps réel global — reçoit tout nouveau message dont l'utilisateur
   // est participant (la RLS de "messages" borne déjà la diffusion), pour que
@@ -897,7 +897,7 @@ export default function SocialShell({
       })
       .subscribe();
     return () => supabase.removeChannel(channel);
-  }, [currentUser]);
+  }, [currentUser?.id]);
 
   // La conversation ouverte est marquée lue côté serveur par App.jsx —
   // on reflète ça immédiatement ici pour que le badge ne reste pas bloqué.
@@ -984,7 +984,7 @@ export default function SocialShell({
         setIncomingFavoriteFromIds((data || []).map((r) => r.from_id));
       });
     return () => { alive = false; };
-  }, [currentUser]);
+  }, [currentUser?.id]);
   const incomingFavoritesCount = incomingFavoriteFromIds.filter((id) => !blockedIds.has(id)).length;
 
   // Notifications — table réelle et persistée (voir supabase-communities.sql,
@@ -1042,6 +1042,19 @@ export default function SocialShell({
   // sans setState imbriqué (voir le commentaire du .on("postgres_changes")).
   const communityNotificationsRef = useRef([]);
   useEffect(() => { communityNotificationsRef.current = communityNotifications; }, [communityNotifications]);
+  // Audit performance (6 oct. 2026) : les effets de chargement/abonnement de ce
+  // composant (stories, favoris, abonnements, aperçu des conversations, canaux
+  // Realtime global-messages/conversations-preview/notifications, communautés
+  // et événements du profil) dépendaient de l'OBJET currentUser. Or
+  // App.jsx le remplace par une nouvelle référence à chaque réglage modifié
+  // (confidentialité, préférences de notifications, avatar, édition de profil).
+  // Chaque bascule relançait alors une dizaine de requêtes (dont les 2 listes
+  // de 2000 abonnements avec jointure et les 500 derniers messages) ET
+  // désabonnait/réabonnait 3 canaux Realtime — chaque réabonnement écrit dans
+  // realtime.subscription côté serveur et laisse une fenêtre où un message
+  // entrant peut être perdu. Ces effets ne lisent que currentUser.id (et
+  // .name / .show_upcoming_events là où c'est déclaré) : leurs dépendances
+  // sont donc réduites à ces valeurs primitives.
   useEffect(() => {
     if (!currentUser) {
       setCommunityNotifications([]); setUnreadCommunityCount(0); setNotifLimit(20); setNotifHasMore(false);
@@ -1128,7 +1141,7 @@ export default function SocialShell({
       })
       .subscribe();
     return () => { alive = false; fetchNotificationsRef.current = null; supabase.removeChannel(channel); };
-  }, [currentUser]);
+  }, [currentUser?.id]);
 
   // Bug corrigé (même famille que la resynchronisation des messages/badges
   // ci-dessus) : le canal Realtime "notifications" ne rejoue jamais un INSERT
@@ -1240,7 +1253,7 @@ export default function SocialShell({
         setMyCommunitiesLoading(false);
       });
     return () => { alive = false; };
-  }, [currentUser, tab]);
+  }, [currentUser?.id, tab]);
 
   // "Mes événements" pour l'onglet Profil — événements à venir réellement
   // rejoints/organisés (jamais inventés), respecte profiles.show_upcoming_events.
@@ -1291,7 +1304,7 @@ export default function SocialShell({
         setMyUpcomingEventsLoading(false);
       });
     return () => { alive = false; };
-  }, [currentUser, tab]);
+  }, [currentUser?.id, currentUser?.show_upcoming_events, tab]);
 
   // Marque UNE notification comme lue — appelé quand l'utilisateur clique
   // dessus pour ouvrir son contenu (chat/profil/communauté/événement), pas

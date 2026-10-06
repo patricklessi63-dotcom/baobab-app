@@ -253,12 +253,16 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
       .channel(`posts-feed:${authorId || "all"}`)
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "posts", filter }, (payload) => {
         if (payload.new.author_id === currentUser.id) return; // ses propres publications s'affichent déjà tout de suite
-        if (blockedIds.has(payload.new.author_id)) return;
+        if (blockedIdsRef.current.has(payload.new.author_id)) return;
         setNewPostsCount((n) => n + 1);
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [currentUser?.id, authorId, blockedIds]);
+    // blockedIds lu via blockedIdsRef (audit performance, 6 oct. 2026) : le
+    // mettre en dépendance désabonnait/réabonnait le canal à chaque blocage/
+    // déblocage (et à CHAQUE rendu dès qu'un parent passe un Set non mémoïsé),
+    // pour une valeur que le handler peut lire en direct.
+  }, [currentUser?.id, authorId]);
 
   // Bug corrigé (même famille que la resynchronisation messages/badges et
   // cloche de notifications) : le canal Realtime ci-dessus ne rejoue jamais
