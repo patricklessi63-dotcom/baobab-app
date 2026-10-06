@@ -7,6 +7,7 @@ import { useClickOutside } from "../hooks/useClickOutside";
 import { useEscapeKey, pushBackEntry } from "../hooks/useEscapeKey";
 import { useFocusReturn } from "../hooks/useFocusReturn";
 import { useOnlineStatus } from "../hooks/useOnlineStatus";
+import { useResumeTick } from "../hooks/useResumeTick";
 import { primary, navy, coral, bg, muted, buttonBase, body, primaryRgb } from "./social/theme";
 import { NOTIF_CATEGORIES } from "../lib/notificationLabels";
 import { selectInChunks } from "../lib/inChunks";
@@ -782,6 +783,7 @@ export default function SocialShell({
   const [lastByKey, setLastByKey] = useState({});
   const [unreadByKey, setUnreadByKey] = useState({});
   const { isOnline } = useOnlineStatus();
+  const resumeTick = useResumeTick();
 
   // Aperçu du dernier message + compte de non-lus par conversation — une
   // seule requête bornée, sans nouvelle table (voir plan Phase 5).
@@ -1195,6 +1197,19 @@ export default function SocialShell({
     notificationsWasOfflineRef.current = false;
     fetchNotificationsRef.current?.();
   }, [isOnline]);
+
+  // Reprise après une longue mise en veille / un long passage en arrière-plan
+  // (voir hooks/useResumeTick.js) : aucun évènement `online` n'est émis alors
+  // que le websocket Realtime a été coupé par le système — messages (aperçu +
+  // badge de non-lus) et notifications reçus pendant la veille n'apparaissaient
+  // qu'après un rechargement complet. On rejoue les deux requêtes bornées et
+  // idempotentes déjà utilisées pour la reconnexion ci-dessus.
+  useEffect(() => {
+    if (resumeTick === 0) return;
+    if (typeof navigator !== "undefined" && navigator.onLine === false) return; // l'évènement online prendra le relais
+    fetchConversationsPreviewRef.current?.();
+    fetchNotificationsRef.current?.();
+  }, [resumeTick]);
 
   // Les badges partagent le même compteur brut/mécanisme de remise à zéro
   // (markCommunityNotificationsRead) — répartition par "type" explicite

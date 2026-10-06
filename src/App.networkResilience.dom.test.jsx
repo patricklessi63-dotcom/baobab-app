@@ -282,3 +282,27 @@ describe("App — envoi d'une pièce jointe coupé en plein vol", () => {
   });
 });
 
+describe("App — rechargement de la conversation", () => {
+  it("un échec de rechargement (réseau) ne vide pas la conversation affichée", async () => {
+    await mountAndOpenChat();
+    await typeAndSend("salut");
+    await waitFor(() => expect(screen.getByTestId("msg")).toHaveAttribute("data-status", "ok"));
+    mocks.db.messageReadsFail = true;
+    await act(async () => { await mocks.shell.props.openChat(OTHER_PROFILE); });
+    expect(screen.getAllByTestId("msg")).toHaveLength(1);
+  });
+});
+
+describe("App — reprise après une longue mise en veille (sans évènement online)", () => {
+  it("un message reçu pendant la veille apparaît au retour de visibilité", async () => {
+    await mountAndOpenChat();
+    expect(screen.queryAllByTestId("msg")).toHaveLength(0);
+    // Pendant la veille : l'autre personne écrit (le websocket coupé n'a rien livré).
+    mocks.db.messages.push({ id: mocks.db.nextId++, match_key: KEY, from_id: OTHER, kind: "text", text: "tu es là ?", created_at: new Date().toISOString(), read_at: null });
+    act(() => { visibility = "hidden"; document.dispatchEvent(new Event("visibilitychange")); });
+    now += 3 * 60_000;
+    act(() => { visibility = "visible"; document.dispatchEvent(new Event("visibilitychange")); });
+    await waitFor(() => expect(screen.getAllByTestId("msg")).toHaveLength(1));
+    expect(screen.getByText("tu es là ?")).toBeInTheDocument();
+  });
+});

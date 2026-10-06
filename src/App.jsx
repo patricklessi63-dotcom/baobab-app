@@ -31,6 +31,7 @@ import { useEscapeKey } from "./hooks/useEscapeKey";
 import LandingPage from "./screens/public/LandingPage";
 import LocationRequiredGate from "./components/LocationRequiredGate";
 import { useOnlineStatus } from "./hooks/useOnlineStatus";
+import { useResumeTick } from "./hooks/useResumeTick";
 import { OTHER_PROFILE_COLUMNS } from "./lib/otherProfileColumns";
 import { buildOlderMessagesFilter } from "./lib/messagesPagination";
 import { startHeartbeatInterval } from "./lib/presenceHeartbeat";
@@ -123,6 +124,10 @@ export default function App() {
   const manualSignOutRef = useRef(false);
   const [view, setView] = useState("loading"); // loading | form | feed | discover | matches | stories
   const { isOnline } = useOnlineStatus();
+  // Reprise après une longue mise en arrière-plan/veille (voir useResumeTick) :
+  // aucun évènement `online` n'est émis dans ce cas, mais le websocket Realtime
+  // a été coupé par le système. Consommé par l'effet de resynchronisation plus bas.
+  const resumeTick = useResumeTick();
   const { pathname, navigate } = usePathname();
   const [profiles, setProfiles] = useState([]);
   const [currentUser, setCurrentUser] = useState(null);
@@ -2422,7 +2427,9 @@ export default function App() {
     }
   }
 
-  async function refreshMessages(match) {
+  // silent : rechargement de fond (retour en ligne / reprise après veille) —
+  // un échec ne vide plus la conversation affichée et n'ouvre pas de bandeau.
+  async function refreshMessages(match, { silent = false } = {}) {
     if (!currentUser || !match) return;
     const token = ++chatLoadTokenRef.current;
     try {
@@ -2464,8 +2471,19 @@ export default function App() {
     } catch (e) {
       console.error(e);
       if (chatLoadTokenRef.current !== token) return;
-      setMessages([]);
-      setHasMoreHistory(false);
+      // Audit réseau (6 oct. 2026) : un échec (réseau coupé, requête expirée)
+      // VIDAIT la conversation, présentée alors comme « aucun message »
+      // (écran « Dis bonjour »), sans le moindre indice qu'il s'agissait d'une
+      // erreur — pire, un rechargement de fond au retour en ligne effaçait la
+      // conversation en cours de lecture. On garde les messages déjà affichés
+      // de CETTE conversation, et on ne vide que lors de l'ouverture d'une
+      // autre conversation (messages d'une autre conversation à l'écran).
+      const key = matchKey(currentUser.id, match.id);
+      if (!messagesRef.current.some((m) => m.match_key === key)) {
+        setMessages([]);
+        setHasMoreHistory(false);
+      }
+      if (!silent) setError(isNetworkFailure(e) ? `${networkFailureMessage()} Impossible de charger les messages.` : "Impossible de charger les messages. Réessaie.");
     }
   }
 
@@ -2846,7 +2864,7 @@ export default function App() {
         }
       }
     })();
-    if (activeMatchRef.current) refreshMessages(activeMatchRef.current);
+    if (activeMatchRef.current) refreshMessages(activeMatchRef.current, { silent: true });
     // Bug corrigé (même famille que e7a7cdd/16d03ee/4fd74c8) : si le
     // chargement initial (loadAll — candidates, matches/likes/passes/
     // blocages, photos) avait échoué, rien ne le rejouait jamais ;
@@ -2864,6 +2882,28 @@ export default function App() {
     return () => { alive = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOnline]);
+
+  // Rattrapage après une reprise (retour d'un onglet/app en veille > 60 s) : le
+  // websocket Realtime a pu être coupé par le système SANS évènement `online`
+  // (la connexion reste « en ligne »), donc ni les messages de la conversation
+  // ouverte, ni les likes/matches/blocages reçus pendant la veille n'étaient
+  // rattrapés. Même rattrapage borné que l'effet de reconnexion ci-dessus, sans
+  // refaire le chargement initial complet (sauf si celui-ci avait échoué).
+  // L'aperçu des conversations et les notifications sont rattrapés par
+  // SocialShell.jsx (même signal). Les messages en échec NE sont PAS renvoyés
+  // ici : sans coupure détectée, rien n'indique que ça réussirait, et le bouton
+  // « Réessayer » reste disponible.
+  useEffect(() => {
+    if (resumeTick === 0) return;
+    if (!session || !currentUserRef.current) return;
+    if (typeof navigator !== "undefined" && navigator.onLine === false) return; // l'évènement online prendra le relais
+    let alive = true;
+    if (activeMatchRef.current) refreshMessages(activeMatchRef.current, { silent: true });
+    if (loadAllFailedRef.current) loadAll();
+    else resyncSocialGraph(() => alive);
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resumeTick]);
 
   // Messages en direct + indicateur "en train d'écrire" pour la conversation active
   useEffect(() => {

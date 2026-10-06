@@ -15,6 +15,7 @@ import { POST_MEDIA_BUCKET, extFromMime } from "../../lib/mediaConstants";
 import { friendlyDbError } from "../../lib/friendlyDbError";
 import { selectAllPages } from "../../lib/inChunks";
 import { useOnlineStatus } from "../../hooks/useOnlineStatus";
+import { useResumeTick } from "../../hooks/useResumeTick";
 import { primary, navy, coral, muted, bg, card } from "./theme";
 
 const PAGE_SIZE = 20;
@@ -110,6 +111,10 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
   const sentinelRef = useRef(null);
   const loadingMoreRef = useRef(false);
   const { isOnline } = useOnlineStatus();
+  // Reprise après une longue veille (sans évènement `online`) : même rattrapage
+  // du bandeau « nouvelles publications » que le retour en ligne, voir plus bas.
+  const resumeTick = useResumeTick();
+  const lastResumeTickRef = useRef(0);
   // Lus par l'effet de reconnexion plus bas, qui recalcule newPostsCount
   // depuis la base plutôt que de dépendre uniquement des événements Realtime
   // reçus pendant que l'app était hors ligne.
@@ -298,11 +303,14 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
   // que les fetchs bornés de SocialShell.jsx.
   const wasOfflineRef = useRef(false);
   useEffect(() => {
+    const resumed = resumeTick !== lastResumeTickRef.current;
+    lastResumeTickRef.current = resumeTick;
     if (!isOnline) {
       wasOfflineRef.current = true;
       return;
     }
-    if (!wasOfflineRef.current) return; // pas une vraie reconnexion (ex. montage initial)
+    // Ni vraie reconnexion (ex. montage initial) ni reprise après veille : rien à faire.
+    if (!wasOfflineRef.current && !resumed) return;
     wasOfflineRef.current = false;
     if (!currentUser) return;
     const cutoff = postsRef.current[0]?.created_at;
@@ -323,7 +331,7 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
     });
     return () => { alive = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOnline, currentUser?.id, authorId]);
+  }, [isOnline, resumeTick, currentUser?.id, authorId]);
 
   const loadNewPosts = () => {
     loadPosts(null);
