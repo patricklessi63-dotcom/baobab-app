@@ -3,7 +3,27 @@ import { supabase } from "../supabaseClient";
 const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY;
 
 export function isPushSupported() {
-  return typeof window !== "undefined" && "serviceWorker" in navigator && "PushManager" in window;
+  // `Notification` est vérifié aussi : certains navigateurs/WebViews exposent
+  // PushManager sans Notification, et enablePushNotifications() / le statut
+  // lèveraient alors un ReferenceError sur `Notification.permission`.
+  return (
+    typeof window !== "undefined" &&
+    typeof navigator !== "undefined" &&
+    "serviceWorker" in navigator &&
+    "PushManager" in window &&
+    typeof Notification !== "undefined"
+  );
+}
+
+// iPhone/iPad : les push web n'existent QUE dans une PWA installée sur
+// l'écran d'accueil ; dans un onglet Safari, PushManager est absent.
+export function isIosNotInstalled() {
+  if (typeof navigator === "undefined" || typeof window === "undefined") return false;
+  const ua = navigator.userAgent || "";
+  const isIos = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  if (!isIos) return false;
+  const standalone = navigator.standalone === true || window.matchMedia?.("(display-mode: standalone)")?.matches === true;
+  return !standalone;
 }
 
 function urlBase64ToUint8Array(base64String) {
@@ -75,7 +95,14 @@ export async function enablePushNotifications() {
   if (!VAPID_PUBLIC_KEY) throw new Error("Configuration push manquante (clé VAPID absente).");
 
   const permission = await Notification.requestPermission();
-  if (permission !== "granted") throw new Error("Permission de notification refusée.");
+  if (permission === "denied") {
+    throw new Error("Notifications bloquées. Tu peux les autoriser dans les réglages de ton navigateur.");
+  }
+  if (permission !== "granted") {
+    // "default" : la fenêtre du navigateur a été fermée sans choix — ce n'est
+    // pas un refus, on ne l'annonce donc pas comme tel.
+    throw new Error("Demande fermée sans réponse. Réessaie, ou continue et active-les plus tard dans les réglages.");
+  }
 
   const registration = await navigator.serviceWorker.register("/sw.js");
   await navigator.serviceWorker.ready;
