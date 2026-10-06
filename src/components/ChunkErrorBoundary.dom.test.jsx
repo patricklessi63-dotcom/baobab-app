@@ -116,4 +116,55 @@ describe("ChunkErrorBoundary", () => {
     expect(sessionStorage.getItem("bb-chunk-reload")).toBeNull();
     expect(reloadSpy).toHaveBeenCalledTimes(1);
   });
+
+  it("formulation Safari/iOS « Importing a module script failed » : rechargement unique", () => {
+    render(
+      <ChunkErrorBoundary>
+        <Boom error={new Error("Importing a module script failed.")} />
+      </ChunkErrorBoundary>
+    );
+    expect(reloadSpy).toHaveBeenCalledTimes(1);
+  });
+
+  describe("hors ligne (navigator.onLine = false)", () => {
+    let onLineSpy;
+    beforeEach(() => {
+      onLineSpy = vi.spyOn(navigator, "onLine", "get").mockReturnValue(false);
+    });
+
+    it("erreur de chunk : AUCUN rechargement (la page d'erreur du navigateur remplacerait l'app), message hors ligne", () => {
+      render(
+        <ChunkErrorBoundary>
+          <Boom error={CHUNK_ERROR} />
+        </ChunkErrorBoundary>
+      );
+      expect(reloadSpy).not.toHaveBeenCalled();
+      expect(sessionStorage.getItem("bb-chunk-reload")).toBeNull();
+      expect(screen.getByText(/Tu es hors ligne/)).toBeInTheDocument();
+    });
+
+    it("le bouton Réessayer ne recharge pas tant qu'on est hors ligne", async () => {
+      const user = userEvent.setup();
+      render(
+        <ChunkErrorBoundary>
+          <Boom error={CHUNK_ERROR} />
+        </ChunkErrorBoundary>
+      );
+      await user.click(screen.getByRole("button", { name: /Réessayer/ }));
+      expect(reloadSpy).not.toHaveBeenCalled();
+    });
+
+    it("recharge une seule fois dès le retour en ligne (événement online)", () => {
+      render(
+        <ChunkErrorBoundary>
+          <Boom error={CHUNK_ERROR} />
+        </ChunkErrorBoundary>
+      );
+      onLineSpy.mockReturnValue(true);
+      window.dispatchEvent(new Event("online"));
+      window.dispatchEvent(new Event("online"));
+      expect(reloadSpy).toHaveBeenCalledTimes(1);
+      expect(sessionStorage.getItem("bb-chunk-reload")).toBe("1");
+    });
+  });
 });
