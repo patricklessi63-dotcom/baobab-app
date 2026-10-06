@@ -25,6 +25,7 @@ import { friendlyDbError } from "../../lib/friendlyDbError";
 import { escapeLikePattern, escapeOrFilterValue, normalizeForSearch } from "../../lib/searchQuery";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
 import { useReconnectTick } from "../../hooks/useReconnectTick";
+import { isAmbiguousWriteError } from "../../lib/networkError";
 import LoadErrorNotice from "../LoadErrorNotice";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { primary, coralText, muted, bg, card, primaryRgb, navy } from "./theme";
@@ -755,6 +756,23 @@ export default function EventsTab({ currentUser, onError, onBack = () => {}, ini
       }
     } catch (e) {
       console.error(e);
+      // Coupure PENDANT l'appel (erreur sans code) : l'inscription est peut-être
+      // enregistrée. Un nouveau « Participer » relancerait join_event(), qui
+      // recompte les « going » en s'y incluant : sur un événement complet, il
+      // pourrait rétrograder cette personne en liste d'attente. On relit donc
+      // son statut réel plutôt que d'afficher une erreur trompeuse.
+      if (isAmbiguousWriteError(e)) {
+        try {
+          const { data: mine, error: probeError } = await supabase
+            .from("event_attendees").select("status").eq("event_id", ev.id).eq("profile_id", currentUser.id).maybeSingle();
+          if (!probeError && mine?.status) {
+            setMyStatuses((s) => ({ ...s, [ev.id]: mine.status }));
+            if (selectedId === ev.id) loadParticipants(ev.id, detailRequestRef.current);
+            if (mine.status === "going") refreshParticipantCount(ev.id);
+            return;
+          }
+        } catch (_) { /* vérification impossible : message d'erreur ci-dessous */ }
+      }
       // join_event() (supabase-events-v2.sql) lève "Cet evenement est annule"
       // (ou "Evenement introuvable"/"Non autorise") — message précis masqué
       // avant par un "Impossible de rejoindre cet événement." générique fixe,
