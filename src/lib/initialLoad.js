@@ -1,4 +1,5 @@
 import { OTHER_PROFILE_COLUMNS } from "./otherProfileColumns";
+import { selectAllPages } from "./inChunks";
 
 // Requêtes du chargement initial d'une session (App.jsx, loadAll) — extraites
 // dans ce module, avec le client Supabase passé en paramètre, pour pouvoir
@@ -13,14 +14,22 @@ import { OTHER_PROFILE_COLUMNS } from "./otherProfileColumns";
 // throw : l'appelant décide quoi faire des résultats.
 export async function fetchSocialGraph(client, myProfileId) {
   const relFilter = myProfileId ? `from_id.eq.${myProfileId},to_id.eq.${myProfileId}` : null;
-  let likeQuery = client.from("likes").select("from_id,to_id");
-  let passQuery = client.from("passes").select("from_id,to_id");
-  let blockQuery = client.from("blocks").select("from_id,to_id");
-  if (relFilter) {
-    likeQuery = likeQuery.or(relFilter);
-    passQuery = passQuery.or(relFilter);
-    blockQuery = blockQuery.or(relFilter);
-  }
+  // Plafond PostgREST (max_rows, 1000 par défaut sur Supabase) : il tronque la
+  // réponse SANS erreur. Un compte populaire (likes reçus) ou très actif
+  // dépasse 1000 lignes "likes"/"passes" ; surtout, une liste de blocages
+  // tronquée ferait RÉAPPARAÎTRE un utilisateur bloqué (Découverte, matches,
+  // conversations : blockedIds est calculé d'ici). Chaque requête filtrée par
+  // le profil courant est donc paginée par `.order("id").range()` (id unique
+  // = pas de doublon ni de trou entre pages). Sans id de profil (compte en
+  // onboarding, résultat de toute façon jeté par loadAll), on garde la requête
+  // unique historique : paginer toute la table n'aurait aucun sens.
+  const relQuery = (table) =>
+    relFilter
+      ? selectAllPages((from, to) => client.from(table).select("from_id,to_id").or(relFilter).order("id").range(from, to))
+      : client.from(table).select("from_id,to_id");
+  const likeQuery = relQuery("likes");
+  const passQuery = relQuery("passes");
+  const blockQuery = relQuery("blocks");
   // RPC get_my_likers() plutôt qu'une jointure PostgREST directe sur "likes"
   // (voir supabase-premium-admirers-reveal-fix.sql) : is_premium() appliqué
   // côté serveur, profil complet seulement pour un match mutuel ou un compte
@@ -30,7 +39,8 @@ export async function fetchSocialGraph(client, myProfileId) {
   // jointure directe sur "blocks" (from_id = moi) et non un filtre du cache
   // "profiles" plafonné à 500 lignes.
   const blockedQuery = myProfileId
-    ? client.from("blocks").select(`to_id, profile:to_id(${OTHER_PROFILE_COLUMNS})`).eq("from_id", myProfileId)
+    ? selectAllPages((from, to) =>
+        client.from("blocks").select(`to_id, profile:to_id(${OTHER_PROFILE_COLUMNS})`).eq("from_id", myProfileId).order("id").range(from, to))
     : null;
 
   const [likeRes, passRes, blockRes, likerRes, blockedProfRes] = await Promise.all([
@@ -80,6 +90,9 @@ function skippedSocialGraph(error) {
   return { likeRes: res(), passRes: res(), blockRes: res(), likerRes: res(), blockedProfRes: res() };
 }
 
+// Borne volontaire du chargement initial des photos (voir fetchInitialData).
+export const PHOTOS_LIMIT = 3200;
+
 export async function fetchInitialData(client) {
   const sessionRes = await client.auth.getSession();
   const authUserId = sessionRes.data?.session?.user?.id || null;
@@ -99,7 +112,22 @@ export async function fetchInitialData(client) {
   // troncature reste possible en bordure — trier uniquement par "position"
   // rendrait alors la coupe arbitraire (un sous-ensemble différent de photos à
   // chaque reload) ; trier par profile_id la rend déterministe.
-  const photosQuery = client.from("profile_photos").select("*").order("profile_id", { ascending: true }).order("position", { ascending: true }).limit(3200);
+  // PLAFOND PostgREST : `limit(3200)` ne suffit pas, max_rows (1000 par défaut
+  // sur Supabase, aucun supabase/config.toml dans ce dépôt) tronque la réponse
+  // à 1000 lignes sans erreur — dès ~170 comptes avec 6 photos, les profils
+  // au-delà de la 1000e photo (ordre profile_id) s'affichaient sans photo de
+  // galerie. Pagination `.range()` jusqu'à PHOTOS_LIMIT lignes ; "id" en
+  // dernier critère de tri (profile_id/position ne sont pas uniques ensemble)
+  // pour que les pages ne se chevauchent ni ne laissent de trou.
+  const photosQuery = selectAllPages((from, to) =>
+    client
+      .from("profile_photos")
+      .select("*")
+      .order("profile_id", { ascending: true })
+      .order("position", { ascending: true })
+      .order("id", { ascending: true })
+      .range(from, Math.min(to, PHOTOS_LIMIT - 1))
+  );
   // Propre profil complet (select "*") : même requête que l'effet
   // "checking-profile" d'App.jsx, qui réutilise ce résultat.
   const ownPromise = authUserId ? fetchOwnProfile(client, authUserId) : Promise.resolve({ data: null, error: null });
