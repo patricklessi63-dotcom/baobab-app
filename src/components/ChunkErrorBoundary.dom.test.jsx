@@ -18,6 +18,10 @@ const OTHER_ERROR = new Error("Cannot read properties of undefined (reading 'x')
 
 let reloadSpy;
 let consoleErrorSpy;
+// `location` d'origine de jsdom : en pool `forks` + `singleFork`, le `window`
+// est partagé entre fichiers ; sans restauration, la copie figée (pathname "/")
+// fuit vers les tests suivants (ex. PublicPageShell.canonical).
+const originalLocationDescriptor = Object.getOwnPropertyDescriptor(window, "location");
 
 beforeEach(() => {
   sessionStorage.clear();
@@ -33,6 +37,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  Object.defineProperty(window, "location", originalLocationDescriptor);
   consoleErrorSpy.mockRestore();
   vi.restoreAllMocks();
 });
