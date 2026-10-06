@@ -190,3 +190,53 @@ describe("createOwnProfilePrefetch — passage du propre profil de loadAll à l'
     expect(m.take("auth-1", 1600)).toBe(res2);
   });
 });
+
+// Client minimal à réponses SCRIPTÉES pour le propre profil (le faux client
+// ci-dessus renvoie toujours le même deferred, donc ne peut pas simuler "échoue
+// puis réussit") : chaque appel à from("profiles").…maybeSingle() consomme la
+// réponse suivante de `ownResponses`.
+function makeScriptedClient(ownResponses) {
+  const calls = { own: 0, likesFilters: [], started: [] };
+  const builder = (table, opts = {}) => {
+    const b = {};
+    ["select", "order", "limit", "eq"].forEach((m) => { b[m] = () => b; });
+    b.or = (f) => { if (table === "likes") calls.likesFilters.push(f); return b; };
+    b.maybeSingle = () => { opts.own = true; return b; };
+    b.then = (res, rej) => {
+      calls.started.push(table);
+      let value = ok([]);
+      if (table === "profiles" && opts.own) value = ownResponses[Math.min(calls.own++, ownResponses.length - 1)];
+      return Promise.resolve(value).then(res, rej);
+    };
+    return b;
+  };
+  return {
+    calls,
+    client: {
+      auth: { getSession: async () => ({ data: { session: { user: { id: "auth-1" } } } }) },
+      from: (table) => builder(table),
+      rpc: () => ({ then: (res, rej) => Promise.resolve(ok({ likers: [], admirers_count: 0 })).then(res, rej) }),
+    },
+  };
+}
+
+describe("fetchInitialData — échec ponctuel du propre profil (régression de f8c7b53)", () => {
+  it("une erreur passagère est absorbée par un nouvel essai : loadAll n'échoue pas et le graphe est filtré", async () => {
+    const s = makeScriptedClient([{ data: null, error: { message: "blip" } }, ok({ id: "me-1", user_id: "auth-1" })]);
+    const result = await fetchInitialData(s.client);
+    expect(result.ownRes.error).toBeNull();
+    expect(result.ownRes.data.id).toBe("me-1");
+    expect(s.calls.own).toBe(2);
+    expect(s.calls.likesFilters).toEqual(["from_id.eq.me-1,to_id.eq.me-1"]);
+  });
+
+  it("deux erreurs de suite : l'erreur est renvoyée (jamais « aucun profil ») et le graphe social ne part PAS sans filtre", async () => {
+    const s = makeScriptedClient([{ data: null, error: { message: "down" } }]);
+    const result = await fetchInitialData(s.client);
+    expect(result.ownRes.error.message).toBe("down");
+    expect(result.ownRes.data).toBeNull();
+    expect(s.calls.likesFilters).toEqual([]);
+    expect(s.calls.started).not.toContain("likes");
+    expect(result.likeRes.error).toBeTruthy(); // loadAll échoue sur ownRes.error avant d'utiliser le graphe
+  });
+});

@@ -61,6 +61,25 @@ export async function fetchSocialGraph(client, myProfileId) {
 // App.jsx supprime la requête dédiée. Le coût réseau total ne change pas, et
 // disparaît même pour les comptes au-delà des 500 premiers (plus de requête de
 // repli).
+// Propre profil complet (select "*"), avec UN nouvel essai en cas d'erreur.
+// Avant f8c7b53, un échec ponctuel de cette requête n'aboutissait qu'à l'écran
+// "profile-load-error" (bouton Réessayer) sans toucher aux données déjà
+// chargées ; depuis qu'elle fait partie du chargement initial, une erreur fait
+// échouer tout loadAll() (profils, likes, blocages jetés, Découverte vide si
+// la requête dédiée de checking-profile réussit ensuite) pour une coupure d'une
+// seconde. Un seul nouvel essai absorbe le cas courant ; si les deux échouent,
+// l'erreur est renvoyée telle quelle (jamais traitée comme "aucun profil").
+async function fetchOwnProfile(client, authUserId) {
+  const run = () => Promise.resolve(client.from("profiles").select("*").eq("user_id", authUserId).maybeSingle());
+  const first = await run();
+  return first?.error ? run() : first;
+}
+
+function skippedSocialGraph(error) {
+  const res = () => ({ data: null, error });
+  return { likeRes: res(), passRes: res(), blockRes: res(), likerRes: res(), blockedProfRes: res() };
+}
+
 export async function fetchInitialData(client) {
   const sessionRes = await client.auth.getSession();
   const authUserId = sessionRes.data?.session?.user?.id || null;
@@ -83,17 +102,17 @@ export async function fetchInitialData(client) {
   const photosQuery = client.from("profile_photos").select("*").order("profile_id", { ascending: true }).order("position", { ascending: true }).limit(3200);
   // Propre profil complet (select "*") : même requête que l'effet
   // "checking-profile" d'App.jsx, qui réutilise ce résultat.
-  const ownQuery = authUserId
-    ? client.from("profiles").select("*").eq("user_id", authUserId).maybeSingle()
-    : Promise.resolve({ data: null, error: null });
-
-  const ownPromise = Promise.resolve(ownQuery);
+  const ownPromise = authUserId ? fetchOwnProfile(client, authUserId) : Promise.resolve({ data: null, error: null });
   // likes/passes/blocks n'étaient filtrés par personne (audit complémentaire
   // post-palette) : ces 3 tables croissent indéfiniment avec l'activité de TOUS
   // les utilisateurs. hasLiked/hasPassed/hasBlocked ne sont jamais appelées
   // qu'avec currentUser.id comme l'une des deux extrémités — donc ne charger que
   // les lignes qui l'impliquent, via son profile.id.
-  const graphPromise = ownPromise.then((ownRes) => fetchSocialGraph(client, ownRes?.data?.id || null));
+  // Si le propre profil est en erreur (même après le nouvel essai de
+  // fetchOwnProfile), l'id est inconnu : ne PAS lancer le graphe social, qui
+  // partirait sans filtre (likes/passes/blocages de TOUS les comptes) pour un
+  // résultat que loadAll() jette de toute façon (ownRes.error => échec).
+  const graphPromise = ownPromise.then((ownRes) => (ownRes?.error ? skippedSocialGraph(ownRes.error) : fetchSocialGraph(client, ownRes?.data?.id || null)));
 
   const [profRes, photoRes, ownRes, graph] = await Promise.all([profilesQuery, photosQuery, ownPromise, graphPromise]);
   return { authUserId, profRes, photoRes, ownRes, ...graph };
