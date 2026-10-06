@@ -16,6 +16,7 @@ import { SkeletonCard } from "../Skeleton";
 import { rankCommunities } from "../../lib/communities/recommendations";
 import { COMMUNITY_REPORT_CATEGORIES } from "../../lib/communities/communityConfig";
 import { trackActivation } from "../../lib/trackActivation";
+import { selectInChunks } from "../../lib/inChunks";
 import { friendlyDbError } from "../../lib/friendlyDbError";
 import { validateMediaFile } from "../../lib/mediaValidation";
 import { compressImageIfNeeded } from "../../lib/imageCompression";
@@ -398,19 +399,25 @@ export default function CommunitiesTab({ currentUser, onError, onBack = () => {}
       setPosts(data || []);
       const ids = (data || []).map((p) => p.id);
       if (ids.length > 0) {
+        // Audit (6 oct. 2026) : tous les posts de la communauté sont chargés
+        // (sans limit), donc `.in("post_id", ids)` dépassait la limite d'URL de
+        // la passerelle dès ~200 posts, et l'erreur n'était pas vérifiée : les
+        // compteurs restaient vides sans message. Lots de 100 ids ; un lot en
+        // erreur est journalisé sans perdre les compteurs des autres lots.
         const [likesRes, commentsRes] = await Promise.all([
-          supabase.from("community_post_likes").select("post_id, profile_id, emoji").in("post_id", ids),
-          supabase.from("community_comments").select("post_id").in("post_id", ids),
+          selectInChunks(ids, (lot) => supabase.from("community_post_likes").select("post_id, profile_id, emoji").in("post_id", lot)),
+          selectInChunks(ids, (lot) => supabase.from("community_comments").select("post_id").in("post_id", lot)),
         ]);
+        likesRes.errors.concat(commentsRes.errors).forEach((err) => console.error(err));
         if (requestId !== undefined && detailRequestRef.current !== requestId) return;
         const counts = {}; const mine = {};
-        (likesRes.data || []).forEach((l) => {
+        likesRes.data.forEach((l) => {
           counts[l.post_id] = counts[l.post_id] || {};
           counts[l.post_id][l.emoji] = (counts[l.post_id][l.emoji] || 0) + 1;
           if (l.profile_id === currentUser.id) mine[l.post_id] = l.emoji;
         });
         const commentCounts = {};
-        (commentsRes.data || []).forEach((c) => { commentCounts[c.post_id] = (commentCounts[c.post_id] || 0) + 1; });
+        commentsRes.data.forEach((c) => { commentCounts[c.post_id] = (commentCounts[c.post_id] || 0) + 1; });
         setReactionCounts(counts);
         setMyReactions(mine);
         setPostCommentCounts(commentCounts);
@@ -533,13 +540,20 @@ export default function CommunitiesTab({ currentUser, onError, onBack = () => {}
       // communauté auquel on est déjà inscrit·e.
       let statusByEventId = {};
       if (currentUser && rows.length > 0) {
-        const { data: attendeeRows, error: attendeeError } = await supabase
-          .from("event_attendees")
-          .select("event_id, status")
-          .eq("profile_id", currentUser.id)
-          .in("event_id", rows.map((e) => e.id));
-        if (attendeeError) console.error(attendeeError);
-        else statusByEventId = Object.fromEntries((attendeeRows || []).map((r) => [r.event_id, r.status]));
+        // Une communauté peut cumuler des centaines d'événements (passés
+        // compris, aucune limite ci-dessus) : lots de 100 ids pour rester sous
+        // la limite d'URL. Un lot en erreur est journalisé (comportement
+        // historique : statut absent) sans perdre les statuts des autres lots.
+        const { data: attendeeRows, errors: attendeeErrors } = await selectInChunks(
+          rows.map((e) => e.id),
+          (lot) => supabase
+            .from("event_attendees")
+            .select("event_id, status")
+            .eq("profile_id", currentUser.id)
+            .in("event_id", lot)
+        );
+        attendeeErrors.forEach((err) => console.error(err));
+        statusByEventId = Object.fromEntries(attendeeRows.map((r) => [r.event_id, r.status]));
       }
       if (requestId !== undefined && detailRequestRef.current !== requestId) return;
       setEvents(rows.map((e) => ({ ...e, participantCount: e.event_participant_count || 0, status: statusByEventId[e.id] || null })));
@@ -807,23 +821,26 @@ export default function CommunitiesTab({ currentUser, onError, onBack = () => {}
         const eventIds = (memberEvents || []).map((e) => e.id);
         cleanedEventIds = eventIds;
         if (eventIds.length > 0) {
-          const { data: pendingInvites, error: invitesError } = await supabase
+          // Lots de 100 ids (limite d'URL de la passerelle) : `eventIds` est
+          // non borné. Les lots réussis sont traités même si un autre échoue,
+          // puis l'erreur est propagée comme avant (best-effort, cf. catch).
+          const { data: pendingInvites, errors: invitesErrors } = await selectInChunks(eventIds, (lot) => supabase
             .from("event_invitations")
             .select("id")
             .eq("invited_profile_id", currentUser.id)
             .eq("status", "pending")
-            .in("event_id", eventIds);
-          if (invitesError) throw invitesError;
-          for (const invite of pendingInvites || []) {
+            .in("event_id", lot));
+          for (const invite of pendingInvites) {
             const { error: declineError } = await supabase.rpc("decline_event_invitation", { p_invitation_id: invite.id });
             if (declineError) console.error(declineError);
           }
-          const { error: attendeesError } = await supabase
+          if (invitesErrors.length > 0) throw invitesErrors[0];
+          const { errors: attendeesErrors } = await selectInChunks(eventIds, (lot) => supabase
             .from("event_attendees")
             .delete()
             .eq("profile_id", currentUser.id)
-            .in("event_id", eventIds);
-          if (attendeesError) throw attendeesError;
+            .in("event_id", lot));
+          if (attendeesErrors.length > 0) throw attendeesErrors[0];
         }
       } catch (cleanupError) {
         console.error(cleanupError);
