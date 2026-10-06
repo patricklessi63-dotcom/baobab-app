@@ -1053,6 +1053,15 @@ le sitemap. `PublicPageShell` ajuste désormais le canonical à la page courante
    (3 sites, 20 posts/page), `loadReactionsFor` (30 messages/page), suppression des
    photos d'un échec d'enregistrement (≤ 6 `MAX_PHOTOS`), statuts `event_attendees` du
    profil (3 valeurs constantes).
+   **Plafond PostgREST de 1000 lignes par réponse** (audit de régression, 6 oct.) : un lot
+   de 100 posts peut renvoyer plus de 1000 likes/commentaires (tronqué sans erreur, comme
+   avant le découpage) ; ces deux lectures de `CommunitiesTab` paginent donc par `.range`
+   (`selectAllPages`, ordre `id`). Les autres sites sont bornés par construction (une ligne
+   par id : statuts, invitations, profils ; `messages` : `limit(500)`). La RLS SELECT de
+   `messages` (participants uniquement, `supabase-protect-rls.sql`) conditionne le canal
+   Realtime `conversations-preview` sans filtre au-delà de 100 clés : à vérifier en prod
+   (`select policyname, qual from pg_policies where tablename = 'messages'` ne doit pas
+   montrer `using (true)`).
 
 ### ⬜ SQL à exécuter — `supabase-indexes-launch-fix.sql`
 

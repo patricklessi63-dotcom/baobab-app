@@ -43,3 +43,21 @@ describe("selectInChunks", () => {
     expect(peak).toBe(3);
   });
 });
+
+describe("selectAllPages", () => {
+  it("enchaîne les pages tant qu'une page est pleine (plafond PostgREST de 1000 lignes)", async () => {
+    const { selectAllPages } = await import("./inChunks.js");
+    const all = Array.from({ length: 2500 }, (_, i) => ({ i }));
+    const ranges = [];
+    const r = await selectAllPages(async (from, to) => { ranges.push([from, to]); return { data: all.slice(from, to + 1), error: null }; });
+    expect(r.data).toHaveLength(2500);
+    expect(r.error).toBeNull();
+    expect(ranges).toEqual([[0, 999], [1000, 1999], [2000, 2999]]);
+  });
+  it("une erreur sur une page invalide le lot entier", async () => {
+    const { selectAllPages } = await import("./inChunks.js");
+    let n = 0;
+    const r = await selectAllPages(async () => (n++ === 0 ? { data: new Array(1000).fill({}), error: null } : { data: null, error: { message: "boom" } }));
+    expect(r).toEqual({ data: null, error: { message: "boom" } });
+  });
+});

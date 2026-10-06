@@ -50,8 +50,10 @@ function makeInBuilder(table, respond, spy) {
   const builder = {};
   ["select", "eq", "order", "limit", "is", "gte"].forEach((m) => { builder[m] = vi.fn(() => builder); });
   let lot = null;
+  let rng = null;
+  builder.range = vi.fn((from, to) => { rng = [from, to]; return builder; });
   builder.in = vi.fn((col, ids) => { spy(table, col, ids); lot = ids; return builder; });
-  builder.then = (resolve, reject) => Promise.resolve(respond(lot)).then(resolve, reject);
+  builder.then = (resolve, reject) => Promise.resolve(respond(lot, rng)).then(resolve, reject);
   return builder;
 }
 
@@ -68,11 +70,13 @@ import CommunitiesTab from "./CommunitiesTab";
 describe("CommunitiesTab — requêtes .in() découpées en lots (limite d'URL de la passerelle)", () => {
   let inSpy;
   let failEventLot;
+  let heavyLikes;
 
   beforeEach(() => {
     vi.clearAllMocks();
     inSpy = vi.fn();
     failEventLot = false;
+    heavyLikes = false;
     const community = {
       id: "c1", name: "Communauté Test", visibility: "public", category: "general",
       city: "", description: "", rules: "", cover_url: null, created_by: "owner1",
@@ -94,7 +98,14 @@ describe("CommunitiesTab — requêtes .in() découpées en lots (limite d'URL d
       if (table === "community_members") return makeMembersBuilder();
       if (table === "community_posts") return makeQueryBuilder({ data: posts, error: null });
       if (table === "community_post_likes") {
-        return makeInBuilder(table, (lot) => ({ data: lot.map((id) => ({ post_id: id, profile_id: "u1", emoji: "like" })), error: null }), inSpy);
+        return makeInBuilder(table, (lot, rng) => {
+          if (heavyLikes && lot.includes(pad(0))) {
+            // 1500 likes sur le post le plus récent : PostgREST ne renverrait que 1000 lignes par page.
+            const all = Array.from({ length: 1500 }, (_, i) => ({ post_id: pad(0), profile_id: `p${i}`, emoji: "like" }));
+            return { data: all.slice(rng[0], Math.min(rng[1], rng[0] + 999) + 1), error: null };
+          }
+          return { data: lot.map((id) => ({ post_id: id, profile_id: "u1", emoji: "like" })), error: null };
+        }, inSpy);
       }
       if (table === "community_comments") return makeInBuilder(table, (lot) => ({ data: lot.map((id) => ({ post_id: id })), error: null }), inSpy);
       if (table === "events") {
@@ -172,5 +183,10 @@ describe("CommunitiesTab — requêtes .in() découpées en lots (limite d'URL d
     await screen.findByText("Tu participes ✓", {}, { timeout: 20000 });
     expect(errSpy).toHaveBeenCalled();
     errSpy.mockRestore();
+  }, 30000);
+  it("1500 likes sur un post : les pages suivantes sont lues (compteur exact, pas tronqué à 1000)", async () => {
+    heavyLikes = true;
+    render(<CommunitiesTab currentUser={{ id: "u1", name: "Membre" }} onError={vi.fn()} initialCommunityId="c1" />);
+    expect(await screen.findByText("1500", {}, { timeout: 20000 })).toBeTruthy();
   }, 30000);
 });

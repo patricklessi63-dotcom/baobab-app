@@ -16,7 +16,7 @@ import { SkeletonCard } from "../Skeleton";
 import { rankCommunities } from "../../lib/communities/recommendations";
 import { COMMUNITY_REPORT_CATEGORIES } from "../../lib/communities/communityConfig";
 import { trackActivation } from "../../lib/trackActivation";
-import { selectInChunks } from "../../lib/inChunks";
+import { selectInChunks, selectAllPages } from "../../lib/inChunks";
 import { friendlyDbError } from "../../lib/friendlyDbError";
 import { validateMediaFile } from "../../lib/mediaValidation";
 import { compressImageIfNeeded } from "../../lib/imageCompression";
@@ -405,8 +405,12 @@ export default function CommunitiesTab({ currentUser, onError, onBack = () => {}
         // compteurs restaient vides sans message. Lots de 100 ids ; un lot en
         // erreur est journalisé sans perdre les compteurs des autres lots.
         const [likesRes, commentsRes] = await Promise.all([
-          selectInChunks(ids, (lot) => supabase.from("community_post_likes").select("post_id, profile_id, emoji").in("post_id", lot)),
-          selectInChunks(ids, (lot) => supabase.from("community_comments").select("post_id").in("post_id", lot)),
+          // Un lot de 100 posts peut renvoyer plus de 1000 likes/commentaires :
+          // PostgREST tronquerait en silence (compteurs faux), d'où la pagination.
+          selectInChunks(ids, (lot) => selectAllPages((from, to) =>
+            supabase.from("community_post_likes").select("post_id, profile_id, emoji").in("post_id", lot).order("id").range(from, to))),
+          selectInChunks(ids, (lot) => selectAllPages((from, to) =>
+            supabase.from("community_comments").select("post_id").in("post_id", lot).order("id").range(from, to))),
         ]);
         likesRes.errors.concat(commentsRes.errors).forEach((err) => console.error(err));
         if (requestId !== undefined && detailRequestRef.current !== requestId) return;

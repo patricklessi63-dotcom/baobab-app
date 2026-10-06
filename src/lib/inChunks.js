@@ -37,3 +37,26 @@ export async function selectInChunks(ids, runLot, { size = IN_CHUNK_SIZE, concur
   });
   return { data, errors, failedLots };
 }
+
+// PostgREST tronque silencieusement toute réponse à `max_rows` lignes (1000 par
+// défaut sur Supabase), sans erreur. Un lot de 100 ids peut dépasser ce plafond
+// quand on lit des lignes « enfant » (ex. likes/commentaires de 100 posts) :
+// `buildPage(from, to)` doit renvoyer la requête du lot avec `.order(<clé
+// unique>)` (pagination par décalage stable) et `.range(from, to)`. On enchaîne
+// les pages tant qu'une page est pleine. Une erreur à une page invalide tout le
+// lot (`{ data: null, error }`) : des compteurs partiels seraient faux. À passer
+// comme `runLot` de selectInChunks. `maxPages` borne la boucle (50 000 lignes).
+export const PAGE_SIZE = 1000;
+
+export async function selectAllPages(buildPage, { pageSize = PAGE_SIZE, maxPages = 50 } = {}) {
+  const data = [];
+  for (let page = 0; page < maxPages; page++) {
+    const from = page * pageSize;
+    const res = (await buildPage(from, from + pageSize - 1)) || { data: null, error: null };
+    if (res.error) return { data: null, error: res.error };
+    const rows = Array.isArray(res.data) ? res.data : [];
+    for (const r of rows) data.push(r);
+    if (rows.length < pageSize) break;
+  }
+  return { data, error: null };
+}
