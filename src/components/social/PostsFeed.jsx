@@ -201,6 +201,15 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
       if (error) throw error;
       let mediaByPost = {};
       const ids = (data || []).map((p) => p.id);
+      // Audit performance (6 oct. 2026) : les compteurs likes/commentaires
+      // (loadCounts) ne dépendent que des ids de posts, pas des médias — ils
+      // étaient pourtant lancés APRÈS la requête post_media, soit 3 allers-
+      // retours en série (posts -> post_media -> likes+commentaires) pour
+      // l'écran d'accueil. On les démarre maintenant en parallèle de post_media
+      // (2 allers-retours) ; le .catch() neutre évite un rejet non géré si
+      // l'étape média lève avant qu'on n'attende le résultat plus bas.
+      const countsPromise = loadCounts(ids, isFirstPage);
+      countsPromise.catch(() => {});
       if (ids.length > 0) {
         try {
           const { data: mediaRows, error: mediaError } = await supabase.from("post_media").select("*").in("post_id", ids);
@@ -227,7 +236,7 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
       setHasMore((data || []).length === PAGE_SIZE);
       const last = (data || [])[(data || []).length - 1];
       setCursor(last ? { created_at: last.created_at, id: last.id } : null);
-      await loadCounts(rows.map((p) => p.id), isFirstPage);
+      await countsPromise;
     } catch (e) {
       console.error(e);
       onError("Impossible de charger les publications.");
