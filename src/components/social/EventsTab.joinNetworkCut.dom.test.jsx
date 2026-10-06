@@ -105,6 +105,25 @@ describe("EventsTab — participation coupée en plein vol", () => {
     await waitFor(() => expect(onError).toHaveBeenCalledWith("Impossible de rejoindre cet événement."));
   });
 
+  it("coupure alors qu'une ancienne ligne « interested » existe : l'appel n'a pas abouti, l'erreur est affichée (pas d'échec avalé en silence)", async () => {
+    const user = userEvent.setup();
+    const onError = vi.fn();
+    const join = await openEvent(user, onError);
+    mocks.state.serverStatus = "interested";
+    await user.click(join);
+    await waitFor(() => expect(onError).toHaveBeenCalledWith("Impossible de rejoindre cet événement."));
+  });
+
+  it("liste d'attente enregistrée mais réponse perdue : le statut « waitlisted » est relu sans erreur", async () => {
+    const user = userEvent.setup();
+    const onError = vi.fn();
+    const join = await openEvent(user, onError);
+    mocks.state.serverStatus = "waitlisted";
+    await user.click(join);
+    await waitFor(() => expect(screen.queryByRole("button", { name: "🎟️ Participer" })).toBeNull());
+    expect(onError).not.toHaveBeenCalled();
+  });
+
   it("requête jamais partie (rien d'enregistré) : message d'erreur habituel, le bouton reste disponible", async () => {
     const user = userEvent.setup();
     const onError = vi.fn();

@@ -765,7 +765,9 @@ export default function EventsTab({ currentUser, onError, onBack = () => {}, ini
         try {
           const { data: mine, error: probeError } = await supabase
             .from("event_attendees").select("status").eq("event_id", ev.id).eq("profile_id", currentUser.id).maybeSingle();
-          if (!probeError && mine?.status) {
+          // join_event() ne produit que going/waitlisted : un autre statut (ancienne ligne
+          // interested/not_going) prouve que l'appel n'a PAS abouti -> erreur habituelle.
+          if (!probeError && (mine?.status === "going" || mine?.status === "waitlisted")) {
             setMyStatuses((s) => ({ ...s, [ev.id]: mine.status }));
             if (selectedId === ev.id) loadParticipants(ev.id, detailRequestRef.current);
             if (mine.status === "going") refreshParticipantCount(ev.id);
