@@ -155,5 +155,19 @@ export function mergeRefreshedMessages({ serverRows, current, cachedFailed, key 
     }
     temps.push(m);
   }
-  return [...serverRows, ...temps];
+  // Historique déjà chargé (« Charger les messages précédents ») : le serveur ne
+  // renvoie que la dernière page, on garde donc les lignes réelles de CETTE
+  // conversation plus anciennes que sa première ligne. Sans cela, chaque reprise
+  // après veille (rechargement de fond) effaçait l'historique remonté à la main
+  // et faisait sauter la liste.
+  const first = serverRows[0];
+  const firstTime = first ? Date.parse(first.created_at) : NaN;
+  const older = first && Number.isFinite(firstTime)
+    ? (current || []).filter((m) => {
+        if (m.match_key !== key || typeof m.id !== "number" || serverIds.has(m.id)) return false;
+        const t = Date.parse(m.created_at);
+        return Number.isFinite(t) && (t < firstTime || (t === firstTime && m.id < first.id));
+      })
+    : [];
+  return [...older, ...serverRows, ...temps];
 }

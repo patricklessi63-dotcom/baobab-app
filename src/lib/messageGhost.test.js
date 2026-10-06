@@ -214,6 +214,26 @@ describe("mergeRefreshedMessages — rechargement de la conversation", () => {
     const out = mergeRefreshedMessages({ serverRows: rows, current: [], cachedFailed: [ghostTemp, other], key: KEY });
     expect(out.map((m) => m.id)).toEqual([1, 2, "temp-h"]);
   });
+  it("conserve l'historique déjà remonté (messages plus anciens que la page rechargée), pas ceux d'une autre conversation", () => {
+    const t = (n) => `2026-10-0${n}T10:00:00.000000+00:00`;
+    const page = [{ id: 10, match_key: KEY, created_at: t(5) }, { id: 11, match_key: KEY, created_at: t(6) }];
+    const current = [
+      { id: 3, match_key: KEY, created_at: t(2) },
+      { id: 4, match_key: KEY, created_at: t(3) },
+      { id: 10, match_key: KEY, created_at: t(5) },
+      { id: 11, match_key: KEY, created_at: t(6) },
+      { id: 2, match_key: "autre", created_at: t(1) },
+    ];
+    const out = mergeRefreshedMessages({ serverRows: page, current, cachedFailed: [], key: KEY });
+    expect(out.map((m) => m.id)).toEqual([3, 4, 10, 11]);
+  });
+  it("un message de la page rechargée qui a disparu côté serveur (supprimé) n'est pas ressuscité", () => {
+    const t = (n) => `2026-10-0${n}T10:00:00.000000+00:00`;
+    const page = [{ id: 10, match_key: KEY, created_at: t(5) }];
+    const current = [{ id: 10, match_key: KEY, created_at: t(5) }, { id: 11, match_key: KEY, created_at: t(6) }];
+    const out = mergeRefreshedMessages({ serverRows: page, current, cachedFailed: [], key: KEY });
+    expect(out.map((m) => m.id)).toEqual([10]);
+  });
   it("dédoublonne un échec présent à la fois dans l'état courant et le cache", () => {
     const failed = { id: "temp-f", match_key: KEY, _status: "failed" };
     const out = mergeRefreshedMessages({ serverRows: server, current: [failed], cachedFailed: [failed], key: KEY });
