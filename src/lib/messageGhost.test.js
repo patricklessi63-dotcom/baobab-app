@@ -5,6 +5,10 @@ import {
   insertMessageWithRecovery,
   dropGhostTemps,
   mergeRefreshedMessages,
+  fetchGhostCandidates,
+  planRefresh,
+  refreshHasMore,
+  REFRESH_MAX_ROWS,
 } from "./messageGhost";
 
 // Faux client Supabase avec une « table messages » en mémoire. `insertMode`
@@ -229,8 +233,8 @@ describe("mergeRefreshedMessages — rechargement de la conversation", () => {
     const out = mergeRefreshedMessages({ serverRows: rows, current: [], cachedFailed: [ghostTemp, other], key: KEY });
     expect(out.map((m) => m.id)).toEqual([1, 2, "temp-h"]);
   });
-  it("conserve l'historique déjà remonté (messages plus anciens que la page rechargée), pas ceux d'une autre conversation", () => {
-    const t = (n) => `2026-10-0${n}T10:00:00.000000+00:00`;
+  const t = (n) => `2026-10-0${n}T10:00:00.000000+00:00`;
+  it("historique remonté à la main PENDANT la requête (plus ancien que la plage relue) : conservé, pas celui d'une autre conversation", () => {
     const page = [{ id: 10, match_key: KEY, created_at: t(5) }, { id: 11, match_key: KEY, created_at: t(6) }];
     const current = [
       { id: 3, match_key: KEY, created_at: t(2) },
@@ -239,8 +243,35 @@ describe("mergeRefreshedMessages — rechargement de la conversation", () => {
       { id: 11, match_key: KEY, created_at: t(6) },
       { id: 2, match_key: "autre", created_at: t(1) },
     ];
-    const out = mergeRefreshedMessages({ serverRows: page, current, cachedFailed: [], key: KEY });
+    const out = mergeRefreshedMessages({ serverRows: page, current, cachedFailed: [], key: KEY, since: { created_at: t(5), id: 10 }, limit: 500 });
     expect(out.map((m) => m.id)).toEqual([3, 4, 10, 11]);
+  });
+  it("sans plan de relecture, ou réponse pleine (plage tronquée) : les lignes plus anciennes ne sont PAS recollées (risque de trou)", () => {
+    const page = [{ id: 10, match_key: KEY, created_at: t(5) }, { id: 11, match_key: KEY, created_at: t(6) }];
+    const current = [{ id: 3, match_key: KEY, created_at: t(2) }, ...page];
+    expect(mergeRefreshedMessages({ serverRows: page, current, cachedFailed: [], key: KEY }).map((m) => m.id)).toEqual([10, 11]);
+    expect(mergeRefreshedMessages({ serverRows: page, current, cachedFailed: [], key: KEY, since: { created_at: t(2), id: 3 }, limit: 2 }).map((m) => m.id)).toEqual([10, 11]);
+  });
+  it("un instantané plus ancien ne défait pas une suppression / une lecture déjà appliquées ; il apporte ce qu'il porte", () => {
+    const snap = [
+      { id: 10, match_key: KEY, created_at: t(5), read_at: null, deleted_at: null, deleted_for: [] },
+      { id: 11, match_key: KEY, created_at: t(6), read_at: "r", deleted_at: "d", deleted_by: "x", deleted_for: ["x"] },
+    ];
+    const current = [
+      { id: 10, match_key: KEY, created_at: t(5), read_at: "lu", deleted_at: "sup", deleted_by: ME, deleted_for: [ME] },
+      { id: 11, match_key: KEY, created_at: t(6), read_at: null, deleted_at: null, deleted_for: [] },
+    ];
+    const [a, b] = mergeRefreshedMessages({ serverRows: snap, current, cachedFailed: [], key: KEY });
+    expect(a).toMatchObject({ read_at: "lu", deleted_at: "sup", deleted_by: ME, deleted_for: [ME] });
+    expect(b).toMatchObject({ read_at: "r", deleted_at: "d", deleted_by: "x", deleted_for: ["x"] });
+  });
+  it("un message en échec de l'état courant (pas encore dans le cache) survit au rechargement ; le cache d'un échec déjà résolu n'est PAS réinjecté", () => {
+    const failed = { id: "temp-new", match_key: KEY, _status: "failed" };
+    const stale = { id: "temp-old", match_key: KEY, _status: "failed" };
+    const shown = { id: 10, match_key: KEY, created_at: t(5) };
+    expect(mergeRefreshedMessages({ serverRows: [shown], current: [shown, failed], cachedFailed: [stale], key: KEY }).map((m) => m.id)).toEqual([10, "temp-new"]);
+    // Conversation non affichée (réouverture) : le cache sert.
+    expect(mergeRefreshedMessages({ serverRows: [shown], current: [], cachedFailed: [stale], key: KEY }).map((m) => m.id)).toEqual([10, "temp-old"]);
   });
   it("garde un message arrivé (écho/accusé) PENDANT la requête de rechargement, absent de son instantané", () => {
     const t = (n) => `2026-10-0${n}T10:00:00.000000+00:00`;
@@ -257,5 +288,87 @@ describe("mergeRefreshedMessages — rechargement de la conversation", () => {
     const failed = { id: "temp-f", match_key: KEY, _status: "failed" };
     const out = mergeRefreshedMessages({ serverRows: server, current: [failed], cachedFailed: [failed], key: KEY });
     expect(out.filter((m) => m.id === "temp-f")).toHaveLength(1);
+  });
+});
+
+describe("planRefresh / refreshHasMore — plage relue par un rechargement de fond", () => {
+  const t = (n) => `2026-10-0${n}T10:00:00.000000+00:00`;
+  it("aucune ligne réelle affichée pour cette conversation : la dernière page ; sinon tout depuis la plus ancienne (plafonné)", () => {
+    expect(planRefresh({ current: [], key: KEY, pageSize: 30 })).toEqual({ since: null, limit: 30 });
+    expect(planRefresh({ current: [{ id: 5, match_key: "autre", created_at: t(1) }, { id: "temp-1", match_key: KEY, created_at: t(2) }], key: KEY, pageSize: 30 })).toEqual({ since: null, limit: 30 });
+    const current = [{ id: 9, match_key: KEY, created_at: t(3) }, { id: 4, match_key: KEY, created_at: t(2) }, { id: 3, match_key: KEY, created_at: t(2) }, { id: 1, match_key: "autre", created_at: t(1) }];
+    expect(planRefresh({ current, key: KEY, pageSize: 30 })).toEqual({ since: { created_at: t(2), id: 3 }, limit: REFRESH_MAX_ROWS });
+    expect(planRefresh({ current, key: KEY, pageSize: 30, maxRows: 10 }).limit).toBe(30);
+  });
+  it("« Charger les précédents » : conservé après une relecture complète, proposé après une réponse pleine", () => {
+    expect(refreshHasMore({ since: { id: 1 }, serverCount: 12, limit: 500, previous: false })).toBe(false);
+    expect(refreshHasMore({ since: { id: 1 }, serverCount: 12, limit: 500, previous: true })).toBe(true);
+    expect(refreshHasMore({ since: { id: 1 }, serverCount: 500, limit: 500, previous: false })).toBe(true);
+    expect(refreshHasMore({ since: null, serverCount: 30, limit: 30, previous: false })).toBe(true);
+    expect(refreshHasMore({ since: null, serverCount: 29, limit: 30, previous: true })).toBe(false);
+  });
+});
+
+describe("planRefresh — égalité à la milliseconde", () => {
+  it("deux lignes de la même milliseconde : `since` est la plus ancienne au sens de la colonne (microsecondes), sinon elle serait exclue de la plage relue", () => {
+    const current = [
+      { id: 4, match_key: KEY, created_at: "2026-10-05T10:00:00.123456+00:00" },
+      { id: 5, match_key: KEY, created_at: "2026-10-05T10:00:00.123400+00:00" }, // id postérieur mais horodatage antérieur
+    ];
+    expect(planRefresh({ current, key: KEY, pageSize: 30 }).since).toEqual({ created_at: "2026-10-05T10:00:00.123400+00:00", id: 5 });
+  });
+});
+
+// Sonde de doublon pour un texte très long (audit du 6 oct. 2026, 2e passe) :
+// lecture BORNÉE et comparaison EXACTE côté client.
+describe("fetchGhostCandidates / isGhostOf — texte très long (comparaison côté client)", () => {
+  function spyClient(rows) {
+    const log = { eq: [], gt: [], order: [], limit: null };
+    const filters = [];
+    const b = {
+      eq: (c, v) => { log.eq.push([c, v]); filters.push((r) => r[c] === v); return b; },
+      gt: (c, v) => { log.gt.push([c, v]); filters.push((r) => r[c] > v); return b; },
+      order: (c, o) => { log.order.push([c, o]); return b; },
+      limit: (n) => { log.limit = n; return b; },
+      select: () => b,
+      then: (resolve, reject) => {
+        const asc = log.order.length === 0 || log.order[0][1]?.ascending !== false;
+        const data = rows.filter((r) => filters.every((f) => f(r))).sort((x, y) => (asc ? x.id - y.id : y.id - x.id)).slice(0, log.limit ?? Infinity);
+        return Promise.resolve({ data, error: null }).then(resolve, reject);
+      },
+    };
+    return { log, client: { from: () => b } };
+  }
+  const LONG = "é".repeat(800) + " fin "; // > 1500 octets une fois encodé
+  const row = { match_key: KEY, from_id: ME, kind: "text", text: LONG, media_path: null, media_meta: null, reply_to_id: null };
+
+  it("lit au plus 50 lignes, croissantes après afterId, et ne met jamais le texte dans la requête ; le fantôme (premier après afterId) est trouvé parmi des centaines de messages de moi", async () => {
+    const rows = [];
+    for (let i = 1; i <= 300; i += 1) rows.push({ id: i, ...row, text: i === 11 ? LONG : `autre ${i}` });
+    const { log, client } = spyClient(rows);
+    const { rows: found, error } = await fetchGhostCandidates(client, row, 10);
+    expect(error).toBeNull();
+    expect(found).toHaveLength(50);
+    expect(log.limit).toBe(50);
+    expect(log.gt).toEqual([["id", 10]]);
+    expect(log.eq.map(([c]) => c)).not.toContain("text");
+    expect(found.find((r) => isGhostOf(row, r, 10))?.id).toBe(11);
+  });
+
+  it("comparaison EXACTE : espace en fin de texte, normalisation Unicode différente (NFC/NFD), autre auteur ou autre type => jamais adopté", () => {
+    const base = { id: 5, ...row };
+    expect(isGhostOf(row, base, 0)).toBe(true);
+    expect(isGhostOf(row, { ...base, text: LONG + " " }, 0)).toBe(false);
+    expect(isGhostOf(row, { ...base, text: LONG.replace(/é/g, "é") }, 0)).toBe(false);
+    expect(isGhostOf({ ...row, text: "é" }, { ...base, text: "é" }, 0)).toBe(false);
+    expect(isGhostOf(row, { ...base, from_id: "you" }, 0)).toBe(false);
+    expect(isGhostOf(row, { ...base, kind: "sticker" }, 0)).toBe(false);
+    expect(isGhostOf(row, { ...base, id: 4 }, 4)).toBe(false); // pas postérieur à afterId
+  });
+
+  it("un renvoi VOULU du même long texte plus tard n'est pas pris pour le fantôme d'un ancien envoi (id <= afterId)", async () => {
+    const { client } = spyClient([{ id: 7, ...row }]);
+    const { rows: found } = await fetchGhostCandidates(client, row, 7);
+    expect(found).toEqual([]);
   });
 });

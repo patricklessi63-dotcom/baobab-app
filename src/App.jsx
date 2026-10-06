@@ -25,7 +25,7 @@ import { disablePushNotifications } from "./lib/pushNotifications";
 import { isLikelyInCanada, TRAVEL_GRACE_PERIOD_MS } from "./lib/canadaGate";
 import { friendlyDbError, dbErrorCode } from "./lib/friendlyDbError";
 import { isNetworkFailure, networkFailureMessage } from "./lib/networkError";
-import { insertMessageWithRecovery, maxRealMessageId, dropGhostTemps, mergeRefreshedMessages } from "./lib/messageGhost";
+import { insertMessageWithRecovery, maxRealMessageId, dropGhostTemps, mergeRefreshedMessages, planRefresh, refreshHasMore } from "./lib/messageGhost";
 import { usePathname } from "./hooks/usePathname";
 import { useEscapeKey } from "./hooks/useEscapeKey";
 import LandingPage from "./screens/public/LandingPage";
@@ -2412,15 +2412,21 @@ export default function App() {
   async function loadReactionsFor(messageIds) {
     if (!messageIds || messageIds.length === 0) return;
     try {
-      const { data, error: reactError } = await supabase
-        .from("message_reactions")
-        .select("message_id,profile_id,emoji")
-        .in("message_id", messageIds);
-      if (reactError) throw reactError;
+      // Par lots : un rechargement de fond peut relire jusqu'à REFRESH_MAX_ROWS
+      // messages, la liste d'ids ne doit pas allonger l'URL sans limite (414/431).
+      const data = [];
+      for (const ids of chunk(messageIds, 150)) {
+        const { data: part, error: reactError } = await supabase
+          .from("message_reactions")
+          .select("message_id,profile_id,emoji")
+          .in("message_id", ids);
+        if (reactError) throw reactError;
+        data.push(...(part || []));
+      }
       setReactionsByMessageId((prev) => {
         const next = { ...prev };
         for (const id of messageIds) next[id] = [];
-        for (const r of data || []) next[r.message_id] = [...(next[r.message_id] || []), r];
+        for (const r of data) next[r.message_id] = [...(next[r.message_id] || []), r];
         return next;
       });
     } catch (e) {
@@ -2444,13 +2450,20 @@ export default function App() {
       // déterministe cohérent avec l'ordre d'insertion réel, indispensable
       // pour que loadOlderMessages() ci-dessous ne saute ni ne double aucun
       // message à la frontière de page.
-      const { data, error: msgError } = await supabase
+      // Plage relue (voir planRefresh, lib/messageGhost.js) : la dernière page à
+      // l'ouverture ; sinon TOUT depuis le plus ancien message déjà affiché, pour
+      // que l'historique remonté reste contigu (aucun trou) et à jour.
+      const key = matchKey(currentUser.id, match.id);
+      const plan = planRefresh({ current: messagesRef.current, key, pageSize: MESSAGES_PAGE_SIZE });
+      let query = supabase
         .from("messages")
         .select("*")
-        .eq("match_key", matchKey(currentUser.id, match.id))
+        .eq("match_key", key);
+      if (plan.since) query = query.gte("created_at", plan.since.created_at);
+      const { data, error: msgError } = await query
         .order("created_at", { ascending: false })
         .order("id", { ascending: false })
-        .limit(MESSAGES_PAGE_SIZE);
+        .limit(plan.limit);
       if (msgError) throw msgError;
       // Une conversation plus récemment ouverte a déjà émis un jeton plus
       // grand pendant cette requête : cette réponse est périmée, on l'ignore
@@ -2463,10 +2476,12 @@ export default function App() {
       // conserve ceux en cours d'envoi/d'upload (audit réseau, 6 oct. 2026) :
       // le rechargement déclenché au retour en ligne/de l'arrière-plan les
       // effaçait, leur accusé de réception ne trouvait plus rien à remplacer.
-      const key = matchKey(currentUser.id, match.id);
       const cachedFailed = pendingFailedMessagesRef.current[key] || [];
-      setMessages(mergeRefreshedMessages({ serverRows: chronological, current: messagesRef.current, cachedFailed, key }));
-      setHasMoreHistory((data || []).length === MESSAGES_PAGE_SIZE);
+      // Fusion DANS la mise à jour fonctionnelle : `messagesRef` n'est resynchronisé
+      // qu'après le rendu, un écho Realtime/accusé arrivé juste avant en était
+      // absent et aurait été écrasé par cette valeur toute faite.
+      setMessages((prev) => mergeRefreshedMessages({ serverRows: chronological, current: prev, cachedFailed, key, since: plan.since, limit: plan.limit }));
+      setHasMoreHistory((previous) => refreshHasMore({ since: plan.since, serverCount: (data || []).length, limit: plan.limit, previous }));
       markConversationRead(match);
       loadReactionsFor(chronological.map((m) => m.id));
     } catch (e) {
