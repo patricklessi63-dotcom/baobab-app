@@ -2567,7 +2567,14 @@ export default function App() {
         // Le message optimiste a pu disparaître entre-temps (rechargement de la
         // conversation qui l'a reconnu comme déjà en base) : le vrai message doit
         // alors être AJOUTÉ, pas seulement « remplacé » — sinon il s'évaporait.
-        if (!withoutRealtimeDupe.some((msg) => msg.id === tempId)) return sortMessagesChronologically([...withoutRealtimeDupe, data]);
+        // Uniquement si la conversation affichée est celle du message : un envoi
+        // lent (média...) dont l'accusé arrive APRÈS l'ouverture d'une autre
+        // conversation ne doit pas apparaître dans cette autre discussion (il
+        // sera rechargé depuis la base à la réouverture de la sienne).
+        if (!withoutRealtimeDupe.some((msg) => msg.id === tempId)) {
+          if (!activeMatchRef.current || matchKey(currentUser.id, activeMatchRef.current.id) !== data.match_key) return withoutRealtimeDupe;
+          return sortMessagesChronologically([...withoutRealtimeDupe, data]);
+        }
         return sortMessagesChronologically(withoutRealtimeDupe.map((msg) => (msg.id === tempId ? data : msg)));
       });
       trackActivation(currentUser.id, "first_message");
