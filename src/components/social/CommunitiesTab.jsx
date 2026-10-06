@@ -26,6 +26,8 @@ import { escapeLikePattern, escapeOrFilterValue, normalizeForSearch } from "../.
 import { wouldOrphanCommunity } from "../../lib/communities/permissions";
 import { primary, muted, bg, card, navy } from "./theme";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
+import { useReconnectTick } from "../../hooks/useReconnectTick";
+import LoadErrorNotice from "../LoadErrorNotice";
 
 const COMMUNITY_MEDIA_BUCKET = "community-media";
 
@@ -106,6 +108,16 @@ export default function CommunitiesTab({ currentUser, onError, onBack = () => {}
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [communities, setCommunities] = useState([]);
   const [listLoading, setListLoading] = useState(true);
+  // Échec du chargement de la liste (réseau) : erreur avec « Réessayer » plutôt
+  // que faux état vide ; relancé au retour du réseau (listReloadKey).
+  const [listError, setListError] = useState(false);
+  const [listReloadKey, setListReloadKey] = useState(0);
+  const reconnectTick = useReconnectTick();
+  const listErrorRef = useRef(false);
+  listErrorRef.current = listError;
+  useEffect(() => {
+    if (reconnectTick > 0 && listErrorRef.current) setListReloadKey((k) => k + 1);
+  }, [reconnectTick]);
   const [listCursor, setListCursor] = useState(null);
   const [hasMore, setHasMore] = useState(false);
   // Garde anti-double-appel pour "Charger plus" (même bug déjà corrigé sur
@@ -288,19 +300,21 @@ export default function CommunitiesTab({ currentUser, onError, onBack = () => {}
           .limit(PAGE_SIZE);
         if (!alive) return;
         if (error) throw error;
+        setListError(false);
         setCommunities(withMemberCount(data));
         setHasMore((count || 0) > PAGE_SIZE);
         const last = (data || [])[(data || []).length - 1];
         setListCursor(last ? { created_at: last.created_at, id: last.id } : null);
       } catch (e) {
         console.error(e);
+        if (alive) setListError(true);
         onError("Impossible de charger les communautés.");
       } finally {
         if (alive) setListLoading(false);
       }
     }, 300);
     return () => { alive = false; clearTimeout(timer); };
-  }, [view, search, filterCity, filterCategory, filterVisibility]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [view, search, filterCity, filterCategory, filterVisibility, listReloadKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Curseur (created_at, id) plutôt que numéro de page (voir PostsFeed.jsx
   // pour le même correctif) : une nouvelle communauté créée pendant le
@@ -1722,6 +1736,8 @@ export default function CommunitiesTab({ currentUser, onError, onBack = () => {}
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} />)}
         </div>
+      ) : communities.length === 0 && listError ? (
+        <LoadErrorNotice what="les communautés" onRetry={() => setListReloadKey((k) => k + 1)} />
       ) : communities.length === 0 ? (
         <EmptyState
           icon={Users2}

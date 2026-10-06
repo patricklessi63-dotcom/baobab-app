@@ -13,6 +13,8 @@ import {
 } from "../../lib/newcomerGuideData";
 import { PROVINCE_DIRECTORY, GENERALIST_DIRECTORY } from "../../lib/newcomerDirectoryData";
 import { normalizeForSearch } from "../../lib/searchQuery";
+import { useReconnectTick } from "../../hooks/useReconnectTick";
+import LoadErrorNotice from "../LoadErrorNotice";
 
 const STEP_ICONS = { CreditCard, Stethoscope, Wallet, Car, Receipt, Home, Phone, GraduationCap, PhoneCall, BadgeCheck };
 
@@ -267,6 +269,16 @@ export default function ImmigrationNewsView({ onBack, onError, currentUser }) {
   const [view, setView] = useState("news"); // news | guide
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
+  // Échec du chargement (réseau) : erreur avec « Réessayer » plutôt que faux
+  // « Aucune actualité » ; relancé au retour du réseau (reloadKey).
+  const [loadError, setLoadError] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
+  const reconnectTick = useReconnectTick();
+  const loadErrorRef = useRef(false);
+  loadErrorRef.current = loadError;
+  useEffect(() => {
+    if (reconnectTick > 0 && loadErrorRef.current) setReloadKey((k) => k + 1);
+  }, [reconnectTick]);
   const [fetchLogs, setFetchLogs] = useState({});
   const [search, setSearch] = useState("");
   const [favoriteIds, setFavoriteIds] = useState(new Set());
@@ -288,7 +300,8 @@ export default function ImmigrationNewsView({ onBack, onError, currentUser }) {
       currentUser ? supabase.from("immigration_news_favorites").select("news_id").eq("profile_id", currentUser.id) : Promise.resolve({ data: [] }),
     ]).then(([newsRes, logRes, favRes]) => {
       if (!alive) return;
-      if (newsRes.error) { onError?.("Impossible de charger les actualités."); setLoading(false); return; }
+      if (newsRes.error) { onError?.("Impossible de charger les actualités."); setLoadError(true); setLoading(false); return; }
+      setLoadError(false);
       setItems(newsRes.data || []);
       const bySource = {};
       for (const log of logRes.data || []) {
@@ -297,9 +310,13 @@ export default function ImmigrationNewsView({ onBack, onError, currentUser }) {
       setFetchLogs(bySource);
       setFavoriteIds(new Set((favRes.data || []).map((r) => r.news_id)));
       setLoading(false);
+    }).catch((e) => {
+      // Rejet inattendu : sans ce filet, « Chargement... » restait affiché sans fin.
+      console.error(e);
+      if (alive) { setLoadError(true); setLoading(false); }
     });
     return () => { alive = false; };
-  }, [onError, currentUser]);
+  }, [onError, currentUser, reloadKey]);
 
   const toggleFavorite = async (newsId) => {
     if (!currentUser || favoriteInFlightRef.current.has(newsId)) return;
@@ -480,6 +497,8 @@ export default function ImmigrationNewsView({ onBack, onError, currentUser }) {
 
           {loading ? (
             <p className="text-sm text-center py-10" style={{ color: muted }}>Chargement...</p>
+          ) : items.length === 0 && loadError ? (
+            <LoadErrorNotice what="les actualités" onRetry={() => { setLoading(true); setReloadKey((k) => k + 1); }} />
           ) : items.length === 0 ? (
             <div className={`${card} p-8 text-center`}>
               <p className="text-sm" style={{ color: muted }}>Aucune actualité indexée pour l'instant. Reviens bientôt.</p>

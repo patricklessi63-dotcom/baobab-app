@@ -16,6 +16,8 @@ import { friendlyDbError } from "../../lib/friendlyDbError";
 import { selectAllPages } from "../../lib/inChunks";
 import { useOnlineStatus } from "../../hooks/useOnlineStatus";
 import { useResumeTick } from "../../hooks/useResumeTick";
+import { useReconnectTick } from "../../hooks/useReconnectTick";
+import LoadErrorNotice from "../LoadErrorNotice";
 import { insertWithRecovery } from "../../lib/writeRecovery";
 import { isAmbiguousWriteError, isNetworkFailure, networkFailureMessage } from "../../lib/networkError";
 import { primary, navy, coral, muted, bg, card } from "./theme";
@@ -38,6 +40,9 @@ const MAX_MEDIA_ITEMS = 10;
 export default function PostsFeed({ currentUser, blockedIds = new Set(), authorId, layout = "list", onError = () => {}, onPostCountChange = () => {} }) {
   const [posts, setPosts] = useState([]);
   const [postsLoading, setPostsLoading] = useState(true);
+  // Échec du premier chargement : affiché comme une erreur (avec « Réessayer »)
+  // et rejoué au retour du réseau, au lieu d'un faux « Aucune publication ».
+  const [loadError, setLoadError] = useState(false);
   // Curseur (created_at, id) du dernier post chargé, pour la pagination —
   // voir le commentaire dans loadPosts() pour pourquoi ce n'est plus un
   // simple numéro de page passé à .range().
@@ -250,17 +255,28 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
       const rows = (data || [])
         .map((p) => normalizePost({ ...p, post_media: mediaByPost[p.id] || [] }));
       setPosts((prev) => (isFirstPage ? rows : [...prev, ...rows]));
+      if (isFirstPage) setLoadError(false);
       setHasMore((data || []).length === PAGE_SIZE);
       const last = (data || [])[(data || []).length - 1];
       setCursor(last ? { created_at: last.created_at, id: last.id } : null);
       await countsPromise;
     } catch (e) {
       console.error(e);
+      if (isFirstPage) setLoadError(true);
       onError("Impossible de charger les publications.");
     } finally {
       if (isFirstPage) setPostsLoading(false);
     }
   };
+
+  // Rejoue le premier chargement s'il avait échoué, dès le retour du réseau ou
+  // la reprise après une veille (voir hooks/useReconnectTick.js).
+  const reconnectTick = useReconnectTick();
+  useEffect(() => {
+    if (reconnectTick === 0 || !loadError || !currentUser) return;
+    loadPosts(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reconnectTick]);
 
   useEffect(() => {
     if (!currentUser) return;
@@ -917,6 +933,8 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
       <div className="p-3">
         {postsLoading ? (
           <p className="text-sm text-center py-6" style={{ color: muted }}>Chargement...</p>
+        ) : visiblePosts.length === 0 && loadError ? (
+          <LoadErrorNotice what="les publications" onRetry={() => loadPosts(null)} />
         ) : visiblePosts.length === 0 ? (
           <div className="p-10 text-center">
             <ImageIcon size={26} className="mx-auto mb-2" color={muted} />
@@ -995,6 +1013,8 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
 
       {postsLoading ? (
         <p className="text-sm text-center py-6" style={{ color: muted }}>Chargement...</p>
+      ) : visiblePosts.length === 0 && loadError ? (
+        <LoadErrorNotice what="les publications" onRetry={() => loadPosts(null)} />
       ) : visiblePosts.length === 0 ? (
         <EmptyState icon={ImageIcon} title="Aucune publication pour l'instant." subtitle="Sois le/la premier·ère à partager quelque chose." />
       ) : (

@@ -24,6 +24,8 @@ import { selectInChunks, selectAllPages } from "../../lib/inChunks";
 import { friendlyDbError } from "../../lib/friendlyDbError";
 import { escapeLikePattern, escapeOrFilterValue, normalizeForSearch } from "../../lib/searchQuery";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
+import { useReconnectTick } from "../../hooks/useReconnectTick";
+import LoadErrorNotice from "../LoadErrorNotice";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { primary, coralText, muted, bg, card, primaryRgb, navy } from "./theme";
 
@@ -108,6 +110,16 @@ export default function EventsTab({ currentUser, onError, onBack = () => {}, ini
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [events, setEvents] = useState([]);
   const [listLoading, setListLoading] = useState(true);
+  // Échec du chargement de la liste (réseau) : erreur avec « Réessayer » plutôt
+  // que faux état vide ; relancé au retour du réseau (listReloadKey).
+  const [listError, setListError] = useState(false);
+  const [listReloadKey, setListReloadKey] = useState(0);
+  const reconnectTick = useReconnectTick();
+  const listErrorRef = useRef(false);
+  listErrorRef.current = listError;
+  useEffect(() => {
+    if (reconnectTick > 0 && listErrorRef.current) setListReloadKey((k) => k + 1);
+  }, [reconnectTick]);
   const [listCursor, setListCursor] = useState(null);
   const [hasMore, setHasMore] = useState(false);
 
@@ -389,19 +401,21 @@ export default function EventsTab({ currentUser, onError, onBack = () => {}, ini
           .limit(PAGE_SIZE);
         if (!alive) return;
         if (error) throw error;
+        setListError(false);
         setEvents(withParticipantCount(data));
         setHasMore((count || 0) > PAGE_SIZE);
         const last = (data || [])[(data || []).length - 1];
         setListCursor(last ? { event_date: last.event_date, id: last.id } : null);
       } catch (e) {
         console.error(e);
+        if (alive) setListError(true);
         onError("Impossible de charger les événements.");
       } finally {
         if (alive) setListLoading(false);
       }
     }, 300);
     return () => { alive = false; clearTimeout(timer); };
-  }, [view, search, filterCity, filterCategory, filterDateRange]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [view, search, filterCity, filterCategory, filterDateRange, listReloadKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Curseur (event_date, id) plutôt que numéro de page (voir PostsFeed.jsx
   // pour le même correctif) : un nouvel événement créé pendant le scroll,
@@ -1401,6 +1415,8 @@ export default function EventsTab({ currentUser, onError, onBack = () => {}, ini
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} />)}
         </div>
+      ) : visibleEvents.length === 0 && listError ? (
+        <LoadErrorNotice what="les événements" onRetry={() => setListReloadKey((k) => k + 1)} />
       ) : visibleEvents.length === 0 ? (
         <EmptyState
           icon={PartyPopper}
