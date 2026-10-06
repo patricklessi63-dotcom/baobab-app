@@ -41,6 +41,11 @@ export function traduireAuthErreur(err) {
   // jamais un email non invité.
   if (msg.toLowerCase().includes("beta privée"))
     return msg;
+  // Coupure / réseau instable (navigator.onLine peut rester vrai : Wi-Fi sans
+  // internet, métro) : sans ce cas, « Failed to fetch » tombait dans le message
+  // générique, qui ne dit pas que c'est la connexion et non le mot de passe.
+  if (err?.name === "AuthRetryableFetchError" || /failed to fetch|networkerror|load failed|network request failed/i.test(msg))
+    return navigator.onLine === false ? "Pas de connexion internet." : "Connexion instable. Vérifie ton réseau et réessaie.";
   if (msg.toLowerCase().includes("already confirmed"))
     return "Cette adresse est déjà vérifiée. Tu peux te connecter directement.";
   // Session de récupération manquante/expirée (item b du cahier des charges

@@ -73,4 +73,15 @@ describe("traduireAuthErreur — mapping code -> message FR", () => {
     vi.stubGlobal("navigator", { onLine: false });
     expect(traduireAuthErreur({ code: "some_unknown_code", message: "peu importe" })).toBe("Pas de connexion internet.");
   });
+
+  it("coupure réseau alors que le navigateur se croit en ligne (Wi-Fi sans internet, métro) : message « connexion instable »", () => {
+    vi.stubGlobal("navigator", { onLine: true });
+    expect(traduireAuthErreur({ name: "AuthRetryableFetchError", message: "Failed to fetch", status: 0 })).toMatch(/Connexion instable/);
+    expect(traduireAuthErreur({ message: "TypeError: Load failed" })).toMatch(/Connexion instable/);
+  });
+
+  it("même coupure, navigateur hors ligne : « Pas de connexion internet. »", () => {
+    vi.stubGlobal("navigator", { onLine: false });
+    expect(traduireAuthErreur({ name: "AuthRetryableFetchError", message: "Failed to fetch" })).toBe("Pas de connexion internet.");
+  });
 });
