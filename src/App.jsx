@@ -34,6 +34,7 @@ import { buildOlderMessagesFilter } from "./lib/messagesPagination";
 import { startHeartbeatInterval } from "./lib/presenceHeartbeat";
 import { createFieldWriteQueue } from "./lib/fieldWriteQueue";
 import { chunk } from "./lib/chunk";
+import { fetchExportData } from "./lib/exportData";
 import { fetchSocialGraph as fetchSocialGraphWith, fetchInitialData, createOwnProfilePrefetch } from "./lib/initialLoad";
 
 // Intervalle minimal entre deux rafraîchissements de la présence des autres
@@ -1134,60 +1135,10 @@ export default function App() {
     if (exportDataInFlightRef.current) return;
     exportDataInFlightRef.current = true;
     try {
-      const queries = {
-        posts: supabase.from("posts").select("*").eq("author_id", currentUser.id),
-        photos: supabase.from("profile_photos").select("*").eq("profile_id", currentUser.id),
-        stories: supabase.from("stories").select("*").eq("profile_id", currentUser.id),
-        event_participations: supabase.from("event_attendees").select("event_id, status, created_at").eq("profile_id", currentUser.id),
-        community_memberships: supabase.from("community_members").select("community_id, role, created_at").eq("profile_id", currentUser.id),
-        // media_path ajouté (audit RGPD — qualité du contenu de l'export) :
-        // un message photo/vidéo/note vocale a "text" à null (le contenu réel
-        // est le fichier), donc sans cette colonne ce message ressortait de
-        // l'export sans aucun moyen de retrouver le média envoyé. Résolu en
-        // URL signée plus bas (chat-media est un bucket privé, le chemin brut
-        // seul seul n'aurait mené à rien pour l'utilisateur).
-        messages_sent: supabase.from("messages").select("id, match_key, kind, text, media_path, created_at").eq("from_id", currentUser.id),
-        // Bug corrigé (audit RGPD du 2026-09-29) : seuls les messages ENVOYÉS
-        // étaient exportés — les messages REÇUS (contenu tapé par d'autres
-        // utilisateurs mais bel et bien conservé et lu dans CETTE messagerie,
-        // donc une donnée personnelle de l'utilisateur au même titre que le
-        // reste) en étaient totalement absents. La table "messages" n'a pas
-        // de colonne to_id (conversation identifiée par match_key, format
-        // "idA__idB" trié — voir utils/format.js matchKey et la policy RLS
-        // "Un utilisateur lit ses propres conversations" dans
-        // supabase-protect-rls.sql qui autorise explicitement cette lecture
-        // pour les deux participants) : on filtre donc sur match_key via
-        // ilike plutôt que sur une colonne to_id qui n'existe pas. Seul
-        // from_id de l'autre participant est inclus (un uuid, comme pour
-        // likes_received/followers ci-dessous) — jamais son profil complet,
-        // pour ne pas exposer les données d'un tiers au-delà du nécessaire.
-        messages_received: supabase
-          .from("messages")
-          .select("id, match_key, kind, text, media_path, from_id, created_at")
-          .neq("from_id", currentUser.id)
-          .or(`match_key.ilike.${currentUser.id}__%,match_key.ilike.%__${currentUser.id}`),
-        post_comments: supabase.from("post_comments").select("id, post_id, body, created_at").eq("author_id", currentUser.id),
-        // media_url/media_kind ajoutés (même bug) : une publication de
-        // communauté avec photo/vidéo ressortait sans son média.
-        community_posts: supabase.from("community_posts").select("id, community_id, body, media_url, media_kind, created_at").eq("author_id", currentUser.id),
-        community_comments: supabase.from("community_comments").select("id, post_id, body, created_at").eq("author_id", currentUser.id),
-        // Bug corrigé (audit RGPD/LPRPDE) : cet export se présentait comme "mes
-        // données" mais omettait plusieurs catégories de données personnelles
-        // bel et bien générées par l'utilisateur — likes donnés/reçus, passes,
-        // favoris, abonnements/abonnés, blocages et signalements déposés.
-        // Toutes reposent sur le même schéma from_id/to_id que les tables déjà
-        // exportées ci-dessus.
-        likes_sent: supabase.from("likes").select("to_id, created_at").eq("from_id", currentUser.id),
-        likes_received: supabase.from("likes").select("from_id, created_at").eq("to_id", currentUser.id),
-        passes_sent: supabase.from("passes").select("to_id, created_at").eq("from_id", currentUser.id),
-        favorites: supabase.from("favorites").select("to_id, created_at").eq("from_id", currentUser.id),
-        following: supabase.from("follows").select("to_id, created_at").eq("from_id", currentUser.id),
-        followers: supabase.from("follows").select("from_id, created_at").eq("to_id", currentUser.id),
-        blocks: supabase.from("blocks").select("to_id, created_at").eq("from_id", currentUser.id),
-        reports_submitted: supabase.from("reports").select("to_id, category, reason, created_at").eq("from_id", currentUser.id),
-      };
-      const keys = Object.keys(queries);
-      const results = await Promise.all(keys.map((k) => queries[k]));
+      // Requêtes (colonnes, commentaires de fond) et pagination : lib/exportData.js.
+      // Chaque catégorie est paginée par .range() : PostgREST tronque sinon en
+      // silence à 1000 lignes (export de messages/likes incomplet).
+      const { keys, results } = await fetchExportData(supabase, currentUser.id);
 
       const payload = { exported_at: new Date().toISOString(), profile: currentUser };
       const failedCategories = [];
