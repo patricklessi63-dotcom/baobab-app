@@ -453,3 +453,75 @@ describe("compressImageIfNeeded — régressions de l'audit médias mobile", () 
     }
   });
 });
+
+// JPEG minimal : SOI, APP1 Exif (orientation), SOF0 (dimensions brutes), SOS.
+function jpegWithOrientation(orientation, width, height) {
+  const tiff = new Uint8Array(26);
+  const dv = new DataView(tiff.buffer);
+  tiff.set([0x49, 0x49, 0x2a, 0x00]); dv.setUint32(4, 8, true);
+  dv.setUint16(8, 1, true);
+  dv.setUint16(10, 0x0112, true); dv.setUint16(12, 3, true); dv.setUint32(14, 1, true); dv.setUint16(18, orientation, true);
+  const exif = new Uint8Array([0x45, 0x78, 0x69, 0x66, 0, 0, ...tiff]);
+  const app1Len = exif.length + 2;
+  const sof = [0xff, 0xc0, 0, 17, 8, height >> 8, height & 255, width >> 8, width & 255, 3, 1, 0x22, 0, 2, 0x11, 1, 3, 0x11, 1];
+  const bytes = new Uint8Array([0xff, 0xd8, 0xff, 0xe1, app1Len >> 8, app1Len & 255, ...exif, ...sof, 0xff, 0xda, 0, 2, 1, 2, 0xff, 0xd9]);
+  return new File([bytes], "IMG_0002.JPG", { type: "image/jpeg" });
+}
+
+describe("compressImageIfNeeded — orientation ignorée par createImageBitmap (Safari)", () => {
+  function installImageMock(naturalWidth, naturalHeight) {
+    const created = [];
+    globalThis.URL = { createObjectURL: vi.fn(() => "blob:o"), revokeObjectURL: vi.fn() };
+    globalThis.Image = class {
+      constructor() { created.push(this); }
+      set src(_v) {
+        this.naturalWidth = naturalWidth;
+        this.naturalHeight = naturalHeight;
+        setTimeout(() => this.onload?.(), 0);
+      }
+    };
+    return created;
+  }
+  const realURL = globalThis.URL;
+  afterEach(() => { delete globalThis.Image; globalThis.URL = realURL; });
+
+  it("portrait iPhone (orientation 6, cadre brut paysage) dont le bitmap n'est PAS pivoté : redécodé via <img> (jamais envoyé couché)", async () => {
+    installBitmapMock({ width: 4000, height: 3000 }); // dimensions brutes : orientation ignorée
+    const canvas = installCanvasMock({ blobSize: 1000 });
+    const images = installImageMock(3000, 4000); // <img> applique l'orientation
+    const result = await compressImageIfNeeded(jpegWithOrientation(6, 4000, 3000), 1920);
+    expect(images.length).toBe(1);
+    expect(canvas.width).toBe(1440);
+    expect(canvas.height).toBe(1920);
+    expect(getProcessedImageSize(result)).toEqual({ width: 1440, height: 1920 });
+  });
+
+  it("navigateur qui applique l'orientation (Chrome) : le bitmap est gardé, <img> jamais utilisé", async () => {
+    installBitmapMock({ width: 3000, height: 4000 });
+    const canvas = installCanvasMock({ blobSize: 1000 });
+    const images = installImageMock(3000, 4000);
+    await compressImageIfNeeded(jpegWithOrientation(6, 4000, 3000), 1920);
+    expect(images.length).toBe(0);
+    expect(canvas.width).toBe(1440);
+    expect(canvas.height).toBe(1920);
+  });
+
+  it("orientation normale (1) : aucune vérification supplémentaire, bitmap gardé", async () => {
+    installBitmapMock({ width: 4000, height: 3000 });
+    const canvas = installCanvasMock({ blobSize: 1000 });
+    const images = installImageMock(3000, 4000);
+    await compressImageIfNeeded(jpegWithOrientation(1, 4000, 3000), 1920);
+    expect(images.length).toBe(0);
+    expect(canvas.width).toBe(1920);
+    expect(canvas.height).toBe(1440);
+  });
+
+  it("si <img> n'applique pas non plus l'orientation, on garde le bitmap (pas de régression)", async () => {
+    installBitmapMock({ width: 4000, height: 3000 });
+    const canvas = installCanvasMock({ blobSize: 1000 });
+    installImageMock(4000, 3000);
+    await compressImageIfNeeded(jpegWithOrientation(6, 4000, 3000), 1920);
+    expect(canvas.width).toBe(1920);
+    expect(canvas.height).toBe(1440);
+  });
+});

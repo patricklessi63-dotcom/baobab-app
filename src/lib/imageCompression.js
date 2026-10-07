@@ -102,6 +102,59 @@ async function isAnimatedImage(file, mime) {
   return false;
 }
 
+// Lecteurs d'entiers TIFF (little/big endian selon l'en-tête "II"/"MM").
+function tiffReader(buf, tiffStart) {
+  const le = buf[tiffStart] === 0x49;
+  const u16 = (o) => (le ? buf[o] | (buf[o + 1] << 8) : (buf[o] << 8) | buf[o + 1]);
+  const u32 = (o) => (le
+    ? (buf[o] | (buf[o + 1] << 8) | (buf[o + 2] << 16) | (buf[o + 3] << 24)) >>> 0
+    : ((buf[o] << 24) | (buf[o + 1] << 16) | (buf[o + 2] << 8) | buf[o + 3]) >>> 0);
+  return { u16, u32 };
+}
+
+// Orientation EXIF (1-8) d'un bloc APP1, ou 1 si absente/illisible.
+function readExifOrientation(buf, tiffStart, end) {
+  const { u16, u32 } = tiffReader(buf, tiffStart);
+  if (tiffStart + 8 > end || u16(tiffStart + 2) !== 42) return 1;
+  const ifd0 = tiffStart + u32(tiffStart + 4);
+  if (ifd0 + 2 > end) return 1;
+  const count = u16(ifd0);
+  for (let i = 0; i < count && ifd0 + 2 + (i + 1) * 12 <= end; i++) {
+    const entry = ifd0 + 2 + i * 12;
+    if (u16(entry) === 0x0112) { const v = u16(entry + 8); return v >= 1 && v <= 8 ? v : 1; }
+  }
+  return 1;
+}
+
+// En-tête JPEG : orientation EXIF et dimensions BRUTES du cadre (marqueur SOF,
+// avant toute rotation). null si illisible. Sert à détecter un navigateur dont
+// createImageBitmap ignore l'orientation (voir decodeImage).
+async function readJpegInfo(file) {
+  try {
+    const buf = new Uint8Array(await file.slice(0, 262144).arrayBuffer());
+    if (buf[0] !== 0xff || buf[1] !== 0xd8) return null;
+    let p = 2;
+    let orientation = 1;
+    while (p + 4 <= buf.length && buf[p] === 0xff) {
+      const marker = buf[p + 1];
+      if (marker === 0xff) { p += 1; continue; }
+      if (marker === 0x01 || (marker >= 0xd0 && marker <= 0xd8)) { p += 2; continue; }
+      if (marker === 0xda || marker === 0xd9) break;
+      const segLen = (buf[p + 2] << 8) | buf[p + 3];
+      if (marker === 0xe1 && buf[p + 4] === 0x45 && buf[p + 5] === 0x78 && buf[p + 6] === 0x69 && buf[p + 7] === 0x66) {
+        orientation = readExifOrientation(buf, p + 10, Math.min(p + 2 + segLen, buf.length));
+      }
+      if (marker >= 0xc0 && marker <= 0xcf && marker !== 0xc4 && marker !== 0xc8 && marker !== 0xcc) {
+        const height = (buf[p + 5] << 8) | buf[p + 6];
+        const width = (buf[p + 7] << 8) | buf[p + 8];
+        return width && height ? { orientation, width, height } : null;
+      }
+      p += 2 + segLen;
+    }
+  } catch (_) { /* illisible : pas de vérification possible */ }
+  return null;
+}
+
 const EXIF_TYPE_SIZE = { 1: 1, 2: 1, 3: 2, 4: 4, 5: 8, 6: 1, 7: 1, 8: 2, 9: 4, 10: 8, 11: 4, 12: 8 };
 
 // Efface sur place l'IFD GPS d'un bloc EXIF (tiffStart = début de l'en-tête
@@ -109,11 +162,7 @@ const EXIF_TYPE_SIZE = { 1: 1, 2: 1, 3: 2, 4: 4, 5: 8, 6: 1, 7: 1, 8: 2, 9: 4, 1
 // conservé : c'est le chemin de repli, où l'on ne peut pas ré-encoder. Renvoie
 // true si un IFD GPS a été effacé.
 function wipeGpsIfd(buf, tiffStart, end) {
-  const le = buf[tiffStart] === 0x49;
-  const u16 = (o) => (le ? buf[o] | (buf[o + 1] << 8) : (buf[o] << 8) | buf[o + 1]);
-  const u32 = (o) => (le
-    ? (buf[o] | (buf[o + 1] << 8) | (buf[o + 2] << 16) | (buf[o + 3] << 24)) >>> 0
-    : ((buf[o] << 24) | (buf[o + 1] << 16) | (buf[o + 2] << 8) | buf[o + 3]) >>> 0);
+  const { u16, u32 } = tiffReader(buf, tiffStart);
   if (tiffStart + 8 > end || u16(tiffStart + 2) !== 42) return false;
   const ifd0 = tiffStart + u32(tiffStart + 4);
   if (ifd0 + 2 > end) return false;
@@ -201,6 +250,26 @@ async function decodeImage(file) {
       } catch (_) {
         // Certains navigateurs lèvent sur l'objet d'options : on retente sans.
         bitmap = await createImageBitmap(file);
+      }
+      // Garde-fou orientation : certains navigateurs (Safari selon la version)
+      // ignorent l'EXIF dans createImageBitmap. Comme l'EXIF est ensuite retiré
+      // par le ré-encodage, une photo de portrait d'iPhone (orientation 6/8,
+      // cadre brut paysage) partirait COUCHÉE. Si le bitmap a exactement les
+      // dimensions brutes d'une image censée être pivotée, on redécode via
+      // <img>, qui applique l'orientation.
+      if (resolveImageMime(file) === "image/jpeg") {
+        const info = await readJpegInfo(file);
+        if (info && info.orientation >= 5 && info.width !== info.height
+            && bitmap.width === info.width && bitmap.height === info.height) {
+          try {
+            const viaImg = await decodeViaImageElement(file);
+            if (viaImg.width === info.height && viaImg.height === info.width) {
+              try { bitmap.close?.(); } catch (_) {}
+              return viaImg;
+            }
+            viaImg.close();
+          } catch (_) { /* on garde le bitmap */ }
+        }
       }
       return { width: bitmap.width, height: bitmap.height, source: bitmap, close: () => bitmap.close?.() };
     } catch (bitmapError) {
