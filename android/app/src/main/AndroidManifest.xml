@@ -66,4 +66,16 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- Android 13+ : permission de notification (demandée au geste de l'utilisateur, jamais au premier lancement). -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Localisation APPROXIMATIVE seulement (étape 3b). Baobab n'a pas besoin de la position
+         précise : les coordonnées sont arrondies à 2 décimales (~1,1 km) avant d'être envoyées
+         (src/lib/geolocation.js) et le serveur n'expose que des distances approximatives.
+         ACCESS_FINE_LOCATION n'est donc volontairement PAS déclarée (la déclarer ferait afficher
+         le choix « précise » à l'utilisateur sans bénéfice). Le plugin @capacitor/geolocation ne
+         déclare aucune permission lui-même. Pas de <uses-feature gps> : le GPS n'est pas requis. -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <!-- Appareil photo / galerie : AUCUNE permission à déclarer. @capacitor/camera ouvre l'application
+         Appareil photo du système (intent IMAGE_CAPTURE) et le sélecteur de photos système
+         (Photo Picker, Android 13+) : déclarer CAMERA ici obligerait au contraire l'app à obtenir
+         cette permission avant toute prise de photo. Retour haptique : le plugin @capacitor/haptics
+         ajoute lui-même VIBRATE (permission « normale », aucune invite). -->
 </manifest>
