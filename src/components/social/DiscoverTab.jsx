@@ -438,7 +438,7 @@ export default function DiscoverTab({
                           à gauche/droite pour changer de photo ne faisait alors rien, le clic
                           n'atteignait jamais le bouton dessous.
                         */}
-                        <div className="absolute top-4 left-4 flex gap-2 z-10 pointer-events-none">
+                        <div className="absolute top-4 left-4 right-[6.25rem] flex flex-wrap gap-2 z-10 pointer-events-none">
                           <span className="px-3 py-1.5 rounded-full bg-white/15 backdrop-blur-md text-white text-[11px] font-bold">{(showCity && p.city) || "Canada"}</span>
                           {showCountry && p.country && <span className="px-3 py-1.5 rounded-full bg-white/15 backdrop-blur-md text-white text-[11px] font-bold">🌍 {p.country}</span>}
                         </div>

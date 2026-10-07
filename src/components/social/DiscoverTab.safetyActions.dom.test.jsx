@@ -1,6 +1,6 @@
 import React from "react";
 import { describe, it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 vi.mock("../../supabaseClient", () => ({ supabase: { from: vi.fn(), rpc: vi.fn(), channel: vi.fn(), removeChannel: vi.fn() } }));
@@ -49,5 +49,21 @@ describe("DiscoverTab — Signaler / Bloquer sur la carte (mode Pile)", () => {
     const h = setup();
     await userEvent.click(screen.getByRole("button", { name: "Bloquer Awa" }));
     expect(h.handleBlock).toHaveBeenCalledWith(person);
+  });
+
+  it("toucher Signaler / Bloquer ne démarre jamais un glissement (like/passe par erreur)", () => {
+    const onSwipeStart = vi.fn();
+    setup({ onSwipeStart });
+    for (const name of ["Signaler Awa", "Bloquer Awa"]) {
+      fireEvent.pointerDown(screen.getByRole("button", { name }), { clientX: 300, pointerId: 1 });
+    }
+    expect(onSwipeStart).not.toHaveBeenCalled();
+  });
+
+  it("les pastilles ville/pays laissent la place aux deux boutons (pas de chevauchement avec un long nom de pays)", () => {
+    setup();
+    const chips = screen.getByText("Montréal").parentElement;
+    expect(chips.className).toContain("right-[6.25rem]");
+    expect(chips.className).toContain("flex-wrap");
   });
 });

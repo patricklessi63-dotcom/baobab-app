@@ -65,14 +65,14 @@ export default function EventCommentsSection({ comments = [], loading, canPost, 
                   <button
                     onClick={() => onReportAuthor({ id: c.author_id, name: profile.name || "cette personne" })}
                     aria-label="Signaler ce message"
-                    className="bb-hit flex-shrink-0"
+                    className="bb-hit-v px-1 flex-shrink-0"
                     style={{ color: muted }}
                   >
                     <Flag size={14} />
                   </button>
                 )}
                 {canDelete && (
-                  <button onClick={() => setPendingDelete(c)} aria-label="Supprimer ce message" className="bb-hit flex-shrink-0" style={{ color: muted }}>
+                  <button onClick={() => setPendingDelete(c)} aria-label="Supprimer ce message" className="bb-hit-v px-1 flex-shrink-0" style={{ color: muted }}>
                     <Trash2 size={14} />
                   </button>
                 )}

@@ -41,4 +41,17 @@ describe.each([
     renderCard({});
     expect(screen.queryByRole("button", { name: "Bloquer l'auteur de la publication" })).not.toBeInTheDocument();
   });
+
+  // Deux icônes de 12 px séparées de 8 px : leurs zones tactiles de 44 px se chevauchent et la
+  // dernière du DOM gagne — toucher le CENTRE de « Signaler » ouvrait « Bloquer » (mesuré à 375 px).
+  // La variante verticale (bb-hit-v) étend seulement la hauteur, comme dans CommunityPostCard.
+  it("les icônes Signaler / Bloquer d'un commentaire n'ont pas de zones tactiles qui se chevauchent", async () => {
+    renderCard({ onBlockAuthor: vi.fn() });
+    await userEvent.click(screen.getByRole("button", { name: "Afficher les commentaires" }));
+    for (const name of ["Signaler ce commentaire", "Bloquer l'auteur de ce commentaire"]) {
+      const btn = screen.getByRole("button", { name });
+      expect(btn.className).toContain("bb-hit-v");
+      expect(btn.className.split(/s+/)).not.toContain("bb-hit");
+    }
+  });
 });

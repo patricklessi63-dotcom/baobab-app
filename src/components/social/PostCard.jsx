@@ -208,7 +208,7 @@ export default function PostCard({
                     <button
                       onClick={() => onReportComment(c)}
                       aria-label="Signaler ce commentaire"
-                      className="bb-hit shrink-0 mt-1 focus-visible:outline focus-visible:outline-2"
+                      className="bb-hit-v px-1.5 shrink-0 mt-1 focus-visible:outline focus-visible:outline-2"
                       style={{ color: muted }}
                     >
                       <Flag size={12} />
@@ -218,7 +218,7 @@ export default function PostCard({
                     <button
                       onClick={() => onBlockAuthor({ id: c.author_id, name: c.profiles?.name || "cet auteur" })}
                       aria-label="Bloquer l'auteur de ce commentaire"
-                      className="bb-hit shrink-0 mt-1 focus-visible:outline focus-visible:outline-2"
+                      className="bb-hit-v px-1.5 shrink-0 mt-1 focus-visible:outline focus-visible:outline-2"
                       style={{ color: muted }}
                     >
                       <Ban size={12} />
