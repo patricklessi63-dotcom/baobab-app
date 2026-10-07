@@ -33,7 +33,7 @@ export default function EventCommentsSection({ comments = [], loading, canPost, 
             onClick={onSubmit}
             disabled={!trimmed}
             aria-label="Envoyer"
-            className="bb-btn-gold h-10 w-10 rounded-full flex items-center justify-center disabled:opacity-40 flex-shrink-0"
+            className="bb-hit bb-btn-gold h-10 w-10 rounded-full flex items-center justify-center disabled:opacity-40 flex-shrink-0"
           >
             <Send size={15} />
           </button>
@@ -57,7 +57,7 @@ export default function EventCommentsSection({ comments = [], loading, canPost, 
                   <p className="text-sm mt-0.5 whitespace-pre-wrap break-words" style={{ color: body }}>{c.body}</p>
                 </div>
                 {canDelete && (
-                  <button onClick={() => setPendingDelete(c)} aria-label="Supprimer ce message" className="flex-shrink-0" style={{ color: muted }}>
+                  <button onClick={() => setPendingDelete(c)} aria-label="Supprimer ce message" className="bb-hit flex-shrink-0" style={{ color: muted }}>
                     <Trash2 size={14} />
                   </button>
                 )}

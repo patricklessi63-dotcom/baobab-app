@@ -1176,7 +1176,7 @@ export default function EventsTab({ currentUser, onError, onBack = () => {}, ini
   if (view === "create") {
     return (
       <section className="max-w-lg mx-auto">
-        <button onClick={requestCancelCreate} disabled={formSubmitting} className="text-sm font-bold mb-4 disabled:opacity-40" style={{ color: primary }}>← Annuler</button>
+        <button onClick={requestCancelCreate} disabled={formSubmitting} className="bb-hit text-sm font-bold mb-4 disabled:opacity-40" style={{ color: primary }}>← Annuler</button>
         <h1 className="text-2xl font-black mb-4" style={{ color: primary }}>Créer un événement</h1>
         <EventCreateForm currentUser={currentUser} initialCommunityId={createCommunityId} onCreated={handleCreated} onCancel={requestCancelCreate} onDirtyChange={setFormDirty} onSubmittingChange={setFormSubmitting} onError={onError} />
         <ConfirmModal
@@ -1195,7 +1195,7 @@ export default function EventsTab({ currentUser, onError, onBack = () => {}, ini
   if (view === "edit" && event) {
     return (
       <section className="max-w-lg mx-auto">
-        <button onClick={requestCancelEdit} disabled={formSubmitting} className="text-sm font-bold mb-4 disabled:opacity-40" style={{ color: primary }}>← Annuler</button>
+        <button onClick={requestCancelEdit} disabled={formSubmitting} className="bb-hit text-sm font-bold mb-4 disabled:opacity-40" style={{ color: primary }}>← Annuler</button>
         <h1 className="text-2xl font-black mb-4" style={{ color: primary }}>Modifier l'événement</h1>
         <EventEditForm event={event} onSaved={handleEdited} onCancel={requestCancelEdit} onDirtyChange={setFormDirty} onSubmittingChange={setFormSubmitting} onError={onError} />
         <ConfirmModal
@@ -1320,7 +1320,7 @@ export default function EventsTab({ currentUser, onError, onBack = () => {}, ini
             <div ref={shareDialogRef} tabIndex={-1} className={`${card} w-full max-w-md rounded-t-[30px] md:rounded-[30px] p-6 max-h-[80vh] overflow-y-auto`} style={{ paddingBottom: "max(1.5rem, env(safe-area-inset-bottom, 0px))" }} onClick={(e) => e.stopPropagation()}>
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-black" style={{ color: primary }}>Partager dans une conversation</h2>
-                <button onClick={() => setShareOpen(false)} aria-label="Fermer"><X /></button>
+                <button className="bb-hit" onClick={() => setShareOpen(false)} aria-label="Fermer"><X /></button>
               </div>
               {myMutualProfiles.filter((p) => !blockedIds.has(p.id)).length === 0 ? (
                 <EmptyState title="Aucune conversation disponible." subtitle="Tu dois avoir un match mutuel pour partager un événement." />
@@ -1386,7 +1386,7 @@ export default function EventsTab({ currentUser, onError, onBack = () => {}, ini
       <div className="mb-5">
         {/* Demande explicite (12 sept.) : même flèche de retour que
             CommunitiesTab.jsx — voir son commentaire pour le contexte. */}
-        <button onClick={onBack} className="flex items-center gap-1.5 text-sm font-bold mb-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1" style={{ color: primary }}>
+        <button onClick={onBack} className="bb-hit flex items-center gap-1.5 text-sm font-bold mb-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1" style={{ color: primary }}>
           <ArrowLeft size={16} /> Retour
         </button>
         <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-[11px] font-black uppercase tracking-wider" style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)", color: coralText }}>
@@ -1413,7 +1413,7 @@ export default function EventsTab({ currentUser, onError, onBack = () => {}, ini
             aria-label="Rechercher un événement"
             className="flex-1 bg-transparent text-sm outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--bb-leaf)] min-w-0"
           />
-          {search && <button onClick={() => setSearch("")} aria-label="Effacer la recherche"><X size={14} color={muted} /></button>}
+          {search && <button className="bb-hit" onClick={() => setSearch("")} aria-label="Effacer la recherche"><X size={14} color={muted} /></button>}
         </div>
         <button
           onClick={() => setFiltersOpen((v) => !v)}
@@ -1458,7 +1458,7 @@ export default function EventsTab({ currentUser, onError, onBack = () => {}, ini
                       <div className="text-xs truncate" style={{ color: muted }}>Invité·e par {inv.inviter?.name || "un membre"}</div>
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
-                      <button onClick={() => handleDeclineEventInvite(inv)} className="text-xs font-bold px-3 py-2 rounded-full" style={{ background: bg, color: muted }}>Refuser</button>
+                      <button onClick={() => handleDeclineEventInvite(inv)} className="bb-hit text-xs font-bold px-3 py-2 rounded-full" style={{ background: bg, color: muted }}>Refuser</button>
                       <button onClick={() => handleAcceptEventInvite(inv)} className="bb-btn-gold text-xs font-bold px-3 py-2 rounded-full">Accepter</button>
                     </div>
                   </div>

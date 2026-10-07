@@ -69,10 +69,10 @@ export default function UpdateNotice({ mandatory, recommended, info, onReload, o
               </ul>
             )}
             <div className="flex items-center gap-2 mt-3">
-              <button onClick={onReload} className="flex-1 py-2 rounded-full text-xs font-bold text-white" style={{ background: "var(--bb-leaf)" }}>
+              <button onClick={onReload} className="bb-hit flex-1 py-2 rounded-full text-xs font-bold text-white" style={{ background: "var(--bb-leaf)" }}>
                 Mettre à jour
               </button>
-              <button onClick={onDismiss} className="px-3 py-2 rounded-full text-xs font-semibold" style={{ color: C.sandDim }}>
+              <button onClick={onDismiss} className="bb-hit px-3 py-2 rounded-full text-xs font-semibold" style={{ color: C.sandDim }}>
                 Plus tard
               </button>
             </div>

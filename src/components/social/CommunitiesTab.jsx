@@ -1471,7 +1471,7 @@ export default function CommunitiesTab({ currentUser, onError, onBack = () => {}
     return (
       <section className="max-w-lg mx-auto">
         <div className="flex items-center gap-2 mb-4">
-          <button onClick={requestCancelCreate} disabled={createSubmitting} aria-label="Annuler" className="text-sm font-bold disabled:opacity-40" style={{ color: primary }}>← Annuler</button>
+          <button onClick={requestCancelCreate} disabled={createSubmitting} aria-label="Annuler" className="bb-hit text-sm font-bold disabled:opacity-40" style={{ color: primary }}>← Annuler</button>
         </div>
         <h1 className="text-2xl font-black mb-4" style={{ color: primary }}>Créer une communauté</h1>
         <CommunityCreateForm currentUser={currentUser} onCreated={handleCreated} onCancel={requestCancelCreate} onDirtyChange={setCreateDirty} onSubmittingChange={setCreateSubmitting} onError={onError} />
@@ -1683,7 +1683,7 @@ export default function CommunitiesTab({ currentUser, onError, onBack = () => {}
             visuellement comment revenir à l'écran d'où l'utilisateur vient.
             onBack = goBack (SocialShell.jsx) : consomme la vraie entrée
             d'historique, identique au bouton/geste "retour" mobile. */}
-        <button onClick={onBack} className="flex items-center gap-1.5 text-sm font-bold mb-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1" style={{ color: primary }}>
+        <button onClick={onBack} className="bb-hit flex items-center gap-1.5 text-sm font-bold mb-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1" style={{ color: primary }}>
           <ArrowLeft size={16} /> Retour
         </button>
         <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-[11px] font-black uppercase tracking-wider" style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)", color: primary }}>
@@ -1711,7 +1711,7 @@ export default function CommunitiesTab({ currentUser, onError, onBack = () => {}
             className="flex-1 bg-transparent text-sm outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--bb-leaf)] min-w-0"
           />
           {search && (
-            <button onClick={() => setSearch("")} aria-label="Effacer la recherche">
+            <button className="bb-hit" onClick={() => setSearch("")} aria-label="Effacer la recherche">
               <X size={14} color={muted} />
             </button>
           )}
@@ -1757,7 +1757,7 @@ export default function CommunitiesTab({ currentUser, onError, onBack = () => {}
                       <div className="text-xs truncate" style={{ color: muted }}>Invité·e par {inv.inviter?.name || "un membre"}</div>
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
-                      <button onClick={() => handleDeclineInvite(inv)} className="text-xs font-bold px-3 py-2 rounded-full" style={{ background: bg, color: muted }}>Refuser</button>
+                      <button onClick={() => handleDeclineInvite(inv)} className="bb-hit text-xs font-bold px-3 py-2 rounded-full" style={{ background: bg, color: muted }}>Refuser</button>
                       <button onClick={() => handleAcceptInvite(inv)} className="bb-btn-gold text-xs font-bold px-3 py-2 rounded-full">Accepter</button>
                     </div>
                   </div>

@@ -166,7 +166,7 @@ export default function UpdatePasswordScreen({ onDone, onSignOut }) {
             </button>
             {error && (
               <button type="button" onClick={handleBackToLogin} disabled={signingOut}
-                className="text-xs font-semibold text-center disabled:opacity-60" style={{ color: C.sandDim }}>
+                className="bb-hit text-xs font-semibold text-center disabled:opacity-60" style={{ color: C.sandDim }}>
                 {signingOut ? "..." : "Retour à la connexion"}
               </button>
             )}

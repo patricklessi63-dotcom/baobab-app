@@ -67,7 +67,7 @@ function NewsCard({ item, featured, isFavorite, onToggleFavorite }) {
           onClick={(e) => { e.preventDefault(); e.stopPropagation(); onToggleFavorite(item.id); }}
           aria-label={isFavorite ? "Retirer des favoris" : "Ajouter aux favoris"}
           aria-pressed={isFavorite}
-          className="absolute top-3 right-3 z-10 h-8 w-8 rounded-full flex items-center justify-center"
+          className="bb-hit absolute top-3 right-3 z-10 h-8 w-8 rounded-full flex items-center justify-center"
           style={{ background: "rgba(255,255,255,.85)", backdropFilter: "blur(2px)" }}
         >
           <Heart size={15} color={coral} fill={isFavorite ? coral : "none"} />
@@ -205,7 +205,7 @@ function GeneralistDirectory() {
           <button
             key={c.city}
             onClick={() => setSelected((s) => (s === c.city ? null : c.city))}
-            className="px-3 py-1.5 rounded-full text-[11px] font-bold flex-shrink-0"
+            className="bb-hit px-3 py-1.5 rounded-full text-[11px] font-bold flex-shrink-0"
             style={selected === c.city ? { background: primary, color: "#fff" } : { background: bg, color: muted }}
           >
             {c.city}
@@ -239,7 +239,7 @@ function ProvinceDirectory() {
           <button
             key={p.province}
             onClick={() => setSelected((s) => (s === p.province ? null : p.province))}
-            className="px-3 py-1.5 rounded-full text-[11px] font-bold flex-shrink-0"
+            className="bb-hit px-3 py-1.5 rounded-full text-[11px] font-bold flex-shrink-0"
             style={selected === p.province ? { background: primary, color: "#fff" } : { background: bg, color: muted }}
           >
             {p.province}
@@ -385,7 +385,7 @@ export default function ImmigrationNewsView({ onBack, onError, currentUser }) {
 
   return (
     <section className="max-w-3xl mx-auto">
-      <button onClick={onBack} className="flex items-center gap-1.5 text-sm font-bold mb-4" style={{ color: muted }}>
+      <button onClick={onBack} className="bb-hit flex items-center gap-1.5 text-sm font-bold mb-4" style={{ color: muted }}>
         <ArrowLeft size={15} /> Accueil
       </button>
 
@@ -477,7 +477,7 @@ export default function ImmigrationNewsView({ onBack, onError, currentUser }) {
                 style={{ color: primary }}
               />
               {search && (
-                <button onClick={() => setSearch("")} aria-label="Effacer la recherche">
+                <button className="bb-hit" onClick={() => setSearch("")} aria-label="Effacer la recherche">
                   <X size={14} color={muted} />
                 </button>
               )}

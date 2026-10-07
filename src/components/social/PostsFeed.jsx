@@ -982,7 +982,7 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
                       // en liste (PostCard.jsx) et le reste de l'app.
                       onClick={() => setPendingDelete(p)}
                       aria-label="Supprimer la publication"
-                      className="absolute top-1 right-1 h-6 w-6 rounded-full bg-black/50 text-white items-center justify-center hidden group-hover:flex focus-visible:flex focus-visible:outline focus-visible:outline-2"
+                      className="bb-hit absolute top-1 right-1 h-6 w-6 rounded-full bg-black/50 text-white items-center justify-center hidden group-hover:flex [@media(hover:none)]:flex focus-visible:flex focus-visible:outline focus-visible:outline-2"
                     >
                       ×
                     </button>

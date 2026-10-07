@@ -104,7 +104,7 @@ export default function MatchCard({
 
         <div className="flex items-center gap-2 mt-3">
           {onPass && (
-            <button onClick={() => onPass(profile)} aria-label={`Passer le profil de ${profile.name}`} className="h-10 w-10 rounded-full flex items-center justify-center shrink-0 focus-visible:outline focus-visible:outline-2" style={{ background: bg }}>
+            <button onClick={() => onPass(profile)} aria-label={`Passer le profil de ${profile.name}`} className="bb-hit h-10 w-10 rounded-full flex items-center justify-center shrink-0 focus-visible:outline focus-visible:outline-2" style={{ background: bg }}>
               <X size={16} color={muted} />
             </button>
           )}
@@ -119,7 +119,7 @@ export default function MatchCard({
             </button>
           )}
           {onToggleFavorite && (
-            <button onClick={() => onToggleFavorite(profile)} aria-label={`Ajouter ${profile.name} aux favoris`} aria-pressed={isFavorite} className="h-10 w-10 rounded-full flex items-center justify-center shrink-0 focus-visible:outline focus-visible:outline-2" style={{ background: isFavorite ? "var(--bb-surface-2)" : bg }}>
+            <button onClick={() => onToggleFavorite(profile)} aria-label={`Ajouter ${profile.name} aux favoris`} aria-pressed={isFavorite} className="bb-hit h-10 w-10 rounded-full flex items-center justify-center shrink-0 focus-visible:outline focus-visible:outline-2" style={{ background: isFavorite ? "var(--bb-surface-2)" : bg }}>
               {/* Icône seule (pas de texte adjacent) : "goldText" au lieu du or
                   fixe "gold", qui ne donnait que ~1.5:1 sur --bb-surface-2 en
                   thème clair (échec AA graphique 3:1). goldText ~4.9:1. */}
@@ -129,22 +129,22 @@ export default function MatchCard({
         </div>
         <div className="flex items-center gap-3 mt-2">
           {isMatch && onUnmatch && (
-            <button onClick={() => onUnmatch(profile)} className="text-[11px] font-semibold flex items-center gap-1 focus-visible:outline focus-visible:outline-2" style={{ color: coralText }}>
+            <button onClick={() => onUnmatch(profile)} className="bb-hit text-[11px] font-semibold flex items-center gap-1 focus-visible:outline focus-visible:outline-2" style={{ color: coralText }}>
               <HeartCrack size={12} /> Supprimer le match
             </button>
           )}
           {onReport && (
-            <button onClick={() => onReport(profile)} className="text-[11px] font-semibold flex items-center gap-1 focus-visible:outline focus-visible:outline-2" style={{ color: muted }}>
+            <button onClick={() => onReport(profile)} className="bb-hit text-[11px] font-semibold flex items-center gap-1 focus-visible:outline focus-visible:outline-2" style={{ color: muted }}>
               <Flag size={12} /> Signaler
             </button>
           )}
           {onBlock && (
-            <button onClick={() => onBlock(profile)} className="text-[11px] font-semibold flex items-center gap-1 focus-visible:outline focus-visible:outline-2" style={{ color: muted }}>
+            <button onClick={() => onBlock(profile)} className="bb-hit text-[11px] font-semibold flex items-center gap-1 focus-visible:outline focus-visible:outline-2" style={{ color: muted }}>
               <Ban size={12} /> Bloquer
             </button>
           )}
           {onHide && (
-            <button onClick={() => onHide(profile)} className="text-[11px] font-semibold flex items-center gap-1 focus-visible:outline focus-visible:outline-2" style={{ color: muted }}>
+            <button onClick={() => onHide(profile)} className="bb-hit text-[11px] font-semibold flex items-center gap-1 focus-visible:outline focus-visible:outline-2" style={{ color: muted }}>
               <EyeOff size={12} /> Masquer
             </button>
           )}

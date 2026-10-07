@@ -83,22 +83,22 @@ export default function CommunityMemberRow({ member, viewerRole, currentUserId, 
       {(canPromoteToMod || canDemoteToMember || canPromoteToAdmin || canDemoteToModerator || canRemove) && (
         <div className="flex items-center gap-1 flex-shrink-0">
           {canPromoteToMod && (
-            <button onClick={() => onSetRole(member, "moderator")} aria-label={`Promouvoir ${firstName} modérateur`} className="h-8 w-8 rounded-full flex items-center justify-center" style={{ color: muted }}>
+            <button onClick={() => onSetRole(member, "moderator")} aria-label={`Promouvoir ${firstName} modérateur`} className="bb-hit-v h-8 w-8 rounded-full flex items-center justify-center" style={{ color: muted }}>
               <ChevronUp size={16} />
             </button>
           )}
           {canDemoteToMember && (
-            <button onClick={() => onSetRole(member, "member")} aria-label={`Rétrograder ${firstName}`} className="h-8 w-8 rounded-full flex items-center justify-center" style={{ color: muted }}>
+            <button onClick={() => onSetRole(member, "member")} aria-label={`Rétrograder ${firstName}`} className="bb-hit-v h-8 w-8 rounded-full flex items-center justify-center" style={{ color: muted }}>
               <ChevronDown size={16} />
             </button>
           )}
           {canPromoteToAdmin && (
-            <button onClick={() => onSetRole(member, "admin")} aria-label={`Promouvoir ${firstName} administrateur`} className="h-8 w-8 rounded-full flex items-center justify-center" style={{ color: goldText }}>
+            <button onClick={() => onSetRole(member, "admin")} aria-label={`Promouvoir ${firstName} administrateur`} className="bb-hit-v h-8 w-8 rounded-full flex items-center justify-center" style={{ color: goldText }}>
               <ChevronsUp size={16} />
             </button>
           )}
           {canDemoteToModerator && (
-            <button onClick={() => onSetRole(member, "moderator")} aria-label={`Rétrograder ${firstName} modérateur`} className="h-8 w-8 rounded-full flex items-center justify-center" style={{ color: muted }}>
+            <button onClick={() => onSetRole(member, "moderator")} aria-label={`Rétrograder ${firstName} modérateur`} className="bb-hit-v h-8 w-8 rounded-full flex items-center justify-center" style={{ color: muted }}>
               <ChevronsDown size={16} />
             </button>
           )}
@@ -106,7 +106,7 @@ export default function CommunityMemberRow({ member, viewerRole, currentUserId, 
             <button
               onClick={() => setConfirmingRemove(true)}
               aria-label={`Retirer ${firstName} de la communauté`}
-              className="h-8 w-8 rounded-full flex items-center justify-center"
+              className="bb-hit-v h-8 w-8 rounded-full flex items-center justify-center"
               style={{ color: coral }}
             >
               <UserMinus size={15} />

@@ -247,7 +247,7 @@ export default function CommunityCreateForm({ currentUser, onCreated, onCancel, 
               <p className="text-sm font-bold mt-1.5" style={{ color: primary }}>{aiSuggestion.name}</p>
               <p className="text-xs mt-0.5" style={{ color: muted }}>{aiSuggestion.description}</p>
               <div className="flex gap-2 mt-2.5">
-                <button type="button" onClick={() => setAiSuggestion(null)} className="flex-1 py-2 rounded-xl text-xs font-bold" style={{ background: bg, color: primary }}>Annuler</button>
+                <button type="button" onClick={() => setAiSuggestion(null)} className="bb-hit flex-1 py-2 rounded-xl text-xs font-bold" style={{ background: bg, color: primary }}>Annuler</button>
                 <button type="button" onClick={applyAiSuggestion} className="bb-btn-gold flex-1 py-2 rounded-xl text-xs font-bold">Utiliser</button>
               </div>
             </>

@@ -378,7 +378,7 @@ export default function ConversationPane({
   return (
     <div className="flex flex-col h-full w-full min-w-0">
       <div className="flex items-center gap-3 p-4 shrink-0" style={{ borderBottom: `1px solid rgba(${primaryRgb},.08)`, position: "relative" }}>
-        <button onClick={onBack} aria-label="Retour à la liste des conversations" className="flex items-center justify-center flex-shrink-0 md:hidden" style={{ width: 40, height: 44 }}>
+        <button onClick={onBack} aria-label="Retour à la liste des conversations" className="bb-hit flex items-center justify-center flex-shrink-0 md:hidden" style={{ width: 40, height: 44 }}>
           <ArrowLeft size={18} color={primary} />
         </button>
         <button
@@ -421,7 +421,7 @@ export default function ConversationPane({
           onClick={() => setSearchOpen((v) => !v)}
           aria-label={searchOpen ? "Fermer la recherche" : "Rechercher dans la conversation"}
           aria-pressed={searchOpen}
-          className="ml-auto flex items-center justify-center flex-shrink-0 focus-visible:outline focus-visible:outline-2"
+          className="bb-hit ml-auto flex items-center justify-center flex-shrink-0 focus-visible:outline focus-visible:outline-2"
           style={{ width: 40, height: 44 }}
         >
           <Search size={17} color={searchOpen ? coral : primary} />
@@ -432,7 +432,7 @@ export default function ConversationPane({
           aria-label="Options de la conversation"
           aria-haspopup="menu"
           aria-expanded={menuOpen}
-          className="flex items-center justify-center flex-shrink-0 focus-visible:outline focus-visible:outline-2"
+          className="bb-hit flex items-center justify-center flex-shrink-0 focus-visible:outline focus-visible:outline-2"
           style={{ width: 40, height: 44 }}
         >
           <MoreVertical size={18} color={primary} />
@@ -469,14 +469,14 @@ export default function ConversationPane({
             style={{ color: primary }}
           />
           {searchQuery && <span className="text-xs shrink-0" style={{ color: muted }}>{visibleMessages.length} résultat{visibleMessages.length > 1 ? "s" : ""}</span>}
-          <button onClick={() => { setSearchOpen(false); setSearchQuery(""); }} aria-label="Fermer la recherche"><X size={15} color={muted} /></button>
+          <button className="bb-hit" onClick={() => { setSearchOpen(false); setSearchQuery(""); }} aria-label="Fermer la recherche"><X size={15} color={muted} /></button>
         </div>
       )}
 
       <ChatDropZone onDropFile={(file) => guardedSend(sendMediaMessage)(file, detectKindFromFile(file))}>
       <div ref={listRef} onScroll={handleListScroll} role="log" aria-live="polite" aria-atomic="false" className="flex-1 p-4 flex flex-col gap-1 overflow-y-auto">
         {hasMoreHistory && (
-          <button onClick={onLoadOlder} disabled={loadingOlder} className="self-center text-xs font-bold px-3 py-2 rounded-full mb-2 disabled:opacity-50" style={{ background: bg, color: primary }}>
+          <button onClick={onLoadOlder} disabled={loadingOlder} className="bb-hit self-center text-xs font-bold px-3 py-2 rounded-full mb-2 disabled:opacity-50" style={{ background: bg, color: primary }}>
             {loadingOlder ? "Chargement…" : "Charger les messages précédents"}
           </button>
         )}
@@ -629,7 +629,7 @@ export default function ConversationPane({
                       onClick={() => setOpenActionsFor(openActionsFor === m.id ? null : m.id)}
                       aria-label="Options du message"
                       aria-haspopup="menu"
-                      className="flex-shrink-0 self-start rounded-full focus-visible:outline focus-visible:outline-2"
+                      className="bb-hit flex-shrink-0 self-start rounded-full focus-visible:outline focus-visible:outline-2"
                       style={{ opacity: 0.6, marginLeft: 2 }}
                     >
                       <MoreHorizontal size={14} color={isMine ? bg : muted} />
@@ -646,7 +646,7 @@ export default function ConversationPane({
                         <button
                           key={r.emoji}
                           onClick={() => toggleReaction(m, r.emoji)}
-                          className={`text-xs px-1.5 py-0.5 rounded-full flex items-center gap-1${isNewReaction ? " bb-reaction-pop" : ""}`}
+                          className={`bb-hit text-xs px-1.5 py-0.5 rounded-full flex items-center gap-1${isNewReaction ? " bb-reaction-pop" : ""}`}
                           style={{ background: r.mine ? `rgba(${primaryRgb},.12)` : bg, border: r.mine ? `1px solid ${primary}` : "none" }}
                         >
                           {r.emoji} {r.count > 1 && <span style={{ color: muted }}>{r.count}</span>}
@@ -675,7 +675,7 @@ export default function ConversationPane({
                       </div>
                     )
                   ) : (
-                    <button onClick={() => handleTranslate(m)} className="text-[11px] font-bold flex items-center gap-1 mt-1" style={{ color: muted }}>
+                    <button onClick={() => handleTranslate(m)} className="bb-hit text-[11px] font-bold flex items-center gap-1 mt-1" style={{ color: muted }}>
                       <Languages size={11} /> Traduire
                     </button>
                   )
@@ -723,14 +723,14 @@ export default function ConversationPane({
                         is_premium() est refaite côté serveur à chaque tentative,
                         donc réessayer après avoir souscrit fonctionne sans recharger
                         la page — voir enforce_premium_message_limits() (SQL). */}
-                    <button onClick={() => retrySend(m)} className="font-bold underline flex items-center gap-1" style={{ color: coralText }}>
+                    <button onClick={() => retrySend(m)} className="bb-hit font-bold underline flex items-center gap-1" style={{ color: coralText }}>
                       <RotateCcw size={11} className="flex-shrink-0" /> Réessayer
                     </button>
                   </span>
                 </div>
               )}
               {isMine && m._status === "failed" && !m._premiumBlocked && (
-                <button onClick={() => retrySend(m)} className="self-end text-xs font-bold flex items-center gap-1 mt-0.5 text-right" style={{ color: coralText }}>
+                <button onClick={() => retrySend(m)} className="bb-hit self-end text-xs font-bold flex items-center gap-1 mt-0.5 text-right" style={{ color: coralText }}>
                   <RotateCcw size={12} className="flex-shrink-0" /> {m._error || "Impossible d'envoyer le message."} Réessayer
                 </button>
               )}
@@ -809,7 +809,7 @@ export default function ConversationPane({
             <div className="px-4 pt-2 flex items-start gap-2 shrink-0 bg-[var(--bb-surface)]" style={{ borderTop: `1px solid rgba(${primaryRgb},.08)` }}>
               <MapPin size={13} className="flex-shrink-0 mt-0.5" color={coral} />
               <span className="text-xs flex-1" style={{ color: coralText }}>Sur le point de partager tes coordonnées ? Pour une première rencontre, privilégie un lieu public.</span>
-              <button onClick={() => setCoordsNudgeDismissed(true)} aria-label="Ignorer ce rappel" className="flex-shrink-0"><X size={13} color={muted} /></button>
+              <button onClick={() => setCoordsNudgeDismissed(true)} aria-label="Ignorer ce rappel" className="bb-hit flex-shrink-0"><X size={13} color={muted} /></button>
             </div>
           )}
 
@@ -819,7 +819,7 @@ export default function ConversationPane({
                 <Reply size={12} className="flex-shrink-0" />
                 <span className="truncate">Réponse à : {replyingTo.kind === "text" ? replyingTo.text : "Média"}</span>
               </div>
-              <button onClick={() => setReplyingTo(null)} aria-label="Annuler la réponse" className="flex-shrink-0">
+              <button onClick={() => setReplyingTo(null)} aria-label="Annuler la réponse" className="bb-hit flex-shrink-0">
                 <X size={14} color={muted} />
               </button>
             </div>

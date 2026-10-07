@@ -29,7 +29,7 @@ export default function FavoritesModal({ open, onClose, favoriteProfiles = [], o
       <div ref={panelRef} tabIndex={-1} className={`${card} w-full max-w-md rounded-t-[30px] md:rounded-[30px] p-6 max-h-[85vh] overflow-y-auto`} style={{ paddingBottom: "max(1.5rem, env(safe-area-inset-bottom, 0px))" }} onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-black" style={{ color: primary }}>⭐ Mes favoris</h2>
-          <button onClick={onClose} aria-label="Fermer"><X /></button>
+          <button className="bb-hit" onClick={onClose} aria-label="Fermer"><X /></button>
         </div>
 
         {favoriteProfiles.length === 0 ? (
@@ -79,7 +79,7 @@ export default function FavoritesModal({ open, onClose, favoriteProfiles = [], o
                 <button
                   onClick={() => onToggleFavorite?.(p)}
                   aria-label={`Retirer ${p.name} des favoris`}
-                  className="h-9 w-9 rounded-full flex items-center justify-center shrink-0 focus-visible:outline focus-visible:outline-2"
+                  className="bb-hit h-9 w-9 rounded-full flex items-center justify-center shrink-0 focus-visible:outline focus-visible:outline-2"
                   style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)" }}
                 >
                   {/* Icône seule (pas de texte visible à côté, aria-label

@@ -11,9 +11,9 @@ export default function MessageActionsMenu({ message, isMine, align, onReact, on
       className={`${card} overflow-hidden`}
       style={{ position: "absolute", top: "100%", marginTop: 4, [align]: 0, minWidth: 190, zIndex: 15 }}
     >
-      <div className="flex items-center justify-between px-2 py-1.5" style={{ borderBottom: `1px solid rgba(${primaryRgb},.08)` }}>
+      <div className="flex items-center justify-between px-1" style={{ borderBottom: `1px solid rgba(${primaryRgb},.08)` }}>
         {QUICK_REACTIONS.map((emoji) => (
-          <button key={emoji} type="button" onClick={() => { onReact(emoji); onClose(); }} className="text-lg hover:scale-125 motion-safe:transition-transform" aria-label={`Réagir avec ${emoji}`}>
+          <button key={emoji} type="button" onClick={() => { onReact(emoji); onClose(); }} className="text-lg min-w-[40px] min-h-[44px] flex items-center justify-center hover:scale-125 motion-safe:transition-transform" aria-label={`Réagir avec ${emoji}`}>
             {emoji}
           </button>
         ))}

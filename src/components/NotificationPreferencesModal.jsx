@@ -81,7 +81,7 @@ export default function NotificationPreferencesModal({ open, onClose, onBack, cu
       <div ref={panelRef} tabIndex={-1} className="bb-card p-6 w-full max-w-md rounded-t-[20px] md:rounded-[20px]" style={{ maxHeight: "85vh", overflowY: "auto", paddingBottom: "max(1.5rem, env(safe-area-inset-bottom))" }} onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center gap-2 mb-1">
           {onBack && (
-            <button onClick={onBack} aria-label="Retour" style={{ color: "var(--bb-text)" }}><ArrowLeft size={16} /></button>
+            <button className="bb-hit" onClick={onBack} aria-label="Retour" style={{ color: "var(--bb-text)" }}><ArrowLeft size={16} /></button>
           )}
           <div style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 20, color: "var(--bb-text)" }}>
             Préférences de notifications
@@ -116,7 +116,7 @@ export default function NotificationPreferencesModal({ open, onClose, onBack, cu
             {pushStep === "error" && (
               <div className="py-1 text-center">
                 <p className="text-sm" style={{ color: "rgba(var(--bb-ink-rgb),0.7)" }}>{pushError}</p>
-                <button onClick={() => setPushStep("idle")} className="mt-2 text-sm font-semibold" style={{ color: "var(--bb-text)" }}>Compris</button>
+                <button onClick={() => setPushStep("idle")} className="bb-hit mt-2 text-sm font-semibold" style={{ color: "var(--bb-text)" }}>Compris</button>
               </div>
             )}
 
@@ -124,11 +124,11 @@ export default function NotificationPreferencesModal({ open, onClose, onBack, cu
               <div className="flex items-center justify-between" style={{ minHeight: 44 }}>
                 <div className="flex items-center gap-2 text-sm"><Bell size={14} color="var(--bb-text)" /> Notifications push sur cet appareil</div>
                 {pushStatus.subscribed ? (
-                  <button onClick={handleDisablePush} className="text-xs font-semibold" style={{ color: C.coralText }}>Désactiver</button>
+                  <button onClick={handleDisablePush} className="bb-hit text-xs font-semibold" style={{ color: C.coralText }}>Désactiver</button>
                 ) : pushStatus.permission === "denied" ? (
                   <span className="text-xs text-right" style={{ color: "rgba(var(--bb-ink-rgb),0.5)", maxWidth: 140 }}>Bloquées (réglages du navigateur)</span>
                 ) : (
-                  <button onClick={() => setPushStep("consent")} className="text-xs font-semibold" style={{ color: "var(--bb-text)" }}>Activer</button>
+                  <button onClick={() => setPushStep("consent")} className="bb-hit text-xs font-semibold" style={{ color: "var(--bb-text)" }}>Activer</button>
                 )}
               </div>
             )}

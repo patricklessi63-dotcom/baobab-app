@@ -94,7 +94,7 @@ export default function PremiumPage({ currentUser, onBack, onError, justSubscrib
 
   return (
     <section className="max-w-3xl mx-auto">
-      <button onClick={onBack} className="flex items-center gap-1.5 text-sm font-bold mb-5 focus-visible:outline focus-visible:outline-2" style={{ color: primary }}>
+      <button onClick={onBack} className="bb-hit flex items-center gap-1.5 text-sm font-bold mb-5 focus-visible:outline focus-visible:outline-2" style={{ color: primary }}>
         <ArrowLeft size={16} /> Retour
       </button>
 

@@ -95,7 +95,7 @@ export default function EditProfileForm({
 
   return (
     <div className="p-6 max-w-md mx-auto w-full">
-      <button onClick={() => setView("feed")} className="flex items-center gap-1 text-sm mb-4" style={{ color: C.indigo }}>
+      <button onClick={() => setView("feed")} className="bb-hit flex items-center gap-1 text-sm mb-4" style={{ color: C.indigo }}>
         <ArrowLeft size={16} /> Retour
       </button>
       <h2 style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 24, color: C.indigo }} className="mb-4">
@@ -144,7 +144,7 @@ export default function EditProfileForm({
           />
         </label>
         {!coverRemoved && (coverPreview || currentUser?.cover_url) && (
-          <button
+          <button className="bb-hit"
             type="button"
             onClick={() => { setCoverFile(null); setCoverPreview(""); setCoverRemoved(true); }}
             aria-label="Supprimer la photo de couverture"

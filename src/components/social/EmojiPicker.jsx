@@ -71,7 +71,7 @@ export default function EmojiPicker({ onPick, currentUserId }) {
         aria-label="Emojis"
         aria-haspopup="menu"
         aria-expanded={open}
-        className="flex items-center justify-center flex-shrink-0 focus-visible:outline focus-visible:outline-2"
+        className="bb-hit flex items-center justify-center flex-shrink-0 focus-visible:outline focus-visible:outline-2"
         style={{ width: 40, height: 44 }}
       >
         <Smile size={20} color={muted} />
@@ -94,7 +94,7 @@ export default function EmojiPicker({ onPick, currentUserId }) {
                 className="flex-1 bg-transparent text-sm outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--bb-leaf)] min-w-0"
               />
               {query && (
-                <button type="button" onClick={() => setQuery("")} aria-label="Effacer la recherche">
+                <button className="bb-hit" type="button" onClick={() => setQuery("")} aria-label="Effacer la recherche">
                   <X size={14} color={muted} />
                 </button>
               )}

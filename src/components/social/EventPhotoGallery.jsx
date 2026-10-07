@@ -106,7 +106,7 @@ export default function EventPhotoGallery({ photos = [], loading, canUpload, cur
                 <button
                   onClick={() => setPendingDelete(p)}
                   aria-label="Supprimer cette photo"
-                  className="absolute top-1 right-1 h-7 w-7 rounded-full flex items-center justify-center focus-visible:outline focus-visible:outline-2"
+                  className="bb-hit absolute top-1 right-1 h-7 w-7 rounded-full flex items-center justify-center focus-visible:outline focus-visible:outline-2"
                   style={{ background: `rgba(${primaryRgb},.6)` }}
                 >
                   <Trash2 size={13} color="#fff" />

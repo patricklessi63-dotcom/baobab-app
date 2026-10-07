@@ -34,7 +34,7 @@ export default function AiSuggestButton({ action, buildPayload, onApply, label =
         </div>
         <p className="text-sm mt-1.5 whitespace-pre-wrap" style={{ color: primary }}>{suggestion}</p>
         <div className="flex gap-2 mt-3">
-          <button type="button" onClick={() => setSuggestion("")} className="flex-1 py-2 rounded-xl text-xs font-bold" style={{ background: bg, color: primary }}>Annuler</button>
+          <button type="button" onClick={() => setSuggestion("")} className="bb-hit flex-1 py-2 rounded-xl text-xs font-bold" style={{ background: bg, color: primary }}>Annuler</button>
           <button type="button" onClick={() => { onApply(suggestion); setSuggestion(""); }} className="bb-btn-gold flex-1 py-2 rounded-xl text-xs font-bold">Utiliser</button>
         </div>
       </div>
@@ -43,7 +43,7 @@ export default function AiSuggestButton({ action, buildPayload, onApply, label =
 
   return (
     <div className="mt-1.5">
-      <button type="button" onClick={handleClick} disabled={disabled || loading} className="flex items-center gap-1.5 text-xs font-bold disabled:opacity-50" style={{ color: coralText }}>
+      <button type="button" onClick={handleClick} disabled={disabled || loading} className="bb-hit flex items-center gap-1.5 text-xs font-bold disabled:opacity-50" style={{ color: coralText }}>
         {loading ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
         {loading ? "Génération..." : label}
       </button>

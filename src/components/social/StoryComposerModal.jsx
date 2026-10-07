@@ -70,7 +70,7 @@ export default function StoryComposerModal({
               <>
                 <div className="flex items-center justify-between p-6 pb-0 shrink-0">
                   <h2 className="text-xl font-black" style={{ color: primary }}>Nouveau statut</h2>
-                  <button onClick={handleClose} aria-label="Fermer"><X /></button>
+                  <button className="bb-hit" onClick={handleClose} aria-label="Fermer"><X /></button>
                 </div>
                 <div className="overflow-y-auto p-6">
                   <textarea value={storyText} onChange={(e) => setStoryText(e.target.value)} maxLength={280} className="mt-5 w-full min-h-28 rounded-2xl p-4 outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--bb-leaf)] resize-none" style={{ background: bg }} placeholder="Une pensée, une bonne nouvelle, un moment de ta journée…" />
@@ -81,7 +81,7 @@ export default function StoryComposerModal({
                       ) : (
                         <img src={mediaPreviewUrl} alt="" className="w-full max-h-56 object-contain" />
                       )}
-                      <button onClick={() => { setStoryMedia(null); setStoryMediaKind(""); }} aria-label="Retirer le média" className="absolute top-2 right-2 h-7 w-7 rounded-full bg-black/60 text-white flex items-center justify-center">
+                      <button onClick={() => { setStoryMedia(null); setStoryMediaKind(""); }} aria-label="Retirer le média" className="bb-hit absolute top-2 right-2 h-7 w-7 rounded-full bg-black/60 text-white flex items-center justify-center">
                         <X size={14} />
                       </button>
                     </div>
@@ -124,7 +124,7 @@ export default function StoryComposerModal({
             ) : (
               <>
                 <div className="flex items-center gap-2 p-6 pb-0 shrink-0">
-                  <button onClick={() => setStoryStep("compose")} aria-label="Retour" disabled={storyUploading} className="disabled:opacity-40"><ArrowLeft size={20} color={primary} /></button>
+                  <button onClick={() => setStoryStep("compose")} aria-label="Retour" disabled={storyUploading} className="bb-hit disabled:opacity-40"><ArrowLeft size={20} color={primary} /></button>
                   <h2 className="text-xl font-black" style={{ color: primary }}>Aperçu</h2>
                 </div>
                 <div className="p-6">

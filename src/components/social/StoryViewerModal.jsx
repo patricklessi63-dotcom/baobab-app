@@ -209,7 +209,7 @@ export default function StoryViewerModal({
         <div className="absolute bb-safe-t-8 bb-safe-x-4 flex items-center gap-2.5 z-10">
           <button
             onClick={() => { if (!story.own) { closeStoryViewer(); onOpenProfile?.(story.profile_id); } }}
-            className="h-9 w-9 rounded-full bg-white/20 backdrop-blur flex items-center justify-center text-white font-black border border-white/30 shrink-0 focus-visible:outline focus-visible:outline-2"
+            className="bb-hit h-9 w-9 rounded-full bg-white/20 backdrop-blur flex items-center justify-center text-white font-black border border-white/30 shrink-0 focus-visible:outline focus-visible:outline-2"
             aria-label={story.own ? undefined : `Voir le profil de ${story.name}`}
           >
             {story.initial}
@@ -222,7 +222,7 @@ export default function StoryViewerModal({
             {story.created_at && <div className="text-white/60 text-[11px]">{timeAgo(story.created_at)}</div>}
           </button>
           {story.media_kind === "video" && (
-            <button onClick={() => setMuted((m) => !m)} aria-label={muted ? "Activer le son" : "Couper le son"} className="h-9 w-9 rounded-full bg-white/15 backdrop-blur flex items-center justify-center shrink-0 focus-visible:outline focus-visible:outline-2">
+            <button onClick={() => setMuted((m) => !m)} aria-label={muted ? "Activer le son" : "Couper le son"} className="bb-hit h-9 w-9 rounded-full bg-white/15 backdrop-blur flex items-center justify-center shrink-0 focus-visible:outline focus-visible:outline-2">
               {muted ? <VolumeX size={16} color="#fff" /> : <Volume2 size={16} color="#fff" />}
             </button>
           )}
@@ -233,7 +233,7 @@ export default function StoryViewerModal({
                 aria-label="Signaler ou bloquer"
                 aria-haspopup="menu"
                 aria-expanded={menuOpen}
-                className="h-9 w-9 rounded-full bg-white/15 backdrop-blur flex items-center justify-center focus-visible:outline focus-visible:outline-2"
+                className="bb-hit h-9 w-9 rounded-full bg-white/15 backdrop-blur flex items-center justify-center focus-visible:outline focus-visible:outline-2"
               >
                 <MoreVertical size={16} color="#fff" />
               </button>
@@ -259,7 +259,7 @@ export default function StoryViewerModal({
               )}
             </div>
           )}
-          <button onClick={closeStoryViewer} aria-label="Fermer" className="h-9 w-9 rounded-full bg-white/15 backdrop-blur flex items-center justify-center shrink-0 focus-visible:outline focus-visible:outline-2">
+          <button onClick={closeStoryViewer} aria-label="Fermer" className="bb-hit h-9 w-9 rounded-full bg-white/15 backdrop-blur flex items-center justify-center shrink-0 focus-visible:outline focus-visible:outline-2">
             <X size={18} color="#fff" />
           </button>
         </div>
@@ -342,7 +342,7 @@ export default function StoryViewerModal({
                 <button onClick={openStoryViewers} className="flex-1 rounded-full px-4 py-2.5 text-sm font-bold text-white flex items-center justify-center gap-1.5 focus-visible:outline focus-visible:outline-2" style={{ background: "rgba(255,255,255,.15)" }}>
                   <Eye size={15} /> {storyViewCount || 0} vue{storyViewCount > 1 ? "s" : ""}
                 </button>
-                <button onClick={() => setConfirmDelete(true)} aria-label="Supprimer le statut" className="h-10 w-10 rounded-full flex items-center justify-center flex-shrink-0 focus-visible:outline focus-visible:outline-2" style={{ background: "rgba(229,107,93,.85)" }}>
+                <button onClick={() => setConfirmDelete(true)} aria-label="Supprimer le statut" className="bb-hit h-10 w-10 rounded-full flex items-center justify-center flex-shrink-0 focus-visible:outline focus-visible:outline-2" style={{ background: "rgba(229,107,93,.85)" }}>
                   <Trash2 size={16} color="#fff" />
                 </button>
               </>
@@ -379,7 +379,7 @@ export default function StoryViewerModal({
                   que le bouton de validation d'édition de commentaire corrigée
                   en 7fe8017 (PostCard.jsx/CommunityPostCard.jsx utilisent tous
                   deux disabled={!x.trim()} + disabled:opacity-40 pour ça). */}
-              <button onClick={sendStoryReply} disabled={!storyReply.trim()} aria-label="Envoyer la réponse" className="h-10 w-10 rounded-full flex items-center justify-center flex-shrink-0 focus-visible:outline focus-visible:outline-2 disabled:opacity-40" style={{ background: "#fff" }}>
+              <button onClick={sendStoryReply} disabled={!storyReply.trim()} aria-label="Envoyer la réponse" className="bb-hit h-10 w-10 rounded-full flex items-center justify-center flex-shrink-0 focus-visible:outline focus-visible:outline-2 disabled:opacity-40" style={{ background: "#fff" }}>
                 <Send size={16} color={navy} />
               </button>
             </>
@@ -393,7 +393,7 @@ export default function StoryViewerModal({
               <div className="flex items-center gap-1.5 text-sm font-bold" style={{ color: "var(--bb-text)" }}>
                 <Eye size={15} /> {storyViewCount || 0} vue{storyViewCount > 1 ? "s" : ""}
               </div>
-              <button onClick={closeStoryViewers} aria-label="Fermer" className="focus-visible:outline focus-visible:outline-2" style={{ color: "var(--bb-text)" }}><X size={18} /></button>
+              <button onClick={closeStoryViewers} aria-label="Fermer" className="bb-hit focus-visible:outline focus-visible:outline-2" style={{ color: "var(--bb-text)" }}><X size={18} /></button>
             </div>
             <div className="overflow-y-auto px-4 pb-4">
               {storyViewersLoading ? (

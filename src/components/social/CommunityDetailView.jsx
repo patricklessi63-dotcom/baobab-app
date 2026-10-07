@@ -89,7 +89,7 @@ export default function CommunityDetailView({
 
   return (
     <div>
-      <button onClick={onBack} className="flex items-center gap-1.5 text-sm font-bold mb-4 focus-visible:outline focus-visible:outline-2" style={{ color: primary }}>
+      <button onClick={onBack} className="bb-hit flex items-center gap-1.5 text-sm font-bold mb-4 focus-visible:outline focus-visible:outline-2" style={{ color: primary }}>
         <ArrowLeft size={16} /> Communautés
       </button>
 
@@ -111,14 +111,14 @@ export default function CommunityDetailView({
             </div>
             <div className="flex items-center gap-1.5 flex-shrink-0">
               {staff && (
-                <button onClick={() => onOpenInvite(community)} aria-label="Inviter des membres" className="h-9 w-9 rounded-full flex items-center justify-center" style={{ background: bg }}>
+                <button onClick={() => onOpenInvite(community)} aria-label="Inviter des membres" className="bb-hit h-9 w-9 rounded-full flex items-center justify-center" style={{ background: bg }}>
                   <UserPlus size={15} color={primary} />
                 </button>
               )}
-              <button onClick={() => onShare(community)} aria-label="Partager" className="h-9 w-9 rounded-full flex items-center justify-center" style={{ background: bg }}>
+              <button onClick={() => onShare(community)} aria-label="Partager" className="bb-hit h-9 w-9 rounded-full flex items-center justify-center" style={{ background: bg }}>
                 <Share2 size={15} color={primary} />
               </button>
-              <button onClick={() => onReportCommunity(community)} aria-label="Signaler cette communauté" className="h-9 w-9 rounded-full flex items-center justify-center" style={{ background: bg }}>
+              <button onClick={() => onReportCommunity(community)} aria-label="Signaler cette communauté" className="bb-hit h-9 w-9 rounded-full flex items-center justify-center" style={{ background: bg }}>
                 <Flag size={14} color={muted} />
               </button>
             </div>

@@ -111,7 +111,7 @@ function AudioPlayer({ src, onSourceError }) {
         <span className="text-xs flex-1" style={{ opacity: 0.85 }}>Ce message vocal ne peut pas être lu sur cet appareil.</span>
       ) : (
         <>
-          <button type="button" onClick={toggle} disabled={!src} aria-label={playing ? "Pause" : "Écouter"} className="h-9 w-9 rounded-full flex items-center justify-center flex-shrink-0 disabled:opacity-50" style={{ background: "rgba(255,255,255,.18)" }}>
+          <button type="button" onClick={toggle} disabled={!src} aria-label={playing ? "Pause" : "Écouter"} className="bb-hit h-9 w-9 rounded-full flex items-center justify-center flex-shrink-0 disabled:opacity-50" style={{ background: "rgba(255,255,255,.18)" }}>
             {playing ? <Pause size={14} /> : <Play size={14} />}
           </button>
           <input
@@ -255,7 +255,7 @@ export default function MessageBubbleMedia({ m, isMine }) {
         <div className="text-[11px]" style={{ opacity: 0.75 }}>{formatFileSize(m.media_meta?.size)}</div>
       </div>
       {!uploading && (
-        <button type="button" onClick={openFile} disabled={resolvingFile} aria-label="Ouvrir le fichier" className="h-8 w-8 rounded-full flex items-center justify-center flex-shrink-0 disabled:opacity-50" style={{ background: isMine ? "rgba(255,255,255,.18)" : `rgba(${primaryRgb},.08)` }}>
+        <button type="button" onClick={openFile} disabled={resolvingFile} aria-label="Ouvrir le fichier" className="bb-hit h-8 w-8 rounded-full flex items-center justify-center flex-shrink-0 disabled:opacity-50" style={{ background: isMine ? "rgba(255,255,255,.18)" : `rgba(${primaryRgb},.08)` }}>
           <Download size={14} color={isMine ? "#fff" : primary} />
         </button>
       )}

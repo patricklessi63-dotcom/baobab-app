@@ -112,25 +112,25 @@ export default function CommunityPostCard({
               onClick={() => setReactionsOpen((v) => !v)}
               aria-label={myReaction ? `Réaction : ${myReaction}` : "Réagir"}
               aria-pressed={Boolean(myReaction)}
-              className="flex items-center gap-1.5 text-xs font-semibold focus-visible:outline focus-visible:outline-2"
+              className="bb-hit flex items-center gap-1.5 text-xs font-semibold focus-visible:outline focus-visible:outline-2"
               style={{ color: myReaction ? coralText : muted }}
             >
               <span style={{ fontSize: 15, lineHeight: 1 }}>{myReaction || "🤍"}</span> {totalReactions > 0 ? totalReactions : "Réagir"}
             </button>
             {reactionsOpen && (
-              <div role="menu" className="flex items-center gap-1 px-2 py-1.5 rounded-full bg-[var(--bb-surface)] shadow-xl" style={{ position: "absolute", top: "100%", left: 0, marginTop: 4, border: `1px solid rgba(${primaryRgb},.08)`, zIndex: 5 }}>
+              <div role="menu" className="flex items-center px-1 rounded-full bg-[var(--bb-surface)] shadow-xl" style={{ position: "absolute", top: "100%", left: 0, marginTop: 4, border: `1px solid rgba(${primaryRgb},.08)`, zIndex: 5 }}>
                 {QUICK_REACTIONS.map((emoji) => (
-                  <button key={emoji} type="button" onClick={() => { onReact(post, emoji); setReactionsOpen(false); }} className="text-lg px-0.5 hover:scale-125 motion-safe:transition-transform" aria-label={`Réagir avec ${emoji}`}>
+                  <button key={emoji} type="button" onClick={() => { onReact(post, emoji); setReactionsOpen(false); }} className="text-lg min-w-[40px] min-h-[44px] flex items-center justify-center hover:scale-125 motion-safe:transition-transform" aria-label={`Réagir avec ${emoji}`}>
                     {emoji}
                   </button>
                 ))}
               </div>
             )}
             </div>
-            <button onClick={toggleComments} aria-label="Afficher les commentaires" className="flex items-center gap-1.5 text-xs font-semibold focus-visible:outline focus-visible:outline-2" style={{ color: muted }}>
+            <button onClick={toggleComments} aria-label="Afficher les commentaires" className="bb-hit flex items-center gap-1.5 text-xs font-semibold focus-visible:outline focus-visible:outline-2" style={{ color: muted }}>
               <MessageCircle size={15} /> {(commentsLoaded ? comments.length : commentCount) > 0 ? (commentsLoaded ? comments.length : commentCount) : "Commenter"}
             </button>
-            <button onClick={() => onReport(post)} aria-label="Signaler la publication" className="flex items-center gap-1.5 text-xs font-semibold focus-visible:outline focus-visible:outline-2" style={{ color: muted }}>
+            <button onClick={() => onReport(post)} aria-label="Signaler la publication" className="bb-hit flex items-center gap-1.5 text-xs font-semibold focus-visible:outline focus-visible:outline-2" style={{ color: muted }}>
               <Flag size={13} />
             </button>
             {canDelete && (
@@ -140,7 +140,7 @@ export default function CommunityPostCard({
               <button
                 onClick={() => setPendingDelete({ type: "post" })}
                 aria-label="Supprimer la publication"
-                className="flex items-center gap-1.5 text-xs font-semibold ml-auto focus-visible:outline focus-visible:outline-2"
+                className="bb-hit flex items-center gap-1.5 text-xs font-semibold ml-auto focus-visible:outline focus-visible:outline-2"
                 style={{ color: coral }}
               >
                 <Trash2 size={13} />
@@ -183,8 +183,8 @@ export default function CommunityPostCard({
                                   editDraft était vide — submitEdit refusait bien silencieusement
                                   (aucun commentaire vide sauvegardé), mais rien ne le signalait
                                   à l'utilisateur avant le clic. */}
-                              <button onClick={submitEdit} disabled={!editDraft.trim()} aria-label="Valider la modification" className="disabled:opacity-40"><Check size={13} color={coral} /></button>
-                              <button onClick={() => setEditingId(null)} aria-label="Annuler"><X size={13} color={muted} /></button>
+                              <button onClick={submitEdit} disabled={!editDraft.trim()} aria-label="Valider la modification" className="bb-hit-v disabled:opacity-40"><Check size={13} color={coral} /></button>
+                              <button className="bb-hit-v" onClick={() => setEditingId(null)} aria-label="Annuler"><X size={13} color={muted} /></button>
                             </div>
                           ) : (
                             <p className="text-xs mt-0.5 whitespace-pre-wrap break-words">
@@ -195,9 +195,9 @@ export default function CommunityPostCard({
                         </div>
                         {!isEditing && (
                           <div className="flex items-center gap-2 flex-shrink-0 mt-0.5">
-                            <button onClick={() => setReplyingTo(c)} aria-label="Répondre" className="focus-visible:outline focus-visible:outline-2"><Reply size={12} color={muted} /></button>
+                            <button onClick={() => setReplyingTo(c)} aria-label="Répondre" className="bb-hit-v focus-visible:outline focus-visible:outline-2"><Reply size={12} color={muted} /></button>
                             {c.author_id === currentUserId && (
-                              <button onClick={() => startEdit(c)} aria-label="Modifier ce commentaire" className="focus-visible:outline focus-visible:outline-2"><Pencil size={12} color={muted} /></button>
+                              <button onClick={() => startEdit(c)} aria-label="Modifier ce commentaire" className="bb-hit-v focus-visible:outline focus-visible:outline-2"><Pencil size={12} color={muted} /></button>
                             )}
                             {/* Bug corrigé : community_reports.target_type autorise déjà
                                 'comment' côté base (supabase-communities.sql) mais rien
@@ -205,13 +205,13 @@ export default function CommunityPostCard({
                                 ne pouvait pas être signalé sans signaler toute la
                                 publication (même gap que PostCard.jsx). */}
                             {c.author_id !== currentUserId && (
-                              <button onClick={() => onReportComment(c)} aria-label="Signaler ce commentaire" className="focus-visible:outline focus-visible:outline-2"><Flag size={12} color={muted} /></button>
+                              <button onClick={() => onReportComment(c)} aria-label="Signaler ce commentaire" className="bb-hit-v focus-visible:outline focus-visible:outline-2"><Flag size={12} color={muted} /></button>
                             )}
                             {(c.author_id === currentUserId || canModerate) && (
                               // Même garde-fou que la suppression de publication ci-dessus
                               // et que EventCommentsSection.jsx : évite la suppression
                               // irréversible d'un commentaire sur un tap accidentel.
-                              <button onClick={() => setPendingDelete({ type: "comment", commentId: c.id })} aria-label="Supprimer ce commentaire" className="focus-visible:outline focus-visible:outline-2"><X size={12} color={muted} /></button>
+                              <button onClick={() => setPendingDelete({ type: "comment", commentId: c.id })} aria-label="Supprimer ce commentaire" className="bb-hit-v focus-visible:outline focus-visible:outline-2"><X size={12} color={muted} /></button>
                             )}
                           </div>
                         )}
@@ -223,7 +223,7 @@ export default function CommunityPostCard({
               {replyingTo && (
                 <div className="flex items-center justify-between text-[11px] px-3 py-1.5 rounded-lg" style={{ background: bg, color: muted }}>
                   <span className="truncate">Réponse à {replyingTo.profiles?.name || "un commentaire"}</span>
-                  <button onClick={() => setReplyingTo(null)} aria-label="Annuler la réponse"><X size={12} /></button>
+                  <button className="bb-hit-v" onClick={() => setReplyingTo(null)} aria-label="Annuler la réponse"><X size={12} /></button>
                 </div>
               )}
               <div className="flex items-center gap-2 mt-1">
@@ -237,7 +237,7 @@ export default function CommunityPostCard({
                   className="flex-1 text-xs rounded-full px-3.5 py-2 outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--bb-leaf)]"
                   style={{ background: bg }}
                 />
-                <button onClick={submitComment} disabled={!commentDraft.trim()} className="text-xs font-bold px-3 py-2 rounded-full disabled:opacity-40" style={{ color: coralText }}>
+                <button onClick={submitComment} disabled={!commentDraft.trim()} className="bb-hit text-xs font-bold px-3 py-2 rounded-full disabled:opacity-40" style={{ color: coralText }}>
                   Envoyer
                 </button>
               </div>

@@ -356,10 +356,10 @@ export default function AudioRecorder({ hasDraft, onSendText, onSendAudio, onAct
           <span className="h-2.5 w-2.5 rounded-full flex-shrink-0" style={{ background: coral, animation: "bbPulse 1s ease-in-out infinite" }} />
           <style>{`@keyframes bbPulse { 0%,100% { opacity: 1; } 50% { opacity: .3; } }`}</style>
           <span className="text-sm font-bold flex-1" style={{ color: primary }}>{formatDuration(elapsed)}</span>
-          <button type="button" onClick={cancelRecording} aria-label="Annuler l'enregistrement" className="h-9 w-9 rounded-full flex items-center justify-center flex-shrink-0" style={{ color: muted }}>
+          <button type="button" onClick={cancelRecording} aria-label="Annuler l'enregistrement" className="bb-hit h-9 w-9 rounded-full flex items-center justify-center flex-shrink-0" style={{ color: muted }}>
             <Trash2 size={16} />
           </button>
-          <button type="button" onClick={stopRecording} aria-label="Arrêter l'enregistrement" className="h-9 w-9 rounded-full flex items-center justify-center flex-shrink-0 text-white" style={{ background: coral }}>
+          <button type="button" onClick={stopRecording} aria-label="Arrêter l'enregistrement" className="bb-hit h-9 w-9 rounded-full flex items-center justify-center flex-shrink-0 text-white" style={{ background: coral }}>
             <Square size={14} />
           </button>
         </div>
@@ -380,14 +380,14 @@ export default function AudioRecorder({ hasDraft, onSendText, onSendAudio, onAct
             onEnded={() => { setPlaying(false); notifyAudioStopped(audioElRef.current); }}
             className="hidden"
           />
-          <button type="button" onClick={togglePlayback} aria-label={playing ? "Pause" : "Écouter"} className="h-9 w-9 rounded-full flex items-center justify-center flex-shrink-0 text-white" style={{ background: navy }}>
+          <button type="button" onClick={togglePlayback} aria-label={playing ? "Pause" : "Écouter"} className="bb-hit h-9 w-9 rounded-full flex items-center justify-center flex-shrink-0 text-white" style={{ background: navy }}>
             {playing ? <Pause size={14} /> : <Play size={14} />}
           </button>
           <span className="text-sm font-bold flex-1" style={{ color: primary }}>{formatDuration(elapsed)}</span>
-          <button type="button" onClick={discardPreview} aria-label="Supprimer l'enregistrement" className="h-9 w-9 rounded-full flex items-center justify-center flex-shrink-0" style={{ color: muted }}>
+          <button type="button" onClick={discardPreview} aria-label="Supprimer l'enregistrement" className="bb-hit h-9 w-9 rounded-full flex items-center justify-center flex-shrink-0" style={{ color: muted }}>
             <Trash2 size={16} />
           </button>
-          <button type="button" onClick={confirmSend} aria-label="Envoyer le message vocal" className={`bb-btn-leaf h-9 w-9 rounded-full flex items-center justify-center flex-shrink-0${sendPop ? " bb-send-pop" : ""}`}>
+          <button type="button" onClick={confirmSend} aria-label="Envoyer le message vocal" className={`bb-hit bb-btn-leaf h-9 w-9 rounded-full flex items-center justify-center flex-shrink-0${sendPop ? " bb-send-pop" : ""}`}>
             <Send size={14} />
           </button>
         </div>

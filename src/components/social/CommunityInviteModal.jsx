@@ -122,7 +122,7 @@ export default function CommunityInviteModal({ community, currentUser, memberIds
       <div ref={panelRef} tabIndex={-1} className={`${card} w-full max-w-md rounded-t-[30px] md:rounded-[30px] p-6 max-h-[85vh] overflow-y-auto`} style={{ paddingBottom: "max(1.5rem, env(safe-area-inset-bottom, 0px))" }} onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-black" style={{ color: primary }}>Inviter dans {community.name}</h2>
-          <button onClick={onClose} aria-label="Fermer"><X size={18} /></button>
+          <button className="bb-hit" onClick={onClose} aria-label="Fermer"><X size={18} /></button>
         </div>
 
         <div className="flex items-center gap-2 rounded-2xl px-4 py-3 mb-4" style={{ background: "rgba(0,0,0,.03)" }}>
@@ -161,7 +161,7 @@ export default function CommunityInviteModal({ community, currentUser, memberIds
                     onClick={() => sendInvite(p)}
                     disabled={invited || sendingId === p.id}
                     aria-label={`Inviter ${p.name}`}
-                    className="h-9 px-3 rounded-full flex items-center gap-1.5 text-xs font-bold flex-shrink-0 disabled:opacity-60"
+                    className="bb-hit h-9 px-3 rounded-full flex items-center gap-1.5 text-xs font-bold flex-shrink-0 disabled:opacity-60"
                     style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)", color: invited ? "#1F9D6E" : coralText }}
                   >
                     {invited ? <><Check size={13} /> Invité·e</> : <><UserPlus size={13} /> Inviter</>}

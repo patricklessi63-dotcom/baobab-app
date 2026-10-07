@@ -38,3 +38,35 @@
 .bb-safe-r-4 { right: calc(1rem + env(safe-area-inset-right, 0px)); }
 .bb-safe-x-3 { left: calc(0.75rem + env(safe-area-inset-left, 0px)); right: calc(0.75rem + env(safe-area-inset-right, 0px)); }
 .bb-safe-x-4 { left: calc(1rem + env(safe-area-inset-left, 0px)); right: calc(1rem + env(safe-area-inset-right, 0px)); }
+
+/* Zone tactile minimale 44 x 44 px (WCAG 2.5.5 / Apple HIG) pour les petits
+   boutons-icônes, SANS les agrandir visuellement ni toucher à la grille : un
+   pseudo-élément invisible, centré sur le bouton, étend la zone cliquable. Réservé
+   aux pointeurs « grossiers » (doigt) : aucun effet à la souris. `position:
+   relative` est posé avec une spécificité nulle (:where) : un `absolute`/`fixed`
+   Tailwind ou en style inline reste prioritaire. Sans effet si un ancêtre du
+   bouton a `overflow: hidden` qui le rogne (la zone est alors limitée à ce cadre). */
+@media (pointer: coarse) {
+  :where(.bb-hit, .bb-hit-v) { position: relative; }
+  .bb-hit::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: max(100%, 44px);
+    height: max(100%, 44px);
+    transform: translate(-50%, -50%);
+  }
+  /* Variante verticale : pour les rangées de petites icônes COLLÉES (écart entre
+     centres < 44 px), une extension horizontale ferait voler à un bouton la zone
+     de son voisin (le dernier dans le DOM gagne). Seule la hauteur est étendue. */
+  .bb-hit-v::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 50%;
+    height: max(100%, 44px);
+    transform: translateY(-50%);
+  }
+}

@@ -46,7 +46,7 @@ export default function AccountDeletionBanner({ currentUser, onCancelled = () =>
     >
       <AlertTriangle size={15} className="shrink-0" />
       <span>Ton compte sera définitivement supprimé le {formattedDate} à {formattedTime} ({hoursLeft} heure{hoursLeft > 1 ? "s" : ""} restante{hoursLeft > 1 ? "s" : ""}).</span>
-      <button onClick={handleCancel} disabled={cancelling} className="underline font-bold disabled:opacity-60">
+      <button onClick={handleCancel} disabled={cancelling} className="bb-hit underline font-bold disabled:opacity-60">
         {cancelling ? "Annulation..." : "Annuler la suppression"}
       </button>
       {error && <span className="text-xs w-full">{error}</span>}

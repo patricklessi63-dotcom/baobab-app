@@ -54,7 +54,7 @@ export default function DeleteAccountModal({ open, onClose, currentUser, onReque
             <AlertTriangle size={18} color={C.coralText} />
             <span style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 19, color: "var(--bb-text)" }}>Supprimer mon compte</span>
           </div>
-          <button onClick={onClose} aria-label="Fermer"><X size={18} /></button>
+          <button className="bb-hit" onClick={onClose} aria-label="Fermer"><X size={18} /></button>
         </div>
         <p className="text-sm mb-3" style={{ color: "rgba(var(--bb-ink-rgb),0.7)" }}>
           Ton compte sera définitivement supprimé le {deletionDate} à {deletionTime} (dans 24 heures) — profil, photos, matchs, messages, communautés, événements et abonnement inclus. Tu pourras annuler à tout moment avant cette date.

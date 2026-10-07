@@ -182,7 +182,7 @@ export default function AppModals({
                     role="radio"
                     aria-checked={theme === value}
                     onClick={() => setTheme(value)}
-                    className="flex-1 text-xs font-bold py-2 focus-visible:outline focus-visible:outline-2"
+                    className="bb-hit flex-1 text-xs font-bold py-2 focus-visible:outline focus-visible:outline-2"
                     style={{
                       background: theme === value ? C.indigo : "transparent",
                       color: theme === value ? "#fff" : "var(--bb-text)",
@@ -203,7 +203,7 @@ export default function AppModals({
                     role="radio"
                     aria-checked={language === value}
                     onClick={() => setLanguage(value)}
-                    className="flex-1 text-xs font-bold py-2 focus-visible:outline focus-visible:outline-2"
+                    className="bb-hit flex-1 text-xs font-bold py-2 focus-visible:outline focus-visible:outline-2"
                     style={{
                       background: language === value ? C.indigo : "transparent",
                       color: language === value ? "#fff" : "var(--bb-text)",
@@ -334,7 +334,7 @@ export default function AppModals({
         <div className="bb-fade-in fixed inset-0 flex items-end md:items-center justify-center z-[70] p-0 md:p-5" style={{ background: "rgba(8,20,14,0.55)", backdropFilter: "blur(3px)" }} onClick={() => setBlockedOpen(false)} role="dialog" aria-modal="true" aria-label="Comptes bloqués">
           <div ref={blockedDialogRef} tabIndex={-1} className="bb-card p-6 w-full max-w-md rounded-t-[20px] md:rounded-[20px]" style={{ maxHeight: "80vh", overflowY: "auto", paddingBottom: "max(1.5rem, env(safe-area-inset-bottom))" }} onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center gap-2 mb-1">
-              <button onClick={() => { setBlockedOpen(false); setSettingsOpen(true); }} aria-label="Retour aux réglages" className="focus-visible:outline focus-visible:outline-2" style={{ color: "var(--bb-text)" }}><ArrowLeft size={16} /></button>
+              <button onClick={() => { setBlockedOpen(false); setSettingsOpen(true); }} aria-label="Retour aux réglages" className="bb-hit focus-visible:outline focus-visible:outline-2" style={{ color: "var(--bb-text)" }}><ArrowLeft size={16} /></button>
               <div style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 20, color: "var(--bb-text)" }}>Comptes bloqués</div>
             </div>
             <p className="text-sm mb-3" style={{ color: "rgba(var(--bb-ink-rgb),0.6)" }}>
@@ -350,7 +350,7 @@ export default function AppModals({
                     <div className="flex-1 min-w-0"><div dir="auto" className="text-sm font-semibold truncate">{p.name}</div></div>
                     <button
                       onClick={() => onUnblock?.(p)}
-                      className="text-xs font-bold px-3 py-2 rounded-full"
+                      className="bb-hit text-xs font-bold px-3 py-2 rounded-full"
                       style={{ border: "1px solid rgba(var(--bb-ink-rgb),0.15)", color: C.leaf, minHeight: 36 }}
                     >
                       Débloquer

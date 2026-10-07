@@ -97,7 +97,7 @@ export default function AiConversationSuggestions({ currentUser, match, onPick }
           {error && (
             <div role="alert">
               <p className="text-xs" style={{ color: coralText }}>{error}</p>
-              <button type="button" onClick={generate} className="text-xs font-bold underline mt-1" style={{ color: primary }}>Réessayer</button>
+              <button type="button" onClick={generate} className="bb-hit text-xs font-bold underline mt-1" style={{ color: primary }}>Réessayer</button>
             </div>
           )}
 

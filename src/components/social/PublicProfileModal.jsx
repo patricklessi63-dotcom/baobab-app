@@ -122,10 +122,10 @@ export default function PublicProfileModal({
               />
               {gallery.length > 1 && (
                 <>
-                  <button onClick={prev} aria-label="Photo précédente" className="absolute left-2 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full bg-black/40 text-white flex items-center justify-center focus-visible:outline focus-visible:outline-2">
+                  <button onClick={prev} aria-label="Photo précédente" className="bb-hit absolute left-2 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full bg-black/40 text-white flex items-center justify-center focus-visible:outline focus-visible:outline-2">
                     <ChevronLeft size={18} />
                   </button>
-                  <button onClick={next} aria-label="Photo suivante" className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full bg-black/40 text-white flex items-center justify-center focus-visible:outline focus-visible:outline-2">
+                  <button onClick={next} aria-label="Photo suivante" className="bb-hit absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full bg-black/40 text-white flex items-center justify-center focus-visible:outline focus-visible:outline-2">
                     <ChevronRight size={18} />
                   </button>
                   <div className="absolute bottom-2 left-0 right-0 flex justify-center gap-1">
@@ -144,7 +144,7 @@ export default function PublicProfileModal({
               <Avatar name={profile.name} url={profile.avatar_url} size={88} />
             </div>
           )}
-          <button onClick={onClose} aria-label="Fermer" className="absolute top-3 right-3 h-8 w-8 rounded-full bg-black/40 text-white flex items-center justify-center focus-visible:outline focus-visible:outline-2">
+          <button onClick={onClose} aria-label="Fermer" className="bb-hit absolute top-3 right-3 h-8 w-8 rounded-full bg-black/40 text-white flex items-center justify-center focus-visible:outline focus-visible:outline-2">
             <X size={16} />
           </button>
         </div>
@@ -220,7 +220,7 @@ export default function PublicProfileModal({
               </button>
             )}
             {onToggleFavorite && (
-              <button onClick={() => onToggleFavorite(profile)} aria-pressed={isFavorite} aria-label={isFavorite ? `Retirer ${profile.name} des favoris` : `Ajouter ${profile.name} aux favoris`} className="h-10 w-10 rounded-full flex items-center justify-center shrink-0 focus-visible:outline focus-visible:outline-2" style={{ background: isFavorite ? "var(--bb-surface-2)" : bg }}>
+              <button onClick={() => onToggleFavorite(profile)} aria-pressed={isFavorite} aria-label={isFavorite ? `Retirer ${profile.name} des favoris` : `Ajouter ${profile.name} aux favoris`} className="bb-hit h-10 w-10 rounded-full flex items-center justify-center shrink-0 focus-visible:outline focus-visible:outline-2" style={{ background: isFavorite ? "var(--bb-surface-2)" : bg }}>
                 {/* Icône seule (pas de texte adjacent) : "goldText" au lieu du
                     or fixe "gold", qui ne donnait que ~1.5:1 sur
                     --bb-surface-2 en thème clair (échec AA graphique 3:1).
@@ -229,12 +229,12 @@ export default function PublicProfileModal({
               </button>
             )}
             {onReport && (
-              <button onClick={() => onReport(profile)} aria-label="Signaler" className="h-10 w-10 rounded-full flex items-center justify-center shrink-0 focus-visible:outline focus-visible:outline-2" style={{ background: bg }}>
+              <button onClick={() => onReport(profile)} aria-label="Signaler" className="bb-hit h-10 w-10 rounded-full flex items-center justify-center shrink-0 focus-visible:outline focus-visible:outline-2" style={{ background: bg }}>
                 <Flag size={15} color={muted} />
               </button>
             )}
             {onBlock && (
-              <button onClick={() => onBlock(profile)} aria-label="Bloquer" className="h-10 w-10 rounded-full flex items-center justify-center shrink-0 focus-visible:outline focus-visible:outline-2" style={{ background: bg }}>
+              <button onClick={() => onBlock(profile)} aria-label="Bloquer" className="bb-hit h-10 w-10 rounded-full flex items-center justify-center shrink-0 focus-visible:outline focus-visible:outline-2" style={{ background: bg }}>
                 <Ban size={15} color={muted} />
               </button>
             )}

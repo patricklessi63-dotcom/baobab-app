@@ -3588,7 +3588,7 @@ export default function App() {
         {error && (
           <div role="alert" className="fixed left-1/2 -translate-x-1/2 z-[95] flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-semibold shadow-xl max-w-[92vw]" style={{ top: "calc(1rem + env(safe-area-inset-top, 0px))", background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)", color: C.coralText }}>
             <span>{error}</span>
-            <button onClick={() => setError("")} aria-label="Fermer le message d'erreur" className="text-xs font-bold underline flex-shrink-0">Fermer</button>
+            <button onClick={() => setError("")} aria-label="Fermer le message d'erreur" className="bb-hit text-xs font-bold underline flex-shrink-0">Fermer</button>
           </div>
         )}
         <AppModals

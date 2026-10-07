@@ -461,7 +461,7 @@ export default function DiscoverTab({
                           return (
                             <div className="mb-4 rounded-2xl p-4" style={{ background: bg }}>
                               <div className="flex items-center justify-between mb-2">
-                                <button onClick={() => setInfoOpen(true)} className="text-[11px] font-black uppercase tracking-wider focus-visible:outline focus-visible:outline-2 flex items-center gap-1" style={{ color: primary }}>🌱 Baobab Match <Info size={12} /></button>
+                                <button onClick={() => setInfoOpen(true)} className="bb-hit text-[11px] font-black uppercase tracking-wider focus-visible:outline focus-visible:outline-2 flex items-center gap-1" style={{ color: primary }}>🌱 Baobab Match <Info size={12} /></button>
                                 <span className="text-lg font-black" style={{ color: compatColor }}>~{compat.score}%</span>
                               </div>
                               <div className="text-[10px] font-bold uppercase tracking-wide -mt-1.5 mb-2" style={{ color: muted }}>Compatibilité estimée</div>
@@ -512,7 +512,7 @@ export default function DiscoverTab({
                     <div className={`${card} p-4 mb-4`}>
                       <div className="flex items-center justify-between mb-3">
                         <span className="text-xs font-black uppercase tracking-wider" style={{ color: muted }}>Trier par</span>
-                        <button onClick={() => setInfoOpen(true)} className="text-xs font-bold flex items-center gap-1 focus-visible:outline focus-visible:outline-2" style={{ color: primary }}><Info size={13} /> Comment ça marche ?</button>
+                        <button onClick={() => setInfoOpen(true)} className="bb-hit text-xs font-bold flex items-center gap-1 focus-visible:outline focus-visible:outline-2" style={{ color: primary }}><Info size={13} /> Comment ça marche ?</button>
                       </div>
                       <ChipSelect options={SORT_OPTIONS} value={sort} onChange={setSort} />
                       {cityOptions.length > 0 && (

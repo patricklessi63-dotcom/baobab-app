@@ -106,7 +106,7 @@ export default function EventDetailView({
 
   return (
     <div>
-      <button onClick={onBack} className="flex items-center gap-1.5 text-sm font-bold mb-4 focus-visible:outline focus-visible:outline-2" style={{ color: primary }}>
+      <button onClick={onBack} className="bb-hit flex items-center gap-1.5 text-sm font-bold mb-4 focus-visible:outline focus-visible:outline-2" style={{ color: primary }}>
         <ArrowLeft size={16} /> Événements
       </button>
 
@@ -144,7 +144,7 @@ export default function EventDetailView({
                 <span className="flex items-center gap-1"><Users size={11} /> {participantCount.toLocaleString("fr-CA")} participant{participantCount > 1 ? "s" : ""}{event.max_participants ? ` / ${event.max_participants}` : ""}</span>
               </div>
               {communityName && (
-                <button onClick={onOpenCommunity} className="text-xs font-bold mt-2" style={{ color: coralText }}>
+                <button onClick={onOpenCommunity} className="bb-hit text-xs font-bold mt-2" style={{ color: coralText }}>
                   🌍 Organisé par {communityName} →
                 </button>
               )}
@@ -170,12 +170,12 @@ export default function EventDetailView({
                   "événement modifié" à tous les participants, contredisant
                   celle d'annulation ("event_cancelled") déjà reçue. */}
               {staff && !canceled && (
-                <button onClick={() => onEdit(event)} aria-label="Modifier l'événement" className="h-9 w-9 rounded-full flex items-center justify-center" style={{ background: bg }}>
+                <button onClick={() => onEdit(event)} aria-label="Modifier l'événement" className="bb-hit h-9 w-9 rounded-full flex items-center justify-center" style={{ background: bg }}>
                   <Pencil size={14} color={primary} />
                 </button>
               )}
               {hasShareOptions && <div className="relative">
-                <button onClick={() => setShareOpen((v) => !v)} aria-label="Partager" aria-expanded={shareOpen} className="h-9 w-9 rounded-full flex items-center justify-center" style={{ background: bg }}>
+                <button onClick={() => setShareOpen((v) => !v)} aria-label="Partager" aria-expanded={shareOpen} className="bb-hit h-9 w-9 rounded-full flex items-center justify-center" style={{ background: bg }}>
                   <Share2 size={15} color={primary} />
                 </button>
                 {shareOpen && (
@@ -209,11 +209,11 @@ export default function EventDetailView({
                 )}
               </div>}
               {(isPrivate || isCommunityOnly) && !canceled && (
-                <button onClick={() => onOpenInvite(event)} aria-label="Inviter" className="h-9 w-9 rounded-full flex items-center justify-center" style={{ background: bg }}>
+                <button onClick={() => onOpenInvite(event)} aria-label="Inviter" className="bb-hit h-9 w-9 rounded-full flex items-center justify-center" style={{ background: bg }}>
                   <UserPlus size={15} color={primary} />
                 </button>
               )}
-              <button onClick={() => onReportEvent(event)} aria-label="Signaler cet événement" className="h-9 w-9 rounded-full flex items-center justify-center" style={{ background: bg }}>
+              <button onClick={() => onReportEvent(event)} aria-label="Signaler cet événement" className="bb-hit h-9 w-9 rounded-full flex items-center justify-center" style={{ background: bg }}>
                 <Flag size={14} color={muted} />
               </button>
             </div>
@@ -385,7 +385,7 @@ export default function EventDetailView({
                     <div className="text-sm font-semibold" style={{ color: primary }}>{reportCategoryLabel(rep.category)}</div>
                     {rep.reason && <p className="text-xs mt-1" style={{ color: muted }}>{rep.reason}</p>}
                     <div className="flex gap-2 mt-2.5">
-                      <button onClick={() => onDismissReport(rep)} className="flex-1 text-xs font-bold py-2 rounded-full" style={{ border: `1px solid rgba(${primaryRgb},.15)`, color: primary }}>Ignorer</button>
+                      <button onClick={() => onDismissReport(rep)} className="bb-hit flex-1 text-xs font-bold py-2 rounded-full" style={{ border: `1px solid rgba(${primaryRgb},.15)`, color: primary }}>Ignorer</button>
                       <button onClick={() => onResolveReport(rep)} className="bb-btn-danger flex-1 text-xs font-bold py-2 rounded-full">Traiter</button>
                     </div>
                   </div>

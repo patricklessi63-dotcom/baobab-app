@@ -121,7 +121,7 @@ export default function PostComposerModal({
                         {publishing && <Loader2 size={14} className="animate-spin" />} {publishing ? "Publication..." : "Publier"}
                       </button>
                     )}
-                    <button onClick={onRequestClose} disabled={closeLocked} aria-label="Fermer" className="h-9 w-9 rounded-xl flex items-center justify-center disabled:opacity-40" style={{ background: bg }}><X size={18} /></button>
+                    <button onClick={onRequestClose} disabled={closeLocked} aria-label="Fermer" className="bb-hit h-9 w-9 rounded-xl flex items-center justify-center disabled:opacity-40" style={{ background: bg }}><X size={18} /></button>
                   </div>
                 </div>
                 <PostDropZone onDropFiles={onFilesSelected}>

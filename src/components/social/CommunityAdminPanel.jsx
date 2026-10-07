@@ -26,10 +26,10 @@ export default function CommunityAdminPanel({ joinRequests = [], reports = [], c
                 <div key={req.id} className="flex items-center gap-3 p-2 rounded-xl" style={{ background: bg }}>
                   <Avatar name={req.profiles?.name} url={req.profiles?.avatar_url} size={36} />
                   <span className="text-sm font-semibold flex-1 truncate">{req.profiles?.name || "Utilisateur"}</span>
-                  <button onClick={() => onReject(req)} aria-label="Refuser la demande" className="h-8 w-8 rounded-full flex items-center justify-center" style={{ color: coral, background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)" }}>
+                  <button onClick={() => onReject(req)} aria-label="Refuser la demande" className="bb-hit h-8 w-8 rounded-full flex items-center justify-center" style={{ color: coral, background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)" }}>
                     <X size={15} />
                   </button>
-                  <button onClick={() => onAccept(req)} aria-label="Accepter la demande" className="h-8 w-8 rounded-full flex items-center justify-center text-white" style={{ background: green }}>
+                  <button onClick={() => onAccept(req)} aria-label="Accepter la demande" className="bb-hit h-8 w-8 rounded-full flex items-center justify-center text-white" style={{ background: green }}>
                     <Check size={15} />
                   </button>
                 </div>
@@ -57,7 +57,7 @@ export default function CommunityAdminPanel({ joinRequests = [], reports = [], c
                 </div>
                 {rep.reason && <p className="text-xs mt-1" style={{ color: muted }}>{rep.reason}</p>}
                 <div className="flex gap-2 mt-2.5">
-                  <button onClick={() => onDismissReport(rep)} className="flex-1 text-xs font-bold py-2 rounded-full" style={{ border: `1px solid rgba(${primaryRgb},.15)`, color: primary }}>
+                  <button onClick={() => onDismissReport(rep)} className="bb-hit flex-1 text-xs font-bold py-2 rounded-full" style={{ border: `1px solid rgba(${primaryRgb},.15)`, color: primary }}>
                     Ignorer
                   </button>
                   <button onClick={() => onResolveReport(rep)} className="bb-btn-danger flex-1 text-xs font-bold py-2 rounded-full">

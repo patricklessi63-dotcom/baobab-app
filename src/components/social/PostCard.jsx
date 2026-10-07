@@ -98,10 +98,10 @@ export default function PostCard({
                 style={{ background: bg }}
               />
               <div className="flex items-center gap-2 mt-1.5">
-                <button onClick={confirmEdit} disabled={!editDraft.trim()} className="flex items-center gap-1 text-xs font-bold disabled:opacity-40" style={{ color: coralText }}>
+                <button onClick={confirmEdit} disabled={!editDraft.trim()} className="bb-hit flex items-center gap-1 text-xs font-bold disabled:opacity-40" style={{ color: coralText }}>
                   <Check size={13} /> Enregistrer
                 </button>
-                <button onClick={() => setEditing(false)} className="flex items-center gap-1 text-xs font-semibold" style={{ color: muted }}>
+                <button onClick={() => setEditing(false)} className="bb-hit flex items-center gap-1 text-xs font-semibold" style={{ color: muted }}>
                   <X size={13} /> Annuler
                 </button>
               </div>
@@ -132,19 +132,19 @@ export default function PostCard({
 
           {!editing && (
             <div className="flex items-center gap-4 mt-2.5">
-              <button onClick={() => onToggleLike(post)} aria-label={liked ? "Retirer le like" : "Aimer"} aria-pressed={liked} className="flex items-center gap-1.5 text-xs font-semibold focus-visible:outline focus-visible:outline-2" style={{ color: liked ? coralText : muted }}>
+              <button onClick={() => onToggleLike(post)} aria-label={liked ? "Retirer le like" : "Aimer"} aria-pressed={liked} className="bb-hit flex items-center gap-1.5 text-xs font-semibold focus-visible:outline focus-visible:outline-2" style={{ color: liked ? coralText : muted }}>
                 <Heart size={15} fill={liked ? coral : "none"} /> {likeCount > 0 ? likeCount : ""}
               </button>
-              <button onClick={toggleComments} aria-label="Afficher les commentaires" className="flex items-center gap-1.5 text-xs font-semibold focus-visible:outline focus-visible:outline-2" style={{ color: muted }}>
+              <button onClick={toggleComments} aria-label="Afficher les commentaires" className="bb-hit flex items-center gap-1.5 text-xs font-semibold focus-visible:outline focus-visible:outline-2" style={{ color: muted }}>
                 <MessageCircle size={15} /> {(commentsLoaded ? comments.length : commentCount) > 0 ? (commentsLoaded ? comments.length : commentCount) : "Commenter"}
               </button>
               {!isMine && (
-                <button onClick={() => onReport(post)} aria-label="Signaler la publication" className="flex items-center gap-1.5 text-xs font-semibold focus-visible:outline focus-visible:outline-2" style={{ color: muted }}>
+                <button onClick={() => onReport(post)} aria-label="Signaler la publication" className="bb-hit flex items-center gap-1.5 text-xs font-semibold focus-visible:outline focus-visible:outline-2" style={{ color: muted }}>
                   <Flag size={13} />
                 </button>
               )}
               {isMine && (
-                <button onClick={startEdit} aria-label="Modifier la publication" className="flex items-center gap-1.5 text-xs font-semibold ml-auto focus-visible:outline focus-visible:outline-2" style={{ color: muted }}>
+                <button onClick={startEdit} aria-label="Modifier la publication" className="bb-hit flex items-center gap-1.5 text-xs font-semibold ml-auto focus-visible:outline focus-visible:outline-2" style={{ color: muted }}>
                   <Pencil size={13} />
                 </button>
               )}
@@ -158,7 +158,7 @@ export default function PostCard({
                 <button
                   onClick={() => setConfirmingDelete(true)}
                   aria-label="Supprimer la publication"
-                  className={`flex items-center gap-1.5 text-xs font-semibold focus-visible:outline focus-visible:outline-2 ${isMine ? "" : "ml-auto"}`}
+                  className={`bb-hit flex items-center gap-1.5 text-xs font-semibold focus-visible:outline focus-visible:outline-2 ${isMine ? "" : "ml-auto"}`}
                   style={{ color: coral }}
                 >
                   <Trash2 size={13} />
@@ -188,7 +188,7 @@ export default function PostCard({
                     <button
                       onClick={() => onReportComment(c)}
                       aria-label="Signaler ce commentaire"
-                      className="shrink-0 mt-1 focus-visible:outline focus-visible:outline-2"
+                      className="bb-hit shrink-0 mt-1 focus-visible:outline focus-visible:outline-2"
                       style={{ color: muted }}
                     >
                       <Flag size={12} />
@@ -207,7 +207,7 @@ export default function PostCard({
                   className="flex-1 text-xs rounded-full px-3.5 py-2 outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--bb-leaf)]"
                   style={{ background: bg }}
                 />
-                <button onClick={submitComment} disabled={!commentDraft.trim()} className="text-xs font-bold px-3 py-2 rounded-full disabled:opacity-40" style={{ color: coralText }}>
+                <button onClick={submitComment} disabled={!commentDraft.trim()} className="bb-hit text-xs font-bold px-3 py-2 rounded-full disabled:opacity-40" style={{ color: coralText }}>
                   Envoyer
                 </button>
               </div>

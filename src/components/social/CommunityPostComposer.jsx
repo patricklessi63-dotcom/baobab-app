@@ -127,7 +127,7 @@ export default function CommunityPostComposer({ currentUser, draft, setDraft, on
             ) : (
               <img src={mediaPreview} alt="" className="max-h-[200px]" />
             )}
-            <button onClick={clearMedia} aria-label="Retirer le média" className="absolute top-1.5 right-1.5 h-6 w-6 rounded-full flex items-center justify-center" style={{ background: `rgba(${primaryRgb},.6)` }}>
+            <button onClick={clearMedia} aria-label="Retirer le média" className="bb-hit absolute top-1.5 right-1.5 h-6 w-6 rounded-full flex items-center justify-center" style={{ background: `rgba(${primaryRgb},.6)` }}>
               <X size={13} color="#fff" />
             </button>
           </div>
@@ -135,10 +135,10 @@ export default function CommunityPostComposer({ currentUser, draft, setDraft, on
 
         <div className="flex items-center justify-between mt-2">
           <div className="flex items-center gap-1">
-            <button onClick={() => photoInputRef.current?.click()} aria-label="Ajouter une photo" className="h-8 w-8 rounded-full flex items-center justify-center" style={{ background: bg }}>
+            <button onClick={() => photoInputRef.current?.click()} aria-label="Ajouter une photo" className="bb-hit h-8 w-8 rounded-full flex items-center justify-center" style={{ background: bg }}>
               <ImagePlus size={14} color={muted} />
             </button>
-            <button onClick={() => videoInputRef.current?.click()} aria-label="Ajouter une vidéo" className="h-8 w-8 rounded-full flex items-center justify-center" style={{ background: bg }}>
+            <button onClick={() => videoInputRef.current?.click()} aria-label="Ajouter une vidéo" className="bb-hit h-8 w-8 rounded-full flex items-center justify-center" style={{ background: bg }}>
               <Video size={14} color={muted} />
             </button>
             <input ref={photoInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => onMediaSelected(e, "image")} />

@@ -123,14 +123,14 @@ export default function NotificationsDropdown({
       <div className="flex items-center justify-between px-2 pb-2">
         <b>Notifications</b>
         {unreadCommunityCount > 0 && (
-          <button onClick={markCommunityNotificationsRead} className="text-xs font-bold focus-visible:outline focus-visible:outline-2" style={{ color: coralText }}>
+          <button onClick={markCommunityNotificationsRead} className="bb-hit text-xs font-bold focus-visible:outline focus-visible:outline-2" style={{ color: coralText }}>
             Tout marquer comme lu
           </button>
         )}
       </div>
       <div className="flex gap-1 overflow-x-auto pb-2 px-2 -mx-2" style={{ scrollbarWidth: "none" }}>
         {NOTIF_CATEGORIES.map(([key, label]) => (
-          <button key={key} ref={(el) => { notifPillRefs.current[key] = el; }} onClick={() => setNotifCategory(key)} aria-pressed={notifCategory === key} className="shrink-0 px-3 py-1.5 rounded-full text-xs font-bold focus-visible:outline focus-visible:outline-2" style={{ background: notifCategory === key ? navy : bg, color: notifCategory === key ? "#fff" : muted }}>
+          <button key={key} ref={(el) => { notifPillRefs.current[key] = el; }} onClick={() => setNotifCategory(key)} aria-pressed={notifCategory === key} className="bb-hit shrink-0 px-3 py-1.5 rounded-full text-xs font-bold focus-visible:outline focus-visible:outline-2" style={{ background: notifCategory === key ? navy : bg, color: notifCategory === key ? "#fff" : muted }}>
             {label}
           </button>
         ))}
@@ -148,7 +148,7 @@ export default function NotificationsDropdown({
             <button
               onClick={() => setNotifLimit()}
               disabled={notifLoadingMore}
-              className="mt-2 text-center py-2 text-xs font-bold rounded-xl hover:bg-[var(--bb-bg)] focus-visible:outline focus-visible:outline-2 disabled:opacity-50"
+              className="bb-hit mt-2 text-center py-2 text-xs font-bold rounded-xl hover:bg-[var(--bb-bg)] focus-visible:outline focus-visible:outline-2 disabled:opacity-50"
               style={{ color: leaf }}
             >
               {notifLoadingMore ? "Chargement..." : "Charger plus"}
@@ -175,7 +175,7 @@ export default function NotificationsDropdown({
             <button
               onClick={() => setNotifLimit()}
               disabled={notifLoadingMore}
-              className="text-center py-2 text-xs font-bold rounded-xl hover:bg-[var(--bb-bg)] focus-visible:outline focus-visible:outline-2 disabled:opacity-50"
+              className="bb-hit text-center py-2 text-xs font-bold rounded-xl hover:bg-[var(--bb-bg)] focus-visible:outline focus-visible:outline-2 disabled:opacity-50"
               style={{ color: leaf }}
             >
               {notifLoadingMore ? "Chargement..." : "Charger plus"}

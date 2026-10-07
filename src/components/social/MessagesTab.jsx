@@ -121,7 +121,7 @@ export default function MessagesTab({
             aria-label="Rechercher une conversation"
             className="flex-1 bg-transparent text-sm outline-none min-w-0"
           />
-          {query && <button onClick={() => setQuery("")} aria-label="Effacer la recherche"><X size={14} color={muted} /></button>}
+          {query && <button className="bb-hit" onClick={() => setQuery("")} aria-label="Effacer la recherche"><X size={14} color={muted} /></button>}
         </div>
         <div className="flex gap-2">
           {[
@@ -131,7 +131,7 @@ export default function MessagesTab({
             <button
               key={f.key}
               onClick={() => setFilter(f.key)}
-              className={`${buttonBase} text-xs font-bold px-3.5 py-1.5 rounded-full`}
+              className={`bb-hit ${buttonBase} text-xs font-bold px-3.5 py-1.5 rounded-full`}
               style={filter === f.key ? { background: navy, color: "#fff" } : { background: bg, color: muted }}
             >
               {f.label}
@@ -197,7 +197,7 @@ export default function MessagesTab({
                   aria-label={`Plus d'options pour ${m.name}`}
                   aria-haspopup="menu"
                   aria-expanded={isMenuOpen}
-                  className={`flex items-center justify-center rounded-full motion-safe:transition-opacity focus-visible:opacity-100 ${isMenuOpen ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}
+                  className={`bb-hit flex items-center justify-center rounded-full motion-safe:transition-opacity focus-visible:opacity-100 ${isMenuOpen ? "opacity-100" : "opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100"}`}
                   style={{ width: 32, height: 32 }}
                 >
                   <MoreVertical size={16} color={muted} />

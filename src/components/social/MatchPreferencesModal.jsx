@@ -50,7 +50,7 @@ export default function MatchPreferencesModal({ open, onClose, currentUser, onSa
       <div ref={panelRef} tabIndex={-1} className={`${card} w-full max-w-md rounded-t-[30px] md:rounded-[30px] p-6 max-h-[85vh] overflow-y-auto`} style={{ paddingBottom: "max(1.5rem, env(safe-area-inset-bottom, 0px))" }} onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-1">
           <h2 className="text-xl font-black" style={{ color: primary }}>🎯 Mes préférences</h2>
-          <button onClick={onClose} aria-label="Fermer" className="focus-visible:outline focus-visible:outline-2"><X /></button>
+          <button onClick={onClose} aria-label="Fermer" className="bb-hit focus-visible:outline focus-visible:outline-2"><X /></button>
         </div>
         <p className="text-sm mb-4" style={{ color: muted }}>
           Baobab ne te recommandera que des profils qui respectent ces critères.

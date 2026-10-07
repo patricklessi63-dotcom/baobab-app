@@ -439,7 +439,7 @@ export default function OnboardingWizard({
         // rappelait ensuite setStep((s) => s + 1) une fois la sauvegarde
         // résolue — annulant silencieusement ce retour et renvoyant
         // l'utilisateur vers l'étape qu'il venait de quitter.
-        <button onClick={goBack} disabled={saving} className="flex items-center gap-1 text-sm mb-4 disabled:opacity-40" style={{ color: C.indigo }}>
+        <button onClick={goBack} disabled={saving} className="bb-hit flex items-center gap-1 text-sm mb-4 disabled:opacity-40" style={{ color: C.indigo }}>
           <ArrowLeft size={16} /> Retour
         </button>
       )}

@@ -2288,7 +2288,7 @@ export default function SocialShell({
                 className="bg-transparent outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--bb-leaf)] text-sm w-full"
                 placeholder="Rechercher une personne, une ville, une discussion…"
               />
-              {search && <button onClick={() => setSearch("")} aria-label="Effacer la recherche"><X size={16} color={muted} /></button>}
+              {search && <button className="bb-hit" onClick={() => setSearch("")} aria-label="Effacer la recherche"><X size={16} color={muted} /></button>}
             </div>
             {search && (
               <SearchResultsDropdown

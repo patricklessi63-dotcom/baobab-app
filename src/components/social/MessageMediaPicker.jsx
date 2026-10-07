@@ -56,7 +56,7 @@ export default function MessageMediaPicker({ onPickFile, onPickSticker }) {
         aria-label="Joindre un média"
         aria-haspopup="menu"
         aria-expanded={open}
-        className="flex items-center justify-center flex-shrink-0 focus-visible:outline focus-visible:outline-2"
+        className="bb-hit flex items-center justify-center flex-shrink-0 focus-visible:outline focus-visible:outline-2"
         style={{ width: 40, height: 44 }}
       >
         <Paperclip size={20} color={muted} />
@@ -100,7 +100,7 @@ export default function MessageMediaPicker({ onPickFile, onPickSticker }) {
             </div>
           ) : (
             <div>
-              <button type="button" onClick={() => setView("menu")} aria-label="Retour" className="flex items-center gap-1 text-xs font-bold mb-2 focus-visible:outline focus-visible:outline-2" style={{ color: primary }}>
+              <button type="button" onClick={() => setView("menu")} aria-label="Retour" className="bb-hit flex items-center gap-1 text-xs font-bold mb-2 focus-visible:outline focus-visible:outline-2" style={{ color: primary }}>
                 <ArrowLeft size={14} /> Retour
               </button>
               <StickerPicker onPick={handleStickerPick} />

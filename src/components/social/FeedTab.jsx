@@ -138,7 +138,7 @@ function NotificationsPanel({
           <b className="text-sm">Notifications</b>
         </div>
         {unreadCommunityCount > 0 && (
-          <button onClick={markCommunityNotificationsRead} className="text-xs font-bold focus-visible:outline focus-visible:outline-2" style={{ color: coralText }}>
+          <button onClick={markCommunityNotificationsRead} className="bb-hit text-xs font-bold focus-visible:outline focus-visible:outline-2" style={{ color: coralText }}>
             Tout marquer comme lu
           </button>
         )}
@@ -155,7 +155,7 @@ function NotificationsPanel({
             ref={(el) => { pillRefs.current[key] = el; }}
             onClick={() => setCategory(key)}
             aria-pressed={category === key}
-            className="shrink-0 px-3 py-1.5 rounded-full text-xs font-bold focus-visible:outline focus-visible:outline-2"
+            className="bb-hit shrink-0 px-3 py-1.5 rounded-full text-xs font-bold focus-visible:outline focus-visible:outline-2"
             style={{ background: category === key ? navy : bg, color: category === key ? "#fff" : muted }}
           >
             {label}
@@ -386,7 +386,7 @@ export default function FeedTab({
           <button onClick={openEditProfile} className="bb-btn-gold shrink-0 text-xs font-bold px-3 py-1.5 rounded-full focus-visible:outline focus-visible:outline-2">
             Compléter
           </button>
-          <button onClick={dismissNudge} aria-label="Fermer" className="shrink-0 p-1 rounded-full focus-visible:outline focus-visible:outline-2" style={{ color: muted }}>
+          <button onClick={dismissNudge} aria-label="Fermer" className="bb-hit shrink-0 p-1 rounded-full focus-visible:outline focus-visible:outline-2" style={{ color: muted }}>
             <X size={16} />
           </button>
         </div>
@@ -529,7 +529,7 @@ export default function FeedTab({
           <div className={`${card} p-5 mb-5`}>
             <div className="flex items-center justify-between mb-4">
               <div><b className="text-sm">Recommandations</b><div className="text-xs mt-0.5" style={{ color: muted }}>De nouveaux membres de la communauté</div></div>
-              <button onClick={() => goTab("discover")} className="text-xs font-bold focus-visible:outline focus-visible:outline-2" style={{ color: coralText }}>Tout voir</button>
+              <button onClick={() => goTab("discover")} className="bb-hit text-xs font-bold focus-visible:outline focus-visible:outline-2" style={{ color: coralText }}>Tout voir</button>
             </div>
             {rankedForYou.length === 0 ? (
               <EmptyState
@@ -559,8 +559,8 @@ export default function FeedTab({
                 <span className="text-xs" style={{ color: muted }}>{feedbackSent ? "Merci pour ton retour !" : "Ces suggestions te conviennent-elles ?"}</span>
                 {!feedbackSent && (
                   <>
-                    <button onClick={() => sendFeedback(true)} aria-label="Oui, ces suggestions me conviennent" className="h-7 w-7 rounded-full flex items-center justify-center focus-visible:outline focus-visible:outline-2" style={{ background: bg }}><ThumbsUp size={13} color={muted} /></button>
-                    <button onClick={() => sendFeedback(false)} aria-label="Non, ces suggestions ne me conviennent pas" className="h-7 w-7 rounded-full flex items-center justify-center focus-visible:outline focus-visible:outline-2" style={{ background: bg }}><ThumbsDown size={13} color={muted} /></button>
+                    <button onClick={() => sendFeedback(true)} aria-label="Oui, ces suggestions me conviennent" className="bb-hit h-7 w-7 rounded-full flex items-center justify-center focus-visible:outline focus-visible:outline-2" style={{ background: bg }}><ThumbsUp size={13} color={muted} /></button>
+                    <button onClick={() => sendFeedback(false)} aria-label="Non, ces suggestions ne me conviennent pas" className="bb-hit h-7 w-7 rounded-full flex items-center justify-center focus-visible:outline focus-visible:outline-2" style={{ background: bg }}><ThumbsDown size={13} color={muted} /></button>
                   </>
                 )}
               </div>
@@ -763,7 +763,7 @@ export default function FeedTab({
         <aside className="space-y-5">
           {/* ---------- Conversations ---------- */}
           <div className={`${card} p-5`}>
-            <div className="flex items-center justify-between mb-4"><b className="text-sm">💬 Tes conversations</b><button onClick={() => goTab("matches")} className="text-xs font-bold focus-visible:outline focus-visible:outline-2" style={{ color: coralText }}>Tout voir</button></div>
+            <div className="flex items-center justify-between mb-4"><b className="text-sm">💬 Tes conversations</b><button onClick={() => goTab("matches")} className="bb-hit text-xs font-bold focus-visible:outline focus-visible:outline-2" style={{ color: coralText }}>Tout voir</button></div>
             {matches.length === 0 ? (
               <EmptyState
                 title="Tes conversations apparaîtront ici."
