@@ -1,5 +1,5 @@
 import React, { useRef, useState } from "react";
-import { MessageCircle, Flag, Trash2, X, Reply, Pencil, Check } from "lucide-react";
+import { MessageCircle, Flag, Ban, Trash2, X, Reply, Pencil, Check } from "lucide-react";
 import Avatar from "../Avatar";
 import StatusBadge from "../StatusBadge";
 import ClickableImage from "../ClickableImage";
@@ -26,6 +26,7 @@ export default function CommunityPostCard({
   onEditComment = () => {},
   onReport,
   onReportComment = () => {},
+  onBlockAuthor,
   onDelete,
   canDelete,
   onDeleteComment = () => {},
@@ -133,6 +134,11 @@ export default function CommunityPostCard({
             <button onClick={() => onReport(post)} aria-label="Signaler la publication" className="bb-hit flex items-center gap-1.5 text-xs font-semibold focus-visible:outline focus-visible:outline-2" style={{ color: muted }}>
               <Flag size={13} />
             </button>
+            {onBlockAuthor && post.author_id !== currentUserId && (
+              <button onClick={() => onBlockAuthor({ id: post.author_id, name: author.name || "cet auteur" })} aria-label="Bloquer l'auteur de la publication" className="bb-hit flex items-center gap-1.5 text-xs font-semibold focus-visible:outline focus-visible:outline-2" style={{ color: muted }}>
+                <Ban size={13} />
+              </button>
+            )}
             {canDelete && (
               // Même garde-fou que PostCard.jsx (fil personnel) : suppression
               // irréversible désormais confirmée avant l'appel, cohérent avec
@@ -206,6 +212,9 @@ export default function CommunityPostCard({
                                 publication (même gap que PostCard.jsx). */}
                             {c.author_id !== currentUserId && (
                               <button onClick={() => onReportComment(c)} aria-label="Signaler ce commentaire" className="bb-hit-v focus-visible:outline focus-visible:outline-2"><Flag size={12} color={muted} /></button>
+                            )}
+                            {onBlockAuthor && c.author_id !== currentUserId && (
+                              <button onClick={() => onBlockAuthor({ id: c.author_id, name: c.profiles?.name || "cet auteur" })} aria-label="Bloquer l'auteur de ce commentaire" className="bb-hit-v focus-visible:outline focus-visible:outline-2"><Ban size={12} color={muted} /></button>
                             )}
                             {(c.author_id === currentUserId || canModerate) && (
                               // Même garde-fou que la suppression de publication ci-dessus

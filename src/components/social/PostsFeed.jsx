@@ -1075,6 +1075,7 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
                 onDelete={deletePost}
                 onEdit={editPost}
                 onViewProfile={onViewProfile}
+                onBlockAuthor={onBlockProfile}
               />
             ))}
           </div>

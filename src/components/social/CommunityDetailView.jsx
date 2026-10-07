@@ -48,6 +48,7 @@ export default function CommunityDetailView({
   onEditComment = () => {},
   onReportPost,
   onReportComment,
+  onBlockAuthor,
   onDeletePost,
   onDeleteComment,
   members,
@@ -244,6 +245,7 @@ export default function CommunityDetailView({
                     onEditComment={onEditComment}
                     onReport={onReportPost}
                     onReportComment={onReportComment}
+                    onBlockAuthor={onBlockAuthor}
                     onDelete={onDeletePost}
                     onDeleteComment={onDeleteComment}
                     canModerate={isStaff(viewerRole) || viewerRole === "moderator"}

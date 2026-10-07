@@ -1384,8 +1384,10 @@ export default function CommunitiesTab({ currentUser, onError, onBack = () => {}
   };
 
   // ---------- Signalement (réutilise ReportModal) ----------
-  const openReport = (type, id, label) => {
-    setReportTarget({ type, id, name: label });
+  // `author` ({ id, name }) : auteur d'une publication/d'un commentaire signalé — sert
+  // à proposer de le bloquer une fois le signalement envoyé (Apple 1.2 / Google Play UGC).
+  const openReport = (type, id, label, author = null) => {
+    setReportTarget({ type, id, name: label, ...(author ? { author } : {}) });
     setReportCategory("");
     setReportReason("");
     setReportSubmitted(false);
@@ -1545,8 +1547,9 @@ export default function CommunitiesTab({ currentUser, onError, onBack = () => {}
           onLoadComments={handleLoadComments}
           onSubmitComment={handleSubmitComment}
           onEditComment={handleEditComment}
-          onReportPost={(p) => openReport("post", p.id, REPORT_TARGET_LABEL.post)}
-          onReportComment={(c) => openReport("comment", c.id, REPORT_TARGET_LABEL.comment)}
+          onBlockAuthor={onBlockProfile}
+          onReportPost={(p) => openReport("post", p.id, REPORT_TARGET_LABEL.post, { id: p.author_id, name: p.profiles?.name || "cet auteur" })}
+          onReportComment={(c) => openReport("comment", c.id, REPORT_TARGET_LABEL.comment, { id: c.author_id, name: c.profiles?.name || "cet auteur" })}
           onDeletePost={handleDeletePost}
           onDeleteComment={handleDeleteComment}
           events={events}
@@ -1612,6 +1615,9 @@ export default function CommunitiesTab({ currentUser, onError, onBack = () => {}
           onCancel={() => setReportTarget(null)}
           onSubmit={submitReport}
           onDismissAfterSubmit={() => setReportTarget(null)}
+          onBlockAlso={reportTarget?.author?.id && reportTarget.author.id !== currentUser?.id
+            ? (t) => { const author = t.author; setReportTarget(null); onBlockProfile(author); }
+            : undefined}
         />
 
         <CommunityInviteModal

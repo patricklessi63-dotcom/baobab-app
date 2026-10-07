@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Heart, MessageCircle, Flag, Trash2, Pencil, Check, X } from "lucide-react";
+import { Heart, MessageCircle, Flag, Ban, Trash2, Pencil, Check, X } from "lucide-react";
 import Avatar from "../Avatar";
 import StatusBadge from "../StatusBadge";
 import ClickableImage from "../ClickableImage";
@@ -31,6 +31,7 @@ export default function PostCard({
   onEdit,
   canModerate = false,
   onViewProfile,
+  onBlockAuthor,
 }) {
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [commentDraft, setCommentDraft] = useState("");
@@ -157,6 +158,11 @@ export default function PostCard({
                   <Flag size={13} />
                 </button>
               )}
+              {!isMine && onBlockAuthor && (
+                <button onClick={() => onBlockAuthor({ id: post.author_id, name: author.name || "cet auteur" })} aria-label="Bloquer l'auteur de la publication" className="bb-hit flex items-center gap-1.5 text-xs font-semibold focus-visible:outline focus-visible:outline-2" style={{ color: muted }}>
+                  <Ban size={13} />
+                </button>
+              )}
               {isMine && (
                 <button onClick={startEdit} aria-label="Modifier la publication" className="bb-hit flex items-center gap-1.5 text-xs font-semibold ml-auto focus-visible:outline focus-visible:outline-2" style={{ color: muted }}>
                   <Pencil size={13} />
@@ -206,6 +212,16 @@ export default function PostCard({
                       style={{ color: muted }}
                     >
                       <Flag size={12} />
+                    </button>
+                  )}
+                  {onBlockAuthor && c.author_id && c.author_id !== currentUserId && (
+                    <button
+                      onClick={() => onBlockAuthor({ id: c.author_id, name: c.profiles?.name || "cet auteur" })}
+                      aria-label="Bloquer l'auteur de ce commentaire"
+                      className="bb-hit shrink-0 mt-1 focus-visible:outline focus-visible:outline-2"
+                      style={{ color: muted }}
+                    >
+                      <Ban size={12} />
                     </button>
                   )}
                 </div>
