@@ -4,7 +4,12 @@ import App from "./App.jsx";
 import { ImageLightboxProvider } from "./lib/ImageLightboxContext";
 import RootErrorBoundary from "./components/RootErrorBoundary";
 import { initErrorReporter } from "./lib/errorReporter";
+import { applyNativeThemeDefault } from "./lib/nativeUi";
 import "./tailwind.css";
+
+// App native uniquement (no-op sur le web) : premier lancement sans préférence
+// => thème « Système » (voir nativeUi.js).
+applyNativeThemeDefault();
 
 // Filet de suivi d'erreurs prod (aucun avant) : handlers globaux "error" /
 // "unhandledrejection" qui écrivent dans la table Supabase `client_errors`.

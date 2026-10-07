@@ -32,6 +32,7 @@ import { useEscapeKey } from "./hooks/useEscapeKey";
 import LandingPage from "./screens/public/LandingPage";
 import LocationRequiredGate from "./components/LocationRequiredGate";
 import { useOnlineStatus } from "./hooks/useOnlineStatus";
+import { useNativeSystemBars } from "./hooks/useNativeSystemBars";
 import { useResumeTick } from "./hooks/useResumeTick";
 import { hasUsableSession } from "./lib/sessionGuard";
 import { OTHER_PROFILE_COLUMNS } from "./lib/otherProfileColumns";
@@ -131,6 +132,10 @@ export default function App() {
   // a été coupé par le système. Consommé par l'effet de resynchronisation plus bas.
   const resumeTick = useResumeTick();
   const { pathname, navigate } = usePathname();
+  // App native uniquement (no-op sur le web) : style de la barre d'état/de
+  // navigation d'après le fond affiché, masquage du splash dès que la session
+  // est vérifiée, garde-fou clavier. Voir hooks/useNativeSystemBars.js.
+  useNativeSystemBars({ ready: session !== undefined });
   const [profiles, setProfiles] = useState([]);
   const [currentUser, setCurrentUser] = useState(null);
   // Bug corrigé (même anti-pattern que usePremiumStatus.js, voir e7a7cdd) :
