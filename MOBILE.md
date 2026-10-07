@@ -20,7 +20,7 @@ modifié : `npm run build` reste `vite build`.
 | 1 | Capacitor + projet Android qui se synchronise, désactivation propre du Web Push en natif | **Fait** (ce document) |
 | 2 | Adaptation UI mobile (zones sûres, hauteurs, cibles tactiles, tirer pour rafraîchir, barre d'état, splash, icônes, orientation) | **Fait** (section « Étape 2 » en bas ; bouton retour Android → étape 3) |
 | 3a | Notifications push natives (FCM Android / APNs iOS), présence, liens profonds (App Links / Universal Links), e-mails d'authentification | **Fait** (section « Étape 3a » en bas ; reste à faire par le propriétaire : voir son tableau) |
-| 3b | Caméra/photos, géolocalisation, partage, retour haptique, bouton retour Android | À faire |
+| 3b | Caméra/photos, géolocalisation, partage, retour haptique, bouton retour Android | **Fait** (section « Étape 3b » en bas ; biométrie documentée, non implémentée) |
 | 4 | Préparation des stores (fiches, signature, politique de confidentialité, paiements…) | À faire |
 | 5 | iOS + CI (builds Android/iOS automatisés) | À faire |
 
@@ -597,3 +597,143 @@ réel ni aucune clé `.p8`/`.pem` n'est versionné).
    `supabase-push-notifications-triggers.sql` ; le lien `/profile/<uuid>` du push natif en révèle aussi l'identifiant.
 7. `ProfileTab` : le repli « copier le lien » donne le domaine public en natif (au lieu de `https://localhost/`) ;
    inchangé sur le web.
+
+# Étape 3b — Caméra, localisation, partage, haptique, retour Android (faite le 7 octobre 2026)
+
+Principe inchangé : tout le code natif est derrière `isNative()` + `import()` dynamique ; le web est strictement
+identique (un test monte l'App sur le web avec les 9 plugins simulés et vérifie qu'AUCUN n'est chargé, ni au
+démarrage ni après les points d'entrée natifs : `src/App.webNoNativePlugins.dom.test.jsx`).
+
+## Piège Capacitor corrigé : ne jamais renvoyer le proxy d'un plugin nu depuis une promesse
+
+Symptôme : `Vitest caught 13 unhandled errors` — `"Geolocation.then()" is not implemented on web` (code
+`UNIMPLEMENTED`). Cause : `nativeGeolocation.js` avait `async function loadPlugin() { ... return Geolocation; }`.
+Un plugin Capacitor est un `Proxy` qui répond à n'importe quelle propriété par une méthode ; résoudre une promesse
+avec lui lit `.then`, ce qui, sans implémentation (web, tests), rejette sans que personne ne l'attende. Le test
+`App.nativeLinks` (natif simulé, plugin non simulé) déclenchait l'effet de permission de localisation au montage.
+Même défaut latent dans `nativeCamera.js` et `nativePush.js` (ce dernier n'était masqué que par des plugins simulés
+sans `then`). Correctif : `loadPlugin()` renvoie `{ plugin }` dans les trois modules (les autres appellent le plugin
+dans la fonction même : `nativeApp`, `nativeShare`, `nativeUi`, `haptics`). Test : `nativePluginThenable.test.js`
+(un faux proxy compte les lectures de `then` et rejette comme le vrai ; échoue sans le correctif). L'appel à
+`checkPermissions` au montage n'est pas « inutile » : c'est l'effet natif du garde-fou, qui ne fait que LIRE l'état
+(jamais de demande de permission au démarrage).
+
+## Caméra et photos (`@capacitor/camera` 8.2.5)
+
+- Bouton « Prendre une photo » (`NativeCameraButton`, rend `null` sur le web) branché là où l'app demande une photo :
+  onboarding (étape photo), édition du profil, composeur de statut. Le choix « dans la galerie » reste le
+  `<input type="file">` existant : en natif il ouvre déjà le sélecteur système (Photo Picker Android 13+, PHPicker iOS)
+  sans aucune permission de stockage. `pickPhotos` (galerie via plugin) existe mais n'est volontairement pas branché.
+- La photo repasse par les gestionnaires EXISTANTS (`handlePhotosSelected`, `handleNewPhotosSelected`,
+  `onStoryMediaSelected`, via `fileListEvent`) : validation du type/signature, réduction, retrait EXIF/GPS (ré-encodage
+  canvas + repli JPEG qui efface la latitude). Aucun chemin parallèle. Le plugin est appelé avec `includeMetadata: false`
+  et `saveToGallery: false` (aucune écriture dans la galerie, donc aucune permission de stockage).
+- Explication AVANT la fenêtre système si la permission est à l'état « prompt » (iOS) ; refus : message honnête avec le
+  chemin des réglages (aucune API fiable pour les ouvrir) et l'alternative « + Ajouter » ; annulation : silencieuse.
+- Android : aucune permission `CAMERA` déclarée (le plugin lance l'application Appareil photo par intent ; la déclarer
+  obligerait l'app à la demander). Voir le commentaire dans `AndroidManifest.xml`.
+
+## Géolocalisation (`@capacitor/geolocation` 8.2.3)
+
+- `getCurrentPositionSafe` passe par le plugin en natif : localisation APPROXIMATIVE (`enableHighAccuracy: false`,
+  alias `coarseLocation`), mêmes codes (`PERMISSION_DENIED`, `POSITION_UNAVAILABLE`, `TIMEOUT`, `UNKNOWN`), même arrondi à
+  2 décimales (~1,1 km, fait par `geolocation.js`), mêmes valeurs. Le web garde `navigator.geolocation` à l'identique.
+- La permission n'est demandée qu'à l'état « prompt », au geste de l'utilisateur (création de compte, bouton du
+  garde-fou) ; jamais au démarrage. Un texte d'explication précède la demande à l'inscription (natif seulement).
+- Garde-fou d'accès : l'état de permission vient du plugin (`navigator.permissions.query` est incomplet dans les WebView)
+  et est relu au retour au premier plan (l'utilisateur modifie le réglage hors de l'app).
+- Android : `ACCESS_COARSE_LOCATION` seulement ; `ACCESS_FINE_LOCATION` volontairement absente (sinon Android afficherait le
+  choix « précise » sans bénéfice) ; pas de `uses-feature gps`.
+
+## Partage (`@capacitor/share` 8.0.3)
+
+Feuille de partage système pour le profil, l'invitation (Découverte) et les communautés, avec le lien PUBLIC
+(`linkOrigin()`), jamais `https://localhost` (garde-fou `publicShareUrl` : hôte local ou schéma non http(s) retiré).
+Aucun fichier ni métadonnée. Annulation silencieuse ; échec réel : repli d'origine (copie du lien). Le nom d'une
+communauté non publique ne quitte pas l'app (texte générique). La WebView Android n'a pas `navigator.share`, d'où le plugin.
+
+## Retour haptique (`@capacitor/haptics` 8.0.2)
+
+`src/lib/haptics.js` : `hapticLight()`, `hapticSuccess()`, `hapticError()` — no-op sur le web (pas de `navigator.vibrate`)
+et avec `prefers-reduced-motion`, tire-et-oublie (renvoient `undefined`), jamais d'exception ni de rejet, anti-rafale
+(120 ms). Branchés en UNE ligne, sans toucher à la logique : like (léger) / match (réussite) dans `handleLike`, message
+envoyé (`insertMessageRow`, léger), statut publié (réussite), tirer pour rafraîchir déclenché (léger), trois erreurs de
+validation de l'inscription (erreur). Volontairement pas partout : un retour par action significative, pas par tap.
+Android : le plugin ajoute lui-même la permission normale `VIBRATE` (aucune invite).
+
+## Bouton Retour d'Android (`@capacitor/app` `backButton`)
+
+**Choix : réutiliser la pile existante, pas de nouveau registre.** L'app a déjà une pile de retour unique fondée sur
+l'historique (`hooks/useEscapeKey.js` : `useEscapeKey` / `pushBackEntry`). Toutes les modales, feuilles et visionneuses
+(`MediaViewerModal` compris), la conversation ouverte (`useEscapeKey(Boolean(activeMatch), closeChat)`) et chaque
+changement d'onglet (`SocialShell.goTab`) y poussent une entrée + un `history.pushState` ; un retour d'historique ferme
+le sommet de la pile, un seul niveau à la fois : modale/feuille/visionneuse, puis conversation, puis onglets jusqu'à
+l'onglet par défaut. Un registre `backStack.js` parallèle aurait dupliqué cet ordre (deux piles : modale fermée deux
+fois ou jamais) ; le repli « Escape sur la modale `aria-modal` la plus haute » est inutile puisque l'unique pile couvre
+déjà tout (la seule `aria-modal` hors pile : `UpdateNotice`, non fermable).
+
+Ce que Capacitor fait SANS écouteur : `history.back()` si la WebView peut reculer, et RIEN SINON (impossible de quitter
+l'app avec Retour). `lib/nativeBack.js` (branché par `hooks/useNativeBack.js`, une fois dans `App.jsx`) ajoute donc un
+écouteur `backButton` qui : si `canGoBack` → `window.history.back()` (exactement le geste par défaut : rien ne change
+pour les modales/onglets) ; sinon (racine) → premier appui : message « Appuie encore pour quitter » (2 s, `role="status"`),
+second appui dans les 2 s → `App.minimizeApp()` (l'état et les notifications sont conservés, comme les apps Android 12+ ;
+`exitApp` tuerait l'activité). Désabonné au démontage (le comportement par défaut revient). Aucun écouteur ni import
+de plugin sur le web. Limite connue (héritée du web) : les entrées « fantômes » laissées par `discard()` à la fin de
+l'onboarding peuvent demander quelques appuis sans effet visible avant la racine.
+
+## Biométrie : NON implémentée (documentation de l'option)
+
+- Plugin : aucun plugin officiel Capacitor ; des plugins communautaires existent (par exemple
+  `@aparajita/capacitor-biometric-auth` ou `@capgo/capacitor-native-biometric`, à revérifier avant adoption) ; Android
+  `BiometricPrompt` (permission `USE_BIOMETRIC`), iOS Face ID (`NSFaceIDUsageDescription`).
+- Coût : une dépendance communautaire à suivre à chaque montée de Capacitor, un écran de verrou, des cas limites
+  (biométrie non enrôlée, changée, échecs répétés, repli code du téléphone), des tests sur appareil réel.
+- Risques : faux sentiment de sécurité (le jeton Supabase reste dans le stockage de la WebView) ; verrou mal conçu =
+  utilisateur enfermé dehors ; un mot de passe stocké en « trousseau » élargirait la surface d'attaque.
+- Recommandation v1.1 : verrouillage optionnel à la RÉOUVERTURE de l'app seulement (après X minutes en arrière-plan),
+  désactivé par défaut, réglable dans le profil, avec « Se déconnecter » toujours accessible ; JAMAIS de stockage ni de
+  ré-saisie automatique de mot de passe ; la session reste celle de Supabase.
+
+## Permissions
+
+- Android déclarées (3b) : `ACCESS_COARSE_LOCATION`. Ajoutée par un plugin : `VIBRATE` (haptics). Aucune `CAMERA`,
+  aucune permission de stockage. (Déjà là : `INTERNET`, `POST_NOTIFICATIONS`.)
+- iOS (à ajouter à l'ÉTAPE 5, quand le projet iOS existera, dans `Info.plist`) : `NSCameraUsageDescription` (« Baobab utilise
+  l'appareil photo pour prendre ta photo de profil ou de statut. »), `NSPhotoLibraryUsageDescription` (choix d'une photo
+  existante), `NSLocationWhenInUseUsageDescription` (« Baobab utilise ta position approximative pour te proposer des
+  personnes et des événements près de toi. »). Sans elles l'app plante à la demande de permission ; textes en français.
+
+## Vérifications effectuées (étape 3b)
+
+- `npm run build` : OK (bundle principal 486,7 → 494,2 ko brut ; les plugins `camera`, `geolocation`, `share`, `haptics`
+  sont des chunks séparés jamais chargés par un navigateur).
+- `npx cap sync android` : OK, 9 plugins (`app`, `camera`, `geolocation`, `haptics`, `keyboard`, `push-notifications`,
+  `share`, `splash-screen`, `status-bar`).
+- Suite complète verte ET 0 « unhandled error » (222 fichiers, 1495 tests) ; nouveaux tests : `nativePluginThenable`,
+  `haptics`, `usePullToRefresh.haptic`, `nativeBack` (logique pure), `nativeBack.dom` (vraie pile : modale → conversation →
+  racine, double appui, message qui disparaît, désabonnement, web sans écouteur), `App.webNoNativePlugins`.
+- Les messages « `.range is not a function` » vus en sortie (stderr, pas des erreurs non gérées) viennent de faux clients
+  Supabase sans `range` dans `CommunitiesTab.editComment` / `moderation-delete` ; code et tests inchangés par 3b, donc non nouveaux.
+
+## NON vérifié (aucun appareil, aucun JDK/SDK, aucun Xcode)
+
+- Aucune fenêtre de permission réelle (position approximative, appareil photo iOS), aucune photo réellement prise ni
+  relue via `webPath`, aucune feuille de partage réelle, aucune vibration réelle (intensités, appareils sans vibreur).
+- Comportement réel du bouton/geste Retour : `canGoBack` de la WebView avec les `pushState` (hypothèse : compté par la
+  WebView Android), geste de retour prédictif Android 14+, absence de double traitement avec le callback natif.
+- Que le plugin caméra Android ouvre bien l'application Appareil photo SANS permission `CAMERA` déclarée (conforme à son
+  README) sur des téléphones de marques variées ; HEIC iOS sur appareil.
+- Coordonnées « approximatives » réellement obtenues (précision du fournisseur Android/iOS).
+
+## Risques de régression à auditer (chemin normal du web)
+
+1. `getCurrentPositionSafe` : la branche `isNative()` précède l'ancien code ; le web doit renvoyer les mêmes codes, messages
+   et arrondi (tests existants verts + test « web inchangé »).
+2. `App.jsx` : l'effet `navigator.permissions.query` est désormais sauté en natif seulement (`isNative()`).
+3. `ProfileTab` / `DiscoverTab` / `CommunitiesTab` : les trois gestionnaires de partage ont une branche natif en tête ; le web
+   garde `navigator.share` / copie, sans `url` pour le profil et les communautés (comme avant).
+4. `EditProfileForm`, `Step2Photo`, `StoryComposerModal` : un rendu `NativeCameraButton` ajouté (retourne `null` sur le web,
+   DOM identique).
+5. `usePullToRefresh`, `Auth`, `handleLike`, `insertMessageRow`, `addStory` : une ligne haptique ajoutée (no-op web).
+6. `nativePush` / `nativeCamera` / `nativeGeolocation` : `loadPlugin()` renvoie `{ plugin }` — tout nouvel appelant doit
+   déstructurer.
