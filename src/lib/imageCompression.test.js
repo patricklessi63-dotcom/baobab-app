@@ -309,3 +309,147 @@ describe("canDecodeImage", () => {
     expect(await canDecodeImage({ type: "image/heic" })).toBe(false);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Audit de régression « médias mobile » (6 oct. 2026) : GPS d'un original
+// conservé, repli GPS, images animées.
+// ---------------------------------------------------------------------------
+
+// JPEG minimal (SOI, APP1 Exif avec orientation=6 + IFD GPS, SOS) : l'IFD GPS
+// porte une latitude (3 rationnels = 24 octets, motif 0x5A reconnaissable).
+function jpegWithGps({ name = "IMG_0001.JPG" } = {}) {
+  const tiff = new Uint8Array(92);
+  const dv = new DataView(tiff.buffer);
+  tiff.set([0x49, 0x49, 0x2a, 0x00]); dv.setUint32(4, 8, true);
+  dv.setUint16(8, 2, true);
+  // IFD0 : Orientation (0x0112) = 6, puis pointeur GPS (0x8825) -> 38.
+  dv.setUint16(10, 0x0112, true); dv.setUint16(12, 3, true); dv.setUint32(14, 1, true); dv.setUint16(18, 6, true);
+  dv.setUint16(22, 0x8825, true); dv.setUint16(24, 4, true); dv.setUint32(26, 1, true); dv.setUint32(30, 38, true);
+  dv.setUint32(34, 0, true);
+  // IFD GPS @38 : LatitudeRef 'N' + Latitude (rationnels @68).
+  dv.setUint16(38, 2, true);
+  dv.setUint16(40, 1, true); dv.setUint16(42, 2, true); dv.setUint32(44, 2, true); tiff[48] = 0x4e;
+  dv.setUint16(52, 2, true); dv.setUint16(54, 5, true); dv.setUint32(56, 3, true); dv.setUint32(60, 68, true);
+  dv.setUint32(64, 0, true);
+  tiff.fill(0x5a, 68, 92);
+  const exif = new Uint8Array([0x45, 0x78, 0x69, 0x66, 0, 0, ...tiff]);
+  const segLen = exif.length + 2;
+  const bytes = new Uint8Array([0xff, 0xd8, 0xff, 0xe1, segLen >> 8, segLen & 255, ...exif, 0xff, 0xda, 0, 2, 1, 2, 3, 0xff, 0xd9]);
+  return new File([bytes], name, { type: "image/jpeg" });
+}
+
+const bytesOf = async (f) => new Uint8Array(await f.arrayBuffer());
+
+describe("compressImageIfNeeded — régressions de l'audit médias mobile", () => {
+  it("JPEG redimensionné dont le ré-encodé est plus lourd : l'original (et son GPS) ne part JAMAIS", async () => {
+    installBitmapMock({ width: 4000, height: 3000 });
+    installCanvasMock({ blobSize: 200_000 });
+    const file = jpegWithGps();
+    // Original plus léger (< 200 Ko) : avant le correctif la branche
+    // « redimensionné » le conservait tel quel, EXIF compris.
+    expect(file.size).toBeLessThan(200_000);
+    const result = await compressImageIfNeeded(file, 1280);
+    expect(result).not.toBe(file);
+    expect(result.size).toBe(200_000);
+    expect(result.type).toBe("image/jpeg");
+  });
+
+  it("JPEG de repli (décodage impossible) : la position GPS est effacée, l'orientation conservée", async () => {
+    installBitmapMock({ throws: true });
+    installCanvasMock();
+    const file = jpegWithGps();
+    expect((await bytesOf(file)).includes(0x5a)).toBe(true);
+    const result = await compressImageIfNeeded(file);
+    const out = await bytesOf(result);
+    expect(out.length).toBe(file.size);
+    expect(out.includes(0x5a)).toBe(false); // latitude effacée
+    expect(out.includes(0x4e)).toBe(false); // 'N' de LatitudeRef effacé
+    // Début du TIFF = 2 (SOI) + 4 (marqueur+longueur APP1) + 6 ("Exif\0\0") = 12.
+    // Orientation (0x0112 = 6) intacte : la photo ne se couche pas.
+    const dv = new DataView(out.buffer, out.byteOffset);
+    expect(dv.getUint16(12 + 10, true)).toBe(0x0112);
+    expect(dv.getUint16(12 + 18, true)).toBe(6);
+    // Fin du fichier (SOS + données image) inchangée.
+    expect(Array.from(out.slice(-9))).toEqual([0xff, 0xda, 0, 2, 1, 2, 3, 0xff, 0xd9]);
+  });
+
+  it("JPEG de repli quand toBlob renvoie null : GPS effacé aussi", async () => {
+    installBitmapMock({ width: 800, height: 600 });
+    installCanvasMock({ blobNull: true });
+    const result = await compressImageIfNeeded(jpegWithGps());
+    expect((await bytesOf(result)).includes(0x5a)).toBe(false);
+  });
+
+  it("repli : un JPEG sans EXIF ressort tel quel (même objet)", async () => {
+    installBitmapMock({ throws: true });
+    const file = new File([new Uint8Array([0xff, 0xd8, 0xff, 0xda, 0, 2, 0xff, 0xd9])], "a.jpg", { type: "image/jpeg" });
+    expect(await compressImageIfNeeded(file)).toBe(file);
+  });
+
+  it("repli : un EXIF corrompu (offsets hors segment) ne fait jamais échouer l'envoi", async () => {
+    installBitmapMock({ throws: true });
+    const bad = new File([new Uint8Array([0xff, 0xd8, 0xff, 0xe1, 0, 20, 0x45, 0x78, 0x69, 0x66, 0, 0, 0x49, 0x49, 0x2a, 0, 0xff, 0xff, 0xff, 0x7f, 1, 2])], "a.jpg", { type: "image/jpeg" });
+    expect(await compressImageIfNeeded(bad)).toBe(bad);
+  });
+
+  it("WebP animé : renvoyé tel quel (le canvas n'en garderait que la première image)", async () => {
+    installBitmapMock({ width: 400, height: 400 });
+    const canvas = installCanvasMock({ blobSize: 100 });
+    const head = new Uint8Array(40);
+    head.set([0x52, 0x49, 0x46, 0x46, 0, 0, 0, 0, 0x57, 0x45, 0x42, 0x50, 0x56, 0x50, 0x38, 0x58, 10, 0, 0, 0, 0x12]); // VP8X, drapeaux 0x12 = alpha + animation
+    const file = new File([head], "sticker.webp", { type: "image/webp" });
+    expect(await compressImageIfNeeded(file)).toBe(file);
+    expect(canvas.toBlob).not.toHaveBeenCalled();
+  });
+
+  it("APNG (chunk acTL avant IDAT) : renvoyé tel quel", async () => {
+    installBitmapMock({ width: 400, height: 400 });
+    const canvas = installCanvasMock({ blobSize: 100 });
+    const chunk = (type, len) => [0, 0, 0, len, ...[...type].map((c) => c.charCodeAt(0)), ...new Array(len + 4).fill(0)];
+    const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, ...chunk("IHDR", 13), ...chunk("acTL", 8), ...chunk("IDAT", 4)]);
+    const file = new File([png], "anim.png", { type: "image/png" });
+    expect(await compressImageIfNeeded(file)).toBe(file);
+    expect(canvas.toBlob).not.toHaveBeenCalled();
+  });
+
+  it("PNG ordinaire (sans acTL) : traité normalement", async () => {
+    installBitmapMock({ width: 4000, height: 3000 });
+    installCanvasMock({ blobSize: 5 });
+    const chunk = (type, len) => [0, 0, 0, len, ...[...type].map((c) => c.charCodeAt(0)), ...new Array(len + 4).fill(0)];
+    const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, ...chunk("IHDR", 13), ...chunk("IDAT", 4)]);
+    const result = await compressImageIfNeeded(new File([png], "a.png", { type: "image/png" }));
+    expect(result.type).toBe("image/jpeg");
+  });
+
+  it("WebP statique avec bloc EXIF (VP8X 0x08) : jamais conservé tel quel même si plus léger", async () => {
+    installBitmapMock({ width: 600, height: 600 });
+    installCanvasMock({ blobSize: 5000 });
+    const head = new Uint8Array(40);
+    head.set([0x52, 0x49, 0x46, 0x46, 0, 0, 0, 0, 0x57, 0x45, 0x42, 0x50, 0x56, 0x50, 0x38, 0x58, 10, 0, 0, 0, 0x08]);
+    const file = new File([head], "a.webp", { type: "image/webp" });
+    const result = await compressImageIfNeeded(file);
+    expect(result).not.toBe(file);
+    expect(result.size).toBe(5000);
+  });
+
+  it("createImageBitmap défaillant : repli sur <img> avant d'abandonner (au lieu d'envoyer l'original)", async () => {
+    installBitmapMock({ throws: true });
+    installCanvasMock({ blobSize: 1000 });
+    const realURL = globalThis.URL;
+    globalThis.URL = { createObjectURL: vi.fn(() => "blob:y"), revokeObjectURL: vi.fn() };
+    globalThis.Image = class {
+      set src(_v) {
+        this.naturalWidth = 4000;
+        this.naturalHeight = 3000;
+        setTimeout(() => this.onload?.(), 0);
+      }
+    };
+    try {
+      const result = await compressImageIfNeeded(fakeImageFile({ type: "image/jpeg", size: 900_000 }));
+      expect(result.size).toBe(1000);
+    } finally {
+      delete globalThis.Image;
+      globalThis.URL = realURL;
+    }
+  });
+});

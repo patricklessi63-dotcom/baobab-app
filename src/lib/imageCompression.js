@@ -12,9 +12,11 @@
 //  4. Convertit HEIC/HEIF en JPEG (non lisible par la plupart des
 //     navigateurs ni autorisé par les buckets Storage).
 //
-// Ne touche jamais aux GIF (animation), vidéos et audios. Se dégrade
-// silencieusement vers le fichier original (jamais bloquant) si le décodage
-// ou le canvas échoue. Les fichiers qu'elle produit sont mémorisés : un
+// Ne touche jamais aux GIF, WebP animés et APNG (le canvas n'en garderait que
+// la première image), vidéos et audios. Se dégrade silencieusement vers le
+// fichier original (jamais bloquant) si le décodage ou le canvas échoue — un
+// JPEG de repli part alors avec son bloc GPS effacé (voir stripJpegGps) : la
+// position ne quitte jamais l'appareil, même sur ce chemin dégradé. Les fichiers qu'elle produit sont mémorisés : un
 // second passage (ex. « Réessayer » un envoi) ne les ré-encode pas (perte de
 // qualité en cascade + CPU inutile sur un téléphone d'entrée de gamme).
 //
@@ -63,6 +65,110 @@ function withMime(file, mime) {
   }
 }
 
+// --- Vie privée / animation : lectures binaires ciblées -----------------------
+
+async function readHead(file, length) {
+  return new Uint8Array(await file.slice(0, length).arrayBuffer());
+}
+
+// WebP : octets 12-15 = "VP8X" puis, octet 20, les drapeaux d'extension
+// (0x02 = animation, 0x08 = bloc EXIF). Renvoie null si pas de VP8X.
+async function webpFlags(file) {
+  try {
+    const h = await readHead(file, 32);
+    if (h[12] === 0x56 && h[13] === 0x50 && h[14] === 0x38 && h[15] === 0x58) return h[20];
+  } catch (_) { /* fichier illisible : on ne sait pas */ }
+  return null;
+}
+
+// WebP animé ou APNG (chunk acTL avant le premier IDAT) : passés par un
+// canvas, ils perdraient leur animation (seule la première image survit) —
+// ils repartent donc tels quels, comme les GIF.
+async function isAnimatedImage(file, mime) {
+  try {
+    if (mime === "image/webp") return ((await webpFlags(file)) & 0x02) !== 0;
+    if (mime === "image/png") {
+      const h = await readHead(file, 65536);
+      let p = 8; // après la signature PNG
+      while (p + 8 <= h.length) {
+        const len = ((h[p] << 24) | (h[p + 1] << 16) | (h[p + 2] << 8) | h[p + 3]) >>> 0;
+        const type = String.fromCharCode(h[p + 4], h[p + 5], h[p + 6], h[p + 7]);
+        if (type === "acTL") return true;
+        if (type === "IDAT" || type === "IEND") return false;
+        p += 12 + len;
+      }
+    }
+  } catch (_) { /* illisible : traité comme non animé */ }
+  return false;
+}
+
+const EXIF_TYPE_SIZE = { 1: 1, 2: 1, 3: 2, 4: 4, 5: 8, 6: 1, 7: 1, 8: 2, 9: 4, 10: 8, 11: 4, 12: 8 };
+
+// Efface sur place l'IFD GPS d'un bloc EXIF (tiffStart = début de l'en-tête
+// TIFF, end = fin du segment APP1). Le reste (orientation comprise) est
+// conservé : c'est le chemin de repli, où l'on ne peut pas ré-encoder. Renvoie
+// true si un IFD GPS a été effacé.
+function wipeGpsIfd(buf, tiffStart, end) {
+  const le = buf[tiffStart] === 0x49;
+  const u16 = (o) => (le ? buf[o] | (buf[o + 1] << 8) : (buf[o] << 8) | buf[o + 1]);
+  const u32 = (o) => (le
+    ? (buf[o] | (buf[o + 1] << 8) | (buf[o + 2] << 16) | (buf[o + 3] << 24)) >>> 0
+    : ((buf[o] << 24) | (buf[o + 1] << 16) | (buf[o + 2] << 8) | buf[o + 3]) >>> 0);
+  if (tiffStart + 8 > end || u16(tiffStart + 2) !== 42) return false;
+  const ifd0 = tiffStart + u32(tiffStart + 4);
+  if (ifd0 + 2 > end) return false;
+  const count = u16(ifd0);
+  if (ifd0 + 2 + count * 12 > end) return false;
+  for (let i = 0; i < count; i++) {
+    const entry = ifd0 + 2 + i * 12;
+    if (u16(entry) !== 0x8825) continue; // GPSInfo
+    const gps = tiffStart + u32(entry + 8);
+    if (gps + 2 > end) return false;
+    const n = u16(gps);
+    if (gps + 2 + n * 12 > end) return false;
+    for (let j = 0; j < n; j++) {
+      const g = gps + 2 + j * 12;
+      const bytes = (EXIF_TYPE_SIZE[u16(g + 2)] || 1) * u32(g + 4);
+      const valueAt = tiffStart + u32(g + 8);
+      if (bytes > 4 && valueAt + bytes <= end) buf.fill(0, valueAt, valueAt + bytes);
+    }
+    buf.fill(0, gps, gps + 2 + n * 12); // nombre d'entrées = 0, plus aucune entrée
+    return true;
+  }
+  return false;
+}
+
+// JPEG qu'on ne peut pas ré-encoder (décodage/canvas en échec) : efface la
+// position GPS de son EXIF avant envoi. Ne jette jamais ; renvoie le fichier
+// reçu si rien à effacer ou si la structure est illisible.
+async function stripJpegGps(file) {
+  try {
+    const buf = new Uint8Array(await file.arrayBuffer());
+    if (buf[0] !== 0xff || buf[1] !== 0xd8) return file;
+    let p = 2;
+    let changed = false;
+    while (p + 4 <= buf.length && buf[p] === 0xff) {
+      const marker = buf[p + 1];
+      if (marker === 0xff) { p += 1; continue; } // octets de remplissage
+      if (marker === 0xda || marker === 0xd9) break; // début des données image
+      const segLen = (buf[p + 2] << 8) | buf[p + 3];
+      const isExif = marker === 0xe1 && buf[p + 4] === 0x45 && buf[p + 5] === 0x78 && buf[p + 6] === 0x69 && buf[p + 7] === 0x66;
+      if (isExif && wipeGpsIfd(buf, p + 10, Math.min(p + 2 + segLen, buf.length))) changed = true;
+      p += 2 + segLen;
+    }
+    return changed ? new File([buf], file.name || "photo.jpg", { type: file.type || "image/jpeg" }) : file;
+  } catch (_) {
+    return file;
+  }
+}
+
+// Original conservé faute de mieux (décodage/canvas/encodage en échec) : type
+// MIME corrigé, et un JPEG ne part jamais avec sa position GPS.
+async function fallbackOriginal(file, mime) {
+  const typed = withMime(file, mime);
+  return mime === "image/jpeg" ? stripJpegGps(typed) : typed;
+}
+
 // Décodage via <img> pour les navigateurs sans createImageBitmap(Blob)
 // (Safari < 15, iPhone anciens). Le navigateur applique lui-même l'orientation
 // EXIF au dessin dans le canvas.
@@ -88,14 +194,20 @@ function decodeViaImageElement(file) {
 
 async function decodeImage(file) {
   if (typeof createImageBitmap === "function") {
-    let bitmap;
     try {
-      bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
-    } catch (_) {
-      // Certains navigateurs lèvent sur l'objet d'options : on retente sans.
-      bitmap = await createImageBitmap(file);
+      let bitmap;
+      try {
+        bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
+      } catch (_) {
+        // Certains navigateurs lèvent sur l'objet d'options : on retente sans.
+        bitmap = await createImageBitmap(file);
+      }
+      return { width: bitmap.width, height: bitmap.height, source: bitmap, close: () => bitmap.close?.() };
+    } catch (bitmapError) {
+      // createImageBitmap(Blob) défaillant sur ce navigateur/ce fichier :
+      // dernier recours = <img>, qui décode aussi des cas que le bitmap refuse.
+      try { return await decodeViaImageElement(file); } catch (_) { throw bitmapError; }
     }
-    return { width: bitmap.width, height: bitmap.height, source: bitmap, close: () => bitmap.close?.() };
   }
   return decodeViaImageElement(file);
 }
@@ -117,6 +229,8 @@ export async function compressImageIfNeeded(file, maxDimension = MAX_DIMENSION) 
   if (!mime.startsWith("image/")) return file;
   if (mime === "image/gif") return withMime(file, mime);
   if (processed.has(file)) return file;
+  // WebP animé / APNG : le canvas ne garderait que la première image.
+  if ((mime === "image/webp" || mime === "image/png") && await isAnimatedImage(file, mime)) return withMime(file, mime);
 
   let decoded = null;
   try {
@@ -154,16 +268,20 @@ export async function compressImageIfNeeded(file, maxDimension = MAX_DIMENSION) 
     decoded = null;
 
     const blob = await new Promise((resolve) => canvas.toBlob(resolve, targetType, JPEG_QUALITY));
-    if (!blob) return withMime(file, mime);
+    if (!blob) return fallbackOriginal(file, mime);
     // Safari ne sait pas encoder en WebP et renvoie alors un PNG : on ne
     // publie jamais un contenu dont le type diffère de celui annoncé.
-    if (blob.type && blob.type !== targetType) return withMime(file, mime);
+    if (blob.type && blob.type !== targetType) return fallbackOriginal(file, mime);
 
+    // Un JPEG/HEIC n'est JAMAIS conservé tel quel, même si le ré-encodé est plus
+    // lourd : l'original porte son EXIF (position GPS du domicile). Seuls PNG/
+    // WebP peuvent rester intacts quand c'est plus léger — sauf un WebP qui
+    // déclare un bloc EXIF (drapeau 0x08 de l'en-tête VP8X).
     let keepOriginal;
-    if (heic) keepOriginal = false; // HEIC doit être converti quoi qu'il arrive
+    if (heic || jpegSource) keepOriginal = false;
     else if (needsResize) keepOriginal = blob.size >= file.size;
-    else if (jpegSource) keepOriginal = false; // toujours : retire l'EXIF/GPS
     else keepOriginal = blob.size > file.size;
+    if (keepOriginal && mime === "image/webp" && ((await webpFlags(file)) & 0x08) !== 0) keepOriginal = false;
 
     if (keepOriginal) {
       const original = withMime(file, mime);
@@ -176,6 +294,6 @@ export async function compressImageIfNeeded(file, maxDimension = MAX_DIMENSION) 
     return compressed;
   } catch (_) {
     try { decoded?.close(); } catch (__) {}
-    return withMime(file, mime);
+    return fallbackOriginal(file, mime);
   }
 }
