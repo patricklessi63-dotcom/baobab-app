@@ -310,6 +310,19 @@ describe("client d'envoi", () => {
     expect(JSON.stringify(log.mock.calls)).not.toContain("SECRET-MATERIAL");
   });
 
+  it("un appel FCM/APNs qui ne répond jamais est annulé au bout du délai : send() se termine (le Web Push n'attend pas indéfiniment)", async () => {
+    // fetch qui ne se résout jamais, sauf si le signal d'annulation est déclenché.
+    const hanging = vi.fn((_url: string, init: RequestInit) => new Promise<Response>((_resolve, reject) => {
+      init.signal?.addEventListener("abort", () => reject(new Error("aborted")));
+    }));
+    const log = vi.fn();
+    const client = createNativePushClient({ fcm: null, apns: await apnsConfig() }, { fetch: hanging as never, removeToken: vi.fn(), log, timeoutMs: 50 });
+    const res = await client.send([{ token: "B".repeat(64), platform: "ios" }], N);
+    expect(res).toEqual({ sent: 0, removed: 0, failed: 1, skipped: 0 });
+    expect(hanging).toHaveBeenCalledTimes(1);
+    expect(hanging.mock.calls[0][1].signal).toBeInstanceOf(AbortSignal);
+  }, 3000);
+
   it("un échec de suppression du jeton n'interrompt pas les autres envois", async () => {
     const fetchMock = vi.fn(async (url: string, init: RequestInit) => {
       if (url.includes("oauth2")) return json(200, { access_token: "t", expires_in: 3600 });

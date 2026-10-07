@@ -28,6 +28,10 @@ const APNS_SANDBOX_HOST = "https://api.sandbox.push.apple.com";
 // valide au plus 60 min.
 const APNS_JWT_TTL_MS = 40 * 60 * 1000;
 const EXPIRY_MARGIN_MS = 60 * 1000;
+// Délai maximal d'un appel réseau FCM/APNs/Google OAuth : sans lui, une panne ou
+// un blocage d'APNs laisserait la requête du trigger pg_net (et le Web Push, qui
+// partage le même Promise.allSettled) en attente jusqu'à la limite de la fonction.
+export const NATIVE_FETCH_TIMEOUT_MS = 8000;
 
 export type NativePlatform = "android" | "ios";
 export type NativeTokenRow = { token: string; platform: NativePlatform };
@@ -242,6 +246,8 @@ export type NativePushDeps = {
   removeToken: (token: string) => Promise<void>;
   /** Journal sans donnée sensible (jamais de jeton complet ni de clé). */
   log?: (message: string) => void;
+  /** Délai maximal par appel réseau (défaut NATIVE_FETCH_TIMEOUT_MS). */
+  timeoutMs?: number;
 };
 
 export type NativePushResult = { sent: number; removed: number; failed: number; skipped: number };
@@ -249,6 +255,10 @@ export type NativePushResult = { sent: number; removed: number; failed: number; 
 export function createNativePushClient(config: NativePushConfig, deps: NativePushDeps) {
   const now = deps.now ?? (() => Date.now());
   const log = deps.log ?? (() => {});
+  const timeoutMs = deps.timeoutMs ?? NATIVE_FETCH_TIMEOUT_MS;
+  // Tout appel sortant est borné : au-delà du délai la requête est annulée (le
+  // rejet est traité comme n'importe quel échec réseau par send()).
+  const doFetch = (url: string, init: RequestInit) => deps.fetch(url, { ...init, signal: AbortSignal.timeout(timeoutMs) });
   let fcmAccess: { token: string; expiresAt: number } | null = null;
   let apnsJwt: { token: string; expiresAt: number } | null = null;
 
@@ -274,7 +284,7 @@ export function createNativePushClient(config: NativePushConfig, deps: NativePus
       iat,
       exp: iat + 3600,
     });
-    const res = await deps.fetch(GOOGLE_TOKEN_URL, {
+    const res = await doFetch(GOOGLE_TOKEN_URL, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({ grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer", assertion }).toString(),
@@ -295,7 +305,7 @@ export function createNativePushClient(config: NativePushConfig, deps: NativePus
   }
 
   async function postFcm(token: string, n: NativeNotification, accessToken: string) {
-    const res = await deps.fetch(`https://fcm.googleapis.com/v1/projects/${encodeURIComponent(config.fcm!.projectId)}/messages:send`, {
+    const res = await doFetch(`https://fcm.googleapis.com/v1/projects/${encodeURIComponent(config.fcm!.projectId)}/messages:send`, {
       method: "POST",
       headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
       body: JSON.stringify(buildFcmMessage(token, n)),
@@ -315,7 +325,7 @@ export function createNativePushClient(config: NativePushConfig, deps: NativePus
 
   async function postApns(host: string, token: string, n: NativeNotification, jwt: string) {
     const a = config.apns!;
-    const res = await deps.fetch(`${host}/3/device/${encodeURIComponent(token)}`, {
+    const res = await doFetch(`${host}/3/device/${encodeURIComponent(token)}`, {
       method: "POST",
       headers: {
         authorization: `bearer ${jwt}`,
