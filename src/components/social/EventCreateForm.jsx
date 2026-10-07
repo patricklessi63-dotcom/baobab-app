@@ -5,7 +5,10 @@ import { supabase } from "../../supabaseClient";
 import { EVENT_CATEGORIES, EVENT_VISIBILITY, CANADA_TIMEZONE_OPTIONS, closestCanadaTimezone, zonedInputsToUtc } from "../../lib/events/eventConfig";
 import { validateMediaFile } from "../../lib/mediaValidation";
 import { compressImageIfNeeded } from "../../lib/imageCompression";
-import { extFromMime } from "../../lib/mediaConstants";
+import { extFromMime, EVENT_COVER_MIMES, EVENT_COVER_FORMAT_ERROR } from "../../lib/mediaConstants";
+
+// Le bucket event-covers n'accepte pas les GIF (voir mediaConstants.js).
+const COVER_VALIDATION = { mimes: EVENT_COVER_MIMES, formatError: EVENT_COVER_FORMAT_ERROR };
 import { uploadWithProgress } from "../../lib/uploadWithProgress";
 import AiSuggestButton from "../ai/AiSuggestButton";
 import { primary, coral, coralText, muted, bg, primaryRgb } from "./theme";
@@ -86,7 +89,7 @@ export default function EventCreateForm({ currentUser, initialCommunityId = null
     // description, date, heure, ville, etc. L'aperçu (URL.createObjectURL)
     // s'affichait normalement pour n'importe quel fichier entre-temps,
     // donnant une fausse impression que tout était en ordre.
-    const { ok, error: validationError } = await validateMediaFile(file, "image");
+    const { ok, error: validationError } = await validateMediaFile(file, "image", COVER_VALIDATION);
     if (!ok) { onError?.(validationError); return; }
     setCoverFile(file);
     setCoverPreview(URL.createObjectURL(file));
@@ -170,7 +173,7 @@ export default function EventCreateForm({ currentUser, initialCommunityId = null
         return;
       }
       if (coverFile) {
-        const { ok, error: validationError } = await validateMediaFile(coverFile, "image");
+        const { ok, error: validationError } = await validateMediaFile(coverFile, "image", COVER_VALIDATION);
         if (!mountedRef.current) return;
         if (!ok) { setError(validationError); setSubmitting(false); return; }
       }

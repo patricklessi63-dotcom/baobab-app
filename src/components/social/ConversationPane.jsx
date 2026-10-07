@@ -8,7 +8,7 @@ import { linkify } from "../../utils/linkify";
 import { detectMoneyRequest } from "../../lib/moneyGuard";
 import { detectPersonalCoordinates } from "../../lib/coordinatesGuard";
 import { checkRateLimit } from "../../lib/messageRateLimit";
-import { detectKindFromMime } from "../../lib/mediaValidation";
+import { detectKindFromFile } from "../../lib/mediaValidation";
 import { normalizeForSearch } from "../../lib/searchQuery";
 import { isUserOnline } from "../../lib/presence";
 import { getMessageCheckState } from "../../lib/messageDeliveryState";
@@ -473,7 +473,7 @@ export default function ConversationPane({
         </div>
       )}
 
-      <ChatDropZone onDropFile={(file) => guardedSend(sendMediaMessage)(file, detectKindFromMime(file.type))}>
+      <ChatDropZone onDropFile={(file) => guardedSend(sendMediaMessage)(file, detectKindFromFile(file))}>
       <div ref={listRef} onScroll={handleListScroll} role="log" aria-live="polite" aria-atomic="false" className="flex-1 p-4 flex flex-col gap-1 overflow-y-auto">
         {hasMoreHistory && (
           <button onClick={onLoadOlder} disabled={loadingOlder} className="self-center text-xs font-bold px-3 py-2 rounded-full mb-2 disabled:opacity-50" style={{ background: bg, color: primary }}>

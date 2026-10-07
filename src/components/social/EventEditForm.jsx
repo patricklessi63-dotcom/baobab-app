@@ -5,7 +5,10 @@ import { supabase } from "../../supabaseClient";
 import { EVENT_CATEGORIES, CANADA_TIMEZONE_OPTIONS, closestCanadaTimezone, zonedInputsToUtc, utcToZonedInputs } from "../../lib/events/eventConfig";
 import { validateMediaFile } from "../../lib/mediaValidation";
 import { compressImageIfNeeded } from "../../lib/imageCompression";
-import { extFromMime } from "../../lib/mediaConstants";
+import { extFromMime, EVENT_COVER_MIMES, EVENT_COVER_FORMAT_ERROR } from "../../lib/mediaConstants";
+
+// Le bucket event-covers n'accepte pas les GIF (voir mediaConstants.js).
+const COVER_VALIDATION = { mimes: EVENT_COVER_MIMES, formatError: EVENT_COVER_FORMAT_ERROR };
 import { uploadWithProgress } from "../../lib/uploadWithProgress";
 import { primary, coralText, muted, bg, primaryRgb } from "./theme";
 
@@ -84,7 +87,7 @@ export default function EventEditForm({ event, onSaved, onCancel, onError, onDir
     // l'enregistrement final, pour ne pas faire découvrir un fichier
     // invalide/trop volumineux seulement après avoir modifié tout le reste
     // du formulaire.
-    const { ok, error: validationError } = await validateMediaFile(file, "image");
+    const { ok, error: validationError } = await validateMediaFile(file, "image", COVER_VALIDATION);
     if (!ok) { onError?.(validationError); return; }
     setCoverFile(file);
     setCoverPreview(URL.createObjectURL(file));
@@ -184,7 +187,7 @@ export default function EventEditForm({ event, onSaved, onCancel, onError, onDir
       let coverUrl = event.cover_url;
       let uploadedPath = null;
       if (coverFile) {
-        const { ok, error: validationError } = await validateMediaFile(coverFile, "image");
+        const { ok, error: validationError } = await validateMediaFile(coverFile, "image", COVER_VALIDATION);
         if (!mountedRef.current) return;
         if (!ok) { setError(validationError); setSubmitting(false); return; }
         // Bug corrigé à l'audit (croisement exhaustif avec
