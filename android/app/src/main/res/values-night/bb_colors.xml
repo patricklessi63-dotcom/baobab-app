@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Thème sombre de l'app (index.html : --bb-bg #14120D). -->
+    <!-- Thème sombre de l'app (index.html : variable bb-bg #14120D). -->
     <color name="bb_splash_background">#14120D</color>
     <color name="bb_window_background">#14120D</color>
 </resources>
