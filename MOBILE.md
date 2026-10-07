@@ -784,7 +784,7 @@ test fermé Google (12 testeurs, 14 jours) ; compte de démonstration pour les r
 
 Rien n'a été **exécuté** côté Apple, Google, Firebase ou Supabase : aucune publication, aucune soumission, aucun secret créé.
 Cette étape produit le projet iOS, les workflows GitHub Actions et le guide. **Aucun build natif (Gradle, Xcode) n'a été lancé ici** :
-cette machine n'a ni Mac, ni JDK, ni SDK Android, et aucun workflow n'a encore tourné sur GitHub. Le premier lancement de la CI sera
+cette machine n'a ni Mac, ni JDK, ni SDK Android, et seul `ci.yml` (sans compilation native) a tourné sur GitHub. Le premier lancement de `android-build.yml` / `ios-build.yml` sera
 donc la première compilation réelle du projet Android **et** du projet iOS (voir « Ce qui n'a pas pu être vérifié »).
 
 ## Sources officielles vérifiées (7 octobre 2026)
@@ -964,7 +964,7 @@ confidentialité (types et finalités autorisés, aucune donnée de suivi), icô
 
 ## Ce qui n'a PAS pu être vérifié (aucun Mac, aucun JDK, aucune CI exécutée)
 
-- **Aucun workflow n'a tourné sur GitHub.** Le premier lancement révélera d'éventuelles erreurs : noms de tâches Gradle, chemin exact des manifestes fusionnés, schéma Xcode implicite, résolution Swift Package Manager (téléchargement de `capacitor-swift-pm`, `ion-ios-camera`…),
+- **`ci.yml` a tourné sur GitHub : VERT** (commit `2d2e040`, build + 1 634 tests + `cap sync android`/`ios` + contrôle de dérive, sur ubuntu). Son premier passage avait révélé que la CI échouait déjà depuis l'étape 3a : la valeur bidon `VITE_VAPID_PUBLIC_KEY` n'était pas du base64url décodable (test `pushNotifications.webUnchanged`) ; corrigé dans `ci.yml`. **`android-build.yml` et `ios-build.yml` n'ont jamais tourné** (lancement manuel : à faire par le propriétaire). Le premier lancement révélera d'éventuelles erreurs : noms de tâches Gradle, chemin exact des manifestes fusionnés, schéma Xcode implicite, résolution Swift Package Manager (téléchargement de `capacitor-swift-pm`, `ion-ios-camera`…),
   signature automatique, `altool`. Les workflows sont écrits pour échouer **clairement** (journal des 200 dernières lignes pour le simulateur, artefacts) et la compilation sans secret tourne avant tout ce qui est signé.
 - **Gradle** : le bloc de signature et `versionCode` de `build.gradle` n'ont jamais été exécutés (syntaxe Groovy de mémoire, calquée sur la documentation Android) ; `assembleDebug` n'a jamais tourné non plus (étape 1).
 - **Xcode** : le `project.pbxproj` modifié à la main n'a jamais été ouvert dans Xcode ; l'entitlements / le manifeste de confidentialité n'ont pas été soumis à la validation d'Apple. Le rapport « Generate Privacy Report » n'a pas été produit.
