@@ -1,8 +1,8 @@
-import React, { useState } from "react";
+import React, { useState, lazy, Suspense } from "react";
 import { Circle, Bell, Moon, Shield, Info, ArrowLeft, ShieldCheck, Smartphone, UserX, AlertTriangle, MapPin, Heart, Languages, RefreshCw, CheckCircle2, Download } from "lucide-react";
 import { C } from "../constants";
 import { CURRENT_VERSION, checkForUpdate } from "../lib/version";
-import { PrivacyPolicyContent, TermsOfServiceContent } from "../legalContent";
+import ChunkErrorBoundary from "./ChunkErrorBoundary";
 import Avatar from "./Avatar";
 import PrivacyFieldsModal from "./PrivacyFieldsModal";
 import NotificationPreferencesModal from "./NotificationPreferencesModal";
@@ -15,6 +15,14 @@ import { useEscapeKey } from "../hooks/useEscapeKey";
 import { useFocusTrap } from "../hooks/useFocusTrap";
 import { useTheme } from "../hooks/useTheme";
 import { useLanguage } from "../hooks/useLanguage";
+
+// Les textes légaux (~20 ko) ne servent qu'à l'ouverture de ces deux modales : chargés à la
+// demande pour ne pas alourdir le chunk principal (même filet ChunkErrorBoundary que App.jsx).
+const PrivacyPolicyContent = lazy(() => import("../legalContent").then((m) => ({ default: m.PrivacyPolicyContent })));
+const TermsOfServiceContent = lazy(() => import("../legalContent").then((m) => ({ default: m.TermsOfServiceContent })));
+function LegalFallback() {
+  return <p className="py-6 text-center text-xs opacity-70" role="status">Chargement…</p>;
+}
 
 export default function AppModals({
   reportTarget,
@@ -385,7 +393,7 @@ export default function AppModals({
               Politique de confidentialité
             </div>
             <div className="text-sm" style={{ color: C.sandDim }}>
-              <PrivacyPolicyContent />
+              <ChunkErrorBoundary><Suspense fallback={<LegalFallback />}><PrivacyPolicyContent /></Suspense></ChunkErrorBoundary>
             </div>
             <button onClick={() => setPrivacyOpen(false)} className="w-full py-3 mt-2 rounded-full text-sm font-semibold" style={{ border: "1px solid rgba(242,233,220,0.2)", color: C.sand, minHeight: 44 }}>
               Fermer
@@ -404,7 +412,7 @@ export default function AppModals({
               Conditions d'utilisation
             </div>
             <div className="text-sm" style={{ color: C.sandDim }}>
-              <TermsOfServiceContent />
+              <ChunkErrorBoundary><Suspense fallback={<LegalFallback />}><TermsOfServiceContent /></Suspense></ChunkErrorBoundary>
             </div>
             <button onClick={() => setTermsOpen(false)} className="w-full py-3 mt-2 rounded-full text-sm font-semibold" style={{ border: "1px solid rgba(242,233,220,0.2)", color: C.sand, minHeight: 44 }}>
               Fermer
