@@ -30,6 +30,7 @@ export default function PostCard({
   onDelete,
   onEdit,
   canModerate = false,
+  onViewProfile,
 }) {
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [commentDraft, setCommentDraft] = useState("");
@@ -41,6 +42,7 @@ export default function PostCard({
   const { openLightbox } = useImageLightbox();
   const author = post.profiles || {};
   const isMine = post.author_id === currentUserId;
+  const canOpenAuthor = Boolean(onViewProfile) && !isMine && Boolean(post.author_id);
   // post_media (galerie multi-médias) prioritaire ; retombe sur
   // media_url/media_kind pour les publications créées avant la refonte du
   // composeur (item 30 : ne jamais casser les données déjà en base).
@@ -75,10 +77,22 @@ export default function PostCard({
   return (
     <div className="py-4" style={{ borderBottom: `1px solid rgba(${primaryRgb},.06)` }}>
       <div className="flex items-start gap-3">
-        <Avatar name={author.name} url={author.avatar_url} size={38} />
+        {/* Avatar et nom ouvrent la fiche de l'auteur (Signaler / Bloquer en 2 touches) —
+            Apple 1.2 / Google Play UGC. Pas pour ses propres publications. */}
+        {canOpenAuthor ? (
+          <button type="button" onClick={() => onViewProfile(post.author_id)} aria-label={`Voir le profil de ${author.name || "cette personne"}`} className="bb-hit shrink-0 rounded-full focus-visible:outline focus-visible:outline-2">
+            <Avatar name={author.name} url={author.avatar_url} size={38} />
+          </button>
+        ) : (
+          <Avatar name={author.name} url={author.avatar_url} size={38} />
+        )}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5">
-            <span className="text-sm font-bold" style={{ color: primary }}>{author.name || "Membre"}</span>
+            {canOpenAuthor ? (
+              <button type="button" onClick={() => onViewProfile(post.author_id)} className="text-sm font-bold text-left focus-visible:outline focus-visible:outline-2" style={{ color: primary }}>{author.name || "Membre"}</button>
+            ) : (
+              <span className="text-sm font-bold" style={{ color: primary }}>{author.name || "Membre"}</span>
+            )}
             {/* Parité de badges (bug corrigé à l'audit, même famille que
                 PublicProfileModal/AdmirersModal) : champs désormais chargés
                 dans loadPosts() (PostsFeed.jsx). */}

@@ -2463,6 +2463,7 @@ export default function SocialShell({
             markCommunityNotificationsRead={markCommunityNotificationsRead}
             onOpenProfile={(id) => setViewedProfileId(id)}
             onOpenChatWithProfile={openChatWithProfileId}
+            onBlockProfile={handleBlock}
           />
         )}
 

@@ -4,20 +4,9 @@ import { useEscapeKey } from "../../hooks/useEscapeKey";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { primary, navy, muted, card, primaryRgb } from "./theme";
 import { truncateUnicodeSafe } from "../../utils/format";
+import { PROFILE_REPORT_CATEGORIES } from "../../lib/reportCategories";
 
-const DEFAULT_CATEGORIES = [
-  { value: "harcelement", label: "Harcèlement" },
-  { value: "spam", label: "Spam" },
-  { value: "faux_profil", label: "Faux profil" },
-  { value: "contenu_inapproprie", label: "Contenu inapproprié" },
-  { value: "arnaque", label: "Arnaque" },
-  // Catégorie à part (pas fondue dans "faux profil") : priorité de
-  // traitement la plus haute (prompt-securite-verification-moderation-baobab.md)
-  // — voir la mise à jour correspondante d'admin_list_reports() qui trie ces
-  // signalements en premier.
-  { value: "mineur_suspecte", label: "Mineur suspecté" },
-  { value: "autre", label: "Autre" },
-];
+const DEFAULT_CATEGORIES = PROFILE_REPORT_CATEGORIES;
 
 export default function ReportModal({
   target,
@@ -49,6 +38,9 @@ export default function ReportModal({
   if (!target) return null;
 
   const displayLabel = targetLabel || target.name;
+  // Quand on signale un CONTENU (publication, commentaire) et que `target.author`
+  // est fourni, la proposition de blocage vise son auteur, pas « cette publication ».
+  const blockLabel = target.author?.name || displayLabel;
   const categoryLabel = categories.find((c) => c.value === category)?.label || "";
   const commentRequired = category === "autre";
   const canSubmit = Boolean(category) && (!commentRequired || reason.trim());
@@ -113,7 +105,7 @@ export default function ReportModal({
             {onBlockAlso ? (
               <>
                 <p className="text-sm mt-2" style={{ color: muted }}>
-                  Veux-tu aussi bloquer {displayLabel} ? Cette personne ne pourra
+                  Veux-tu aussi bloquer {blockLabel} ? Cette personne ne pourra
                   alors plus t'écrire ni voir ton profil.
                 </p>
                 <div className="flex gap-2 mt-4">

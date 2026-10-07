@@ -5,6 +5,7 @@ import PostCard from "./PostCard";
 import PostComposerModal from "./PostComposerModal";
 import PostMediaGrid from "./PostMediaGrid";
 import ReportModal from "./ReportModal";
+import { POST_REPORT_CATEGORIES } from "../../lib/reportCategories";
 import ConfirmModal from "./ConfirmModal";
 import EmptyState from "../home/EmptyState";
 import { validateMediaFile } from "../../lib/mediaValidation";
@@ -39,7 +40,10 @@ const MAX_MEDIA_ITEMS = 10;
 // Supabase avant que l'ajout de médias ne fonctionne en production). Les
 // anciennes publications à média unique (posts.media_url/media_kind)
 // restent lisibles : PostCard retombe dessus quand post_media est vide.
-export default function PostsFeed({ currentUser, blockedIds = new Set(), authorId, layout = "list", onError = () => {}, onPostCountChange = () => {} }) {
+// onViewProfile(id) : ouvre la fiche (Signaler / Bloquer) de l'auteur ; onBlockProfile(profil) :
+// demande le blocage de l'auteur d'un contenu signalé (Apple 1.2 / Google Play UGC). Tous deux
+// facultatifs (la grille « Mes publications » du profil ne les fournit pas).
+export default function PostsFeed({ currentUser, blockedIds = new Set(), authorId, layout = "list", onError = () => {}, onPostCountChange = () => {}, onViewProfile, onBlockProfile }) {
   const [posts, setPosts] = useState([]);
   const [postsLoading, setPostsLoading] = useState(true);
   // Échec du premier chargement : affiché comme une erreur (avec « Réessayer »)
@@ -880,7 +884,7 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
   };
 
   const openReport = (post) => {
-    setReportTarget({ type: "post", id: post.id, name: "cette publication" });
+    setReportTarget({ type: "post", id: post.id, name: "cette publication", author: { id: post.author_id, name: post.profiles?.name || "cet auteur" } });
     setReportCategory("");
     setReportReason("");
     setReportSubmitted(false);
@@ -891,7 +895,7 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
   // ne passait jamais "comment" — un commentaire abusif isolé ne pouvait pas
   // être signalé (voir bouton ajouté dans PostCard.jsx).
   const openReportComment = (comment) => {
-    setReportTarget({ type: "comment", id: comment.id, name: "ce commentaire" });
+    setReportTarget({ type: "comment", id: comment.id, name: "ce commentaire", author: { id: comment.author_id, name: comment.profiles?.name || "cet auteur" } });
     setReportCategory("");
     setReportReason("");
     setReportSubmitted(false);
@@ -1070,6 +1074,7 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
                 onReportComment={openReportComment}
                 onDelete={deletePost}
                 onEdit={editPost}
+                onViewProfile={onViewProfile}
               />
             ))}
           </div>
@@ -1095,6 +1100,12 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
         onCancel={() => setReportTarget(null)}
         onSubmit={submitReport}
         onDismissAfterSubmit={() => setReportTarget(null)}
+        // Après un signalement de contenu : proposition de bloquer son auteur (même
+        // confirmation de blocage que partout ailleurs, jamais de blocage direct).
+        onBlockAlso={reportTarget?.author && reportTarget.author.id !== currentUser?.id && onBlockProfile
+          ? (t) => { const author = t.author; setReportTarget(null); onBlockProfile(author); }
+          : undefined}
+        categories={POST_REPORT_CATEGORIES}
         targetLabel={reportTarget?.name}
       />
     </div>

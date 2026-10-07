@@ -276,6 +276,7 @@ export default function FeedTab({
   markCommunityNotificationsRead = () => {},
   onOpenProfile = () => {},
   onOpenChatWithProfile = () => {},
+  onBlockProfile,
 }) {
   // Réglage "Recommandations personnalisées" (item 5/33) — si désactivé,
   // les listes restent affichées mais sans classement par score : effet
@@ -572,7 +573,7 @@ export default function FeedTab({
             <h2 className="text-xl font-black" style={{ color: primary }}>📰 Fil d'actualité</h2>
             <p className="text-sm mt-1" style={{ color: muted }}>Ce que la communauté partage.</p>
           </div>
-          <PostsFeed currentUser={currentUser} blockedIds={blockedIds} onError={onError} />
+          <PostsFeed currentUser={currentUser} blockedIds={blockedIds} onError={onError} onViewProfile={onOpenProfile} onBlockProfile={onBlockProfile} />
           </>
           )}
 
