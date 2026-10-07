@@ -696,6 +696,7 @@ export default function ConversationPane({
                       // l'autre participant — donc une réaction aboutit réellement).
                       onReply={otherUnavailable ? undefined : () => setReplyingTo(m)}
                       onCopy={() => navigator.clipboard?.writeText(m.text || "")}
+                      onReport={onOpenReport ? () => onOpenReport(activeMatch) : undefined}
                       onDeleteForMe={() => deleteMessageForMe(m)}
                       onDeleteForEveryone={() => handleDeleteForEveryone(m)}
                       onClose={() => setOpenActionsFor(null)}

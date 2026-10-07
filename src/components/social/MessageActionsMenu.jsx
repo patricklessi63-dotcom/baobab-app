@@ -1,10 +1,10 @@
 import React from "react";
-import { Reply, Copy, Trash2 } from "lucide-react";
+import { Reply, Copy, Trash2, Flag } from "lucide-react";
 import { primary, coralText, muted, card, primaryRgb } from "./theme";
 
 const QUICK_REACTIONS = ["❤️", "😂", "👍", "😮", "😢", "🎉"];
 
-export default function MessageActionsMenu({ message, isMine, align, onReact, onReply, onCopy, onDeleteForMe, onDeleteForEveryone, onClose }) {
+export default function MessageActionsMenu({ message, isMine, align, onReact, onReply, onCopy, onReport, onDeleteForMe, onDeleteForEveryone, onClose }) {
   return (
     <div
       role="menu"
@@ -31,6 +31,16 @@ export default function MessageActionsMenu({ message, isMine, align, onReact, on
       {message.kind === "text" && (
         <button role="menuitem" onClick={() => { onCopy(); onClose(); }} className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-left" style={{ color: primary, borderTop: `1px solid rgba(${primaryRgb},.08)` }}>
           <Copy size={14} /> Copier
+        </button>
+      )}
+      {/* Signalement d'un message précis (Apple 1.2 / Google Play UGC : un moyen de
+          signaler le contenu lui-même, pas seulement la personne). Seulement pour
+          les messages REÇUS : on ne signale pas son propre message. Le signalement
+          réutilise celui du profil (ReportModal + table reports), puis propose le
+          blocage — voir ConversationPane.jsx. */}
+      {onReport && !isMine && (
+        <button role="menuitem" onClick={() => { onReport(); onClose(); }} className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-left" style={{ color: primary, borderTop: `1px solid rgba(${primaryRgb},.08)` }}>
+          <Flag size={14} /> Signaler ce message
         </button>
       )}
       <button role="menuitem" onClick={() => { onDeleteForMe(); onClose(); }} className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-left" style={{ color: muted, borderTop: `1px solid rgba(${primaryRgb},.08)` }}>
