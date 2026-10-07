@@ -15,8 +15,10 @@ export function useSignedMediaUrl(mediaPath, { skip = false } = {}) {
   const [url, setUrl] = useState(null);
   const [loading, setLoading] = useState(false);
   const refreshedPathRef = useRef(null);
+  const urlRef = useRef(null);
   const pathRef = useRef(mediaPath);
   pathRef.current = mediaPath;
+  urlRef.current = url;
 
   useEffect(() => {
     if (!mediaPath || skip) { setUrl(null); return; }
@@ -28,13 +30,21 @@ export function useSignedMediaUrl(mediaPath, { skip = false } = {}) {
     return () => { alive = false; };
   }, [mediaPath, skip]);
 
-  const refresh = useCallback(() => {
+  // onGiveUp (optionnel) : appelé si la re-signature n'apporte AUCUNE URL
+  // différente (fichier supprimé du bucket -> la signature échoue ; réseau
+  // coupé ; même URL renvoyée). Dans ces cas le <img>/<video> garde son ancien
+  // src : le navigateur ne relance pas de chargement donc aucun nouvel
+  // évènement "error" ne viendra — sans ce rappel l'appelant n'affichait jamais
+  // son repli et l'utilisateur gardait une image cassée native.
+  const refresh = useCallback((onGiveUp) => {
     const path = pathRef.current;
     if (!path || skip || refreshedPathRef.current === path) return false;
     refreshedPathRef.current = path;
     invalidateSignedUrl(path);
     getSignedUrl(path).then((signed) => {
-      if (pathRef.current === path && signed) setUrl(signed);
+      if (pathRef.current !== path) return;
+      if (signed && signed !== urlRef.current) setUrl(signed);
+      else onGiveUp?.();
     });
     return true;
   }, [skip]);

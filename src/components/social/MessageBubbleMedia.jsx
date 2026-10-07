@@ -100,7 +100,7 @@ function AudioPlayer({ src, onSourceError }) {
           // Une URL signée expirée se manifeste aussi par une erreur de
           // chargement : on en redemande une avant de conclure que ce
           // message vocal est illisible sur l'appareil.
-          if (onSourceError?.()) return;
+          if (onSourceError?.(() => setPlaybackError(true))) return;
           setPlaybackError(true);
         }}
         onLoadedMetadata={handleLoadedMetadata}
@@ -139,7 +139,7 @@ export default function MessageBubbleMedia({ m, isMine }) {
   const [mediaBroken, setMediaBroken] = useState(false);
   // Nouveau chemin/URL -> on retente l'affichage.
   useEffect(() => { setMediaBroken(false); }, [m.media_path]);
-  const handleMediaError = () => { if (!refresh()) setMediaBroken(true); };
+  const handleMediaError = () => { if (!refresh(() => setMediaBroken(true))) setMediaBroken(true); };
   const uploading = m._status === "uploading";
   const progress = uploading ? m._progress ?? 0 : null;
 
@@ -238,7 +238,7 @@ export default function MessageBubbleMedia({ m, isMine }) {
   if (m.kind === "audio") {
     return (
       <div className="relative" style={{ color: isMine ? bg : body }}>
-        <AudioPlayer src={url} onSourceError={refresh} />
+        <AudioPlayer src={url} onSourceError={(giveUp) => refresh(giveUp)} />
         <UploadProgress progress={progress} />
       </div>
     );

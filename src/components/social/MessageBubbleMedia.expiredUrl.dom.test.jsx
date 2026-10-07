@@ -100,3 +100,39 @@ describe("MessageBubbleMedia — URL signée expirée", () => {
     expect(img.getAttribute("decoding")).toBe("async");
   });
 });
+
+// Audit de régression médias mobile (6 oct. 2026) : si la re-signature ne donne
+// aucune URL (fichier supprimé du bucket : la signature échoue) ou la même URL,
+// le <img> garde son src, le navigateur ne relance rien et aucun 2e évènement
+// « error » n'arrive : le repli n'apparaissait jamais (image cassée native).
+describe("MessageBubbleMedia — re-signature sans nouvelle URL", () => {
+  it("image : fichier supprimé (signature impossible) -> repli « Photo indisponible » sans 2e erreur", async () => {
+    mocks.getSignedUrl.mockReset()
+      .mockResolvedValueOnce("https://signed.test/u1")
+      .mockResolvedValueOnce(null);
+    const { container } = render(<MessageBubbleMedia m={imageMsg()} isMine={false} />);
+    await waitFor(() => expect(container.querySelector("img")).not.toBeNull());
+    await act(async () => { fireEvent.error(container.querySelector("img")); });
+    expect(await screen.findByText("Photo indisponible")).toBeInTheDocument();
+    expect(mocks.getSignedUrl).toHaveBeenCalledTimes(2);
+  });
+
+  it("image : la re-signature renvoie la même URL -> repli (aucun rechargement ne viendrait)", async () => {
+    mocks.getSignedUrl.mockReset().mockResolvedValue("https://signed.test/same");
+    const { container } = render(<MessageBubbleMedia m={imageMsg()} isMine={false} />);
+    await waitFor(() => expect(container.querySelector("img")).not.toBeNull());
+    await act(async () => { fireEvent.error(container.querySelector("img")); });
+    expect(await screen.findByText("Photo indisponible")).toBeInTheDocument();
+  });
+
+  it("audio : signature impossible -> message « ne peut pas être lu » sans attendre une 2e erreur", async () => {
+    mocks.getSignedUrl.mockReset()
+      .mockResolvedValueOnce("https://signed.test/a1")
+      .mockResolvedValueOnce(null);
+    const m = { id: "m3", kind: "audio", media_path: "k/v.m4a", media_meta: {} };
+    const { container } = render(<MessageBubbleMedia m={m} isMine={false} />);
+    await waitFor(() => expect(container.querySelector("audio")?.getAttribute("src")).toBe("https://signed.test/a1"));
+    await act(async () => { fireEvent.error(container.querySelector("audio")); });
+    expect(await screen.findByText(/ne peut pas être lu/)).toBeInTheDocument();
+  });
+});
