@@ -11,8 +11,9 @@ import config from "../config/contact.json";
 //  - operatorName : nom de l'exploitant (personne ou entité juridique) à afficher
 //    comme responsable du traitement des données.
 // Adresse « simple » : une seule arobase, un domaine avec au moins un point, aucun
-// espace/contrôle ni caractère pouvant casser un lien mailto: ou une injection.
-const BAD_CHARS = new Set([..." <>\"'(),;:[]", String.fromCharCode(92)]);
+// espace/contrôle ni caractère pouvant casser un lien mailto: ou une injection
+// (« ? » et « & » ouvriraient des en-têtes : a@b.co?cc=x@y.z).
+const BAD_CHARS = new Set([..." <>\"'(),;:[]?#&%=/", String.fromCharCode(92)]);
 
 export function cleanSupportEmail(value) {
   const v = typeof value === "string" ? value.trim() : "";

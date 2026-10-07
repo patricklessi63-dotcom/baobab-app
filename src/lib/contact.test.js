@@ -8,7 +8,7 @@ describe("coordonnées publiques (src/config/contact.json)", () => {
   });
 
   it("rejette tout ce qui n'est pas une adresse simple (jamais d'injection dans un lien mailto)", () => {
-    for (const bad of ["", "   ", "pas-une-adresse", "a@b", "a b@c.d", "x@y.z,evil@e.f", "<a@b.c>", 42, null, undefined]) {
+    for (const bad of ["", "   ", "pas-une-adresse", "a@b", "a b@c.d", "x@y.z,evil@e.f", "<a@b.c>", "a@b.co?cc=x", "a@b.co?subject=x&bcc=y", "a@b.co#x", "a@b.co/x", 42, null, undefined]) {
       expect(cleanSupportEmail(bad)).toBe("");
     }
   });

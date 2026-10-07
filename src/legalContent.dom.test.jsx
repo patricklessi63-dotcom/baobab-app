@@ -81,6 +81,11 @@ describe("textes légaux — exactitude vis-à-vis du code", () => {
     expect(screen.queryByRole("link")).not.toBeInTheDocument();
   });
 
+  it("avec une adresse et sans objet : lien mailto simple vers CETTE adresse", () => {
+    render(<ContactInfo email="aide@example.org" />);
+    expect(screen.getByRole("link", { name: "aide@example.org" }).getAttribute("href")).toBe("mailto:aide@example.org");
+  });
+
   it("avec une adresse configurée : lien mailto", () => {
     render(<ContactInfo email="aide@example.org" subject="Baobab — test" />);
     const link = screen.getByRole("link", { name: "aide@example.org" });
