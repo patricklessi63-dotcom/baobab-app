@@ -394,7 +394,7 @@ exclus de la définition du partage par Google) **[À VALIDER]**. « Toutes les 
 Politique de confidentialité : `…/confidentialite`. **Public cible : 18 ans et plus**, cocher « Restreindre l'accès aux mineurs » **[À VALIDER]**. Catégorie : **Rencontres** (existe sur Google Play).
 Autres déclarations de la Play Console à remplir **[PROPRIÉTAIRE]** : publicités (non), accès aux apps financières/santé (non), **normes de sécurité des enfants** (voir §15).
 
-## 10. Privacy manifest iOS (à finaliser à l'étape 5 avec le projet iOS)
+## 10. Privacy manifest iOS (**fait à l'étape 5** : `ios/App/App/PrivacyInfo.xcprivacy` ; l'analyse du code des plugins a montré qu'aucune API « à raison requise » n'est utilisée — voir `MOBILE.md` étape 5. Le squelette ci-dessous est l'ancien brouillon)
 
 Fichier à créer : `ios/App/App/PrivacyInfo.xcprivacy` (+ ceux des plugins, fournis par leurs paquets Swift). **Probable, à confirmer** par « Product → Archive → Générer un rapport de
 confidentialité » dans Xcode (agrège les manifestes de l'app et des SDK) — les plugins `@capacitor/*` utilisés (app, camera, geolocation, haptics, keyboard, push-notifications, share,

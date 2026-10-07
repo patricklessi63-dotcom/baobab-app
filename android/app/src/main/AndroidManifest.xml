@@ -73,6 +73,13 @@
          le choix « précise » à l'utilisateur sans bénéfice). Le plugin @capacitor/geolocation ne
          déclare aucune permission lui-même. Pas de <uses-feature gps> : le GPS n'est pas requis. -->
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <!-- Messages vocaux (étape 5) : getUserMedia/MediaRecorder dans la WebView. Capacitor
+         (BridgeWebChromeClient.onPermissionRequest) demande RECORD_AUDIO + MODIFY_AUDIO_SETTINGS à
+         l'exécution quand la page réclame le micro ; sans ces deux déclarations la demande est
+         refusée d'office et l'enregistrement échoue. L'invite n'apparaît qu'au premier clic sur le
+         micro. Aucune permission CAMERA : la WebView ne demande jamais la vidéo. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
     <!-- Appareil photo / galerie : AUCUNE permission à déclarer. @capacitor/camera ouvre l'application
          Appareil photo du système (intent IMAGE_CAPTURE) et le sélecteur de photos système
          (Photo Picker, Android 13+) : déclarer CAMERA ici obligerait au contraire l'app à obtenir

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Notifications push. "development" ici ; à l'export App Store, Xcode signe avec le profil de
+	     distribution, dont la valeur est "production" (voir MOBILE.md, étape 5). -->
+	<key>aps-environment</key>
+	<string>development</string>
+	<!-- Liens universels : l'hôte DOIT être celui de src/config/publicOrigin.json (un test le vérifie)
+	     et apple-app-site-association doit y être servi (public/.well-known/). -->
+	<key>com.apple.developer.associated-domains</key>
+	<array>
+		<string>applinks:baobab-app-zeta.vercel.app</string>
+	</array>
+</dict>
+</plist>

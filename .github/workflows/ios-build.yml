@@ -1,0 +1,242 @@
+name: iOS build
+
+# Construit l'application iOS sur un runner macOS (aucun Mac nécessaire côté propriétaire).
+# Déclenchement : MANUEL (Actions > iOS build > Run workflow) ou push d'un tag « v* ».
+# JAMAIS à chaque push sur main (le site web est déployé par Vercel).
+#
+#  - Toujours : build web + compilation pour le SIMULATEUR sans signature (valide que le projet compile).
+#  - Si les 4 secrets App Store Connect existent : archive signé (signature automatique via la clé API),
+#    export .ipa, puis envoi vers TestFlight (build de test ; rien n'est soumis à la revue de l'App Store).
+#
+# Secrets (Settings > Secrets and variables > Actions > New repository secret) :
+#   APP_STORE_CONNECT_ISSUER_ID, APP_STORE_CONNECT_KEY_ID, APP_STORE_CONNECT_KEY_P8 (contenu du .p8),
+#   APPLE_TEAM_ID
+#   VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY   (valeurs publiques du backend, embarquées dans l'app)
+on:
+  workflow_dispatch:
+    inputs:
+      build_number:
+        description: "Numéro de build (CFBundleVersion, entier croissant pour une même version). Vide = numéro d'exécution du workflow."
+        required: false
+        default: ""
+      upload_testflight:
+        description: "Envoyer le build signé vers TestFlight (nécessite les secrets App Store Connect)."
+        type: boolean
+        default: true
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ios:
+    # macos-26 : image GitHub avec Xcode 26.x (Apple exige Xcode 26 / SDK iOS 26 depuis le 28 avril 2026).
+    runs-on: macos-26
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - name: Choisir le Xcode 26 le plus récent installé
+        run: |
+          set -euo pipefail
+          XCODE_APP="$(ls -d /Applications/Xcode_26*.app | grep -vi beta | sort -V | tail -n 1)"
+          echo "Xcode choisi : $XCODE_APP"
+          sudo xcode-select -s "$XCODE_APP"
+          xcodebuild -version
+          major="$(xcodebuild -version | awk '/^Xcode/{split($2,a,"."); print a[1]}')"
+          if [ "${major:-0}" -lt 26 ]; then
+            echo "::error::Xcode 26 minimum requis pour envoyer à App Store Connect"
+            exit 1
+          fi
+
+      - name: Installer les dépendances
+        run: npm ci
+
+      # Les secrets ne sont lus que dans l'environnement de CETTE étape (jamais affichés) ; on n'en
+      # sort que des booléens. Les étapes suivantes ne reçoivent que ce dont elles ont besoin.
+      - name: Détecter les secrets disponibles (sans les afficher)
+        id: detect
+        env:
+          ASC_ISSUER: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          ASC_KEY_P8: ${{ secrets.APP_STORE_CONNECT_KEY_P8 }}
+          TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          SB_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          SB_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          EVENT_NAME: ${{ github.event_name }}
+          UPLOAD_INPUT: ${{ inputs.upload_testflight }}
+          BUILD_NUMBER_INPUT: ${{ inputs.build_number }}
+        run: |
+          signing=false
+          if [ -n "$ASC_ISSUER" ] && [ -n "$ASC_KEY_ID" ] && [ -n "$ASC_KEY_P8" ] && [ -n "$TEAM_ID" ]; then signing=true; fi
+          backend=false
+          if [ -n "$SB_URL" ] && [ -n "$SB_KEY" ]; then backend=true; fi
+          # Un tag v* envoie toujours (geste volontaire) ; un lancement manuel suit la case à cocher.
+          upload=false
+          if [ "$EVENT_NAME" = push ] || [ "$UPLOAD_INPUT" = true ]; then upload=true; fi
+          number="${BUILD_NUMBER_INPUT:-${{ github.run_number }}}"
+          case "$number" in
+            ''|*[!0-9]*) echo "::error::build_number doit être un entier (reçu : $number)"; exit 1 ;;
+          esac
+          echo "signing=$signing" >> "$GITHUB_OUTPUT"
+          echo "backend=$backend" >> "$GITHUB_OUTPUT"
+          echo "upload=$upload" >> "$GITHUB_OUTPUT"
+          echo "build_number=$number" >> "$GITHUB_OUTPUT"
+          if [ "$backend" = false ]; then
+            echo "::warning::VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY absents : build du simulateur avec des valeurs bidon (valide la compilation, ne se connectera à rien)."
+          fi
+          if [ "$signing" = false ]; then
+            echo "::notice::Secrets App Store Connect absents : seule la compilation du simulateur sera faite (pas d'archive signé, pas de TestFlight)."
+          fi
+          if [ "$signing" = true ] && [ "$backend" = false ]; then
+            echo "::error::Signature présente mais VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY absents : un build TestFlight sans backend serait inutilisable. Ajoute ces deux secrets."
+            exit 1
+          fi
+          echo "Numéro de build : $number"
+
+      - name: Build web + synchronisation Capacitor (iOS)
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || 'https://placeholder.supabase.co' }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY || 'placeholder-anon-key' }}
+          VITE_VAPID_PUBLIC_KEY: placeholder-vapid-key
+        run: |
+          npm run build
+          npx cap sync ios
+
+      - name: Schémas et dépendances Swift Package Manager
+        run: |
+          set -o pipefail
+          xcodebuild -project ios/App/App.xcodeproj -list
+          xcodebuild -project ios/App/App.xcodeproj -resolvePackageDependencies
+
+      - name: Compiler pour le simulateur (sans signature, aucun secret)
+        run: |
+          set +e
+          xcodebuild -project ios/App/App.xcodeproj -scheme App -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' -derivedDataPath "$RUNNER_TEMP/dd-sim" \
+            CODE_SIGNING_ALLOWED=NO build > "$RUNNER_TEMP/xcodebuild-sim.log" 2>&1
+          status=$?
+          if [ $status -ne 0 ]; then
+            echo "---- 200 dernières lignes du journal xcodebuild ----"
+            tail -n 200 "$RUNNER_TEMP/xcodebuild-sim.log"
+            exit $status
+          fi
+          tail -n 15 "$RUNNER_TEMP/xcodebuild-sim.log"
+
+      - name: Garder le journal de compilation en cas d'échec
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: baobab-ios-simulator-build-log
+          path: ${{ runner.temp }}/xcodebuild-sim.log
+          if-no-files-found: ignore
+          retention-days: 7
+
+      # ---------- Archive signé : seulement si les 4 secrets App Store Connect existent ----------
+      # Signature AUTOMATIQUE : xcodebuild crée/télécharge certificat de distribution et profil via la clé API
+      # (-allowProvisioningUpdates). Pour la signature de distribution, Apple exige une clé API de rôle
+      # « Admin » (voir MOBILE.md). Le .p8 n'est écrit que dans ~/.appstoreconnect/private_keys et supprimé après.
+      - name: Archive signé, export .ipa et envoi TestFlight (secrets)
+        if: steps.detect.outputs.signing == 'true'
+        env:
+          ASC_ISSUER: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          ASC_KEY_P8: ${{ secrets.APP_STORE_CONNECT_KEY_P8 }}
+          TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          BUILD_NUMBER: ${{ steps.detect.outputs.build_number }}
+          DO_UPLOAD: ${{ steps.detect.outputs.upload }}
+        run: |
+          set -euo pipefail
+          # Masquage défensif de chaque ligne de la clé (GitHub masque déjà les secrets enregistrés).
+          while IFS= read -r line; do
+            if [ -n "$line" ]; then echo "::add-mask::$line"; fi
+          done <<< "$ASC_KEY_P8"
+          echo "::add-mask::$ASC_ISSUER"
+          echo "::add-mask::$ASC_KEY_ID"
+
+          umask 077
+          KEY_DIR="$HOME/.appstoreconnect/private_keys"
+          mkdir -p "$KEY_DIR"
+          KEY_PATH="$KEY_DIR/AuthKey_${ASC_KEY_ID}.p8"
+          printf '%s\n' "$ASC_KEY_P8" > "$KEY_PATH"
+
+          AUTH=(-allowProvisioningUpdates
+                -authenticationKeyPath "$KEY_PATH"
+                -authenticationKeyID "$ASC_KEY_ID"
+                -authenticationKeyIssuerID "$ASC_ISSUER")
+
+          ARCHIVE="$RUNNER_TEMP/Baobab.xcarchive"
+          EXPORT_DIR="$RUNNER_TEMP/export"
+          mkdir -p "$EXPORT_DIR"
+
+          xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Release \
+            -sdk iphoneos -destination 'generic/platform=iOS' \
+            -archivePath "$ARCHIVE" -derivedDataPath "$RUNNER_TEMP/dd-device" \
+            "${AUTH[@]}" \
+            DEVELOPMENT_TEAM="$TEAM_ID" CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
+            -quiet archive
+
+          cat > "$RUNNER_TEMP/ExportOptions.plist" <<PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key><string>app-store-connect</string>
+            <key>destination</key><string>export</string>
+            <key>teamID</key><string>${TEAM_ID}</string>
+            <key>signingStyle</key><string>automatic</string>
+            <key>uploadSymbols</key><true/>
+            <key>manageAppVersionAndBuildNumber</key><false/>
+          </dict>
+          </plist>
+          PLIST
+
+          xcodebuild -exportArchive -archivePath "$ARCHIVE" -exportPath "$EXPORT_DIR" \
+            -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" "${AUTH[@]}" -quiet
+
+          IPA="$(ls "$EXPORT_DIR"/*.ipa | head -n 1)"
+          echo "IPA produit : $(basename "$IPA")"
+
+          # Contrôle (aucun secret) : droits réellement signés dans l'app exportée et numéros de version.
+          # Attendu : aps-environment = production, associated-domains = applinks:<domaine public>.
+          rm -rf "$RUNNER_TEMP/ipa-check" && mkdir -p "$RUNNER_TEMP/ipa-check"
+          unzip -q "$IPA" -d "$RUNNER_TEMP/ipa-check"
+          APP_DIR="$(ls -d "$RUNNER_TEMP"/ipa-check/Payload/*.app | head -n 1)"
+          echo "---- Droits (entitlements) signés ----"
+          codesign -d --entitlements :- "$APP_DIR" 2>/dev/null || true
+          echo "---- Version / build ----"
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP_DIR/Info.plist" || true
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$APP_DIR/Info.plist" || true
+
+          if [ "$DO_UPLOAD" = true ]; then
+            # altool (livré avec Xcode) : envoi avec la même clé API. Le .p8 est lu dans ~/.appstoreconnect/private_keys.
+            xcrun altool --upload-app -f "$IPA" -t ios --apiKey "$ASC_KEY_ID" --apiIssuer "$ASC_ISSUER"
+            echo "::notice::Build $BUILD_NUMBER envoyé à App Store Connect. Il apparaît dans TestFlight après traitement (quelques minutes à une heure)."
+          else
+            echo "::notice::Envoi TestFlight désactivé pour cette exécution : .ipa disponible dans les artefacts."
+          fi
+
+      - name: Supprimer la clé App Store Connect du runner
+        if: always()
+        run: rm -f "$HOME"/.appstoreconnect/private_keys/AuthKey_*.p8
+
+      - name: Garder l'.ipa signé
+        if: steps.detect.outputs.signing == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: baobab-ios-ipa
+          path: ${{ runner.temp }}/export/*.ipa
+          if-no-files-found: warn
+          retention-days: 7

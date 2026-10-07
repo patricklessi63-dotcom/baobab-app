@@ -1,0 +1,173 @@
+name: Android build
+
+# Construit l'application Android. Déclenchement MANUEL uniquement (Actions > Android build >
+# Run workflow) : jamais à chaque push (le site web est déployé par Vercel).
+#
+#  - Toujours : build web + APK de DEBUG (aucun secret requis) -> valide que le projet natif compile,
+#    affiche le manifeste fusionné et la liste des permissions effectives.
+#  - Si les 4 secrets de signature existent : AAB de RELEASE signé (à envoyer à Google Play).
+#  - Aucune publication automatique : l'AAB est un artefact à télécharger (voir MOBILE.md).
+#
+# Secrets (Settings > Secrets and variables > Actions > New repository secret) :
+#   ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD
+#   VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY   (valeurs publiques du backend, embarquées dans l'app)
+on:
+  workflow_dispatch:
+    inputs:
+      version_code:
+        description: "versionCode Google Play (entier strictement croissant). Vide = numéro d'exécution du workflow."
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      # Capacitor 8 compile en Java 21 (android/app/capacitor.build.gradle) ; AGP 8.13 exige JDK 17 minimum.
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Installer les dépendances
+        run: npm ci
+
+      # Les secrets ne sont lus que dans l'environnement de CETTE étape (jamais affichés) ; on n'en
+      # sort que des booléens. Les étapes suivantes ne reçoivent que ce dont elles ont besoin.
+      - name: Détecter les secrets disponibles (sans les afficher)
+        id: detect
+        env:
+          KS: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KSP: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KA: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KP: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          SB_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          SB_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VERSION_CODE_INPUT: ${{ inputs.version_code }}
+        run: |
+          signing=false
+          if [ -n "$KS" ] && [ -n "$KSP" ] && [ -n "$KA" ] && [ -n "$KP" ]; then signing=true; fi
+          backend=false
+          if [ -n "$SB_URL" ] && [ -n "$SB_KEY" ]; then backend=true; fi
+          code="${VERSION_CODE_INPUT:-${{ github.run_number }}}"
+          case "$code" in
+            ''|*[!0-9]*) echo "::error::version_code doit être un entier (reçu : $code)"; exit 1 ;;
+          esac
+          echo "signing=$signing" >> "$GITHUB_OUTPUT"
+          echo "backend=$backend" >> "$GITHUB_OUTPUT"
+          echo "version_code=$code" >> "$GITHUB_OUTPUT"
+          if [ "$backend" = false ]; then
+            echo "::warning::VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY absents : l'APK de debug est compilé avec des valeurs bidon (il valide la compilation mais ne se connectera à rien)."
+          fi
+          if [ "$signing" = false ]; then
+            echo "::notice::Secrets de signature Android absents : seul l'APK de debug sera construit (pas d'AAB de release)."
+          fi
+          if [ "$signing" = true ] && [ "$backend" = false ]; then
+            echo "::error::Signature présente mais VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY absents : un AAB signé sans backend serait inutilisable. Ajoute ces deux secrets."
+            exit 1
+          fi
+          echo "versionCode utilisé : $code"
+
+      - name: Build web + synchronisation Capacitor (Android)
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || 'https://placeholder.supabase.co' }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY || 'placeholder-anon-key' }}
+          VITE_VAPID_PUBLIC_KEY: placeholder-vapid-key
+        run: |
+          npm run build
+          npx cap sync android
+
+      - name: Rendre gradlew exécutable
+        run: chmod +x android/gradlew
+
+      - name: APK de debug + manifestes fusionnés (aucun secret)
+        working-directory: android
+        run: ./gradlew assembleDebug processReleaseMainManifest -PbaobabVersionCode="${{ steps.detect.outputs.version_code }}" --stacktrace
+
+      # Ce que Google Play analysera : manifeste fusionné FINAL (app + plugins + Firebase) et permissions.
+      - name: Afficher le manifeste fusionné et les permissions effectives
+        continue-on-error: true
+        run: |
+          mkdir -p "$RUNNER_TEMP/manifests"
+          : > "$RUNNER_TEMP/manifests/merged-manifests.txt"
+          find android/app/build/intermediates -type f -name AndroidManifest.xml \
+            \( -path '*merged_manifest*' -o -path '*packaged_manifests*' \) | sort | while read -r f; do
+            echo "=================== $f ===================" | tee -a "$RUNNER_TEMP/manifests/merged-manifests.txt"
+            tee -a "$RUNNER_TEMP/manifests/merged-manifests.txt" < "$f"
+            echo | tee -a "$RUNNER_TEMP/manifests/merged-manifests.txt"
+          done
+          echo "##### Permissions et fonctionnalités effectives (variantes debug et release) #####"
+          find android/app/build/intermediates -type f -name AndroidManifest.xml \
+            \( -path '*merged_manifest*' -o -path '*packaged_manifests*' \) | sort | xargs node scripts/android-merged-permissions.mjs
+
+      - name: Garder l'APK de debug
+        uses: actions/upload-artifact@v7
+        with:
+          name: baobab-android-debug-apk
+          path: android/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Garder les manifestes fusionnés
+        uses: actions/upload-artifact@v7
+        with:
+          name: baobab-android-merged-manifests
+          path: ${{ runner.temp }}/manifests/merged-manifests.txt
+          if-no-files-found: warn
+          retention-days: 14
+
+      # ---------- RELEASE signé : seulement si les 4 secrets de signature existent ----------
+      - name: Décoder le keystore (secret)
+        if: steps.detect.outputs.signing == 'true'
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          umask 077
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/upload.keystore"
+          echo "ANDROID_KEYSTORE_PATH=$RUNNER_TEMP/upload.keystore" >> "$GITHUB_ENV"
+
+      - name: AAB de release signé
+        if: steps.detect.outputs.signing == 'true'
+        working-directory: android
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: ./gradlew bundleRelease -PbaobabVersionCode="${{ steps.detect.outputs.version_code }}" --stacktrace
+
+      - name: Empreinte SHA-256 du certificat de signature (publique)
+        if: steps.detect.outputs.signing == 'true'
+        continue-on-error: true
+        run: |
+          # Utile pour public/.well-known/assetlinks.json (clé d'ENVOI). Si Play App Signing est actif,
+          # Google re-signe avec SA clé : utiliser alors l'empreinte de la Play Console (Intégrité de l'application).
+          keytool -printcert -jarfile android/app/build/outputs/bundle/release/app-release.aab | grep -E "SHA256|Owner|Valid" || true
+
+      - name: Supprimer le keystore du runner
+        if: always() && steps.detect.outputs.signing == 'true'
+        run: rm -f "$RUNNER_TEMP/upload.keystore"
+
+      - name: Garder l'AAB signé
+        if: steps.detect.outputs.signing == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: baobab-android-release-aab
+          path: android/app/build/outputs/bundle/release/*.aab
+          if-no-files-found: error
+          retention-days: 14

@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CAPACITOR_DEBUG</key>
+	<string>$(CAPACITOR_DEBUG)</string>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>fr</string>
+	<key>CFBundleLocalizations</key>
+	<array>
+		<string>fr</string>
+		<string>en</string>
+	</array>
+	<key>CFBundleDisplayName</key>
+	<string>Baobab</string>
+	<key>CFBundleExecutable</key>
+	<string>$(EXECUTABLE_NAME)</string>
+	<key>CFBundleIdentifier</key>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>$(PRODUCT_NAME)</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>$(MARKETING_VERSION)</string>
+	<key>CFBundleVersion</key>
+	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<!-- Export (chiffrement) : l'app n'utilise que HTTPS/WSS fournis par iOS (aucun algorithme maison). Voir MOBILE.md, étape 5. -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+	<key>LSRequiresIPhoneOS</key>
+	<true/>
+	<!-- Textes affichés par iOS lors de la demande d'autorisation (mêmes formulations que STORES.md / la politique de confidentialité). -->
+	<key>NSCameraUsageDescription</key>
+	<string>Baobab utilise l'appareil photo pour prendre ta photo de profil ou de statut.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Baobab utilise le microphone pour enregistrer les messages vocaux que tu envoies.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Baobab te permet de choisir une photo existante pour ton profil, tes statuts ou tes messages.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Baobab n'enregistre une photo dans ta photothèque que si tu le demandes ; rien n'y est ajouté automatiquement.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Baobab utilise ta position approximative, uniquement quand l'app est ouverte, pour te proposer des personnes et des événements près de toi.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Baobab utilise ta position approximative, uniquement quand l'app est ouverte, pour te proposer des personnes et des événements près de toi.</string>
+	<key>UIApplicationSceneManifest</key>
+	<dict>
+		<key>UIApplicationSupportsMultipleScenes</key>
+		<false/>
+		<key>UISceneConfigurations</key>
+		<dict>
+			<key>UIWindowSceneSessionRoleApplication</key>
+			<array>
+				<dict>
+					<key>UISceneConfigurationName</key>
+					<string>Default Configuration</string>
+					<key>UISceneDelegateClassName</key>
+					<string>$(PRODUCT_MODULE_NAME).SceneDelegate</string>
+					<key>UISceneStoryboardFile</key>
+					<string>Main</string>
+				</dict>
+			</array>
+		</dict>
+	</dict>
+	<key>UILaunchStoryboardName</key>
+	<string>LaunchScreen</string>
+	<key>UIMainStoryboardFile</key>
+	<string>Main</string>
+	<key>UIRequiredDeviceCapabilities</key>
+	<array>
+		<string>armv7</string>
+	</array>
+	<!-- iPhone : portrait seulement. iPad : les quatre orientations (exigées par Apple pour le multitâche). -->
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+	</array>
+	<key>UISupportedInterfaceOrientations~ipad</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationPortraitUpsideDown</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
+	<key>UIViewControllerBasedStatusBarAppearance</key>
+	<true/>
+</dict>
+</plist>

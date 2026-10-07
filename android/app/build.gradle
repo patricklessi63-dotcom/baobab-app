@@ -5,6 +5,9 @@ apply plugin: 'com.android.application'
 def publicOrigin = new groovy.json.JsonSlurper().parse(file("../../src/config/publicOrigin.json")).origin
 def deepLinkHost = new URI(publicOrigin).host
 
+// versionCode (voir plus bas) : -PbaobabVersionCode=<n> (CI) ou 1 par défaut (build local).
+def baobabVersionCode = (project.findProperty("baobabVersionCode") ?: "1").toString().toInteger()
+
 android {
     namespace = "ca.baobab.app"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -12,7 +15,10 @@ android {
         applicationId "ca.baobab.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1  // à incrémenter à CHAQUE envoi vers Google Play (voir MOBILE.md)
+        // versionCode : à incrémenter à CHAQUE envoi vers Google Play (voir MOBILE.md). La CI le
+        // surcharge avec -PbaobabVersionCode=<n> (n° d'exécution du workflow) ; sans cette
+        // propriété (build local), la valeur est 1.
+        versionCode baobabVersionCode
         versionName "1.1.0"  // = "version" de package.json (voir MOBILE.md)
         manifestPlaceholders = [deepLinkHost: deepLinkHost]
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
@@ -22,8 +28,36 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    // Signature release : JAMAIS de clé dans le dépôt. Deux sources, par ordre de priorité :
+    //  1. variables d'environnement ANDROID_KEYSTORE_PATH, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS,
+    //     ANDROID_KEY_PASSWORD (c'est ce que fait la CI : .github/workflows/android-build.yml) ;
+    //  2. android/keystore.properties (ignoré par git) avec storeFile, storePassword, keyAlias, keyPassword.
+    // Sans l'une ou l'autre, bundleRelease produit un AAB NON signé (Google Play le refusera).
+    def keystoreProps = new Properties()
+    def keystorePropsFile = rootProject.file("keystore.properties")
+    if (keystorePropsFile.exists()) {
+        keystorePropsFile.withInputStream { keystoreProps.load(it) }
+    }
+    def signStoreFile = System.getenv("ANDROID_KEYSTORE_PATH") ?: keystoreProps.getProperty("storeFile")
+    def signStorePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD") ?: keystoreProps.getProperty("storePassword")
+    def signKeyAlias = System.getenv("ANDROID_KEY_ALIAS") ?: keystoreProps.getProperty("keyAlias")
+    def signKeyPassword = System.getenv("ANDROID_KEY_PASSWORD") ?: keystoreProps.getProperty("keyPassword")
+    def hasReleaseSigning = signStoreFile && signStorePassword && signKeyAlias && signKeyPassword
+    if (hasReleaseSigning) {
+        signingConfigs {
+            release {
+                storeFile rootProject.file(signStoreFile)
+                storePassword signStorePassword
+                keyAlias signKeyAlias
+                keyPassword signKeyPassword
+            }
+        }
+    }
     buildTypes {
         release {
+            if (hasReleaseSigning) {
+                signingConfig signingConfigs.release
+            }
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }

@@ -1,14 +1,26 @@
 name: CI
 
+# Vérifie chaque pull request et chaque push sur main : build web, tests, et que les projets
+# natifs (Android, iOS) se synchronisent avec le build web. Aucun secret, aucune publication :
+# le site web est déployé par Vercel, les applications par android-build.yml / ios-build.yml
+# (déclenchement manuel ou par tag v*).
 on:
   push:
     branches: [main]
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test-build:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     # Valeurs bidon : la CI ne parle jamais à un vrai backend (les tests
     # moquent Supabase, le build n'embarque que la chaîne). Elles évitent
     # que createClient() dans src/supabaseClient.js lève « supabaseUrl is
@@ -18,20 +30,37 @@ jobs:
       VITE_SUPABASE_ANON_KEY: placeholder-anon-key
       VITE_VAPID_PUBLIC_KEY: placeholder-vapid-key
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
         with:
-          # 22 minimum : jsdom 26 (tests de composant) tire undici 7, qui
-          # appelle webidl.util.markAsUncloneable — absent sous Node 20.
+          persist-credentials: false
+
+      - uses: actions/setup-node@v7
+        with:
+          # 22 minimum : jsdom (tests de composant) tire undici 7, qui
+          # appelle webidl.util.markAsUncloneable — absent sous Node 20 ;
+          # Capacitor 8 exige aussi Node >= 22.
           node-version: 22
           cache: npm
 
       - name: Installer les dépendances
         run: npm ci
 
-      - name: Tests unitaires
-        run: npm test
-
       - name: Build de production
         run: npm run build
+
+      - name: Tests unitaires
+        # Un seul processus : plus lent mais sans « unhandled errors » parasites (voir MOBILE.md).
+        run: npx vitest run --pool=forks --poolOptions.forks.singleFork=true
+
+      - name: Synchroniser les projets natifs avec dist/ (Android, iOS)
+        # Vérifie que Capacitor trouve les 9 plugins et régénère Package.swift (iOS, Swift Package
+        # Manager : aucun CocoaPods, donc possible sous Linux). Ne compile rien de natif.
+        run: |
+          npx cap sync android
+          npx cap sync ios
+
+      - name: Vérifier que les fichiers natifs versionnés sont à jour avec les plugins
+        # Si un plugin Capacitor est ajouté/retiré sans lancer « npx cap sync » et sans committer le
+        # résultat, Package.swift (iOS) ou capacitor.build.gradle (Android) dérivent : on échoue ici
+        # plutôt qu'au moment du build natif.
+        run: git diff --exit-code -- ios/App/CapApp-SPM android/app/capacitor.build.gradle android/capacitor.settings.gradle

@@ -36,3 +36,10 @@ android/capacitor-cordova-android-plugins/
 # google-services.json (Firebase/FCM, étape 3) : volontairement NON ignoré —
 # il ne contient que des identifiants publics du projet (pas de clé privée) ;
 # voir MOBILE.md.
+
+# --- iOS (étape 5) : ne jamais committer de clé, profil ou archive ---
+GoogleService-Info.plist
+*.xcarchive
+*.ipa
+*.dSYM.zip
+ExportOptions.plist

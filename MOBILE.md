@@ -22,7 +22,7 @@ modifié : `npm run build` reste `vite build`.
 | 3a | Notifications push natives (FCM Android / APNs iOS), présence, liens profonds (App Links / Universal Links), e-mails d'authentification | **Fait** (section « Étape 3a » en bas ; reste à faire par le propriétaire : voir son tableau) |
 | 3b | Caméra/photos, géolocalisation, partage, retour haptique, bouton retour Android | **Fait** (section « Étape 3b » en bas ; biométrie documentée, non implémentée) |
 | 4 | Préparation des stores : exigences UGC, suppression de compte, âge, achats intégrés (analyse), pages légales, questionnaires de confidentialité, fiche (voir `STORES.md`) | **Fait** (code + documents ; section « Étape 4 » en bas ; démarches de comptes et validations juridiques : tableau du propriétaire dans `STORES.md` §14) |
-| 5 | iOS + CI (builds Android/iOS automatisés) | À faire |
+| 5 | Projet iOS (généré, configuré), pipeline de build cloud (GitHub Actions : CI, Android, iOS) et **guide de publication pas à pas** | **Fait** (section « Étape 5 » puis « Guide de publication » en bas ; **aucun build natif n'a encore été exécuté** : ni Mac, ni Gradle, ni CI lancée ici) |
 
 ## Versions (vérifiées le 6 octobre 2026)
 
@@ -544,7 +544,7 @@ d'en-têtes et que la réécriture n'a pas bougé. **Après déploiement**, vér
 | 9 | Re-déployer `send-push` | `supabase functions deploy send-push` (§11b). Les triggers `pg_net` du §1c (`supabase-push-notifications-triggers.sql`) doivent aussi être exécutés pour que quoi que ce soit parte | non |
 | 10 | Empreinte SHA-256 de signature Android | `keytool -list -v -keystore <keystore> -alias <alias>` (clé d'envoi) **et**, si Play App Signing, l'empreinte de la **clé de signature d'application** (Play Console → Intégrité de l'application). Remplacer le champ dans `public/.well-known/assetlinks.json` (plusieurs empreintes possibles), déployer, vérifier : `https://digitalassetlinks.googleapis.com/v1/statements:list?source.web.site=https://baobab-app-zeta.vercel.app&relation=delegate_permission/common.handle_all_urls` | non (public) |
 | 11 | Team ID Apple | remplacer `REMPLACER_PAR_LE_TEAM_ID_APPLE` dans `public/.well-known/apple-app-site-association` | non (public) |
-| 12 | (Étape 5) capacités iOS | Push Notifications + Background Modes « Remote notifications », entitlement `applinks:` ; transmettre le jeton APNs au plugin dans `AppDelegate` (`didRegisterForRemoteNotificationsWithDeviceToken` / `didFailToRegisterForRemoteNotificationsWithError` → `NotificationCenter` du plugin, voir la doc Capacitor) | — |
+| 12 | (Étape 5 : **code fait** — AppDelegate, entitlements `aps-environment` + `applinks:` ; reste à activer les capacités sur l'identifiant d'app Apple, voir le guide) capacités iOS | Push Notifications + Background Modes « Remote notifications », entitlement `applinks:` ; transmettre le jeton APNs au plugin dans `AppDelegate` (`didRegisterForRemoteNotificationsWithDeviceToken` / `didFailToRegisterForRemoteNotificationsWithError` → `NotificationCenter` du plugin, voir la doc Capacitor) | — |
 | 13 | Si changement de domaine | modifier `src/config/publicOrigin.json` ; ajouter `<domaine>/update-password` et `<domaine>/?verified=1` aux Redirect URLs Supabase (déjà fait pour le domaine actuel puisque le web les utilise) ; republier `.well-known` | non |
 
 Le fichier `google-services.json` n'est **pas** dans le dépôt (le test `step3aConfig` vérifie qu'aucun fichier
@@ -698,7 +698,7 @@ l'onboarding peuvent demander quelques appuis sans effet visible avant la racine
 
 - Android déclarées (3b) : `ACCESS_COARSE_LOCATION`. Ajoutée par un plugin : `VIBRATE` (haptics). Aucune `CAMERA`,
   aucune permission de stockage. (Déjà là : `INTERNET`, `POST_NOTIFICATIONS`.)
-- iOS (à ajouter à l'ÉTAPE 5, quand le projet iOS existera, dans `Info.plist`) : `NSCameraUsageDescription` (« Baobab utilise
+- iOS (**fait à l'étape 5**, voir `ios/App/App/Info.plist`) : `NSCameraUsageDescription` (« Baobab utilise
   l'appareil photo pour prendre ta photo de profil ou de statut. »), `NSPhotoLibraryUsageDescription` (choix d'une photo
   existante), `NSLocationWhenInUseUsageDescription` (« Baobab utilise ta position approximative pour te proposer des
   personnes et des événements près de toi. »). Sans elles l'app plante à la demande de permission ; textes en français.
@@ -778,3 +778,446 @@ test fermé Google (12 testeurs, 14 jours) ; compte de démonstration pour les r
    fil et communautés — icône Bloquer à côté de Signaler ; avatar/nom des auteurs du fil devenus cliquables (ouvre `PublicProfileModal` via `setViewedProfileId`).
 4. **Signalement des publications du fil** : liste de motifs réduite (plus de « Mineur suspecté ») jusqu'à l'exécution de `supabase-post-report-minor-category.sql`.
 5. **Événements** : les événements créés par une personne bloquée disparaissent des listes ; photos d'un bloqué masquées.
+
+
+# Étape 5 — Projet iOS et pipeline de build cloud (faite le 7 octobre 2026)
+
+Rien n'a été **exécuté** côté Apple, Google, Firebase ou Supabase : aucune publication, aucune soumission, aucun secret créé.
+Cette étape produit le projet iOS, les workflows GitHub Actions et le guide. **Aucun build natif (Gradle, Xcode) n'a été lancé ici** :
+cette machine n'a ni Mac, ni JDK, ni SDK Android, et aucun workflow n'a encore tourné sur GitHub. Le premier lancement de la CI sera
+donc la première compilation réelle du projet Android **et** du projet iOS (voir « Ce qui n'a pas pu être vérifié »).
+
+## Sources officielles vérifiées (7 octobre 2026)
+
+Les pages Apple/Google ont été lues avec un outil qui en renvoie un résumé (certaines pages Apple ne renvoyaient que leur titre) :
+les points signalés « de mémoire » n'ont pas pu être relus mot à mot.
+
+| Sujet | Source | Ce qui a été retenu |
+| --- | --- | --- |
+| Envoi à App Store Connect | https://developer.apple.com/news/upcoming-requirements/ | Depuis le **28 avril 2026** : build avec **Xcode 26 ou plus**, SDK iOS 26 ; depuis le 9 septembre 2026 : cible de déploiement iOS 13 minimum (nous sommes à 15) |
+| Capacitor 8 : pré-requis | https://capacitorjs.com/docs/getting-started/environment-setup · https://capacitorjs.com/docs/updating/8-0 | Xcode **26.0 minimum**, Node 22, **Swift Package Manager par défaut** (CocoaPods facultatif), cible de déploiement iOS **15.0**, Android Studio 2025.2.1, AGP 8.13.0, Gradle 8.14.3 |
+| Plugins : clés `Info.plist` | https://capacitorjs.com/docs/apis/camera · https://capacitorjs.com/docs/apis/geolocation | Caméra : `NSCameraUsageDescription`, `NSPhotoLibraryAddUsageDescription`, `NSPhotoLibraryUsageDescription` ; localisation : `NSLocationWhenInUseUsageDescription` **et** `NSLocationAlwaysAndWhenInUseUsageDescription` (la seconde ne déclenche aucune invite, même texte autorisé) |
+| Push iOS | https://capacitorjs.com/docs/apis/push-notifications | Les deux méthodes d'`AppDelegate` qui postent `capacitorDidRegisterForRemoteNotifications` / `capacitorDidFailToRegisterForRemoteNotifications` ; capacité Push Notifications |
+| Runners GitHub | https://github.com/actions/runner-images/blob/main/README.md · https://github.com/actions/runner-images/blob/main/images/macos/macos-26-arm64-Readme.md · https://github.com/actions/runner-images/blob/main/images/ubuntu/Ubuntu2404-Readme.md | `macos-26` (arm64, GA ; `macos-latest` pointe dessus) avec Xcode 26.0.1 à 26.6 (défaut 26.6) dans `/Applications/Xcode_26.x.app`, Node 22 et 24, Java 17/21/25 ; `ubuntu-latest` = 24.04 : Android SDK API 36, build-tools 36.0.0, Java 17 (défaut) et 21 |
+| Versions des actions | https://github.com/actions/checkout/releases · https://github.com/actions/setup-node/releases · https://github.com/actions/upload-artifact/releases · https://github.com/actions/setup-java/releases (API `releases/latest`) | `checkout` **v7**, `setup-node` **v7**, `upload-artifact` **v7**, `setup-java` **v6** (toutes en Node 24) |
+| JDK pour AGP | https://developer.android.com/build/releases/gradle-plugin | JDK 17 minimum ; le projet compile en Java 21 (`android/app/capacitor.build.gradle`) : **JDK 21** (Temurin) |
+| Envoi de builds | https://developer.apple.com/help/app-store-connect/manage-builds/upload-builds | Xcode, Transporter, **`altool`** (`xcrun altool --upload-app`, livré avec Xcode, aucune dépréciation indiquée sur cette page) ou API App Store Connect |
+| Clés API App Store Connect | https://developer.apple.com/documentation/appstoreconnectapi/creating-api-keys-for-app-store-connect-api | Seul un **Admin** crée une clé ; Issuer ID + Key ID ; le `.p8` ne se télécharge **qu'une fois** |
+| Signature automatique dans le cloud | https://developer.apple.com/forums/thread/698117 (forum Apple, **pas la documentation**) | La signature de **distribution** par clé API exige une clé de rôle **Admin** ; une clé App Manager échoue |
+| Identifiant d'app / capacités | https://developer.apple.com/help/account/identifiers/register-an-app-id | Identifiant explicite + cases Push Notifications, Associated Domains ; rôle Account Holder ou Admin |
+| Clé APNs | https://developer.apple.com/help/account/keys/create-a-private-key | Keys → + → APNs ; **téléchargement unique** ; clé « par équipe » (toutes les apps) ou « par sujet » |
+| Fiche dans App Store Connect | https://developer.apple.com/help/app-store-connect/create-an-app-record/add-a-new-app | Plateforme, nom, langue principale, identifiant d'app, SKU, accès ; l'Account Holder doit d'abord accepter le dernier contrat |
+| TestFlight interne | https://developer.apple.com/help/app-store-connect/test-a-beta-version/add-internal-testers | Testeurs internes = utilisateurs App Store Connect, 100 par groupe, builds disponibles 90 jours |
+| Export (chiffrement) | https://developer.apple.com/help/app-store-connect/manage-app-information/overview-of-export-compliance · https://developer.apple.com/documentation/security/complying-with-encryption-export-regulations | Les algorithmes standard/du système (HTTPS) peuvent être exemptés ; **la responsabilité de la déclaration est celle du propriétaire** (voir plus bas) |
+| Manifeste de confidentialité | https://developer.apple.com/documentation/bundleresources/describing-use-of-required-reason-api · https://developer.apple.com/documentation/bundleresources/describing-data-use-in-privacy-manifests | Catégories d'API à raison requise ; types/finalités de données collectées ; **Xcode génère un rapport agrégé** (Product > Archive > Generate Privacy Report). Les listes exactes de constantes n'ont pas pu être relues sur la page : orthographe des clés `NSPrivacyCollectedDataType…` **de mémoire** (trois confirmées par recherche : `PhotosorVideos`, `EmailsOrTextMessages`, `OtherDiagnosticData`) → à confirmer par le rapport Xcode |
+| Signature Android / Play App Signing | https://developer.android.com/studio/publish/app-signing | Clé d'**envoi** (la vôtre, réinitialisable) ≠ clé de **signature de l'app** (gardée par Google) ; validité de la clé : au-delà du 22 octobre 2033 |
+| Test fermé Google | https://support.google.com/googleplay/android-developer/answer/14151465 | Comptes **personnels créés après le 13 novembre 2023** : **12 testeurs inscrits en continu pendant 14 jours**, puis « Demander l'accès à la production » ; examen « en général sept jours ou moins, parfois plus » |
+| Tarifs CI | https://docs.github.com/en/billing/reference/actions-runner-pricing | macOS 0,062 USD/min (lu à l'étape 4, voir `STORES.md` §0) |
+
+## Le projet iOS a-t-il pu être généré sous Windows ? **OUI**
+
+`npm install -D @capacitor/ios@8.5.2` (même version que `@capacitor/core` et `@capacitor/android`) puis `npx cap add ios` ont fonctionné sur
+cette machine Windows : Capacitor 8 crée le projet avec **Swift Package Manager** (aucun CocoaPods, aucun `pod install`, donc aucun besoin de macOS pour
+générer ni synchroniser). `npx cap sync ios` fonctionne aussi (9 plugins détectés, `Package.swift` généré) et tourne également sur Linux (la CI le vérifie).
+Seule la **compilation** exige macOS/Xcode : elle est faite par `ios-build.yml`. Aucun workflow « ios-bootstrap » n'est donc nécessaire.
+
+### Fichiers (tous versionnés, rien de généré ni de sensible)
+
+| Fichier | Rôle |
+| --- | --- |
+| `ios/App/App.xcodeproj/project.pbxproj` | Projet Xcode (modifié à la main à partir du modèle Capacitor : `MARKETING_VERSION` = 1.1.0, `CURRENT_PROJECT_VERSION` = 1, `CODE_SIGN_ENTITLEMENTS`, références à `App.entitlements` et `PrivacyInfo.xcprivacy` — ce dernier **copié dans le bundle** via la phase Resources —, région de développement `fr`) |
+| `ios/App/App/Info.plist` | Textes d'autorisation (français), chiffrement, orientations, scènes |
+| `ios/App/App/App.entitlements` | `aps-environment` (push), `com.apple.developer.associated-domains` = `applinks:<hôte de src/config/publicOrigin.json>` |
+| `ios/App/App/PrivacyInfo.xcprivacy` | Manifeste de confidentialité de l'app |
+| `ios/App/App/AppDelegate.swift` | + transmission du jeton APNs au plugin push |
+| `ios/App/App/SceneDelegate.swift` | fourni par Capacitor 8 (cycle de vie UIScene) : ouverture d'URL et liens universels |
+| `ios/App/App/Assets.xcassets/` | icône 1024 px (sans transparence) et écran de lancement clair/sombre, générés par `npm run assets:ios` depuis `assets/` |
+| `ios/App/CapApp-SPM/Package.swift` | dépendances Swift Package Manager (les 9 plugins), **géré par `cap sync`** |
+| `ios/.gitignore` | `App/Pods`, `App/App/public` (web copié par `cap sync`), `App/App/capacitor.config.json`, `App/App/config.xml`, `DerivedData`, `xcuserdata`, `capacitor-cordova-ios-plugins` |
+
+Le `.gitignore` racine interdit en plus `*.p8 *.p12 *.pem *.mobileprovision *.cer *.ipa *.xcarchive GoogleService-Info.plist ExportOptions.plist`.
+
+### Configuration iOS : décisions et écarts avec la demande
+
+| Sujet | Valeur / décision |
+| --- | --- |
+| Identifiant / nom | `ca.baobab.app` / « Baobab » (Capacitor, projet Xcode, AASA, Android : un test vérifie qu'ils coïncident) |
+| Version | `MARKETING_VERSION` 1.1.0 = `package.json` = `versionName` Android ; build `CURRENT_PROJECT_VERSION` 1 dans le projet, **remplacé par la CI** (numéro d'exécution) |
+| Cible de déploiement | **iOS 15.0** (minimum de Capacitor 8 ; Apple exige ≥ 13) |
+| Appareils | iPhone **et** iPad (réglage Capacitor par défaut). iPhone : portrait seulement ; iPad : 4 orientations (exigées par Apple pour le multitâche). **Conséquence : captures d'écran iPad 13 pouces à fournir** (`STORES.md` §13). Pour ne cibler que l'iPhone : `TARGETED_DEVICE_FAMILY = 1` dans le projet (l'app tourne alors en mode compatibilité sur iPad, sans captures iPad) — **décision du propriétaire** |
+| Autorisations | Caméra, **micro** (messages vocaux, `getUserMedia` dans la WebView : Capacitor accorde l'accès au niveau WebView, iOS demande l'accord à l'utilisateur), photothèque (lecture), photothèque (ajout : présente parce que le plugin caméra la référence, jamais utilisée : `saveToGallery: false`), localisation « quand l'app est ouverte » **et** « toujours » (même texte, la seconde n'est jamais demandée). Sans ces clés l'app plante à la demande d'autorisation et Apple signale l'envoi |
+| `ITSAppUsesNonExemptEncryption` | **false** : l'app n'utilise que HTTPS/WSS fournis par iOS (aucun algorithme de chiffrement maison ni bibliothèque cryptographique ajoutée). Évite la question à chaque envoi. C'est une **déclaration d'exportation sous la responsabilité du propriétaire** (Apple le précise) : à confirmer ; la France a un régime d'import séparé (ANSSI) si l'app y est distribuée |
+| `UIBackgroundModes` `remote-notification` | **NON ajouté (écart volontaire avec la demande)** : ce mode ne sert qu'aux notifications **silencieuses** (`content-available`). `send-push` envoie des notifications **à alerte** (`apns-push-type: alert`, pas de `content-available`, vérifié dans `nativePush.ts`), que le système affiche sans ce mode ; la documentation Capacitor ne le demande pas ; déclarer un mode d'arrière-plan inutilisé expose à une question en revue. Pour des notifications silencieuses plus tard : ajouter la clé `UIBackgroundModes` = `remote-notification` à `Info.plist` **et** `content-available: 1` côté serveur |
+| `LSApplicationQueriesSchemes` | non ajouté (l'app n'interroge aucun autre schéma d'URL) |
+| Liens universels | gérés par `SceneDelegate` (Capacitor 8 = UIScene) : `application(_:open:options:)` et `application(_:continue:)` ne sont **plus** utilisés avec les scènes, rien à ajouter dans `AppDelegate` |
+| `aps-environment` | `development` dans le fichier ; à l'export App Store, Xcode signe avec le profil de **distribution** (valeur `production`). Le workflow imprime les droits réellement signés pour le contrôler |
+| `UIRequiredDeviceCapabilities` | `armv7` (valeur du modèle Capacitor, inchangée) |
+| Région / langues | région de développement `fr`, `CFBundleLocalizations` fr + en (les boîtes système — « Autoriser » — suivent la langue du téléphone ; les textes d'autorisation sont en français) |
+| Écran de lancement | storyboard Capacitor + jeu d'images `Splash` (fond #14432A clair, #14120D sombre, arbre au centre : mêmes visuels qu'Android, générés par `capacitor-assets`) ; plugin `SplashScreen` : `backgroundColor` #14432A |
+
+### Manifeste de confidentialité (`PrivacyInfo.xcprivacy`)
+
+- `NSPrivacyTracking` = false, aucun domaine de suivi.
+- **API à raison requise : aucune déclarée.** Vérification faite : recherche de `UserDefaults`, horodatages de fichiers (`creationDate`,
+  `modificationDate`, `attributesOfItem`, `stat`), heure de démarrage (`systemUptime`, `mach_absolute_time`), espace disque
+  (`volumeAvailableCapacity`, `systemFreeSize`), claviers actifs (`activeInputModes`) dans **tout** `node_modules/@capacitor/ios`, `CapacitorCordova`
+  et les 9 plugins : **aucune occurrence** (Capacitor 8 stocke ses valeurs dans des fichiers, pas dans `UserDefaults`). Le code Swift de l'app
+  (`AppDelegate`, `SceneDelegate`) n'en utilise pas non plus. **Limite** : les dépendances Swift récupérées au moment du build (`ion-ios-camera`,
+  `ion-ios-geolocation`, `capacitor-swift-pm`) ne sont pas lisibles ici ; si Apple répond après un envoi par un e-mail « ITMS-91053 » (déclaration
+  manquante), ajouter la catégorie et la raison citées dans l'e-mail au tableau `NSPrivacyAccessedAPITypes`.
+- **Données collectées** (14 types, tous « liées à l'identité », jamais pour le suivi) alignées sur `STORES.md` §8 : adresse e-mail, nom, localisation
+  **approximative**, données sensibles (origine/statut d'immigration — **[À VALIDER]**, sur-déclarer coûte moins cher), photos/vidéos, données audio,
+  messages, assistance client, autre contenu, identifiant utilisateur, identifiant d'appareil (jeton APNs), interaction avec le produit, plantages, autres
+  diagnostics. **Achats : non déclarés** (pas de Premium dans l'app native, recommandation option C). Les réponses de l'étiquette « App Privacy » dans App
+  Store Connect doivent rester **identiques** à ce fichier.
+
+### Icône et écran de lancement
+
+`npm run assets:ios` (= `capacitor-assets generate --ios --assetPath assets`, fonctionne sous Windows) a produit `AppIcon-512@2x.png` (**1024×1024, PNG
+sans canal alpha** : Apple refuse l'icône transparente, vérifié par un test) et 6 images d'écran de lancement (clair/sombre ×1/×2/×3). Les trois anciens
+visuels de remplacement du modèle Capacitor ont été supprimés. Même source qu'Android (`assets/icon-only.png`, `splash*.png`, voir étape 2) ; le propriétaire
+doit toujours fournir le logo vectoriel/≥ 1024 px pour une meilleure netteté.
+
+### Correctif Android découvert en chemin : micro
+
+`getUserMedia` (messages vocaux) dans la WebView Android exige `RECORD_AUDIO` **et** `MODIFY_AUDIO_SETTINGS` dans le manifeste : Capacitor
+(`BridgeWebChromeClient.onPermissionRequest`) les demande à l'exécution, et une permission non déclarée est refusée d'office. Elles manquaient : **les messages
+vocaux n'auraient pas fonctionné sur Android**. Ajoutées à `AndroidManifest.xml` (invite au premier clic sur le micro seulement). Conséquence pour Google Play :
+la permission « microphone » apparaît (déjà couverte par « Fichiers audio » dans la Sécurité des données, `STORES.md` §9).
+
+## Signature Android et numéro de version (`android/app/build.gradle`)
+
+- **Signature de release** : lue dans les variables d'environnement `ANDROID_KEYSTORE_PATH`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD`
+  (ce que fait la CI), sinon dans `android/keystore.properties` (ignoré par git : `storeFile`, `storePassword`, `keyAlias`, `keyPassword`). Sans l'un ni l'autre,
+  `bundleRelease` produit un AAB **non signé**. Aucune clé dans le dépôt.
+- **`versionCode`** : `-PbaobabVersionCode=<n>` (la CI passe le numéro d'exécution du workflow, ou le champ `version_code` du lancement manuel) ; **1** en build
+  local. Google Play exige un entier **strictement croissant** à chaque envoi.
+- **Numéro de build iOS** : `CURRENT_PROJECT_VERSION` remplacé par la CI de la même façon (champ `build_number` ou numéro d'exécution). TestFlight refuse deux
+  builds de même numéro pour une même version (`MARKETING_VERSION`). Pour une nouvelle version publique : changer la version dans `package.json`, `android/app/build.gradle`
+  (`versionName`) **et** `project.pbxproj` (`MARKETING_VERSION`, 2 endroits) — un test vérifie qu'ils coïncident.
+
+## Workflows GitHub Actions (`.github/workflows/`)
+
+Principes communs : **aucun secret dans le dépôt** ; `permissions: contents: read` ; `concurrency` (annule les doublons) ; `timeout-minutes` ; `GITHUB_TOKEN`
+implicite seulement (`persist-credentials: false`) ; actions `actions/*` épinglées au tag majeur courant ; les secrets ne sont lus que dans l'environnement de l'étape
+qui en a besoin (jamais au niveau du job : un `postinstall` npm n'y a pas accès), jamais dans un script `run`, jamais affichés (aucun `set -x`) ; une étape
+« Détecter les secrets » n'en exporte que des booléens (`if: steps.detect.outputs.signing == 'true'` : l'équivalent sûr de `if: env.X != ''`, qui ne
+fonctionnerait pas pour un secret à portée d'étape).
+
+| Workflow | Déclencheurs | Secrets attendus (noms exacts) | Produit |
+| --- | --- | --- | --- |
+| `ci.yml` | `pull_request` vers `main` et `push` sur `main` | aucun (valeurs bidon pour les variables `VITE_*`) | build web, suite de tests (`--pool=forks --poolOptions.forks.singleFork=true`), `cap sync android` et `cap sync ios`, vérification que `Package.swift`/`capacitor.build.gradle` versionnés sont à jour. Ne compile rien de natif, ne publie rien |
+| `android-build.yml` | **manuel seulement** (champ facultatif `version_code`) | facultatifs : `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD` ; recommandés : `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` | **toujours** : APK de debug (valide que le projet compile), manifestes fusionnés (journal + artefact) et liste des permissions (journal + résumé du job). **Si les 4 secrets de signature existent** : AAB de release signé (artefact, 14 jours) et empreinte SHA-256 du certificat. Aucun envoi à Google Play (le premier AAB se téléverse à la main) |
+| `ios-build.yml` | **manuel** (champs `build_number`, case `upload_testflight`) ou **tag `v*`** ; jamais un push de branche | facultatifs : `APP_STORE_CONNECT_ISSUER_ID`, `APP_STORE_CONNECT_KEY_ID`, `APP_STORE_CONNECT_KEY_P8` (contenu du fichier), `APPLE_TEAM_ID` ; recommandés : `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` | **toujours** : compilation pour le simulateur sans signature. **Si les 4 secrets Apple existent** : archive signé (signature **automatique** par la clé API), export `.ipa` (artefact, 7 jours), contrôle des droits signés, puis envoi à **TestFlight** (build de test : rien n'est soumis à la revue) |
+
+Détails à connaître :
+
+- **Valeurs `VITE_*`** : le build web les **grave** dans l'app. Sans `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` (mêmes valeurs publiques que sur Vercel), les workflows compilent
+  avec des valeurs bidon (utile pour valider la compilation, l'app ne se connectera à rien) ; **avec des secrets de signature mais sans ces deux valeurs, le workflow
+  échoue volontairement** plutôt que de produire un AAB/IPA inutilisable.
+- **Android** : JDK 21 (Temurin), Android SDK préinstallé sur `ubuntu-latest` (API 36, build-tools 36.0.0), `./gradlew assembleDebug processReleaseMainManifest`. Le journal
+  affiche chaque manifeste fusionné trouvé puis les permissions effectives (script `scripts/android-merged-permissions.mjs`, testé). **Attendu aujourd'hui** (à confirmer au
+  premier passage) : `INTERNET`, `POST_NOTIFICATIONS`, `ACCESS_COARSE_LOCATION`, `RECORD_AUDIO`, `MODIFY_AUDIO_SETTINGS`, `VIBRATE`, plus celles que Firebase/Google Play
+  Services ajoutent quand `google-services.json` est présent (réseau, réveil, `com.google.android.c2dm…`). Toute permission **inattendue** (caméra, stockage, position précise,
+  contacts) est à examiner avant d'envoyer l'AAB. Le nom exact de la tâche Gradle `processReleaseMainManifest` n'a pas pu être exécuté ici ; si Gradle la refusait, il suffirait de la retirer de
+  la ligne de l'étape « APK de debug » (le manifeste de la variante debug est produit de toute façon par `assembleDebug`).
+- **iOS** : `macos-26`, Xcode 26 le plus récent installé (le workflow vérifie `≥ 26`), `xcodebuild -list` et `-resolvePackageDependencies` d'abord (le journal montre les schémas),
+  compilation simulateur `-sdk iphonesimulator -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO`. Le projet n'a **pas de schéma partagé** (modèle Capacitor) :
+  `xcodebuild` utilise le schéma implicite « App ». Si une exécution échoue sur ce point, ouvrir le projet sur un Mac une fois (Xcode crée alors un schéma partagé) et le committer.
+- **Signature iOS automatique** : `xcodebuild archive -allowProvisioningUpdates -authenticationKeyPath/ID/IssuerID` + `exportArchive` avec `ExportOptions.plist` créé à l'exécution
+  (`method: app-store-connect`, `signingStyle: automatic`, `manageAppVersionAndBuildNumber: false`). **La clé API doit avoir le rôle Admin** (voir sources) : c'est un compromis de
+  sécurité — une clé Admin peut tout faire dans App Store Connect : la stocker uniquement comme secret GitHub, la **révoquer** (App Store Connect > Utilisateurs et accès > Intégrations)
+  au moindre doute. Alternative non implémentée : certificats et profils manuels (fastlane `match` ou secrets de certificat `.p12` + profil), qui évitent la clé Admin mais exigent plus
+  d'étapes. L'identifiant d'app et ses capacités doivent exister (guide, C2).
+- **Envoi TestFlight** : `xcrun altool --upload-app -f <ipa> -t ios --apiKey … --apiIssuer …` (outil d'Apple livré avec Xcode : aucun tiers ne reçoit la clé). Alternative maintenue si `altool`
+  venait à être retiré : l'action `apple-actions/upload-testflight-build@v5` (v5.5.1 à la date de vérification), non utilisée ici pour ne confier la clé à aucune action tierce.
+- **Coût iOS** : un build macOS dure typiquement 15 à 25 minutes (**estimation**, non mesurée) ; tarif lu à l'étape 4 : 0,062 USD/min, soit environ 1 à 1,6 USD par exécution. Dépôt privé ou
+  public : vérifier la facturation sur https://docs.github.com/en/billing/reference/actions-runner-pricing.
+
+## Scripts npm ajoutés
+
+| Commande | Effet |
+| --- | --- |
+| `npm run cap:sync:ios` | `vite build && cap sync ios` (fonctionne aussi sous Windows) |
+| `npm run cap:open:ios` | ouvre le projet dans Xcode (**macOS uniquement**) |
+| `npm run ios:build:sim` | `xcodebuild` simulateur sans signature (**macOS uniquement**, sert de mémo : la CI fait la même chose) |
+| `npm run assets:ios` | régénère l'icône et l'écran de lancement iOS depuis `assets/` |
+
+`npm run build` est **inchangé** (Vercel). Nouveaux paquets de développement : `@capacitor/ios` 8.5.2, `yaml` et `plist` (uniquement pour les tests).
+
+## Tests ajoutés
+
+`src/native/step5Ios.test.js` : textes d'autorisation, chiffrement, absence de clés inutiles, orientations, entitlements (hôte = `publicOrigin.json`), identifiant d'app partout identique,
+version = `package.json`, cible iOS 15, références du `pbxproj` (entitlements, manifeste copié dans le bundle, intégrité des identifiants), Swift Package Manager, `AppDelegate` push, manifeste de
+confidentialité (types et finalités autorisés, aucune donnée de suivi), icône 1024 sans alpha, splash, absence de fichier/clé sensible dans le dépôt, script de permissions Android.
+`src/native/step5Workflows.test.js` : syntaxe YAML (parseur `yaml`), permissions minimales, `concurrency`/`timeout`, **aucun déclencheur `push` de branche** pour les builds natifs, secrets
+(noms autorisés, jamais dans un `run`, jamais de `set -x`, aucun blob/clé en clair, aucune injection de script), étapes sensibles conditionnées, actions épinglées par tag majeur, runners, Node 22 / JDK 21.
+
+## Vérifications effectuées (étape 5)
+
+- `npm run build` : OK (bundle principal 487,2 ko brut, 142,0 ko gzip ; `dist/` produit comme avant, `index.html` et ses hash CSP inchangés).
+- `npx cap sync android` et `npx cap sync ios` : OK, 9 plugins chacun ; les fichiers versionnés (`Package.swift`, `capacitor.build.gradle`, `capacitor.settings.gradle`) restent inchangés après la synchronisation.
+- Suite complète : **239 fichiers, 1 634 tests, tous verts, 0 « unhandled error »** (`npx vitest run --pool=forks --poolOptions.forks.singleFork=true`), dont les 64 nouveaux tests des deux fichiers `step5*`.
+- Syntaxe : les 3 workflows sont parsés par `yaml` (tests) et tous leurs scripts `run` passent `bash -n`. Les fichiers `.plist` / `.xcprivacy` / `.entitlements` sont parsés par `plist` (tests). Le `pbxproj` n'a pas de parseur ici : intégrité des
+  références vérifiée par test (chaque identifiant référencé est défini, le fichier est dans le groupe et la phase Resources).
+- `git ls-files` : aucun fichier `.p8 .p12 .pem .jks .keystore .mobileprovision .cer`, `google-services.json`, `GoogleService-Info.plist`, `keystore.properties` (test + recherche).
+
+## Ce qui n'a PAS pu être vérifié (aucun Mac, aucun JDK, aucune CI exécutée)
+
+- **Aucun workflow n'a tourné sur GitHub.** Le premier lancement révélera d'éventuelles erreurs : noms de tâches Gradle, chemin exact des manifestes fusionnés, schéma Xcode implicite, résolution Swift Package Manager (téléchargement de `capacitor-swift-pm`, `ion-ios-camera`…),
+  signature automatique, `altool`. Les workflows sont écrits pour échouer **clairement** (journal des 200 dernières lignes pour le simulateur, artefacts) et la compilation sans secret tourne avant tout ce qui est signé.
+- **Gradle** : le bloc de signature et `versionCode` de `build.gradle` n'ont jamais été exécutés (syntaxe Groovy de mémoire, calquée sur la documentation Android) ; `assembleDebug` n'a jamais tourné non plus (étape 1).
+- **Xcode** : le `project.pbxproj` modifié à la main n'a jamais été ouvert dans Xcode ; l'entitlements / le manifeste de confidentialité n'ont pas été soumis à la validation d'Apple. Le rapport « Generate Privacy Report » n'a pas été produit.
+- **Signature automatique par clé API** : ni la création du certificat de distribution, ni l'enregistrement automatique des capacités (Push, Associated Domains) n'ont été testés ; d'où la recommandation de créer l'identifiant d'app et ses capacités soi-même (guide C2).
+- Aucune permission réelle, aucun jeton APNs, aucun lien universel (AASA : Team ID à remplacer), aucune notification, aucun message vocal sur iPhone.
+
+## Risques de régression à auditer
+
+1. `android/app/build.gradle` : `versionCode` passe par `baobabVersionCode` (valeur 1 inchangée en local) et un bloc de signature conditionnel est ajouté ; sans variables de signature, `assembleDebug`/`bundleRelease` se comportent comme avant (AAB non signé).
+2. `AndroidManifest.xml` : **deux permissions ajoutées** (`RECORD_AUDIO`, `MODIFY_AUDIO_SETTINGS`) : le micro apparaît dans la fiche Google Play (Sécurité des données déjà alignée) ; test mis à jour (`step5Ios.test.js`).
+3. `.github/workflows/ci.yml` : actions passées en v7/v6, étape supplémentaire `cap sync` + contrôle de dérive (`git diff --exit-code`) : si elle échoue, lancer `npx cap sync` et committer `Package.swift` / `capacitor.build.gradle`.
+4. `package.json` / `package-lock.json` : trois devDependencies ajoutées (`@capacitor/ios`, `yaml`, `plist`) ; `npm ci` doit rester propre.
+5. Le web (Vercel) n'est pas touché : aucun fichier de `src/` hors tests n'a changé.
+
+---
+
+# GUIDE DE PUBLICATION (pour quelqu'un qui n'a jamais publié d'application)
+
+Lecture conseillée : tout le guide une fois, puis suivre **(F) Ordre recommandé**. Les noms de menus des consoles changent souvent : si un libellé diffère, cherchez le mot-clé
+(« API », « Keys », « Signing »). Rien dans ce guide ne coûte ni n'engage sans votre clic : les comptes (A) coûtent de l'argent réel.
+
+## (A) Créer les comptes
+
+| Compte | Coût (voir `STORES.md` §0 et §14) | À savoir |
+| --- | --- | --- |
+| **Apple Developer Program** (https://developer.apple.com/programs/enroll/) | **99 USD / an** | Identifiant Apple avec double authentification ; **particulier** : nom légal affiché comme vendeur, pas de D-U-N-S ; **organisation** : numéro D-U-N-S, entité légale, site web (délai variable). Le titulaire du compte (« Account Holder ») doit accepter les contrats dans App Store Connect avant de créer une app |
+| **Google Play Console** (https://play.google.com/console) | **25 USD, une fois** | Pièce d'identité officielle + carte à votre nom légal ; vérification d'un appareil Android (application mobile Play Console). **Compte personnel créé après le 13 novembre 2023 : test fermé obligatoire** (B7) |
+| **GitHub** (déjà là) | selon facturation | Le dépôt héberge les workflows ; secrets : Settings du dépôt |
+| **Firebase** (https://console.firebase.google.com) | sans frais pour FCM (forfait Spark) | Compte Google |
+
+## (B) Android
+
+### B1. Générer la clé d'envoi (keystore) — **une seule fois, à ne jamais perdre**
+
+1. `keytool` est fourni avec Android Studio (JDK intégré, dossier `jbr\bin`, par exemple `C:\Program Files\Android\Android Studio\jbr\bin\keytool.exe` — chemin à vérifier) ou avec tout JDK 17+
+   (installation possible : `winget install EclipseAdoptium.Temurin.21.JDK`, identifiant à confirmer avec `winget search temurin`).
+2. Créez un dossier **hors du dépôt et hors de OneDrive** (le projet est dans `Desktop`, synchronisé par OneDrive), par exemple `C:\Baobab-cles\`, puis dans PowerShell :
+
+```
+cd C:\Baobab-cles
+keytool -genkeypair -v -keystore baobab-upload.keystore -alias baobab-upload -keyalg RSA -keysize 2048 -validity 10000 -storetype PKCS12
+```
+
+3. `keytool` demande un mot de passe (choisir un mot de passe long, **le noter dans un gestionnaire de mots de passe**), puis nom/organisation/pays (« CA »). Avec PKCS12, le mot de passe de la clé est **le même** que celui du keystore :
+   vous donnerez donc la même valeur à `ANDROID_KEYSTORE_PASSWORD` et `ANDROID_KEY_PASSWORD`. L'alias est `baobab-upload`. La validité de 10 000 jours (≈ 27 ans) dépasse l'exigence de Google (au-delà du 22 octobre 2033).
+4. **Sauvegardez** `baobab-upload.keystore` **et** le mot de passe dans au moins **deux** endroits hors dépôt (gestionnaire de mots de passe + clé USB). Ne l'envoyez jamais par e-mail ni dans le dépôt (`.gitignore` bloque `*.keystore`).
+5. **Activez Play App Signing** (B6) : c'est le réglage par défaut des nouvelles apps. Votre keystore est alors la clé d'**envoi** : si vous la perdez, Google permet de la **réinitialiser** (demande dans la Play Console) ; la clé qui signe réellement l'app chez les utilisateurs est gardée par Google.
+
+### B2. Encoder le keystore en base64 et créer les secrets GitHub
+
+1. Dans PowerShell, copiez le keystore encodé dans le presse-papiers (rien n'est affiché) :
+   `[Convert]::ToBase64String([IO.File]::ReadAllBytes('C:\Baobab-cles\baobab-upload.keystore')) | Set-Clipboard`
+2. Sur GitHub : le dépôt → **Settings → Secrets and variables → Actions → New repository secret**. Créez (nom exact → valeur) :
+
+| Nom | Valeur |
+| --- | --- |
+| `ANDROID_KEYSTORE_BASE64` | le contenu du presse-papiers (collez, une seule ligne) |
+| `ANDROID_KEYSTORE_PASSWORD` | le mot de passe du keystore |
+| `ANDROID_KEY_ALIAS` | `baobab-upload` |
+| `ANDROID_KEY_PASSWORD` | le même mot de passe (PKCS12) |
+| `VITE_SUPABASE_URL` | l'URL du projet Supabase (Supabase → Project Settings → API ; même valeur que la variable Vercel du même nom) |
+| `VITE_SUPABASE_ANON_KEY` | la clé « anon » publique (même page ; même valeur que sur Vercel). **Jamais** la clé « service_role » |
+
+3. Effacez ensuite le presse-papiers (copiez un autre texte).
+
+### B3. (Avant le premier build « de production ») Firebase
+
+Voir (D) : sans `android/app/google-services.json`, l'app se construit mais les notifications push sont désactivées.
+
+### B4. Lancer le workflow
+
+GitHub → onglet **Actions → Android build → Run workflow** (laissez `version_code` vide : le numéro d'exécution sert de `versionCode`, croissant ; s'il doit dépasser un numéro déjà envoyé à Google, saisissez-le). Durée : quelques minutes
+à une dizaine (estimation). Sans secrets de signature : seul l'APK de debug est construit (bon test de compilation).
+
+### B5. Lire le résultat et récupérer l'AAB
+
+1. Ouvrez l'exécution : étape **« Afficher le manifeste fusionné et les permissions effectives »** (et le « Summary » en bas de page) = ce que Google Play analysera. Vérifiez qu'il n'y a **aucune permission surprenante** (attendu : réseau, notifications, position approximative,
+   micro, vibration + celles de Firebase si présent).
+2. Section **Artifacts** en bas : `baobab-android-release-aab` (l'`.aab`, à envoyer à Google), `baobab-android-debug-apk` (à installer sur un téléphone de test pour essayer sans passer par Google : activer l'installation d'apps inconnues),
+   `baobab-android-merged-manifests`. L'étape « Empreinte SHA-256 » imprime l'empreinte de la clé d'**envoi** (utile pour B8).
+
+### B6. Créer la fiche Play Console et envoyer le premier AAB
+
+1. Play Console → **Créer une application** (nom — vérifier la disponibilité de « Baobab : rencontres au Canada » —, langue par défaut, application (pas jeu), gratuite) → accepter les déclarations.
+2. **Version → Test → Test interne** : créer une version, **téléverser l'AAB** (le tout premier se téléverse à la main), laisser **Play App Signing activé**. Ajouter vos adresses e-mail comme testeurs internes : installation immédiate sur vos téléphones via le lien.
+3. Remplir **Contenu de l'application** : politique de confidentialité (`https://baobab-app-zeta.vercel.app/confidentialite`), **Sécurité des données** (réponses prêtes : `STORES.md` §9), classification du contenu (IARC, `STORES.md` §11), **public cible 18 ans et plus** + restriction aux mineurs,
+   **suppression de compte** (URL `…/suppression-compte`), **normes de sécurité des enfants** (page à publier + contact, `STORES.md` §14 n°9), publicités : non. **Fiche principale** : textes et captures (`STORES.md` §12–13).
+
+### B7. Test fermé obligatoire (comptes personnels créés après le 13 novembre 2023)
+
+Règle lue le 7 octobre 2026 (https://support.google.com/googleplay/android-developer/answer/14151465) : **12 testeurs au minimum, inscrits en continu pendant 14 jours** (s'ils se désinscrivent puis se réinscrivent, les 14 jours
+doivent être consécutifs), puis bouton **« Demander l'accès à la production »** (formulaire sur le test, l'app et la préparation) ; l'examen prend « en général sept jours ou moins, parfois plus ». **À revérifier au moment de le faire** : la règle a déjà évolué. Recrutez 12 personnes **réelles**
+tôt : c'est le délai le plus long du projet. **Démarrez ce test dès que le premier AAB est prêt**, sans attendre l'iOS.
+
+### B8. Empreinte SHA-256 → `assetlinks.json` (liens d'app)
+
+Après le premier envoi : Play Console → **Version → Configuration → Intégrité de l'application → Signature d'application** (libellés à confirmer) : copiez l'empreinte **SHA-256 du certificat de signature de l'application** (celle de Google) — et, si vous voulez tester avec l'APK/AAB signé localement, celle de votre clé d'envoi
+(imprimée par le workflow). Collez-les dans `public/.well-known/assetlinks.json` (champ `sha256_cert_fingerprints`, plusieurs valeurs possibles, format `AA:BB:…`), déployez le site (Vercel), puis vérifiez :
+`https://digitalassetlinks.googleapis.com/v1/statements:list?source.web.site=https://baobab-app-zeta.vercel.app&relation=delegate_permission/common.handle_all_urls`. Un test du dépôt exige aujourd'hui que le champ commence par « REMPLACER » : **mettez-le à jour avec la vraie valeur** (`src/native/step3aConfig.test.js`).
+
+## (C) iOS
+
+Prérequis : compte Apple Developer actif (A), contrats acceptés par l'Account Holder.
+
+### C1. Identifiant d'app (App ID) avec les capacités
+
+developer.apple.com → **Certificates, Identifiers & Profiles → Identifiers → +** → **App IDs** → type App → **Explicit** → Bundle ID **`ca.baobab.app`** → cocher **Push Notifications** et **Associated Domains** → Register.
+(Rôle Account Holder ou Admin.) Sans cela, la signature automatique peut échouer ou produire un profil sans ces droits.
+
+### C2. Clé API App Store Connect (pour la CI)
+
+App Store Connect (https://appstoreconnect.apple.com) → **Utilisateurs et accès → Intégrations → App Store Connect API → clés d'équipe → « + »** : nom `GitHub CI`, accès **Admin** (nécessaire à la signature de distribution automatique ; compromis expliqué plus haut) → **Télécharger la clé (`AuthKey_XXXXXXXXXX.p8`) : possible UNE SEULE fois**, sauvegardez-la hors dépôt.
+Notez l'**Issuer ID** (en haut de la page, un UUID) et le **Key ID** (colonne de la clé). **Cette clé n'est PAS la clé APNs de C5** : ce sont deux fichiers `.p8` différents.
+Créez les secrets GitHub (même chemin que B2) :
+
+| Nom | Valeur |
+| --- | --- |
+| `APP_STORE_CONNECT_ISSUER_ID` | l'Issuer ID |
+| `APP_STORE_CONNECT_KEY_ID` | le Key ID |
+| `APP_STORE_CONNECT_KEY_P8` | **tout le contenu** du fichier `.p8` (ouvrir avec le Bloc-notes, copier de `-----BEGIN PRIVATE KEY-----` à `-----END PRIVATE KEY-----`) |
+| `APPLE_TEAM_ID` | l'identifiant d'équipe (10 caractères : developer.apple.com → Compte → **Membership details**) |
+| `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` | comme B2 (déjà créés si vous avez fait Android) |
+
+### C3. Créer l'app dans App Store Connect
+
+App Store Connect → **Apps → « + » → Nouvelle app** : plateforme iOS, nom (30 caractères max, disponibilité à vérifier), langue principale (français Canada), **identifiant d'app `ca.baobab.app`** (liste de ceux enregistrés en C1), **SKU** (au choix, ex. `baobab-ios-001`, jamais affiché), accès complet. La fiche existe alors, vide, et attend un build.
+
+### C4. Activer les services côté Apple si nécessaire
+
+Associated Domains et Push sont cochés en C1. Rien d'autre à activer pour Baobab (pas de Sign in with Apple : STORES.md §4).
+
+### C5. Clé APNs (pour que Supabase envoie les notifications iOS)
+
+developer.apple.com → **Keys → « + »** → nom `Baobab APNs` → cocher **Apple Push Notifications service (APNs)** → Configure : clé « par équipe » (la plus simple) → Continue → Register → **Download** (`AuthKey_YYYYYYYYYY.p8`, **une seule fois**). Notez son **Key ID** et le Team ID.
+Puis (terminal, voir `DEPLOIEMENT.md` §11b) : `supabase secrets set APNS_KEY_P8="$(cat AuthKey_YYYYYYYYYY.p8)" APNS_KEY_ID=YYYYYYYYYY APNS_TEAM_ID=<Team ID>`. Ne **jamais** mettre cette clé dans GitHub ni dans le dépôt.
+Pendant les tests TestFlight/Xcode (certificat de développement), le jeton est « sandbox » ; la fonction réessaie sur l'autre environnement avant de supprimer un jeton (voir étape 3a).
+
+### C6. Team ID → `apple-app-site-association` (liens universels)
+
+Remplacez `REMPLACER_PAR_LE_TEAM_ID_APPLE` dans `public/.well-known/apple-app-site-association` par votre Team ID (c'est le préfixe de l'identifiant, ex. `ABCDE12345.ca.baobab.app`) — public, pas un secret —, déployez sur Vercel, puis vérifiez :
+`curl -sI https://baobab-app-zeta.vercel.app/.well-known/apple-app-site-association` doit répondre `200` et `content-type: application/json`, **sans redirection**. Le test `step3aConfig.test.js` exige aujourd'hui « REMPLACER… » : adaptez-le.
+
+### C7. Lancer le workflow iOS
+
+GitHub → **Actions → iOS build → Run workflow** (laissez `build_number` vide et la case **upload_testflight** cochée). Le workflow : compile pour le simulateur (échoue ici si le code ne compile pas), puis archive signé, exporte l'`.ipa`, **affiche les droits signés** (vérifiez
+`aps-environment` = `production` et `applinks:baobab-app-zeta.vercel.app`) et envoie à **TestFlight**. Un tag `v1.1.0` poussé déclenche le même travail (envoi compris). Durée : 15 à 25 minutes (estimation).
+En cas d'échec voir « Dépannage » ci-dessous.
+
+### C8. TestFlight (testeurs internes)
+
+Après l'envoi, App Store Connect traite le build (quelques minutes à une heure, variable) : un e-mail confirme. App Store Connect → votre app → **TestFlight** : le build apparaît ; la question de conformité à l'exportation est déjà répondue par `Info.plist`.
+**Testeurs internes** : seuls des utilisateurs de votre équipe App Store Connect (jusqu'à 100 par groupe ; Utilisateurs et accès → ajouter l'adresse du testeur avec un rôle « Developer » ou « App Manager »). Ils installent l'app **TestFlight** sur leur iPhone et acceptent l'invitation. Le build reste disponible 90 jours.
+
+### C9. Soumettre à la revue de l'App Store (VOUS, jamais la CI)
+
+App Store Connect → app → version 1.1.0 : textes et mots-clés (`STORES.md` §12), captures (§13 ; **iPad 13" si l'app est proposée sur iPad**), **App Privacy** (réponses du §8, identiques au manifeste), **classification d'âge** avec « Override to Higher Age Rating » = 18+ (§11),
+URL de confidentialité, **URL d'assistance (obligatoire : exige `supportEmail`)**, catégorie « Réseaux sociaux », sélectionner le build, et dans **Notes pour la revue** : identifiants du **compte de démonstration** (compte e-mail déjà confirmé, onboarding terminé, avec une
+**position au Canada récente** car l'onglet Rencontres est réservé au Canada : `STORES.md` §14 n°11 — jamais dans le dépôt), description de la modération (signalement, blocage, délai visé). Puis « Ajouter pour examen ». **Aucun Premium ne doit apparaître dans l'app native** (voir Risques).
+
+### Dépannage (premiers échecs probables)
+
+| Message | Cause probable | Que faire |
+| --- | --- | --- |
+| « No profiles for 'ca.baobab.app' were found » / profil sans capacité Push ou Associated Domains | identifiant d'app absent ou capacités non cochées | C1 ; relancer |
+| « Cloud signing permission error » / refus de créer un certificat de distribution | clé API non **Admin** | recréer la clé avec l'accès Admin (C2), remplacer les 3 secrets |
+| « Unable to find a destination … iOS Simulator » / schéma introuvable | schéma implicite « App » | voir « Détails à connaître » (ouvrir une fois sur un Mac, committer le schéma partagé) |
+| Échec de résolution des paquets Swift | réseau / dépôt Swift indisponible | relancer ; lire le journal de l'étape `-resolvePackageDependencies` |
+| « The bundle version must be higher than the previously uploaded version » | numéro de build déjà utilisé | saisir un `build_number` plus grand |
+| E-mail d'Apple « ITMS-90683 Missing purpose string » | clé `Info.plist` manquante pour une API référencée | ajouter la clé (texte français honnête) |
+| E-mail d'Apple « ITMS-91053 Missing API declaration » | API à raison requise non déclarée | l'ajouter à `PrivacyInfo.xcprivacy` (catégorie + raison citées) |
+| Android : « Keystore was tampered with, or password was incorrect » | mauvais `ANDROID_KEYSTORE_PASSWORD` | vérifier le secret |
+| Play : « Le code de version … a déjà été utilisé » | `versionCode` déjà envoyé | relancer avec un `version_code` plus grand |
+
+## (D) Firebase (notifications Android)
+
+1. https://console.firebase.google.com → **Ajouter un projet** (Analytics facultatif : le refuser réduit les données collectées).
+2. **Paramètres du projet → Vos applications → Ajouter une application → Android** : nom du package **`ca.baobab.app`** (SHA-1 facultatif pour FCM). Télécharger **`google-services.json`**.
+3. Placer le fichier dans **`android/app/google-services.json`** et le **committer** (identifiants publics du projet, pas de clé privée : décision déjà documentée à l'étape 1).
+4. **Paramètres du projet → Comptes de service → Générer une nouvelle clé privée** (JSON, **secret**) ; vérifier que l'API « Firebase Cloud Messaging API (V1) » est activée ; puis `supabase secrets set FCM_SERVICE_ACCOUNT_JSON="$(cat compte-de-service.json)"` (Git Bash). Ne jamais committer ce JSON.
+5. Aucune app iOS Firebase n'est nécessaire (APNs direct, voir étape 3a).
+
+## (E) Ce qui reste à déployer côté Supabase
+
+Source de vérité et commandes exactes : **`DEPLOIEMENT.md`** (relire l'état à jour ; ce qui suit est un **ordre suggéré**, vérifié le 7 octobre 2026). Aucune de ces actions n'a été faite par les agents.
+
+1. SQL `supabase-age-check-server-side.sql` (priorité : contrainte 18 ans côté serveur ; puis `validate constraint` après vérification qu'aucune ligne ne la viole).
+2. SQL `supabase-content-select-block-filter-fix.sql` (§12c : filtre de lecture du blocage), `supabase-indexes-launch-fix.sql` (§10), correctif `can_view_event()` (§8).
+3. SQL `supabase-device-tokens.sql` (§11a : jetons push natifs).
+4. SQL orphelins et modération : `supabase-community-orphan-guard-fix.sql`, `supabase-community-role-change-orphan-fix.sql`, `supabase-community-orphan-account-deletion-fix.sql`, `supabase-event-orphan-account-deletion-fix.sql` (§1d–§1f), `supabase-admin-resolve-report-race-fix.sql`.
+5. Secrets (FCM, APNs : D4 et C5) puis edge functions : `send-push` (§11b), **`process-scheduled-deletions`** (§12b, suppression de compte exigée par les boutiques), `cleanup-expired-stories` (§2b).
+6. SQL `supabase-push-notifications-triggers.sql` (§1c) **après** `send-push` : sans lui aucune notification ne part ; **décider avant** si le push « like » doit nommer la personne (risque 6 de l'étape 3a : Premium/admirateurs).
+7. Facultatifs : `supabase-unaccent-search.sql` (§1b), `supabase-post-report-minor-category.sql` (§12a).
+8. `stripe-webhook` (§2a) **seulement** si le Premium web doit exister : il répond 404 aujourd'hui (jamais déployé).
+9. `src/config/contact.json` : renseigner `supportEmail` et `operatorName` puis redéployer le site (§12d).
+
+## (F) Ordre recommandé des opérations et durées typiques
+
+Les durées d'approbation sont **variables** (non garanties) ; seuls chiffres lus : test fermé Google 14 jours, examen de l'accès à la production « en général sept jours ou moins ».
+
+1. **Aujourd'hui** : créer les comptes Apple et Google (A) — la vérification d'identité et le D-U-N-S (organisation) sont les délais les moins prévisibles. Recruter les 12 testeurs Google.
+2. Renseigner `contact.json`, trancher le Premium (**option C : masquer prix/CTA Premium en natif, ≈ 1 jour de code, à faire AVANT toute soumission** : `STORES.md` §6.4) et le filtre de contenu.
+3. Supabase (E) : au minimum les points 1 à 5.
+4. Firebase (D), puis secrets GitHub Android (B2), lancer **Android build** (B4), corriger ce que la première compilation révèle, créer la fiche Play et démarrer le **test fermé** (B6–B7) : le compte à rebours de 14 jours commence.
+5. Pendant ces 14 jours : identifiant d'app et clés Apple (C1, C2, C5), créer l'app (C3), Team ID dans AASA (C6), lancer **iOS build** (C7), tester sur de vrais iPhone via TestFlight (C8) avec la **checklist** ci-dessous.
+6. Corriger, répéter les builds (numéros de build croissants), préparer fiches, captures, notes de revue (C9, B6).
+7. Soumettre iOS à la revue ; demander l'accès à la production Android une fois les 14 jours écoulés ; surveiller les e-mails des deux boutiques.
+8. Après acceptation : publier, vérifier `assetlinks.json` / AASA, surveiller les erreurs (`client_errors`) et les signalements.
+
+## (G) Tableau d'avancement final et ce que seul le propriétaire peut faire
+
+| Étape | Contenu | Code/documents | Vérifié sur appareil ou en vrai build ? |
+| --- | --- | --- | --- |
+| 1 | Capacitor + projet Android | Fait | **Non** : `assembleDebug` jamais exécuté avant la première CI |
+| 2 | Interface mobile, splash, icônes | Fait | **Non** (aucun téléphone ; émulation navigateur seulement) |
+| 3a | Push natif, présence, liens profonds | Fait | **Non** (aucune notification envoyée ni reçue ; AASA/assetlinks avec valeurs à remplacer) |
+| 3b | Caméra, localisation, partage, haptique, retour Android | Fait | **Non** |
+| 4 | Exigences des boutiques (UGC, suppression de compte, légal, questionnaires) | Fait (code + `STORES.md`) | **Non soumis** ; décisions et comptes à faire par le propriétaire |
+| 5 | Projet iOS, CI Android/iOS, guide | Fait (ce document) | **Non** : aucun workflow exécuté, aucun Mac, aucun Xcode |
+
+**Ce que seul le propriétaire peut faire** (liste consolidée) :
+
+1. Comptes Apple Developer (99 USD/an) et Google Play (25 USD), vérifications d'identité ; D-U-N-S si organisation.
+2. Créer et **sauvegarder** le keystore Android ; créer **tous** les secrets GitHub (Android : 4 + 2 ; iOS : 4 + 2) ; ne jamais les coller dans une conversation ni un fichier du dépôt.
+3. Créer l'identifiant d'app Apple et ses capacités, la clé API App Store Connect (Admin), la clé APNs, l'app dans App Store Connect, la fiche Play Console.
+4. Firebase : projet, `google-services.json` (à committer), compte de service FCM (secret Supabase).
+5. Exécuter le SQL et déployer les edge functions listés en (E) ; poser les secrets Supabase.
+6. Renseigner `src/config/contact.json` ; Team ID dans AASA ; empreintes SHA-256 dans `assetlinks.json` (puis adapter le test `step3aConfig.test.js`).
+7. Décisions produit/juridiques : Premium au lancement (option C), filtre de contenu, conservation des signalements, données sensibles Apple, déclaration d'exportation (chiffrement), iPad ou iPhone seulement, relecture juridique des textes.
+8. Recruter 12 testeurs Google pour 14 jours ; fournir un compte de démonstration aux relecteurs ; captures d'écran (iPhone 6,9", iPad 13" si iPad), image de présentation Google 1024×500, logo vectoriel.
+9. Tester sur de vrais appareils (checklist ci-dessous) ; soumettre à la revue (Apple) et demander la production (Google).
+
+### Checklist de tests sur appareils réels
+
+Reprendre **`STORES.md` §15** (appareils, inscription, permissions, notifications app fermée, hors ligne, liens profonds, suppression de compte, signalement/blocage sur chaque surface, légal, compte de démonstration) **et ajouter pour cette étape** :
+
+- iPhone : fenêtres d'autorisation (caméra, **micro**, localisation approximative) en français ; refus puis autorisation dans Réglages ; un message vocal enregistré, envoyé et réécouté (WKWebView).
+- iPhone : notification push reçue **app fermée** (jeton APNs enregistré dans `device_push_tokens`, `platform = ios`), clic → bonne page ; après déconnexion, plus de notification.
+- Liens universels : `/profile/<uuid>`, `/event/<uuid>` ouverts depuis Messages/Notes ouvrent l'**app** (AASA servi sans redirection, Team ID correct) ; lien d'e-mail de confirmation et de réinitialisation.
+- Zones sûres (encoche, Dynamic Island, barre d'accueil), clavier, écran de lancement clair/sombre sans écran blanc, icône sur l'écran d'accueil, iPad en portrait et en paysage.
+- Origine `capacitor://localhost` : connexion, chargement des données, Realtime, envoi de médias vers Supabase (CORS permissif : voir « Points ouverts » de l'étape 1).
+- Android : message vocal (invite micro au premier clic) ; permissions listées par le workflow = permissions réellement demandées.
+
+### Risques connus (à garder en tête avant de soumettre)
+
+1. **Premium / achats intégrés** : l'interface d'achat Stripe est **toujours visible dans l'app native** (rien n'a été masqué). Apple 3.1.1/3.1.3(b) et Google (paiements) la rejetteront. **Recommandation : option C** (aucun Premium dans la version native au lancement, ≈ 1 jour de code), `STORES.md` §6.4. **À faire avant la première soumission.**
+2. **Contact support vide** (`contact.json`) : Apple 1.2/1.5 et l'« URL d'assistance » obligatoire ; risque de rejet réel.
+3. **Aucun filtre de contenu** à la publication (Apple 1.2) : compensé par signalement + blocage + modération réactive, mais point de rejet possible.
+4. **SQL jamais exécutés en prod** : notamment **`supabase-age-check-server-side.sql`** (sans lui un appel direct à l'API peut enregistrer un mineur), `supabase-content-select-block-filter-fix.sql`, `supabase-device-tokens.sql`, `supabase-push-notifications-triggers.sql` (aucun push sans lui) ; fonctions `process-scheduled-deletions` à redéployer (suppression de compte exigée par les boutiques).
+5. **`stripe-webhook` répond 404** (jamais déployé) : le Premium web n'est pas actif ; le bouton d'achat reste visible (voir 1).
+6. **Valeurs à remplacer** : Team ID (AASA), empreintes SHA-256 (`assetlinks.json`), `supportEmail` ; et les tests qui exigent « REMPLACER… » à adapter ensuite.
+7. **Aucune compilation réelle** (iOS comme Android) : `project.pbxproj` modifié à la main, bloc de signature Gradle jamais exécuté, schéma Xcode implicite, signature automatique par clé Admin (compromis de sécurité), `altool`. Le premier passage de la CI peut échouer ; chaque échec est lisible dans les journaux.
+8. **Manifeste de confidentialité** : noms de constantes écrits de mémoire (trois confirmés) ; aucune API à raison requise déclarée alors que des dépendances Swift tierces n'ont pas pu être lues ; déclaration « données sensibles » à valider.
+9. **Export (chiffrement)** : `ITSAppUsesNonExemptEncryption = false` est votre déclaration, pas celle d'Apple.
+10. **IA tierce** (Anthropic, `ai-assist`) : clé non reconfirmée ; Apple 5.1.2(i) demande un consentement explicite avant d'envoyer des données à une IA tierce (`STORES.md` §16, à valider).
+11. **Compte de démonstration** : l'onglet Rencontres est réservé au Canada ; un relecteur hors Canada est bloqué sans compte dont `user_locations.last_in_canada_at` est récent.
+12. **Micro Android** : permission `RECORD_AUDIO` ajoutée à cette étape (invite au premier usage, `STORES.md` §9 déjà aligné).
