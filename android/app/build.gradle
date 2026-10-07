@@ -1,5 +1,10 @@
 apply plugin: 'com.android.application'
 
+// Hôte des liens profonds (App Links) : lu dans src/config/publicOrigin.json, la
+// SEULE source du domaine public (aussi utilisée par le code web/natif). Voir MOBILE.md.
+def publicOrigin = new groovy.json.JsonSlurper().parse(file("../../src/config/publicOrigin.json")).origin
+def deepLinkHost = new URI(publicOrigin).host
+
 android {
     namespace = "ca.baobab.app"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -9,6 +14,7 @@ android {
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1  // à incrémenter à CHAQUE envoi vers Google Play (voir MOBILE.md)
         versionName "1.1.0"  // = "version" de package.json (voir MOBILE.md)
+        manifestPlaceholders = [deepLinkHost: deepLinkHost]
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -44,11 +50,13 @@ dependencies {
 
 apply from: 'capacitor.build.gradle'
 
-try {
-    def servicesJSON = file('google-services.json')
-    if (servicesJSON.text) {
-        apply plugin: 'com.google.gms.google-services'
-    }
-} catch(Exception e) {
-    logger.info("google-services.json not found, google-services plugin not applied. Push Notifications won't work")
+// Firebase / FCM (notifications push) : le plugin google-services n'est appliqué QUE si
+// android/app/google-services.json existe et n'est pas vide. Sans ce fichier, le build
+// (et donc la CI) reste possible ; l'app tourne mais l'enregistrement push échoue avec un
+// message clair. Le fichier est fourni par le propriétaire (console Firebase, voir MOBILE.md).
+def servicesJson = file('google-services.json')
+if (servicesJson.exists() && servicesJson.length() > 0) {
+    apply plugin: 'com.google.gms.google-services'
+} else {
+    logger.lifecycle("google-services.json absent : notifications push natives désactivées dans ce build (voir MOBILE.md).")
 }

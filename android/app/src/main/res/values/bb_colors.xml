@@ -3,4 +3,6 @@
     <!-- Jetons de marque Baobab (index.html : variables bb-indigo #14432A et bb-bg #FAF7F2). -->
     <color name="bb_splash_background">#14432A</color>
     <color name="bb_window_background">#FAF7F2</color>
+    <!-- Couleur d'accent des notifications push (vert de marque). -->
+    <color name="bb_notification_color">#14432A</color>
 </resources>

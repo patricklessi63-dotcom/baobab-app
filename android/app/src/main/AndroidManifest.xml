@@ -9,6 +9,14 @@
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
 
+        <!-- Notifications push (FCM) : petite icône monochrome, couleur d'accent et canal par
+             défaut utilisés par le système quand l'app est FERMÉE (message « notification »
+             affiché sans JavaScript). Le canal baobab_default est aussi créé par le code
+             (src/lib/nativePush.js) ; send-push envoie avec ce même identifiant. -->
+        <meta-data android:name="com.google.firebase.messaging.default_notification_icon" android:resource="@drawable/ic_stat_baobab" />
+        <meta-data android:name="com.google.firebase.messaging.default_notification_color" android:resource="@color/bb_notification_color" />
+        <meta-data android:name="com.google.firebase.messaging.default_notification_channel_id" android:value="baobab_default" />
+
         <activity
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode|navigation|density"
             android:name=".MainActivity"
@@ -21,6 +29,23 @@
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!-- Liens profonds (Android App Links) vers le domaine web public. L'hôte vient de
+                 manifestPlaceholders (android/app/build.gradle), lui-même lu dans
+                 src/config/publicOrigin.json : UNE seule source pour changer de domaine.
+                 autoVerify : Android vérifie https://<hôte>/.well-known/assetlinks.json (voir
+                 public/.well-known/assetlinks.json et MOBILE.md). Chemins en liste blanche. -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="${deepLinkHost}" />
+                <data android:pathPrefix="/event/" />
+                <data android:pathPrefix="/community/" />
+                <data android:pathPrefix="/profile/" />
+                <data android:pathPrefix="/messages/" />
+                <data android:path="/update-password" />
             </intent-filter>
 
         </activity>
@@ -39,4 +64,6 @@
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Android 13+ : permission de notification (demandée au geste de l'utilisateur, jamais au premier lancement). -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 </manifest>
