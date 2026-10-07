@@ -1,7 +1,8 @@
 import React, { useRef, useState, useEffect } from "react";
 import { Bell } from "lucide-react";
 import { C } from "../../constants";
-import { isPushSupported, isIosNotInstalled, enablePushNotifications } from "../../lib/pushNotifications";
+import { isPushSupported, isIosNotInstalled, enablePushNotifications, getPushSubscriptionStatus } from "../../lib/pushNotifications";
+import { isNative } from "../../lib/platform";
 
 // Dernier écran de l'inscription (pas un "step" du wizard 1-10 — n'affecte
 // pas OnboardingProgress ni onboarding_step) : demande le consentement push
@@ -18,7 +19,19 @@ export default function NotificationsOptIn({ onDone }) {
   const [status, setStatus] = useState("idle"); // idle | requesting | error
   const [error, setError] = useState("");
   const supported = isPushSupported();
-  const blocked = supported && Notification.permission === "denied";
+  // App native : la permission appartient au téléphone et se lit de façon
+  // asynchrone (l'objet Notification du navigateur n'existe pas dans la WebView).
+  const native = isNative();
+  const [nativeBlocked, setNativeBlocked] = useState(false);
+  useEffect(() => {
+    if (!native) return undefined;
+    let alive = true;
+    getPushSubscriptionStatus()
+      .then((s) => { if (alive) setNativeBlocked(s?.permission === "denied"); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [native]);
+  const blocked = supported && (native ? nativeBlocked : Notification.permission === "denied");
   const iosHint = !supported && isIosNotInstalled();
   // Gardes synchrones (un state React n'est pas encore à jour au 2e clic d'un
   // double-tap) : une seule demande de permission/upsert à la fois, et
@@ -72,7 +85,9 @@ export default function NotificationsOptIn({ onDone }) {
       )}
       {blocked && (
         <p className="text-sm mt-3 font-semibold" style={{ color: C.coralTextStatic }}>
-          Les notifications sont bloquées dans les réglages de ton navigateur. Tu pourras les autoriser là-bas, puis les activer dans les réglages de Baobab.
+          {native
+            ? "Les notifications sont bloquées dans les réglages de ton téléphone. Tu pourras les autoriser là-bas (Applications, Baobab, Notifications), puis les activer dans les réglages de Baobab."
+            : "Les notifications sont bloquées dans les réglages de ton navigateur. Tu pourras les autoriser là-bas, puis les activer dans les réglages de Baobab."}
         </p>
       )}
       {!supported && (

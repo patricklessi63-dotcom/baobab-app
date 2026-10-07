@@ -3,6 +3,7 @@ import { ArrowLeft, MessageCircle, Sparkles, Heart, UserPlus, Users2, PartyPoppe
 import { C } from "../constants";
 import { useEscapeKey } from "../hooks/useEscapeKey";
 import { useFocusTrap } from "../hooks/useFocusTrap";
+import { isNative } from "../lib/platform";
 import { isPushSupported, getPushSubscriptionStatus, enablePushNotifications, disablePushNotifications } from "../lib/pushNotifications";
 
 // Catégories du cahier des charges (Messages/Match/Likes/Abonnements/
@@ -126,7 +127,7 @@ export default function NotificationPreferencesModal({ open, onClose, onBack, cu
                 {pushStatus.subscribed ? (
                   <button onClick={handleDisablePush} className="bb-hit text-xs font-semibold" style={{ color: C.coralText }}>Désactiver</button>
                 ) : pushStatus.permission === "denied" ? (
-                  <span className="text-xs text-right" style={{ color: "rgba(var(--bb-ink-rgb),0.5)", maxWidth: 140 }}>Bloquées (réglages du navigateur)</span>
+                  <span className="text-xs text-right" style={{ color: "rgba(var(--bb-ink-rgb),0.5)", maxWidth: 140 }}>{isNative() ? "Bloquées (réglages du téléphone)" : "Bloquées (réglages du navigateur)"}</span>
                 ) : (
                   <button onClick={() => setPushStep("consent")} className="bb-hit text-xs font-semibold" style={{ color: "var(--bb-text)" }}>Activer</button>
                 )}

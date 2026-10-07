@@ -1,13 +1,16 @@
 import { supabase } from "../supabaseClient";
 import { isNative } from "./platform";
+import { getNativePushStatus, enableNativePush, disableNativePush } from "./nativePush";
 
 const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY;
 
 export function isPushSupported() {
-  // App native (Capacitor) : ni service worker ni Web Push. Les notifications
-  // natives (FCM/APNs) arrivent à l'étape 3 ; d'ici là, comme « non pris en
-  // charge » — sans erreur ni enregistrement de /sw.js dans la WebView.
-  if (isNative()) return false;
+  // App native (Capacitor) : ni service worker ni Web Push (aucun /sw.js n'est
+  // enregistré dans la WebView), mais des notifications NATIVES (FCM Android /
+  // APNs iOS) via @capacitor/push-notifications — voir lib/nativePush.js. Les
+  // quatre fonctions de ce fichier aiguillent donc vers nativePush.js en natif ;
+  // le chemin web n'est pas modifié.
+  if (isNative()) return true;
   // `Notification` est vérifié aussi : certains navigateurs/WebViews exposent
   // PushManager sans Notification, et enablePushNotifications() / le statut
   // lèveraient alors un ReferenceError sur `Notification.permission`.
@@ -59,6 +62,7 @@ function urlBase64ToUint8Array(base64String) {
 // de considérer l'abonnement comme valide ; si la réparation échoue aussi
 // (ex. hors-ligne), on remonte honnêtement "non abonné".
 export async function getPushSubscriptionStatus() {
+  if (isNative()) return getNativePushStatus();
   if (!isPushSupported()) return { supported: false, permission: "unsupported", subscribed: false };
   const permission = Notification.permission;
   if (permission !== "granted") return { supported: true, permission, subscribed: false };
@@ -98,6 +102,7 @@ export async function getPushSubscriptionStatus() {
 }
 
 export async function enablePushNotifications() {
+  if (isNative()) return enableNativePush();
   if (!isPushSupported()) throw new Error("Les notifications push ne sont pas prises en charge sur cet appareil.");
   if (!VAPID_PUBLIC_KEY) throw new Error("Configuration push manquante (clé VAPID absente).");
 
@@ -142,7 +147,10 @@ export async function enablePushNotifications() {
   return subscription;
 }
 
-export async function disablePushNotifications() {
+// `signOut: true` (déconnexion) : en natif, garde le choix de l'utilisateur pour
+// sa prochaine connexion tout en supprimant le jeton de cet appareil. Sans effet sur le web.
+export async function disablePushNotifications({ signOut = false } = {}) {
+  if (isNative()) return disableNativePush({ signOut });
   if (!isPushSupported()) return;
   const registration = await navigator.serviceWorker.getRegistration();
   const subscription = await registration?.pushManager.getSubscription();
