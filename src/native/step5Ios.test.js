@@ -139,6 +139,22 @@ describe("Projet Xcode (project.pbxproj)", () => {
     expect(group).toContain("PrivacyInfo.xcprivacy");
   });
 
+  it("schéma partagé « App » versionné (xcodebuild -scheme App en CI propre) : cible = la cible App du projet, Release à l'archivage", () => {
+    // Les schémas auto-créés par Xcode vivent dans xcuserdata (ignoré par git) : sans schéma partagé, un
+    // runner vierge peut répondre « does not contain a scheme named App ».
+    const schemePath = "ios/App/App.xcodeproj/xcshareddata/xcschemes/App.xcscheme";
+    expect(fs.existsSync(path.join(root, schemePath))).toBe(true);
+    const scheme = read(schemePath);
+    const targetId = /([0-9A-F]{24}) \/\* App \*\/ = \{\s*isa = PBXNativeTarget;/.exec(pbxproj)[1];
+    const ids = [...scheme.matchAll(/BlueprintIdentifier = "([0-9A-F]{24})"/g)].map((m) => m[1]);
+    expect(ids.length).toBeGreaterThan(0);
+    for (const id of ids) expect(id).toBe(targetId);
+    expect(scheme).toContain('ReferencedContainer = "container:App.xcodeproj"');
+    expect(/<ArchiveAction\s+buildConfiguration = "Release"/.test(scheme)).toBe(true);
+    expect(read("ios/.gitignore")).not.toMatch(/xcshareddata|xcschemes/);
+    expect(read(".gitignore")).not.toMatch(/xcshareddata|xcschemes/);
+  });
+
   it("Swift Package Manager (pas de CocoaPods) : les 9 plugins sont dans Package.swift", () => {
     expect(fs.existsSync(path.join(root, "ios/App/Podfile"))).toBe(false);
     const spm = read("ios/App/CapApp-SPM/Package.swift");
@@ -294,6 +310,18 @@ describe("scripts/android-merged-permissions.mjs", () => {
       "android.permission.MODIFY_AUDIO_SETTINGS",
       "android.permission.POST_NOTIFICATIONS",
       "android.permission.RECORD_AUDIO",
+    ]);
+  });
+
+  it("aucun matériel exigé : micro, appareil photo et position déclarés required=\"false\" (sinon Google Play masque l'app sur les appareils sans)", () => {
+    // RECORD_AUDIO => microphone et ACCESS_COARSE_LOCATION => location + location.network sont des exigences
+    // IMPLICITES pour Google Play tant qu'un <uses-feature required="false"> ne les annule pas.
+    const { features } = parseManifestPermissions(read("android/app/src/main/AndroidManifest.xml"));
+    expect(features).toEqual([
+      "android.hardware.camera (required=false)",
+      "android.hardware.location (required=false)",
+      "android.hardware.location.network (required=false)",
+      "android.hardware.microphone (required=false)",
     ]);
   });
 });

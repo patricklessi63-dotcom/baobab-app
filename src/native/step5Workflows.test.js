@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
+import { execFileSync } from "node:child_process";
 import { parse as parseYaml } from "yaml";
 
 // Garde-fous sur .github/workflows : syntaxe valide, permissions minimales, déclencheurs sûrs
@@ -251,6 +252,20 @@ describe("contenu des workflows de build natif", () => {
     expect(text).toContain("baobabVersionCode");
     // Pas de publication automatique vers Google Play.
     expect(text).not.toMatch(/upload-google-play|r0adkll/);
+  });
+
+  it("gradlew : exécutable (mode 100755 dans l'index git) ET chmod +x dans le workflow avant tout ./gradlew (Windows ne conserve pas le bit)", () => {
+    const text = raw["android-build.yml"];
+    const chmodAt = text.indexOf("chmod +x android/gradlew");
+    expect(chmodAt).toBeGreaterThan(-1);
+    expect(chmodAt).toBeLessThan(text.indexOf("./gradlew"));
+    let entry = null;
+    try {
+      entry = execFileSync("git", ["ls-files", "-s", "android/gradlew"], { cwd: root, encoding: "utf8" });
+    } catch {
+      /* pas de dépôt git (archive) : on ne vérifie que le workflow */
+    }
+    if (entry) expect(entry.startsWith("100755")).toBe(true);
   });
 
   it("ios-build.yml : cap sync ios, build simulateur, archive/export/altool ; pas de publication à la revue", () => {

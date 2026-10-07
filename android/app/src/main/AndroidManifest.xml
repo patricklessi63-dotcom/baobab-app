@@ -80,6 +80,14 @@
          micro. Aucune permission CAMERA : la WebView ne demande jamais la vidéo. -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+    <!-- Matériel NON exigé. Sans <uses-feature android:required="false">, Google Play déduit des permissions
+         ci-dessus des exigences implicites (RECORD_AUDIO => microphone ; ACCESS_COARSE_LOCATION => position
+         et position réseau) et masque l'app sur les appareils qui n'ont pas ce matériel (tablettes, Chromebook,
+         téléviseurs). Baobab fonctionne sans micro, sans appareil photo ni position : tout est facultatif. -->
+    <uses-feature android:name="android.hardware.microphone" android:required="false" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <uses-feature android:name="android.hardware.location" android:required="false" />
+    <uses-feature android:name="android.hardware.location.network" android:required="false" />
     <!-- Appareil photo / galerie : AUCUNE permission à déclarer. @capacitor/camera ouvre l'application
          Appareil photo du système (intent IMAGE_CAPTURE) et le sélecteur de photos système
          (Photo Picker, Android 13+) : déclarer CAMERA ici obligerait au contraire l'app à obtenir
