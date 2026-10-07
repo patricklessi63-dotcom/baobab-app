@@ -27,6 +27,20 @@ export const ANDROID_CHANNEL = {
 const TOKEN_KEY = "bb-native-push-token";
 const optInKey = (userId) => `bb-native-push-optin:${userId}`;
 const REGISTRATION_TIMEOUT_MS = 15000;
+// Délai maximal accordé au nettoyage réseau de la désinscription : il s'exécute
+// AVANT supabase.auth.signOut() (RLS) et ne doit JAMAIS retarder indéfiniment la
+// déconnexion (réseau qui pend, verrou d'authentification occupé).
+export const DISABLE_NETWORK_DEADLINE_MS = 5000;
+
+function withDeadline(promise, ms) {
+  return new Promise((resolve) => {
+    const timer = setTimeout(resolve, ms);
+    Promise.resolve(promise).then(
+      () => { clearTimeout(timer); resolve(); },
+      () => { clearTimeout(timer); resolve(); }
+    );
+  });
+}
 const APP_VERSION = typeof __APP_VERSION__ !== "undefined" ? __APP_VERSION__ : null;
 
 export const NATIVE_PUSH_MESSAGES = {
@@ -227,21 +241,27 @@ export async function enableNativePush() {
 export async function disableNativePush({ signOut = false } = {}) {
   if (!isNative()) return;
   const token = getStoredToken();
-  const uid = await currentUserId();
-  if (uid && !signOut) writeLocal(optInKey(uid), null);
-  if (token) {
-    try {
-      const { error } = await supabase.from("device_push_tokens").delete().eq("token", token);
-      if (error) console.warn("Jeton push non supprimé :", error.code || "", error.message || "");
-    } catch (e) {
-      console.warn("Jeton push non supprimé :", e?.message || e);
+  const remote = (async () => {
+    const uid = await currentUserId();
+    if (uid && !signOut) writeLocal(optInKey(uid), null);
+    if (token) {
+      try {
+        const { error } = await supabase.from("device_push_tokens").delete().eq("token", token);
+        if (error) console.warn("Jeton push non supprimé :", error.code || "", error.message || "");
+      } catch (e) {
+        console.warn("Jeton push non supprimé :", e?.message || e);
+      }
     }
-  }
+  })();
+  // Borné : au-delà du délai on poursuit (la requête en cours n'est pas bloquante).
+  await withDeadline(remote, DISABLE_NETWORK_DEADLINE_MS);
   writeLocal(TOKEN_KEY, null);
-  try {
-    const P = await loadPlugin();
-    await P.unregister();
-  } catch { /* plugin indisponible ou jeton déjà invalide */ }
+  await withDeadline((async () => {
+    try {
+      const P = await loadPlugin();
+      await P.unregister();
+    } catch { /* plugin indisponible ou jeton déjà invalide */ }
+  })(), DISABLE_NETWORK_DEADLINE_MS);
 }
 
 /**

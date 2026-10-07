@@ -31,7 +31,7 @@ vi.mock("../supabaseClient", () => ({
 
 import {
   enableNativePush, disableNativePush, syncNativePushRegistration, getNativePushStatus,
-  listenNotificationTaps, saveDeviceToken, getStoredToken, ANDROID_CHANNEL, NATIVE_PUSH_MESSAGES, _resetNativePushState,
+  listenNotificationTaps, saveDeviceToken, DISABLE_NETWORK_DEADLINE_MS, getStoredToken, ANDROID_CHANNEL, NATIVE_PUSH_MESSAGES, _resetNativePushState,
 } from "./nativePush";
 
 const TOKEN = "fcm-token-AAAAAAAAAAAAAAAAAAAAAAAA";
@@ -180,6 +180,25 @@ describe("disableNativePush — désinscription", () => {
     await expect(disableNativePush({ signOut: true })).resolves.toBeUndefined();
     db.deleteEq.mockRejectedValue(new Error("réseau"));
     await expect(disableNativePush({ signOut: true })).resolves.toBeUndefined();
+  });
+
+  it("réseau qui pend : la désinscription se termine au bout du délai (la déconnexion n'est jamais bloquée)", async () => {
+    await enabled();
+    vi.useFakeTimers();
+    try {
+      db.getUser.mockImplementation(() => new Promise(() => {})); // ne répond jamais
+      let done = false;
+      const p = disableNativePush({ signOut: true }).then(() => { done = true; });
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(done).toBe(false);
+      await vi.advanceTimersByTimeAsync(DISABLE_NETWORK_DEADLINE_MS);
+      await p;
+      expect(done).toBe(true);
+      expect(getStoredToken()).toBeNull();
+      expect(push.unregister).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("sans jeton connu : aucun appel en base", async () => {
