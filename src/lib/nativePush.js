@@ -59,9 +59,14 @@ function writeLocal(key, value) {
 }
 export const getStoredToken = () => readLocal(TOKEN_KEY);
 
+// IMPORTANT : on renvoie le plugin DANS un objet, jamais nu. Capacitor expose chaque plugin
+// via un Proxy qui répond à N'IMPORTE QUELLE propriété par une méthode ; renvoyer le proxy
+// d'une fonction async (ou d'un .then) fait lire sa propriété « then » lors de la résolution
+// de la promesse : sans implémentation (web, tests) c'est un rejet non géré
+// « "X.then()" is not implemented » (UNIMPLEMENTED) — voir nativePluginThenable.test.js.
 async function loadPlugin() {
   const { PushNotifications } = await import("@capacitor/push-notifications");
-  return PushNotifications;
+  return { plugin: PushNotifications };
 }
 
 async function currentUserId() {
@@ -190,7 +195,7 @@ async function ensureAndroidChannel(P) {
 export async function getNativePushStatus() {
   if (!isNative()) return { supported: false, permission: "unsupported", subscribed: false };
   let P;
-  try { P = await loadPlugin(); } catch { return { supported: false, permission: "unsupported", subscribed: false }; }
+  try { ({ plugin: P } = await loadPlugin()); } catch { return { supported: false, permission: "unsupported", subscribed: false }; }
   let permission = "prompt";
   try {
     const r = await P.checkPermissions();
@@ -210,7 +215,7 @@ export async function getNativePushStatus() {
 export async function enableNativePush() {
   if (!isNative()) throw new Error("Les notifications push ne sont pas prises en charge sur cet appareil.");
   let P;
-  try { P = await loadPlugin(); } catch { throw new Error(NATIVE_PUSH_MESSAGES.unavailable); }
+  try { ({ plugin: P } = await loadPlugin()); } catch { throw new Error(NATIVE_PUSH_MESSAGES.unavailable); }
 
   let status = (await P.checkPermissions().catch(() => null))?.receive;
   if (status !== "granted") {
@@ -258,7 +263,7 @@ export async function disableNativePush({ signOut = false } = {}) {
   writeLocal(TOKEN_KEY, null);
   await withDeadline((async () => {
     try {
-      const P = await loadPlugin();
+      const { plugin: P } = await loadPlugin();
       await P.unregister();
     } catch { /* plugin indisponible ou jeton déjà invalide */ }
   })(), DISABLE_NETWORK_DEADLINE_MS);
@@ -273,7 +278,7 @@ export async function syncNativePushRegistration(userId) {
   if (!isNative() || !userId) return false;
   if (readLocal(optInKey(userId)) !== "1") return false;
   try {
-    const P = await loadPlugin();
+    const { plugin: P } = await loadPlugin();
     const { receive } = await P.checkPermissions();
     if (receive !== "granted") return false;
     await ensureAndroidChannel(P);
@@ -289,7 +294,7 @@ export async function syncNativePushRegistration(userId) {
 export async function listenNotificationTaps(cb) {
   if (!isNative()) return () => {};
   try {
-    const P = await loadPlugin();
+    const { plugin: P } = await loadPlugin();
     const handle = await P.addListener("pushNotificationActionPerformed", (action) => {
       const url = action?.notification?.data?.url;
       if (typeof url === "string") cb(url);

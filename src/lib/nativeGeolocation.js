@@ -40,9 +40,14 @@ export const NATIVE_LOCATION_MESSAGES = {
   SERVICES_OFF: "La localisation de ton téléphone est désactivée. Active-la dans les réglages, puis réessaie.",
 };
 
+// IMPORTANT : on renvoie le plugin DANS un objet, jamais nu. Capacitor expose chaque plugin
+// via un Proxy qui répond à N'IMPORTE QUELLE propriété par une méthode ; renvoyer le proxy
+// d'une fonction async (ou d'un .then) fait lire sa propriété « then » lors de la résolution
+// de la promesse : sans implémentation (web, tests) c'est un rejet non géré
+// « "X.then()" is not implemented » (UNIMPLEMENTED) — voir nativePluginThenable.test.js.
 async function loadPlugin() {
   const { Geolocation } = await import("@capacitor/geolocation");
-  return Geolocation;
+  return { plugin: Geolocation };
 }
 
 // Codes d'erreur structurés du plugin (README « Errors »), avec repli sur le texte.
@@ -85,7 +90,7 @@ function normalizeState(status) {
 export async function checkNativeLocationPermission() {
   if (!isNative()) return null;
   try {
-    const Geolocation = await loadPlugin();
+    const { plugin: Geolocation } = await loadPlugin();
     return normalizeState(await Geolocation.checkPermissions());
   } catch {
     return null;
@@ -101,7 +106,7 @@ export async function checkNativeLocationPermission() {
  */
 export async function getNativeCoordinates({ timeout = 10000, messages }) {
   try {
-    const Geolocation = await loadPlugin();
+    const { plugin: Geolocation } = await loadPlugin();
     let state = normalizeState(await Geolocation.checkPermissions());
     if (state === "prompt") {
       state = normalizeState(await Geolocation.requestPermissions({ permissions: ["coarseLocation"] }));

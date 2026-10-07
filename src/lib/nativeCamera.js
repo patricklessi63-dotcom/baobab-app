@@ -45,9 +45,14 @@ export const CAMERA_MESSAGES = {
   GALLERY_ERROR: "Impossible de récupérer cette photo. Réessaie.",
 };
 
+// IMPORTANT : on renvoie le plugin DANS un objet, jamais nu. Capacitor expose chaque plugin
+// via un Proxy qui répond à N'IMPORTE QUELLE propriété par une méthode ; renvoyer le proxy
+// d'une fonction async (ou d'un .then) fait lire sa propriété « then » lors de la résolution
+// de la promesse : sans implémentation (web, tests) c'est un rejet non géré
+// « "X.then()" is not implemented » (UNIMPLEMENTED) — voir nativePluginThenable.test.js.
 async function loadPlugin() {
   const { Camera } = await import("@capacitor/camera");
-  return Camera;
+  return { plugin: Camera };
 }
 
 /**
@@ -59,7 +64,7 @@ async function loadPlugin() {
 export async function checkCameraPermission() {
   if (!isNative()) return null;
   try {
-    const Camera = await loadPlugin();
+    const { plugin: Camera } = await loadPlugin();
     const s = (await Camera.checkPermissions())?.camera;
     if (s === "granted" || s === "limited") return "granted";
     if (s === "denied") return "denied";
@@ -132,7 +137,7 @@ export function mapCameraError(err, { gallery = false } = {}) {
 export async function takePhoto() {
   if (!isNative()) return { ok: false, code: "UNSUPPORTED" };
   try {
-    const Camera = await loadPlugin();
+    const { plugin: Camera } = await loadPlugin();
     const result = await Camera.takePhoto({
       quality: 90,
       correctOrientation: true,
@@ -157,7 +162,7 @@ export async function takePhoto() {
 export async function pickPhotos({ multiple = false, limit = 1 } = {}) {
   if (!isNative()) return { ok: false, code: "UNSUPPORTED" };
   try {
-    const Camera = await loadPlugin();
+    const { plugin: Camera } = await loadPlugin();
     const { results } = await Camera.chooseFromGallery({
       // mediaType : photos seulement (valeur par défaut du plugin, MediaTypeSelection.Photo)
       allowMultipleSelection: Boolean(multiple),
