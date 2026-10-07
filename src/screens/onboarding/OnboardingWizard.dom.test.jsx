@@ -167,3 +167,21 @@ describe("OnboardingWizard — navigation par historique (retour navigateur/mobi
     expect(onCloseAfter).toHaveBeenCalledTimes(1);
   });
 });
+
+// Audit de régression médias mobile (6 oct. 2026) : « Continuer » restait actif
+// pendant « Préparation… » d'une 2e sélection de photos. saveStep n'envoie que
+// photoFiles déjà prêts : les photos qui finissaient de se préparer APRÈS le
+// clic arrivaient sur une étape déjà quittée et n'étaient jamais enregistrées.
+describe("OnboardingWizard — étape photo pendant la préparation", () => {
+  const photoStep = { currentUser: { id: "u1", onboarding_step: 2, usage_goals: "❤️ Rencontre" }, photoPreviews: ["data:image/jpeg;base64,AAAA"] };
+
+  it("« Continuer » est actif avec une photo prête quand aucune préparation n'est en cours", () => {
+    renderWizard({ ...photoStep, photosPreparing: false });
+    expect(screen.getByRole("button", { name: "Continuer" })).toBeEnabled();
+  });
+
+  it("« Continuer » est désactivé tant que des photos se préparent, même avec une photo déjà prête", () => {
+    renderWizard({ ...photoStep, photosPreparing: true });
+    expect(screen.getByRole("button", { name: /Préparation des photos/ })).toBeDisabled();
+  });
+});

@@ -178,3 +178,25 @@ describe("EditProfileForm — photo de couverture et photos en cours de prépara
     expect(screen.getByRole("status")).toHaveTextContent("Préparation…");
   });
 });
+
+// Audit de régression médias mobile (6 oct. 2026) : handleSaveProfile capture
+// newPhotoFiles/coverFile dans une closure ; enregistrer pendant la préparation
+// d'une photo la faisait disparaître sans message.
+describe("EditProfileForm — enregistrement pendant la préparation des photos", () => {
+  it("désactive « Enregistrer » tant que des photos se préparent", () => {
+    setup({ photosPreparing: true });
+    expect(screen.getByRole("button", { name: /Préparation des photos/ })).toBeDisabled();
+  });
+
+  it("désactive « Enregistrer » pendant la préparation de la couverture, puis le réactive", async () => {
+    let finish;
+    prepareMock.fn.mockImplementation(() => new Promise((r) => { finish = r; }));
+    const { container } = setup({});
+    const input = container.querySelector('input[type="file"]');
+    const file = new File([new Uint8Array(4)], "c.jpg", { type: "image/jpeg" });
+    await userEvent.upload(input, file);
+    expect(screen.getByRole("button", { name: /Préparation des photos/ })).toBeDisabled();
+    finish([{ file, preview: "data:x" }]);
+    expect(await screen.findByRole("button", { name: /Enregistrer/ })).toBeEnabled();
+  });
+});

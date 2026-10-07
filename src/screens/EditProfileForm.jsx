@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { ArrowLeft, Camera, ChevronLeft, ChevronRight, Star } from "lucide-react";
 import {
   C, LOOKING_FOR_OPTIONS, RELATIONSHIP_VALUES_OPTIONS, EDUCATION_LEVELS, HAS_CHILDREN_OPTIONS,
@@ -40,6 +40,10 @@ export default function EditProfileForm({
   handleSaveProfile,
   onError = () => {},
 }) {
+  // Vrai pendant la préparation de la photo de couverture : sans cela, un clic
+  // sur « Enregistrer » dans cette fenêtre enregistrait le profil SANS la
+  // couverture choisie (setCoverFile arrive après la capture du formulaire).
+  const [coverPreparing, setCoverPreparing] = useState(false);
   const set = (patch) => setEditForm({ ...editForm, ...patch });
   const { openLightbox } = useImageLightbox();
 
@@ -126,11 +130,16 @@ export default function EditProfileForm({
               // Même préparation que les photos de la galerie : fichier réduit
               // (1280 px, sans GPS, HEIC -> JPEG) et aperçu fabriqué depuis ce
               // fichier léger, pas depuis l'original de plusieurs Mo.
-              const [prepared] = await prepareImageSelection([file], { maxDimension: 1280, onError });
-              if (!prepared) return;
-              setCoverFile(prepared.file);
-              setCoverRemoved(false);
-              setCoverPreview(prepared.preview);
+              setCoverPreparing(true);
+              try {
+                const [prepared] = await prepareImageSelection([file], { maxDimension: 1280, onError });
+                if (!prepared) return;
+                setCoverFile(prepared.file);
+                setCoverRemoved(false);
+                setCoverPreview(prepared.preview);
+              } finally {
+                setCoverPreparing(false);
+              }
             }}
           />
         </label>
@@ -389,8 +398,11 @@ export default function EditProfileForm({
           />
         )}
 
-        <button type="submit" disabled={savingProfile || !profileValid} className="bb-btn bb-btn-primary mt-2 py-3 rounded-full font-semibold text-sm">
-          {savingProfile ? "Enregistrement..." : "Enregistrer les modifications"}
+        {/* Désactivé pendant la préparation des photos : handleSaveProfile capture
+            les fichiers dans une closure, une photo qui finit de se préparer
+            APRÈS le clic serait perdue sans message. */}
+        <button type="submit" disabled={savingProfile || !profileValid || photosPreparing || coverPreparing} className="bb-btn bb-btn-primary mt-2 py-3 rounded-full font-semibold text-sm">
+          {savingProfile ? "Enregistrement..." : photosPreparing || coverPreparing ? "Préparation des photos…" : "Enregistrer les modifications"}
         </button>
       </form>
     </div>

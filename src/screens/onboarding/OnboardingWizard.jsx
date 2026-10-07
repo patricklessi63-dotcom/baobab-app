@@ -460,10 +460,10 @@ export default function OnboardingWizard({
 
       <button
         onClick={goNext}
-        disabled={!currentValid || saving}
+        disabled={!currentValid || saving || (step === 3 && photosPreparing)}
         className="bb-btn bb-btn-primary w-full mt-5 py-3 rounded-full font-semibold text-sm"
       >
-        {saving ? "Enregistrement..." : step === 8 ? "Continuer" : step === STEP_COUNT ? "Terminer" : "Continuer"}
+        {saving ? "Enregistrement..." : step === 3 && photosPreparing ? "Préparation des photos…" : step === 8 ? "Continuer" : step === STEP_COUNT ? "Terminer" : "Continuer"}
       </button>
       {step === 8 && (
         <button
