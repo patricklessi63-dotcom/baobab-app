@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Play, Pause, FileText, Download } from "lucide-react";
+import { Play, Pause, FileText, Download, ImageOff } from "lucide-react";
 import { useSignedMediaUrl } from "../../hooks/useSignedMediaUrl";
 import { getSignedUrl } from "../../lib/signedUrlCache";
 import { notifyAudioPlaying, notifyAudioStopped } from "../../lib/audioPlaybackRegistry";
@@ -12,8 +12,10 @@ import { primary, bg, body, gold, primaryRgb } from "./theme";
 function useLocalOrSignedUrl(m) {
   const localUrl = useMemo(() => (m._file ? URL.createObjectURL(m._file) : null), [m._file]);
   useEffect(() => () => { if (localUrl) URL.revokeObjectURL(localUrl); }, [localUrl]);
-  const { url: signedUrl } = useSignedMediaUrl(m.media_path, { skip: Boolean(m._file) });
-  return localUrl || signedUrl;
+  const { url: signedUrl, refresh } = useSignedMediaUrl(m.media_path, { skip: Boolean(m._file) });
+  // refresh() : redemande une URL signée neuve si le média échoue à charger
+  // (URL expirée) ; false = déjà tenté / aperçu local → l'appelant affiche son repli.
+  return { url: localUrl || signedUrl, refresh: refresh || (() => false) };
 }
 
 function UploadProgress({ progress }) {
@@ -25,7 +27,7 @@ function UploadProgress({ progress }) {
   );
 }
 
-function AudioPlayer({ src }) {
+function AudioPlayer({ src, onSourceError }) {
   const audioRef = useRef(null);
   const [playing, setPlaying] = useState(false);
   const [current, setCurrent] = useState(0);
@@ -94,7 +96,13 @@ function AudioPlayer({ src }) {
         onPlay={() => { setPlaying(true); notifyAudioPlaying(audioRef.current); }}
         onPause={() => { setPlaying(false); notifyAudioStopped(audioRef.current); }}
         onEnded={() => { setPlaying(false); notifyAudioStopped(audioRef.current); }}
-        onError={() => setPlaybackError(true)}
+        onError={() => {
+          // Une URL signée expirée se manifeste aussi par une erreur de
+          // chargement : on en redemande une avant de conclure que ce
+          // message vocal est illisible sur l'appareil.
+          if (onSourceError?.()) return;
+          setPlaybackError(true);
+        }}
         onLoadedMetadata={handleLoadedMetadata}
         onTimeUpdate={(e) => setCurrent(e.currentTarget.currentTime || 0)}
         className="hidden"
@@ -127,7 +135,11 @@ export default function MessageBubbleMedia({ m, isMine }) {
   const { openLightbox } = useImageLightbox();
   const [fileUrl, setFileUrl] = useState(null);
   const [resolvingFile, setResolvingFile] = useState(false);
-  const url = useLocalOrSignedUrl(m);
+  const { url, refresh } = useLocalOrSignedUrl(m);
+  const [mediaBroken, setMediaBroken] = useState(false);
+  // Nouveau chemin/URL -> on retente l'affichage.
+  useEffect(() => { setMediaBroken(false); }, [m.media_path]);
+  const handleMediaError = () => { if (!refresh()) setMediaBroken(true); };
   const uploading = m._status === "uploading";
   const progress = uploading ? m._progress ?? 0 : null;
 
@@ -181,7 +193,12 @@ export default function MessageBubbleMedia({ m, isMine }) {
   if (m.kind === "image") {
     return (
       <div className="relative rounded-xl overflow-hidden" style={{ maxWidth: 240 }}>
-        {url ? (
+        {mediaBroken ? (
+          <div role="img" aria-label="Photo indisponible" className="flex flex-col items-center justify-center gap-1 text-[11px]" style={{ width: 200, height: 120, background: bg, color: body }}>
+            <ImageOff size={20} aria-hidden="true" />
+            <span>Photo indisponible</span>
+          </div>
+        ) : url ? (
           <img
             src={url}
             alt={m.media_meta?.original_name || "Photo"}
@@ -191,9 +208,10 @@ export default function MessageBubbleMedia({ m, isMine }) {
             role={uploading ? undefined : "button"}
             aria-label="Agrandir la photo"
             className="block w-full object-cover cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
-            style={{ maxHeight: 260 }}
+            style={{ maxHeight: 260, aspectRatio: m.media_meta?.width > 0 && m.media_meta?.height > 0 ? `${m.media_meta.width} / ${m.media_meta.height}` : undefined }}
             loading="lazy"
             decoding="async"
+            onError={handleMediaError}
           />
         ) : (
           <div className="flex items-center justify-center" style={{ width: 200, height: 150, background: bg }} />
@@ -206,7 +224,12 @@ export default function MessageBubbleMedia({ m, isMine }) {
   if (m.kind === "video") {
     return (
       <div className="relative rounded-xl overflow-hidden" style={{ maxWidth: 260 }}>
-        {url && <video src={url} controls preload="metadata" className="block w-full rounded-xl" style={{ maxHeight: 280 }} />}
+        {mediaBroken ? (
+          <div role="img" aria-label="Vidéo indisponible" className="flex flex-col items-center justify-center gap-1 text-[11px]" style={{ width: 220, height: 120, background: bg, color: body }}>
+            <ImageOff size={20} aria-hidden="true" />
+            <span>Vidéo indisponible</span>
+          </div>
+        ) : url && <video src={url} controls playsInline preload="metadata" onError={handleMediaError} className="block w-full rounded-xl" style={{ maxHeight: 280 }} />}
         <UploadProgress progress={progress} />
       </div>
     );
@@ -215,7 +238,7 @@ export default function MessageBubbleMedia({ m, isMine }) {
   if (m.kind === "audio") {
     return (
       <div className="relative" style={{ color: isMine ? bg : body }}>
-        <AudioPlayer src={url} />
+        <AudioPlayer src={url} onSourceError={refresh} />
         <UploadProgress progress={progress} />
       </div>
     );

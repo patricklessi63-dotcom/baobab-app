@@ -99,7 +99,7 @@ export default function CommunityPostCard({
           {post.media_url && (
             <div className="mt-2 rounded-xl overflow-hidden" style={{ maxHeight: 360 }}>
               {post.media_kind === "video" ? (
-                <video src={post.media_url} controls preload="metadata" className="w-full max-h-[360px] object-cover" />
+                <video src={post.media_url} controls playsInline preload="metadata" className="w-full max-h-[360px] object-cover" />
               ) : (
                 <ClickableImage src={post.media_url} alt="" gallery={[{ url: post.media_url, alt: "" }]} className="w-full max-h-[360px] object-cover" />
               )}

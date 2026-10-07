@@ -60,6 +60,14 @@ async function flushPending() {
   }
 }
 
+// Oublie l'URL signée en cache d'un chemin (ex. l'image a échoué à charger :
+// URL expirée côté serveur alors que le cache local la croit encore valable —
+// onglet resté ouvert, horloge du téléphone décalée). Le prochain
+// getSignedUrl(path) en redemande une neuve.
+export function invalidateSignedUrl(path) {
+  cache.delete(path);
+}
+
 export function getSignedUrl(path) {
   if (!path) return Promise.resolve(null);
   const cached = cache.get(path);

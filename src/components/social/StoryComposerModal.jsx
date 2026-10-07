@@ -77,7 +77,7 @@ export default function StoryComposerModal({
                   {storyMedia && (
                     <div className="mt-3 rounded-2xl overflow-hidden bg-black max-h-56 relative">
                       {storyMediaKind === "video" ? (
-                        <video src={mediaPreviewUrl} controls className="w-full max-h-56 object-contain" />
+                        <video src={mediaPreviewUrl} controls playsInline preload="metadata" className="w-full max-h-56 object-contain" />
                       ) : (
                         <img src={mediaPreviewUrl} alt="" className="w-full max-h-56 object-contain" />
                       )}
@@ -138,7 +138,7 @@ export default function StoryComposerModal({
                   >
                     {storyMedia && (
                       storyMediaKind === "video" ? (
-                        <video src={mediaPreviewUrl} controls className="absolute inset-0 w-full h-full object-cover" />
+                        <video src={mediaPreviewUrl} controls playsInline preload="metadata" className="absolute inset-0 w-full h-full object-cover" />
                       ) : (
                         <img src={mediaPreviewUrl} alt="" className="absolute inset-0 w-full h-full object-cover" />
                       )

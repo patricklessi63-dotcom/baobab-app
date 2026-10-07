@@ -18,7 +18,7 @@ vi.mock("../supabaseClient", () => ({
   },
 }));
 
-import { getSignedUrl } from "./signedUrlCache.js";
+import { getSignedUrl, invalidateSignedUrl } from "./signedUrlCache.js";
 
 beforeEach(() => {
   vi.useFakeTimers();
@@ -132,5 +132,25 @@ describe("getSignedUrl — regroupement des chemins demandés dans la même fen�
     const retry = getSignedUrl("conv-err/a.jpg");
     await flushWindow();
     expect(await retry).toBe("https://example.test/a2");
+  });
+});
+
+describe("invalidateSignedUrl — URL expirée côté serveur", () => {
+  it("le prochain getSignedUrl redemande une URL neuve au lieu de resservir celle en cache", async () => {
+    const path = "conv-exp/a.jpg";
+    createSignedUrlMock.mockResolvedValueOnce({ data: { signedUrl: "https://example.test/old" }, error: null });
+    const first = getSignedUrl(path);
+    await flushWindow();
+    expect(await first).toBe("https://example.test/old");
+    // Sans invalidation : servi depuis le cache, aucun nouvel appel réseau.
+    expect(await getSignedUrl(path)).toBe("https://example.test/old");
+    expect(createSignedUrlMock).toHaveBeenCalledTimes(1);
+
+    invalidateSignedUrl(path);
+    createSignedUrlMock.mockResolvedValueOnce({ data: { signedUrl: "https://example.test/new" }, error: null });
+    const second = getSignedUrl(path);
+    await flushWindow();
+    expect(await second).toBe("https://example.test/new");
+    expect(createSignedUrlMock).toHaveBeenCalledTimes(2);
   });
 });
