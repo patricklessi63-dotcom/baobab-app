@@ -75,6 +75,15 @@ describe("listAllFileNames", () => {
     expect(full.calls).toHaveLength(2); // 100 reçus = page pleine -> une page vide confirme la fin
   });
 
+  it("un listage qui renvoie toujours la même page s'arrête (pas 1000 appels) et ne duplique rien", async () => {
+    let calls = 0;
+    const page = Array.from({ length: 100 }, (_, i) => ({ name: `f${i}.jpg` }));
+    const list = async () => { calls++; return { data: page, error: null }; };
+    const names = await listAllFileNames(list, "u");
+    expect(names).toHaveLength(100);
+    expect(calls).toBe(2);
+  });
+
   it("remonte une erreur de listage au lieu de renvoyer un résultat partiel", async () => {
     const list = async () => ({ data: null, error: new Error("boom") });
     await expect(listAllFileNames(list, "u")).rejects.toThrow("boom");

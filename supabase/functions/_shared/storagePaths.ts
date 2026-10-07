@@ -54,11 +54,18 @@ type ListFn = (prefix: string, opts: { limit: number; offset: number }) => Promi
  */
 export async function listAllFileNames(list: ListFn, prefix: string, pageSize = 100, maxPages = 1000): Promise<string[]> {
   const names: string[] = [];
+  const seen = new Set<string>();
   for (let page = 0; page < maxPages; page++) {
     const { data, error } = await list(prefix, { limit: pageSize, offset: page * pageSize });
     if (error) throw error;
     const batch = data || [];
-    for (const f of batch) names.push(f.name);
+    // Garde-fou : un listage qui renverrait toujours la même page (offset ignoré) ne doit pas
+    // tourner jusqu'à maxPages — une page ne contenant que des noms déjà vus met fin à la lecture.
+    if (batch.length > 0 && batch.every((f) => seen.has(f.name))) break;
+    for (const f of batch) {
+      seen.add(f.name);
+      names.push(f.name);
+    }
     if (batch.length < pageSize) break;
   }
   return names;
