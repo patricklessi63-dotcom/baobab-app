@@ -35,8 +35,9 @@ const COMMENTS = [
   { id: "c1", event_id: "e1", author_id: "friend", body: "Super idée", profiles: { name: "Awa" } },
 ];
 
+let eventList = [EVENT_ROW];
 const tableResponders = {
-  events: (kind) => (kind === "single" ? { data: EVENT_ROW, error: null } : { data: [EVENT_ROW], error: null, count: 1 }),
+  events: (kind) => (kind === "single" ? { data: EVENT_ROW, error: null } : { data: eventList, error: null, count: eventList.length }),
   event_media: () => ({ data: PHOTOS, error: null }),
   event_comments: () => ({ data: COMMENTS, error: null }),
   event_attendees: () => ({ data: [{ event_id: "e1", profile_id: "u1", status: "going", profiles: { id: "u1", name: "Testeur" } }], error: null }),
@@ -64,6 +65,7 @@ import { ImageLightboxProvider } from "../../lib/ImageLightboxContext";
 
 beforeEach(() => {
   vi.clearAllMocks();
+  eventList = [EVENT_ROW];
   mocks.fromMock.mockImplementation((table) =>
     makeChain((kind) => (tableResponders[table] ? tableResponders[table](kind) : { data: [], error: null, count: 0 }))
   );
@@ -100,5 +102,19 @@ describe("EventsTab — contenu généré : blocage et signalement", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Discussion" }));
     fireEvent.click(await screen.findByRole("button", { name: "Signaler ce message" }));
     expect(onReportProfile).toHaveBeenCalledWith({ id: "friend", name: "Awa" });
+  });
+
+  it("la liste n'affiche plus les événements créés par une personne bloquée", async () => {
+    eventList = [
+      { ...EVENT_ROW, id: "e1", title: "Événement de l'ami", created_by: "friend" },
+      { ...EVENT_ROW, id: "e2", title: "Événement du bloqué", created_by: "blocked1" },
+    ];
+    render(
+      <ImageLightboxProvider>
+        <EventsTab currentUser={{ id: "u1", name: "Testeur" }} onError={vi.fn()} blockedIds={new Set(["blocked1"])} />
+      </ImageLightboxProvider>
+    );
+    await waitFor(() => expect(screen.getAllByText("Événement de l'ami").length).toBeGreaterThan(0));
+    expect(screen.queryByText("Événement du bloqué")).not.toBeInTheDocument();
   });
 });

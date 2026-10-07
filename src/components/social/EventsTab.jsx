@@ -1345,7 +1345,10 @@ export default function EventsTab({ currentUser, onError, onBack = () => {}, ini
   }
 
   // ---------- Accueil / liste ----------
-  const visibleEvents = events.filter((e) => !isHiddenByDeclinedInvite(e, { declinedIds: declinedEventIds, myStatuses, currentUserId: currentUser?.id }));
+  // Les événements créés par une personne bloquée (dans un sens ou l'autre) n'apparaissent plus
+  // dans les listes (events n'a pas de filtre de blocage côté base : can_view_event() est partagée
+  // par plusieurs tables — voir supabase-content-select-block-filter-fix.sql).
+  const visibleEvents = events.filter((e) => !(e.created_by && blockedIds.has(e.created_by)) && !isHiddenByDeclinedInvite(e, { declinedIds: declinedEventIds, myStatuses, currentUserId: currentUser?.id }));
   const recommended = isNeutralHome ? rankEvents(currentUser, visibleEvents, myCommunityIds).filter((r) => r.score > 0).slice(0, 6).map((r) => r.event) : [];
   const popular = isNeutralHome ? [...visibleEvents].sort((a, b) => b.participantCount - a.participantCount).slice(0, 6) : [];
   // Bug corrigé : comparaison insensible aux accents (normalizeForSearch), pas
