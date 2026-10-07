@@ -37,7 +37,9 @@ import { useResumeTick } from "./hooks/useResumeTick";
 import { hasUsableSession } from "./lib/sessionGuard";
 import { OTHER_PROFILE_COLUMNS } from "./lib/otherProfileColumns";
 import { buildOlderMessagesFilter } from "./lib/messagesPagination";
-import { startHeartbeatInterval } from "./lib/presenceHeartbeat";
+import { startPresence } from "./lib/presenceHeartbeat";
+import { isNative } from "./lib/platform";
+import { onAppStateChange } from "./lib/nativeApp";
 import { createFieldWriteQueue } from "./lib/fieldWriteQueue";
 import { chunk } from "./lib/chunk";
 import { fetchExportData } from "./lib/exportData";
@@ -703,31 +705,25 @@ export default function App() {
       } catch (_) {}
     };
 
-    heartbeat();
-    // startHeartbeatInterval (lib/presenceHeartbeat.js) : ne redéclenche le
-    // tick périodique que si l'onglet est bien visible à ce moment-là — sans
-    // ça, ce minuteur réécrivait is_online=true toutes les 30s même en
-    // arrière-plan, annulant le is_online=false posé juste en dessous par
-    // "visibilitychange" dès le tick suivant.
-    const stopHeartbeatInterval = startHeartbeatInterval(heartbeat);
-
-    const handleVisibility = async () => {
-      if (document.visibilityState === "visible") heartbeat();
-      else {
-        try {
-          await supabase.from("profiles").update({
-            is_online: false,
-            last_seen: new Date().toISOString()
-          }).eq("user_id", session.user.id);
-        } catch (_) {}
-      }
+    // startPresence (lib/presenceHeartbeat.js) : sur le web, heartbeat immédiat,
+    // tick périodique filtré par la visibilité de l'onglet (sans ça, ce minuteur
+    // réécrivait is_online=true toutes les 30s même en arrière-plan, annulant le
+    // is_online=false posé par "visibilitychange" dès le tick suivant) et
+    // is_online=false au passage en arrière-plan. Dans l'app native, c'est
+    // appStateChange (@capacitor/app) qui pilote : minuteur relancé au premier
+    // plan, arrêté en arrière-plan.
+    const goOffline = async () => {
+      try {
+        await supabase.from("profiles").update({
+          is_online: false,
+          last_seen: new Date().toISOString()
+        }).eq("user_id", session.user.id);
+      } catch (_) {}
     };
-
-    document.addEventListener("visibilitychange", handleVisibility);
+    const stopPresence = startPresence({ heartbeat, goOffline, native: isNative(), onAppStateChange });
     return () => {
       alive = false;
-      stopHeartbeatInterval();
-      document.removeEventListener("visibilitychange", handleVisibility);
+      stopPresence();
     };
   }, [session?.user?.id, currentUser?.show_online_status]);
 

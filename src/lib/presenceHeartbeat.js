@@ -33,3 +33,86 @@ export function startHeartbeatInterval(heartbeat, { intervalMs = HEARTBEAT_INTER
   }, intervalMs);
   return () => clearInterval(timer);
 }
+
+// Présence complète (heartbeat + passage premier plan/arrière-plan), extraite
+// d'App.jsx pour être testable.
+//
+// WEB (`native: false`) : comportement INCHANGÉ — heartbeat immédiat, tick
+// périodique filtré par document.visibilityState, `visibilitychange` : visible ->
+// heartbeat(), masqué -> goOffline().
+//
+// APP NATIVE (`native: true`) : l'évènement de référence est `appStateChange`
+// de @capacitor/app (la WebView peut être gelée par le système en arrière-plan,
+// `visibilitychange` n'y est pas fiable) :
+//  - premier plan : heartbeat IMMÉDIAT puis minuteur de 60 s relancé ;
+//  - arrière-plan : minuteur ARRÊTÉ (rien ne doit réécrire is_online=true
+//    pendant que l'app n'est pas utilisée) et un dernier goOffline() best-effort.
+// Si le plugin ne se charge pas, on garde `visibilitychange` comme sur le web.
+// La règle produit « hors ligne 10 minutes après le dernier heartbeat » est
+// appliquée À LA LECTURE (lib/presence.js : isUserOnline, ONLINE_STALE_MS) : un
+// goOffline() perdu (WebView gelée avant la fin de la requête, téléphone éteint)
+// n'a donc aucune conséquence durable.
+export function startPresence({
+  heartbeat,
+  goOffline,
+  native = false,
+  onAppStateChange = async () => () => {},
+  intervalMs = HEARTBEAT_INTERVAL_MS,
+  doc = typeof document !== "undefined" ? document : null,
+}) {
+  const onVisibility = () => {
+    if (doc.visibilityState === "visible") heartbeat();
+    else goOffline();
+  };
+
+  heartbeat();
+
+  if (!native) {
+    const stopInterval = startHeartbeatInterval(heartbeat, { intervalMs, getVisibility: () => doc.visibilityState });
+    doc.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      stopInterval();
+      doc.removeEventListener("visibilitychange", onVisibility);
+    };
+  }
+
+  // Natif : le minuteur est piloté explicitement (on l'arrête en arrière-plan) ;
+  // aucune condition de visibilité n'est donc nécessaire.
+  let stopInterval = startHeartbeatInterval(heartbeat, { intervalMs, getVisibility: () => "visible" });
+  doc.addEventListener("visibilitychange", onVisibility);
+  let cancelled = false;
+  let removeAppState = null;
+  let appStateActive = false;
+
+  onAppStateChange(({ isActive }) => {
+    if (cancelled) return;
+    if (isActive) {
+      heartbeat();
+      stopInterval();
+      stopInterval = startHeartbeatInterval(heartbeat, { intervalMs, getVisibility: () => "visible" });
+    } else {
+      stopInterval();
+      stopInterval = () => {};
+      goOffline();
+    }
+  })
+    .then((remove) => {
+      if (cancelled) {
+        remove();
+        return;
+      }
+      removeAppState = remove;
+      appStateActive = true;
+      // appStateChange prend le relais : on évite le double déclenchement
+      // (heartbeat appelé deux fois au retour) en retirant visibilitychange.
+      doc.removeEventListener("visibilitychange", onVisibility);
+    })
+    .catch(() => {});
+
+  return () => {
+    cancelled = true;
+    stopInterval();
+    if (!appStateActive) doc.removeEventListener("visibilitychange", onVisibility);
+    if (removeAppState) removeAppState();
+  };
+}
