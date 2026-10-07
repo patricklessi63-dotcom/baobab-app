@@ -11,6 +11,12 @@ vi.mock("../lib/ImageLightboxContext", () => ({
   useImageLightbox: () => ({ openLightbox: vi.fn() }),
 }));
 
+// La préparation (validation + réduction + aperçu) est testée dans
+// src/lib/prepareImageSelection.test.js : ici on vérifie seulement que le
+// formulaire s'en sert pour la couverture.
+const prepareMock = vi.hoisted(() => ({ fn: vi.fn() }));
+vi.mock("../lib/prepareImageSelection", () => ({ prepareImageSelection: (...a) => prepareMock.fn(...a) }));
+
 const baseEditForm = {
   name: "Awa",
   lastName: "",
@@ -132,5 +138,43 @@ describe("EditProfileForm — validation du prénom", () => {
   it("active « Enregistrer » pour un prénom valide", () => {
     setup({ editForm: { ...baseEditForm, name: "Awa" } });
     expect(screen.getByRole("button", { name: /Enregistrer/ })).not.toBeDisabled();
+  });
+});
+
+// Audit médias mobiles (6 oct. 2026) : la couverture partait en aperçu (data URL)
+// depuis l'ORIGINAL de plusieurs Mo, sans retrait du GPS avant l'upload final.
+describe("EditProfileForm — photo de couverture et photos en cours de préparation", () => {
+  function coverInput(container) {
+    return container.querySelectorAll('input[type="file"]')[0];
+  }
+
+  it("la couverture choisie est celle réduite par prepareImageSelection, avec son aperçu léger", async () => {
+    const user = userEvent.setup();
+    const reduced = new File(["small"], "cover.jpg", { type: "image/jpeg" });
+    prepareMock.fn.mockResolvedValue([{ file: reduced, preview: "data:image/jpeg;base64,PETIT" }]);
+    const { container, setCoverFile, setCoverPreview, setCoverRemoved } = setup();
+    const original = new File(["x".repeat(2000)], "IMG_0001.HEIC", { type: "image/heic" });
+    await user.upload(coverInput(container), original);
+    expect(prepareMock.fn).toHaveBeenCalledWith([original], expect.objectContaining({ maxDimension: 1280 }));
+    await vi.waitFor(() => expect(setCoverFile).toHaveBeenCalledWith(reduced));
+    expect(setCoverPreview).toHaveBeenCalledWith("data:image/jpeg;base64,PETIT");
+    expect(setCoverRemoved).toHaveBeenCalledWith(false);
+  });
+
+  it("couverture refusée : rien n'est modifié (l'erreur est remontée par prepareImageSelection)", async () => {
+    const user = userEvent.setup();
+    prepareMock.fn.mockResolvedValue([]);
+    const { container, setCoverFile, setCoverPreview } = setup();
+    await user.upload(coverInput(container), new File(["x"], "a.png", { type: "image/png" }));
+    await vi.waitFor(() => expect(prepareMock.fn).toHaveBeenCalled());
+    expect(setCoverFile).not.toHaveBeenCalled();
+    expect(setCoverPreview).not.toHaveBeenCalled();
+  });
+
+  it("pendant la préparation de photos : sélecteur désactivé et libellé « Préparation… »", () => {
+    const { container } = setup({ photosPreparing: true });
+    const inputs = container.querySelectorAll('input[type="file"]');
+    expect(inputs[inputs.length - 1]).toBeDisabled();
+    expect(screen.getByRole("status")).toHaveTextContent("Préparation…");
   });
 });

@@ -60,6 +60,7 @@ export default function OnboardingWizard({
   photoFiles,
   photoPreviews,
   handlePhotosSelected,
+  photosPreparing = false,
   removePhotoFile,
   setPhotoFiles,
   setPhotoPreviews,
@@ -447,7 +448,7 @@ export default function OnboardingWizard({
 
       <div key={step} className="bb-fade-in">
         {step === 3 ? (
-          <StepComponent photoPreviews={photoPreviews} handlePhotosSelected={handlePhotosSelected} removePhotoFile={removePhotoFile} existingAvatarUrl={currentUser?.avatar_url} />
+          <StepComponent photoPreviews={photoPreviews} handlePhotosSelected={handlePhotosSelected} photosPreparing={photosPreparing} removePhotoFile={removePhotoFile} existingAvatarUrl={currentUser?.avatar_url} />
         ) : (
           <StepComponent draft={draft} update={update} />
         )}

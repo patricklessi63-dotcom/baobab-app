@@ -14,7 +14,8 @@ import { computeAge } from "./screens/onboarding/steps/Step1Identity";
 import MatchCelebrationModal from "./components/social/MatchCelebrationModal";
 import { filterCandidatesByPreferences } from "./lib/matching/matchingService";
 import { validateMediaFile } from "./lib/mediaValidation";
-import { compressImageIfNeeded } from "./lib/imageCompression";
+import { compressImageIfNeeded, getProcessedImageSize } from "./lib/imageCompression";
+import { prepareImageSelection } from "./lib/prepareImageSelection";
 import { uploadWithProgress } from "./lib/uploadWithProgress";
 import { MEDIA_BUCKET, extFromMime } from "./lib/mediaConstants";
 import { sortMessagesChronologically } from "./lib/messageOrdering";
@@ -345,6 +346,9 @@ export default function App() {
   // Photos multiples — création de profil
   const [photoFiles, setPhotoFiles] = useState([]); // File[]
   const [photoPreviews, setPhotoPreviews] = useState([]); // dataURL[]
+  // Vrai pendant la préparation (validation/réduction/aperçu) d'une sélection
+  // de photos de profil : désactive les sélecteurs (pas de double sélection).
+  const [photosPreparing, setPhotosPreparing] = useState(false);
 
   // Photos multiples — indexées par profil, pour l'affichage (discover, etc.)
   const [profilePhotos, setProfilePhotos] = useState({}); // { [profileId]: [{id, url, position}] }
@@ -1731,7 +1735,11 @@ export default function App() {
     // largeur et une photo ouverte en grand dans la visionneuse, tout en
     // divisant par ~3 le poids d'une photo d'appareil photo (souvent 3000+ px).
     const finalFile = await compressImageIfNeeded(file, 1280);
-    const ext = finalFile.name.split(".").pop();
+    // Extension dérivée du type MIME réel (jamais du nom du fichier) : un nom
+    // sans point ("photo"), à plusieurs points, avec espaces/accents/émojis
+    // ("mon été 😀.final.JPG") ou en majuscules donnait une clé Storage
+    // fantaisiste, sans rapport avec le contenu envoyé.
+    const ext = extFromMime(finalFile.type);
     const path = `${userId}/photo-${Date.now()}-${idx}.${ext}`;
     const { error: uploadError } = await supabase.storage
       .from("avatars")
@@ -1749,28 +1757,22 @@ export default function App() {
     const room = MAX_PHOTOS - photoFiles.length;
     const files = Array.from(e.target.files || []).slice(0, Math.max(room, 0));
     e.target.value = "";
-    if (files.length === 0) return;
-    const validFiles = [];
-    for (const file of files) {
-      const { ok, error } = await validateMediaFile(file, "image");
-      if (ok) validFiles.push(file);
-      else setError(error);
+    if (files.length === 0 || photosPreparing) return;
+    // Validation + réduction (redimensionnement, retrait GPS, HEIC -> JPEG) +
+    // aperçu fabriqué depuis le fichier déjà réduit, un fichier à la fois —
+    // voir prepareImageSelection. Fichiers et aperçus sont ajoutés ENSEMBLE
+    // (même ordre, même longueur) : photoPreviews (badge "Principale" sur
+    // l'index 0) ne peut plus se désynchroniser de photoFiles (réellement
+    // uploadé comme avatar_url[0]).
+    setPhotosPreparing(true);
+    try {
+      const prepared = await prepareImageSelection(files, { onError: setError });
+      if (prepared.length === 0) return;
+      setPhotoFiles((prev) => [...prev, ...prepared.map((p) => p.file)].slice(0, MAX_PHOTOS));
+      setPhotoPreviews((prev) => [...prev, ...prepared.map((p) => p.preview)].slice(0, MAX_PHOTOS));
+    } finally {
+      setPhotosPreparing(false);
     }
-    if (validFiles.length === 0) return;
-    setPhotoFiles((prev) => [...prev, ...validFiles].slice(0, MAX_PHOTOS));
-    // Lues en parallèle mais réassemblées dans l'ordre de sélection : un
-    // FileReader par fichier ne termine pas forcément dans l'ordre où les
-    // fichiers ont été choisis (dépend de leur taille), ce qui désynchronisait
-    // photoPreviews (affiché, avec le badge "Principale" sur l'index 0) de
-    // photoFiles (réellement uploadé comme avatar_url[0]) — l'utilisateur
-    // pouvait voir une photo comme principale alors qu'une autre était envoyée.
-    const results = await Promise.all(validFiles.map((file) => new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result);
-      reader.onerror = () => reject(reader.error);
-      reader.readAsDataURL(file);
-    })));
-    setPhotoPreviews((prev) => [...prev, ...results].slice(0, MAX_PHOTOS));
   }
 
   function removePhotoFile(idx) {
@@ -1823,27 +1825,20 @@ export default function App() {
     const room = MAX_PHOTOS - total;
     const files = Array.from(e.target.files || []).slice(0, Math.max(room, 0));
     e.target.value = "";
-    if (files.length === 0) return;
-    const validFiles = [];
-    for (const file of files) {
-      const { ok, error } = await validateMediaFile(file, "image");
-      if (ok) validFiles.push(file);
-      else setError(error);
+    if (files.length === 0 || photosPreparing) return;
+    // Même préparation que handlePhotosSelected (fichiers et aperçus ajoutés
+    // ensemble, dans l'ordre de sélection) : newPhotoPreviews (bouton
+    // "Supprimer la nouvelle photo" par index) reste aligné avec
+    // newPhotoFiles (réellement uploadé).
+    setPhotosPreparing(true);
+    try {
+      const prepared = await prepareImageSelection(files, { onError: setError });
+      if (prepared.length === 0) return;
+      setNewPhotoFiles((prev) => [...prev, ...prepared.map((p) => p.file)]);
+      setNewPhotoPreviews((prev) => [...prev, ...prepared.map((p) => p.preview)]);
+    } finally {
+      setPhotosPreparing(false);
     }
-    if (validFiles.length === 0) return;
-    setNewPhotoFiles((prev) => [...prev, ...validFiles]);
-    // Même correctif que handlePhotosSelected : on attend toutes les lectures
-    // avant de les ajouter, dans l'ordre de sélection, pour que newPhotoPreviews
-    // (affiché, bouton "Supprimer la nouvelle photo" par index) reste aligné
-    // avec newPhotoFiles (réellement uploadé) — sinon le mauvais fichier
-    // pouvait être supprimé ou envoyé à la mauvaise position.
-    const results = await Promise.all(validFiles.map((file) => new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result);
-      reader.onerror = () => reject(reader.error);
-      reader.readAsDataURL(file);
-    })));
-    setNewPhotoPreviews((prev) => [...prev, ...results]);
   }
 
   function removeNewPhotoFile(idx) {
@@ -2740,6 +2735,11 @@ export default function App() {
     const key = matchKey(currentUser.id, activeMatch.id);
     const tempId = tempIdOverride || `temp-${Date.now()}-${Math.random().toString(36).slice(2)}`;
     const media_meta = { original_name: file.name, mime: file.type, size: file.size };
+    // Dimensions finales d'une photo (connues quand compressImageIfNeeded l'a
+    // réduite) : la bulle réserve la place de l'image avant son chargement
+    // (aspect-ratio) au lieu de sauter quand elle arrive.
+    const imageSize = kind === "image" ? getProcessedImageSize(file) : null;
+    if (imageSize) { media_meta.width = imageSize.width; media_meta.height = imageSize.height; }
     // Bug corrigé (même cause que sendStickerMessage) : un média envoyé en
     // réponse à un message perdait le reply_to_id. Pour un "Réessayer"
     // (tempIdOverride fourni), le message optimiste existe déjà — on reprend
@@ -3674,6 +3674,7 @@ export default function App() {
             photoFiles={photoFiles}
             photoPreviews={photoPreviews}
             handlePhotosSelected={handlePhotosSelected}
+            photosPreparing={photosPreparing}
             removePhotoFile={removePhotoFile}
             setPhotoFiles={setPhotoFiles}
             setPhotoPreviews={setPhotoPreviews}
@@ -3701,6 +3702,7 @@ export default function App() {
             newPhotoPreviews={newPhotoPreviews}
             removeNewPhotoFile={removeNewPhotoFile}
             handleNewPhotosSelected={handleNewPhotosSelected}
+            photosPreparing={photosPreparing}
             savingProfile={savingProfile}
             handleSaveProfile={handleSaveProfile}
             onError={setError}

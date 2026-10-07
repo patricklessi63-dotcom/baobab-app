@@ -8,7 +8,7 @@ import {
 } from "../constants";
 import ChipSelect from "../components/ChipSelect";
 import AiSuggestButton from "../components/ai/AiSuggestButton";
-import { validateMediaFile } from "../lib/mediaValidation";
+import { prepareImageSelection } from "../lib/prepareImageSelection";
 import { parseArrivedSince, formatArrivedSince } from "./onboarding/steps/Step4CanadaJourney";
 import { computeAge } from "./onboarding/steps/Step1Identity";
 import { useImageLightbox } from "../lib/ImageLightboxContext";
@@ -35,6 +35,7 @@ export default function EditProfileForm({
   newPhotoPreviews,
   removeNewPhotoFile,
   handleNewPhotosSelected,
+  photosPreparing = false,
   savingProfile,
   handleSaveProfile,
   onError = () => {},
@@ -122,13 +123,14 @@ export default function EditProfileForm({
               const file = e.target.files?.[0];
               e.target.value = "";
               if (!file) return;
-              const { ok, error } = await validateMediaFile(file, "image");
-              if (!ok) { onError(error); return; }
-              setCoverFile(file);
+              // Même préparation que les photos de la galerie : fichier réduit
+              // (1280 px, sans GPS, HEIC -> JPEG) et aperçu fabriqué depuis ce
+              // fichier léger, pas depuis l'original de plusieurs Mo.
+              const [prepared] = await prepareImageSelection([file], { maxDimension: 1280, onError });
+              if (!prepared) return;
+              setCoverFile(prepared.file);
               setCoverRemoved(false);
-              const reader = new FileReader();
-              reader.onload = () => setCoverPreview(reader.result);
-              reader.readAsDataURL(file);
+              setCoverPreview(prepared.preview);
             }}
           />
         </label>
@@ -226,9 +228,9 @@ export default function EditProfileForm({
               </div>
             ))}
             {existingPhotos.length + newPhotoPreviews.length < MAX_PHOTOS && (
-              <label className="cursor-pointer flex items-center justify-center transition-colors hover:bg-black/[0.02]" style={{ width: 72, height: 72, borderRadius: "var(--bb-radius-sm)", border: "1.5px dashed rgba(var(--bb-ink-rgb-static),0.28)", opacity: savingProfile ? 0.4 : 1 }}>
-                <span className="text-xs text-center px-1" style={{ color: "rgba(var(--bb-ink-rgb-static),0.5)" }}>+ Ajouter</span>
-                <input type="file" accept="image/*" multiple disabled={savingProfile} onChange={handleNewPhotosSelected} className="hidden" />
+              <label className="cursor-pointer flex items-center justify-center transition-colors hover:bg-black/[0.02]" style={{ width: 72, height: 72, borderRadius: "var(--bb-radius-sm)", border: "1.5px dashed rgba(var(--bb-ink-rgb-static),0.28)", opacity: savingProfile || photosPreparing ? 0.4 : 1 }}>
+                <span className="text-xs text-center px-1" role={photosPreparing ? "status" : undefined} style={{ color: "rgba(var(--bb-ink-rgb-static),0.5)" }}>{photosPreparing ? "Préparation…" : "+ Ajouter"}</span>
+                <input type="file" accept="image/*" multiple disabled={savingProfile || photosPreparing} onChange={handleNewPhotosSelected} className="hidden" />
               </label>
             )}
           </div>

@@ -92,4 +92,24 @@ describe("Step2Photo (composant)", () => {
     await user.upload(input, file);
     expect(handlePhotosSelected).toHaveBeenCalledTimes(1);
   });
+
+  // Audit médias mobiles (6 oct. 2026) : la réduction de 6 à 10 photos de
+  // 12 Mpx prend plusieurs secondes sur un téléphone d'entrée de gamme. Sans
+  // retour visuel ni verrou, on pouvait relancer une sélection pendant le
+  // traitement (double ajout) ou croire l'appli figée.
+  it("pendant la préparation des photos : état « Préparation… » et sélecteur désactivé", () => {
+    const { container } = render(
+      <Step2Photo photoPreviews={[]} handlePhotosSelected={noop} removePhotoFile={noop} existingAvatarUrl={null} photosPreparing />
+    );
+    expect(screen.getByRole("status")).toHaveTextContent("Préparation…");
+    expect(container.querySelector('input[type="file"]')).toBeDisabled();
+  });
+
+  it("hors préparation : sélecteur actif et libellé « + Ajouter »", () => {
+    const { container } = render(
+      <Step2Photo photoPreviews={[]} handlePhotosSelected={noop} removePhotoFile={noop} existingAvatarUrl={null} />
+    );
+    expect(screen.getByText("+ Ajouter")).toBeInTheDocument();
+    expect(container.querySelector('input[type="file"]')).not.toBeDisabled();
+  });
 });

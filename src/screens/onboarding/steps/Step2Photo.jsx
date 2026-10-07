@@ -10,7 +10,7 @@ export function isStep2Valid(photoPreviews, hasExistingPhoto) {
   return photoPreviews.length >= 1 || !!hasExistingPhoto;
 }
 
-export default function Step2Photo({ photoPreviews, handlePhotosSelected, removePhotoFile, existingAvatarUrl }) {
+export default function Step2Photo({ photoPreviews, handlePhotosSelected, removePhotoFile, existingAvatarUrl, photosPreparing = false }) {
   const showExisting = photoPreviews.length === 0 && !!existingAvatarUrl;
   return (
     <div className="flex flex-col gap-3">
@@ -49,9 +49,9 @@ export default function Step2Photo({ photoPreviews, handlePhotosSelected, remove
           </div>
         ))}
         {photoPreviews.length < MAX_PHOTOS && (
-          <label className="cursor-pointer flex items-center justify-center transition-colors hover:bg-black/[0.02]" style={{ width: 84, height: 84, borderRadius: "var(--bb-radius-sm)", border: "1.5px dashed rgba(var(--bb-ink-rgb-static),0.28)" }}>
-            <span className="text-xs text-center px-1" style={{ color: "rgba(var(--bb-ink-rgb-static),0.5)" }}>+ Ajouter</span>
-            <input type="file" accept="image/*" multiple onChange={handlePhotosSelected} className="hidden" />
+          <label className="cursor-pointer flex items-center justify-center transition-colors hover:bg-black/[0.02]" style={{ width: 84, height: 84, borderRadius: "var(--bb-radius-sm)", border: "1.5px dashed rgba(var(--bb-ink-rgb-static),0.28)", opacity: photosPreparing ? 0.5 : 1 }}>
+            <span className="text-xs text-center px-1" role={photosPreparing ? "status" : undefined} style={{ color: "rgba(var(--bb-ink-rgb-static),0.5)" }}>{photosPreparing ? "Préparation…" : "+ Ajouter"}</span>
+            <input type="file" accept="image/*" multiple disabled={photosPreparing} onChange={handlePhotosSelected} className="hidden" />
           </label>
         )}
       </div>
