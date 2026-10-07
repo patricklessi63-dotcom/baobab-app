@@ -1063,7 +1063,7 @@ tôt : c'est le délai le plus long du projet. **Démarrez ce test dès que le p
 
 Après le premier envoi : Play Console → **Version → Configuration → Intégrité de l'application → Signature d'application** (libellés à confirmer) : copiez l'empreinte **SHA-256 du certificat de signature de l'application** (celle de Google) — et, si vous voulez tester avec l'APK/AAB signé localement, celle de votre clé d'envoi
 (imprimée par le workflow). Collez-les dans `public/.well-known/assetlinks.json` (champ `sha256_cert_fingerprints`, plusieurs valeurs possibles, format `AA:BB:…`), déployez le site (Vercel), puis vérifiez :
-`https://digitalassetlinks.googleapis.com/v1/statements:list?source.web.site=https://baobab-app-zeta.vercel.app&relation=delegate_permission/common.handle_all_urls`. Un test du dépôt exige aujourd'hui que le champ commence par « REMPLACER » : **mettez-le à jour avec la vraie valeur** (`src/native/step3aConfig.test.js`).
+`https://digitalassetlinks.googleapis.com/v1/statements:list?source.web.site=https://baobab-app-zeta.vercel.app&relation=delegate_permission/common.handle_all_urls`. Le test du dépôt accepte soit la marque « REMPLACER », soit une empreinte SHA-256 valide (`AA:BB:…`, 32 octets en majuscules) : **mettez la vraie valeur**, aucun test à modifier.
 
 ## (C) iOS
 
@@ -1105,7 +1105,7 @@ Pendant les tests TestFlight/Xcode (certificat de développement), le jeton est 
 ### C6. Team ID → `apple-app-site-association` (liens universels)
 
 Remplacez `REMPLACER_PAR_LE_TEAM_ID_APPLE` dans `public/.well-known/apple-app-site-association` par votre Team ID (c'est le préfixe de l'identifiant, ex. `ABCDE12345.ca.baobab.app`) — public, pas un secret —, déployez sur Vercel, puis vérifiez :
-`curl -sI https://baobab-app-zeta.vercel.app/.well-known/apple-app-site-association` doit répondre `200` et `content-type: application/json`, **sans redirection**. Le test `step3aConfig.test.js` exige aujourd'hui « REMPLACER… » : adaptez-le.
+`curl -sI https://baobab-app-zeta.vercel.app/.well-known/apple-app-site-association` doit répondre `200` et `content-type: application/json`, **sans redirection**. Le test `step3aConfig.test.js` accepte la marque « REMPLACER… » ou un Team ID de 10 caractères (majuscules/chiffres) : aucun test à modifier.
 
 ### C7. Lancer le workflow iOS
 
@@ -1214,7 +1214,7 @@ Reprendre **`STORES.md` §15** (appareils, inscription, permissions, notificatio
 3. **Aucun filtre de contenu** à la publication (Apple 1.2) : compensé par signalement + blocage + modération réactive, mais point de rejet possible.
 4. **SQL jamais exécutés en prod** : notamment **`supabase-age-check-server-side.sql`** (sans lui un appel direct à l'API peut enregistrer un mineur), `supabase-content-select-block-filter-fix.sql`, `supabase-device-tokens.sql`, `supabase-push-notifications-triggers.sql` (aucun push sans lui) ; fonctions `process-scheduled-deletions` à redéployer (suppression de compte exigée par les boutiques).
 5. **`stripe-webhook` répond 404** (jamais déployé) : le Premium web n'est pas actif ; le bouton d'achat reste visible (voir 1).
-6. **Valeurs à remplacer** : Team ID (AASA), empreintes SHA-256 (`assetlinks.json`), `supportEmail` ; et les tests qui exigent « REMPLACER… » à adapter ensuite.
+6. **Valeurs à remplacer** : Team ID (AASA), empreintes SHA-256 (`assetlinks.json`), `supportEmail` (les tests acceptent la marque « REMPLACER… » comme la vraie valeur).
 7. **Aucune compilation réelle** (iOS comme Android) : `project.pbxproj` modifié à la main, bloc de signature Gradle jamais exécuté, schéma Xcode implicite, signature automatique par clé Admin (compromis de sécurité), `altool`. Le premier passage de la CI peut échouer ; chaque échec est lisible dans les journaux.
 8. **Manifeste de confidentialité** : noms de constantes écrits de mémoire (trois confirmés) ; aucune API à raison requise déclarée alors que des dépendances Swift tierces n'ont pas pu être lues ; déclaration « données sensibles » à valider.
 9. **Export (chiffrement)** : `ITSAppUsesNonExemptEncryption = false` est votre déclaration, pas celle d'Apple.

@@ -74,20 +74,21 @@ describe("Android : App Links, notifications, build sans Firebase", () => {
 });
 
 describe(".well-known : App Links Android / Universal Links iOS", () => {
-  it("assetlinks.json : package ca.baobab.app, empreinte à REMPLACER (rien d'inventé)", () => {
+  it("assetlinks.json : package ca.baobab.app, empreinte = marque « REMPLACER » OU empreinte SHA-256 valide (rien d'inventé)", () => {
     const [entry] = json("public/.well-known/assetlinks.json");
     expect(entry.relation).toContain("delegate_permission/common.handle_all_urls");
     expect(entry.target.namespace).toBe("android_app");
     expect(entry.target.package_name).toBe("ca.baobab.app");
     const [fp] = entry.target.sha256_cert_fingerprints;
-    expect(fp).toMatch(/^REMPLACER/);
-    expect(fp).not.toMatch(/^([0-9A-F]{2}:){31}[0-9A-F]{2}$/); // pas une vraie empreinte
+    // Tant que le propriétaire n'a pas collé la vraie valeur : marque explicite. Ensuite : SHA-256 au format
+    // « AA:BB:… » (32 octets, majuscules), tel qu'affiché par keytool / la Play Console. Jamais autre chose.
+    expect(fp).toMatch(/^REMPLACER|^([0-9A-F]{2}:){31}[0-9A-F]{2}$/);
   });
 
-  it("apple-app-site-association : Team ID à REMPLACER, mêmes chemins que l'app", () => {
+  it("apple-app-site-association : Team ID = marque « REMPLACER » OU Team ID Apple valide (10 caractères), mêmes chemins que l'app", () => {
     const aasa = json("public/.well-known/apple-app-site-association");
     const detail = aasa.applinks.details[0];
-    expect(detail.appIDs[0]).toMatch(/^REMPLACER_PAR_LE_TEAM_ID_APPLE\.ca\.baobab\.app$/);
+    expect(detail.appIDs[0]).toMatch(/^(REMPLACER_PAR_LE_TEAM_ID_APPLE|[A-Z0-9]{10})\.ca\.baobab\.app$/);
     const paths = detail.components.map((c) => c["/"]).sort();
     expect(paths).toEqual(["/", "/community/*", "/event/*", "/messages/*", "/profile/*", "/update-password"]);
   });
