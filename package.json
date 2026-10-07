@@ -16,7 +16,9 @@
     "cap:sync": "vite build && cap sync",
     "cap:open:android": "cap open android",
     "android:build:debug": "node scripts/android-gradle.mjs assembleDebug",
-    "android:build:release": "node scripts/android-gradle.mjs bundleRelease"
+    "android:build:release": "node scripts/android-gradle.mjs bundleRelease",
+    "assets:sources": "node scripts/generate-native-asset-sources.mjs",
+    "assets:android": "capacitor-assets generate --android --assetPath assets"
   },
   "dependencies": {
     "@capacitor/core": "^8.5.2",
