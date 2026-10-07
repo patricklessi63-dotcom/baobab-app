@@ -15,6 +15,9 @@ Mise à jour 2026-10-02.
   ça les nouveaux triggers SQL appelleront une fonction qui ignore
   silencieusement ces payloads.
 
+**RESTE (applications mobiles, étape 3a — voir §11) :**
+- ⬜ `supabase-device-tokens.sql` (jetons push natifs) et re-déploiement de `send-push` avec les secrets FCM/APNs (tous facultatifs).
+
 **RESTE (SQL, écrit mais jamais exécuté — voir §1b, §1c et §1d) :**
 - ⬜ **§8 (5 oct. 2026) — correctif SQL `can_view_event()`** : refuser ou se
   faire révoquer une invitation à un événement privé ne retire pas l'accès (+
