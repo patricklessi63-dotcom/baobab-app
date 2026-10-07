@@ -6,9 +6,11 @@
 // fait donc par correspondance exacte avec la clé service role elle-même.
 //
 // Corrige aussi la limite connue de delete-account/index.ts (fichiers
-// Storage jamais nettoyés) : cette fonction supprime réellement avatars,
-// chat-media et event-media du compte avant de supprimer les lignes de
-// base de données.
+// Storage jamais nettoyés) : cette fonction supprime réellement avatars
+// (photos de profil + médias de statuts), chat-media, event-media, post-media
+// et community-media du compte avant de supprimer les lignes de base de
+// données. NON nettoyés volontairement : event-covers et les couvertures de
+// communautés (la communauté/l'événement survit au compte).
 //
 // Important : "communities.created_by" et "events.created_by" sont en
 // "on delete set null" (voir supabase-communities.sql / supabase-events.sql)
@@ -21,15 +23,42 @@
 import Stripe from "npm:stripe@17";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
+import { chunkList, listAllFileNames, uniqueStoragePaths } from "../_shared/storagePaths.ts";
 
 const stripeSecret = Deno.env.get("STRIPE_SECRET_KEY");
 const stripe = stripeSecret ? new Stripe(stripeSecret, { apiVersion: "2024-06-20" }) : null;
 const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const admin = createClient(Deno.env.get("SUPABASE_URL")!, serviceRoleKey);
 
+// Nettoyage Storage = au mieux (comme avant) : une erreur de listage ou de suppression est
+// journalisée mais NE BLOQUE JAMAIS la suppression du compte (sinon une panne Storage
+// empêcherait indéfiniment l'effacement du profil, exigé par Apple 5.1.1(v) / Google Play).
+async function removeInChunks(bucket: string, paths: string[]) {
+  for (const batch of chunkList(paths, 100)) {
+    try {
+      const { error } = await admin.storage.from(bucket).remove(batch);
+      if (error) console.error("Suppression Storage partielle", bucket, error);
+    } catch (e) {
+      console.error("Suppression Storage échouée", bucket, e);
+    }
+  }
+}
+
+async function listAllSafe(bucket: string, prefix: string): Promise<string[]> {
+  try {
+    return await listAllFileNames((p, opts) => admin.storage.from(bucket).list(p, opts), prefix);
+  } catch (e) {
+    console.error("Listage Storage échoué", bucket, e);
+    return [];
+  }
+}
+
 async function cleanupStorage(profileId: string, userId: string) {
-  const { data: avatarFiles } = await admin.storage.from("avatars").list(userId);
-  if (avatarFiles?.length) {
+  // listAllFileNames : storage.list() ne renvoie que 100 entrées par défaut — au-delà, les
+  // fichiers restaient après la suppression du compte (voir _shared/storagePaths.ts).
+  const avatarNames = await listAllSafe("avatars", userId);
+  const avatarFiles = avatarNames.map((name) => ({ name }));
+  if (avatarFiles.length) {
     // Les couvertures de communautés créées par ce profil (CommunityCreateForm)
     // sont uploadées dans ce même dossier "avatars/<userId>/", au milieu des
     // photos de profil — mais la communauté, elle, n'est pas supprimée (voir
@@ -52,7 +81,7 @@ async function cleanupStorage(profileId: string, userId: string) {
         .filter(Boolean)
     );
     const toRemove = avatarFiles.filter((f) => !keepNames.has(f.name)).map((f) => `${userId}/${f.name}`);
-    if (toRemove.length) await admin.storage.from("avatars").remove(toRemove);
+    if (toRemove.length) await removeInChunks("avatars", toRemove);
   }
 
   // Bug corrigé : le dossier chat-media/<match_key>/ est PARTAGÉ par les
@@ -75,7 +104,7 @@ async function cleanupStorage(profileId: string, userId: string) {
     .not("media_path", "is", null);
   const ownMediaPaths = [...new Set((ownMedia || []).map((r) => r.media_path).filter(Boolean))];
   if (ownMediaPaths.length) {
-    await admin.storage.from("chat-media").remove(ownMediaPaths);
+    await removeInChunks("chat-media", ownMediaPaths);
   }
 
   // Note : les couvertures d'événements ("event-covers") ne sont PAS
@@ -87,12 +116,26 @@ async function cleanupStorage(profileId: string, userId: string) {
 
   const { data: mediaRows } = await admin.from("event_media").select("storage_path").eq("uploaded_by", profileId);
   if (mediaRows?.length) {
-    await admin.storage.from("event-media").remove(mediaRows.map((r) => r.storage_path));
+    await removeInChunks("event-media", mediaRows.map((r) => r.storage_path));
   }
 
-  const { data: postFiles } = await admin.storage.from("post-media").list(userId);
-  if (postFiles?.length) {
-    await admin.storage.from("post-media").remove(postFiles.map((f) => `${userId}/${f.name}`));
+  const postFileNames = await listAllSafe("post-media", userId);
+  if (postFileNames.length) {
+    await removeInChunks("post-media", postFileNames.map((name) => `${userId}/${name}`));
+  }
+
+  // Médias des publications de COMMUNAUTÉ : les lignes community_posts partent par cascade
+  // (author_id on delete cascade), mais leurs fichiers vivent dans le bucket "community-media",
+  // sous <id communauté>/..., et n'étaient jamais supprimés (fichiers orphelins). La colonne
+  // media_url contient une URL signée : on en retrouve le chemin AVANT la suppression du profil.
+  const { data: communityPostRows } = await admin
+    .from("community_posts")
+    .select("media_url")
+    .eq("author_id", profileId)
+    .not("media_url", "is", null);
+  const communityMediaPaths = uniqueStoragePaths(communityPostRows, "community-media");
+  if (communityMediaPaths.length) {
+    await removeInChunks("community-media", communityMediaPaths);
   }
 }
 
