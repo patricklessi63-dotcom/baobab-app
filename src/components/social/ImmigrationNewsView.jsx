@@ -200,7 +200,7 @@ function GeneralistDirectory() {
       <p className="text-xs leading-5 mb-3" style={{ color: muted }}>
         Ouverts à toutes origines et langues, en plus du réseau francophone ci-dessus — choisis ta ville. Répertoire encore limité à sept grandes villes, à étendre.
       </p>
-      <div className="flex gap-1.5 overflow-x-auto pb-1">
+      <div className="flex gap-1.5 overflow-x-auto overflow-y-hidden pb-1">
         {GENERALIST_DIRECTORY.map((c) => (
           <button
             key={c.city}
@@ -234,7 +234,7 @@ function ProvinceDirectory() {
       <p className="text-xs leading-5 mb-3" style={{ color: muted }}>
         Réseau RIF (financé par IRCC) — choisis ta province ou ton territoire.
       </p>
-      <div className="flex gap-1.5 overflow-x-auto pb-1">
+      <div className="flex gap-1.5 overflow-x-auto overflow-y-hidden pb-1">
         {PROVINCE_DIRECTORY.map((p) => (
           <button
             key={p.province}

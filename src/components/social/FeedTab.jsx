@@ -148,7 +148,7 @@ function NotificationsPanel({
           gauche/droite sur le contenu ci-dessous pour passer d'une
           catégorie à l'autre — même liste que le menu déroulant du header
           (NOTIF_CATEGORIES partagé). */}
-      <div className="flex gap-1.5 overflow-x-auto pb-1 mb-3 -mx-1 px-1" style={{ scrollbarWidth: "none" }}>
+      <div className="flex gap-1.5 overflow-x-auto overflow-y-hidden pb-1 mb-3 -mx-1 px-1" style={{ scrollbarWidth: "none" }}>
         {NOTIF_CATEGORIES.map(([key, label]) => (
           <button
             key={key}

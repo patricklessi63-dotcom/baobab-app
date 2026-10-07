@@ -128,7 +128,7 @@ export default function NotificationsDropdown({
           </button>
         )}
       </div>
-      <div className="flex gap-1 overflow-x-auto pb-2 px-2 -mx-2" style={{ scrollbarWidth: "none" }}>
+      <div className="flex gap-1 overflow-x-auto overflow-y-hidden pb-2 px-2 -mx-2" style={{ scrollbarWidth: "none" }}>
         {NOTIF_CATEGORIES.map(([key, label]) => (
           <button key={key} ref={(el) => { notifPillRefs.current[key] = el; }} onClick={() => setNotifCategory(key)} aria-pressed={notifCategory === key} className="bb-hit shrink-0 px-3 py-1.5 rounded-full text-xs font-bold focus-visible:outline focus-visible:outline-2" style={{ background: notifCategory === key ? navy : bg, color: notifCategory === key ? "#fff" : muted }}>
             {label}
