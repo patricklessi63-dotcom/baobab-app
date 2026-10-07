@@ -19,6 +19,8 @@ vi.mock("./lib/nativeApp", () => ({
   onAppStateChange: async (cb) => { mocks.resumeHandlers.push(cb); return () => {}; },
   onAppUrlOpen: async () => () => {},
   getLaunchUrl: async () => null,
+  onBackButton: async () => () => {},
+  minimizeApp: async () => {},
 }));
 vi.mock("./lib/nativePush", () => ({
   listenNotificationTaps: async () => () => {},

@@ -36,6 +36,7 @@ import { useOnlineStatus } from "./hooks/useOnlineStatus";
 import { useNativeSystemBars } from "./hooks/useNativeSystemBars";
 import { useResumeTick } from "./hooks/useResumeTick";
 import { useNativeLinks } from "./hooks/useNativeLinks";
+import { useNativeBack } from "./hooks/useNativeBack";
 import { hapticLight, hapticSuccess } from "./lib/haptics";
 import { useNativePushSync } from "./hooks/useNativePushSync";
 import { hasUsableSession } from "./lib/sessionGuard";
@@ -538,6 +539,7 @@ export default function App() {
   // (voir SocialShell) pour qu'elle ne s'ouvre pas des heures plus tard.
   const [pendingDeepLink, setPendingDeepLink] = useState(null);
   const deepLinkSeqRef = useRef(0);
+  useNativeBack(); // bouton Retour d'Android (no-op sur le web) — voir lib/nativeBack.js
   useNativeLinks({
     onEntityLink: (dest) => setPendingDeepLink({ ...dest, at: Date.now(), seq: ++deepLinkSeqRef.current }),
     onAuthLink: (link) => {

@@ -47,3 +47,28 @@ export async function getLaunchUrl() {
     return null;
   }
 }
+
+/**
+ * cb({ canGoBack }) à chaque appui sur le bouton/geste Retour d'Android. Tant qu'un
+ * écouteur existe, Capacitor ne fait PLUS lui-même « retour dans l'historique » : c'est
+ * le callback qui décide (voir nativeBack.js). Retourne le désabonnement (après quoi le
+ * comportement par défaut de Capacitor revient). Sans effet sur iOS (pas de bouton).
+ */
+export async function onBackButton(cb) {
+  if (!isNative()) return noop;
+  try {
+    const { App } = await import("@capacitor/app");
+    return remover(await App.addListener("backButton", (event) => cb({ canGoBack: event?.canGoBack === true })));
+  } catch {
+    return noop;
+  }
+}
+
+/** Renvoie l'app à l'arrière-plan (Android : moveTaskToBack). Jamais d'exception. */
+export async function minimizeApp() {
+  if (!isNative()) return;
+  try {
+    const { App } = await import("@capacitor/app");
+    await App.minimizeApp();
+  } catch { /* ignore */ }
+}
