@@ -431,7 +431,7 @@ export default function OnboardingWizard({
   }
 
   return (
-    <div className="p-6 max-w-md mx-auto w-full">
+    <div className="p-6 max-w-md mx-auto w-full" style={{ paddingBottom: "max(1.5rem, env(safe-area-inset-bottom, 0px))" }}>
       {step > 1 && (
         // disabled={saving} : sinon un clic pendant l'enregistrement de
         // l'étape courante (goNext en vol) déplaçait bien l'affichage vers

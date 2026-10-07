@@ -1,3 +1,40 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* ==========================================================================
+   Adaptation mobile (étape 2 — voir MOBILE.md). Tout ce bloc est volontairement
+   en fin de fichier (après @tailwind utilities) pour gagner la cascade à
+   spécificité égale. Chaque règle est étroite (un nom de classe précis) : aucun
+   sélecteur global, aucun effet sur le rendu desktop (dvh == vh sans barre
+   d'outils dynamique, env(safe-area-inset-*) == 0 hors appareil à encoche).
+   ========================================================================== */
+
+/* Hauteur d'écran : sur Safari/Chrome mobile, 100vh inclut la zone masquée par
+   la barre d'outils dynamique, ce qui poussait le bas des écrans plein écran
+   sous la barre. 100dvh suit la barre ; le repli 100vh reste celui de Tailwind
+   (la règle ne s'applique que si dvh est supporté). */
+@supports (min-height: 100dvh) {
+  .min-h-screen { min-height: 100dvh; }
+  /* Fiche de profil public (feuille du bas à 92 %) : seule feuille assez haute
+     pour dépasser la zone visible quand la barre d'outils est affichée. */
+  .max-h-\[92vh\] { max-height: 92dvh; }
+}
+
+/* Pile de bandeaux globaux (connexion interrompue / suppression de compte) :
+   collée en haut de l'écran, donc sous l'encoche / la barre d'état en plein
+   écran (iOS viewport-fit=cover, Android edge-to-edge). Le premier bandeau
+   reprend son py-2 (0.5rem) + la zone sûre ; hors appareil à encoche la valeur
+   est identique à py-2. */
+.bb-banner-stack > :first-child { padding-top: calc(0.5rem + env(safe-area-inset-top, 0px)); }
+
+/* Décalages « collés au bord » qui doivent respecter la zone sûre (visionneuses
+   plein écran, boutons flottants). Remplacent top-3/top-4/top-8/bottom-4/
+   right-4 de Tailwind aux seuls endroits concernés. */
+.bb-safe-t-3 { top: calc(0.75rem + env(safe-area-inset-top, 0px)); }
+.bb-safe-t-4 { top: calc(1rem + env(safe-area-inset-top, 0px)); }
+.bb-safe-t-8 { top: calc(2rem + env(safe-area-inset-top, 0px)); }
+.bb-safe-b-4 { bottom: calc(1rem + env(safe-area-inset-bottom, 0px)); }
+.bb-safe-r-4 { right: calc(1rem + env(safe-area-inset-right, 0px)); }
+.bb-safe-x-3 { left: calc(0.75rem + env(safe-area-inset-left, 0px)); right: calc(0.75rem + env(safe-area-inset-right, 0px)); }
+.bb-safe-x-4 { left: calc(1rem + env(safe-area-inset-left, 0px)); right: calc(1rem + env(safe-area-inset-right, 0px)); }

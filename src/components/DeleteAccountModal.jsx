@@ -48,7 +48,7 @@ export default function DeleteAccountModal({ open, onClose, currentUser, onReque
 
   return (
     <div className="fixed inset-0 z-[70] flex items-end md:items-center justify-center p-0 md:p-6" style={{ background: "rgba(8,20,14,0.6)" }} onClick={onClose} role="dialog" aria-modal="true" aria-label="Supprimer mon compte">
-      <div ref={panelRef} tabIndex={-1} className="bb-card w-full sm:max-w-sm p-6" style={{ borderRadius: "20px 20px 0 0" }} onClick={(e) => e.stopPropagation()}>
+      <div ref={panelRef} tabIndex={-1} className="bb-card w-full sm:max-w-sm p-6" style={{ borderRadius: "20px 20px 0 0", paddingBottom: "max(1.5rem, env(safe-area-inset-bottom, 0px))" }} onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <AlertTriangle size={18} color={C.coralText} />

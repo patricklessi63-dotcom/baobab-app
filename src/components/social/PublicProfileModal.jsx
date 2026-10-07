@@ -107,7 +107,7 @@ export default function PublicProfileModal({
         ref={dialogRef}
         tabIndex={-1}
         className={`${card} w-full max-w-md rounded-t-[30px] md:rounded-[30px] max-h-[92vh] overflow-y-auto`}
-        style={profile.is_founder ? { borderColor: gold, borderWidth: 2, boxShadow: `0 0 0 1px ${gold}` } : undefined}
+        style={profile.is_founder ? { borderColor: gold, borderWidth: 2, boxShadow: `0 0 0 1px ${gold}`, paddingBottom: "env(safe-area-inset-bottom, 0px)" } : { paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="relative">

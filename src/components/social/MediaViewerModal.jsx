@@ -173,7 +173,7 @@ export default function MediaViewerModal({ images, index = 0, onNavigate, url, a
       aria-modal="true"
       aria-label={active.alt || "Photo"}
     >
-      <button onClick={(e) => { e.stopPropagation(); onClose(); }} aria-label="Fermer l'image" className="absolute top-4 right-4 h-10 w-10 rounded-full flex items-center justify-center focus-visible:outline focus-visible:outline-2 z-10" style={{ background: "rgba(255,255,255,.12)" }}>
+      <button onClick={(e) => { e.stopPropagation(); onClose(); }} aria-label="Fermer l'image" className="absolute bb-safe-t-4 bb-safe-r-4 h-10 w-10 rounded-full flex items-center justify-center focus-visible:outline focus-visible:outline-2 z-10" style={{ background: "rgba(255,255,255,.12)" }}>
         <X size={20} color="#fff" />
       </button>
 
@@ -185,7 +185,7 @@ export default function MediaViewerModal({ images, index = 0, onNavigate, url, a
           <button onClick={(e) => { e.stopPropagation(); goNext(); }} disabled={!canNext} aria-label="Image suivante" className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 h-10 w-10 rounded-full flex items-center justify-center focus-visible:outline focus-visible:outline-2 disabled:opacity-30 z-10" style={{ background: "rgba(255,255,255,.12)" }}>
             <ChevronRight size={22} color="#fff" />
           </button>
-          <div className="absolute top-4 left-1/2 -translate-x-1/2 text-xs font-bold text-white px-3 py-1 rounded-full z-10" style={{ background: "rgba(255,255,255,.12)" }}>
+          <div className="absolute bb-safe-t-4 left-1/2 -translate-x-1/2 text-xs font-bold text-white px-3 py-1 rounded-full z-10" style={{ background: "rgba(255,255,255,.12)" }}>
             {index + 1} / {list.length}
           </div>
         </>
@@ -224,7 +224,7 @@ export default function MediaViewerModal({ images, index = 0, onNavigate, url, a
         )}
       </div>
 
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-1.5 z-10">
+      <div className="absolute bb-safe-b-4 left-1/2 -translate-x-1/2 flex items-center gap-1.5 z-10">
         <button onClick={(e) => { e.stopPropagation(); zoomOut(); }} aria-label="Zoom arrière" disabled={zoom <= MIN_ZOOM} className="h-9 w-9 rounded-full flex items-center justify-center focus-visible:outline focus-visible:outline-2 disabled:opacity-30" style={{ background: "rgba(255,255,255,.12)" }}>
           <ZoomOut size={16} color="#fff" />
         </button>

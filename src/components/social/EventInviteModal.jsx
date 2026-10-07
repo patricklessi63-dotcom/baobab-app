@@ -19,7 +19,7 @@ export default function EventInviteModal({ open, candidates = [], invitedIds = n
 
   return (
     <div className="fixed inset-0 z-[70] flex items-end md:items-center justify-center p-0 md:p-5" style={{ background: `rgba(${primaryRgb},.55)`, backdropFilter: "blur(5px)" }} onClick={onClose} role="dialog" aria-modal="true" aria-label="Inviter des personnes">
-      <div ref={panelRef} tabIndex={-1} className={`${card} w-full max-w-md rounded-t-[30px] md:rounded-[30px] p-6 max-h-[80vh] overflow-y-auto`} onClick={(e) => e.stopPropagation()}>
+      <div ref={panelRef} tabIndex={-1} className={`${card} w-full max-w-md rounded-t-[30px] md:rounded-[30px] p-6 max-h-[80vh] overflow-y-auto`} style={{ paddingBottom: "max(1.5rem, env(safe-area-inset-bottom, 0px))" }} onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-black" style={{ color: primary }}>Inviter des personnes</h2>
           <button onClick={onClose} aria-label="Fermer"><X /></button>

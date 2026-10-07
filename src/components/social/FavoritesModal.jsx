@@ -26,7 +26,7 @@ export default function FavoritesModal({ open, onClose, favoriteProfiles = [], o
       aria-modal="true"
       aria-label="Mes favoris"
     >
-      <div ref={panelRef} tabIndex={-1} className={`${card} w-full max-w-md rounded-t-[30px] md:rounded-[30px] p-6 max-h-[85vh] overflow-y-auto`} onClick={(e) => e.stopPropagation()}>
+      <div ref={panelRef} tabIndex={-1} className={`${card} w-full max-w-md rounded-t-[30px] md:rounded-[30px] p-6 max-h-[85vh] overflow-y-auto`} style={{ paddingBottom: "max(1.5rem, env(safe-area-inset-bottom, 0px))" }} onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-black" style={{ color: primary }}>⭐ Mes favoris</h2>
           <button onClick={onClose} aria-label="Fermer"><X /></button>

@@ -195,7 +195,7 @@ export default function StoryViewerModal({
         <div className="absolute inset-0 flex items-center justify-center text-8xl opacity-15">🌍</div>
 
         {/* Barres de progression, une par story non-personnelle */}
-        <div className="absolute top-3 left-3 right-3 flex gap-1.5 z-10">
+        <div className="absolute bb-safe-t-3 bb-safe-x-3 flex gap-1.5 z-10">
           {stories.map((s, i) => (
             !s.own && (
               <div key={i} className="h-[3px] flex-1 rounded-full bg-white/25 overflow-hidden">
@@ -206,7 +206,7 @@ export default function StoryViewerModal({
           ))}
         </div>
 
-        <div className="absolute top-8 left-4 right-4 flex items-center gap-2.5 z-10">
+        <div className="absolute bb-safe-t-8 bb-safe-x-4 flex items-center gap-2.5 z-10">
           <button
             onClick={() => { if (!story.own) { closeStoryViewer(); onOpenProfile?.(story.profile_id); } }}
             className="h-9 w-9 rounded-full bg-white/20 backdrop-blur flex items-center justify-center text-white font-black border border-white/30 shrink-0 focus-visible:outline focus-visible:outline-2"
@@ -311,7 +311,7 @@ export default function StoryViewerModal({
         </div>
 
         {!story.own && !storyViewersOpen && (
-          <div className="absolute bottom-[76px] left-0 right-0 flex items-center justify-center gap-2 z-10">
+          <div className="absolute left-0 right-0 flex items-center justify-center gap-2 z-10" style={{ bottom: "calc(76px + env(safe-area-inset-bottom, 0px))" }}>
             {REACTIONS.map((emoji) => (
               <button
                 key={emoji}
@@ -326,7 +326,7 @@ export default function StoryViewerModal({
           </div>
         )}
 
-        <div className="absolute bottom-0 left-0 right-0 p-4 flex gap-2 z-10" style={{ background: "linear-gradient(180deg,transparent,rgba(0,0,0,.35))" }}>
+        <div className="absolute bottom-0 left-0 right-0 p-4 flex gap-2 z-10" style={{ background: "linear-gradient(180deg,transparent,rgba(0,0,0,.35))", paddingBottom: "max(1rem, env(safe-area-inset-bottom, 0px))" }}>
           {story.own ? (
             confirmDelete ? (
               <div className="flex-1 flex gap-2">
@@ -388,7 +388,7 @@ export default function StoryViewerModal({
 
         {/* Panneau "Personnes ayant vu ton statut" */}
         {storyViewersOpen && (
-          <div className="absolute inset-x-0 bottom-0 z-20 rounded-t-[24px] max-h-[70%] flex flex-col" style={{ background: "var(--bb-surface)" }}>
+          <div className="absolute inset-x-0 bottom-0 z-20 rounded-t-[24px] max-h-[70%] flex flex-col" style={{ background: "var(--bb-surface)", paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
             <div className="flex items-center justify-between p-4 pb-2 shrink-0">
               <div className="flex items-center gap-1.5 text-sm font-bold" style={{ color: "var(--bb-text)" }}>
                 <Eye size={15} /> {storyViewCount || 0} vue{storyViewCount > 1 ? "s" : ""}

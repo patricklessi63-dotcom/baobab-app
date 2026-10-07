@@ -3406,7 +3406,7 @@ export default function App() {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: C.sand }}>
         {/* Bandeau hors ligne aussi pendant le chargement initial : sans lui, un lancement sans réseau montrait un simple spinner muet. */}
-        <div className="fixed top-0 inset-x-0 z-[95]"><ConnectivityBanner /></div>
+        <div className="fixed top-0 inset-x-0 z-[95] bb-banner-stack"><ConnectivityBanner /></div>
         <Loader2 className="animate-spin" color={C.indigo} size={32} />
       </div>
     );
@@ -3418,7 +3418,7 @@ export default function App() {
   if (view === "profile-load-error") {
     return (
       <div className="min-h-screen flex items-center justify-center p-6" style={{ background: C.sand }}>
-        <div className="fixed top-0 inset-x-0 z-[95]"><ConnectivityBanner /></div>
+        <div className="fixed top-0 inset-x-0 z-[95] bb-banner-stack"><ConnectivityBanner /></div>
         <div className="bb-card p-8 max-w-sm w-full text-center">
           <div className="text-4xl mb-3">⚠️</div>
           <h1 className="text-lg font-black" style={{ color: "var(--bb-text)" }}>Impossible de charger ton profil</h1>
@@ -3510,7 +3510,7 @@ export default function App() {
   if (currentUser && ["feed", "stories", "profile", "discover", "matches"].includes(view)) {
     return (
       <>
-        <div className="sticky top-0 z-[95] flex flex-col">
+        <div className="sticky top-0 z-[95] flex flex-col bb-banner-stack">
           <ConnectivityBanner />
           <AccountDeletionBanner currentUser={currentUser} onCancelled={handleCancelAccountDeletion} />
         </div>
@@ -3576,12 +3576,12 @@ export default function App() {
           />
         )}
         {successNotice && (
-          <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[95] px-4 py-3 rounded-2xl text-sm font-semibold text-white shadow-xl" style={{ background: C.primary }}>
+          <div className="fixed left-1/2 -translate-x-1/2 z-[95] px-4 py-3 rounded-2xl text-sm font-semibold text-white shadow-xl" style={{ background: C.primary, bottom: "calc(6rem + env(safe-area-inset-bottom, 0px))" }}>
             {successNotice}
           </div>
         )}
         {error && (
-          <div role="alert" className="fixed top-4 left-1/2 -translate-x-1/2 z-[95] flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-semibold shadow-xl max-w-[92vw]" style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)", color: C.coralText }}>
+          <div role="alert" className="fixed left-1/2 -translate-x-1/2 z-[95] flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-semibold shadow-xl max-w-[92vw]" style={{ top: "calc(1rem + env(safe-area-inset-top, 0px))", background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)", color: C.coralText }}>
             <span>{error}</span>
             <button onClick={() => setError("")} aria-label="Fermer le message d'erreur" className="text-xs font-bold underline flex-shrink-0">Fermer</button>
           </div>
@@ -3632,7 +3632,7 @@ export default function App() {
 
   return (
     <div className="bb-app min-h-screen flex flex-col relative" style={{ fontFamily: "'Manrope', system-ui, sans-serif", color: C.ink }}>
-      <div className="sticky top-0 z-[95] flex flex-col">
+      <div className="sticky top-0 z-[95] flex flex-col bb-banner-stack">
         <ConnectivityBanner />
         <AccountDeletionBanner currentUser={currentUser} onCancelled={handleCancelAccountDeletion} />
       </div>
@@ -3645,7 +3645,7 @@ export default function App() {
       `}</style>
       <div aria-hidden="true" className="fixed inset-0 z-0 pointer-events-none" style={{ background: C.sand }} />
       {/* Header */}
-      <div className="relative z-20 flex items-center justify-between px-5 py-4 bb-generic-glass" style={{ borderBottom: `1px solid rgba(var(--bb-ink-rgb-static),0.08)`, boxShadow: "0 1px 0 rgba(8,20,14,0.06)", position: "sticky", top: 0, zIndex: 10 }}>
+      <div className="relative z-20 flex items-center justify-between px-5 py-4 bb-generic-glass" style={{ borderBottom: `1px solid rgba(var(--bb-ink-rgb-static),0.08)`, boxShadow: "0 1px 0 rgba(8,20,14,0.06)", position: "sticky", top: 0, zIndex: 10, paddingTop: "calc(1rem + env(safe-area-inset-top, 0px))" }}>
         <div className="flex items-center gap-2">
           <span style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontWeight: 600, fontSize: 20, color: C.indigo }}>
             Baobab

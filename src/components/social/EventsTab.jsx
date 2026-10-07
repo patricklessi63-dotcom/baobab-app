@@ -1317,7 +1317,7 @@ export default function EventsTab({ currentUser, onError, onBack = () => {}, ini
 
         {shareOpen && (
           <div className="fixed inset-0 z-[70] flex items-end md:items-center justify-center p-0 md:p-5" style={{ background: `rgba(${primaryRgb},.55)`, backdropFilter: "blur(5px)" }} onClick={() => setShareOpen(false)} role="dialog" aria-modal="true" aria-label="Partager dans une conversation">
-            <div ref={shareDialogRef} tabIndex={-1} className={`${card} w-full max-w-md rounded-t-[30px] md:rounded-[30px] p-6 max-h-[80vh] overflow-y-auto`} onClick={(e) => e.stopPropagation()}>
+            <div ref={shareDialogRef} tabIndex={-1} className={`${card} w-full max-w-md rounded-t-[30px] md:rounded-[30px] p-6 max-h-[80vh] overflow-y-auto`} style={{ paddingBottom: "max(1.5rem, env(safe-area-inset-bottom, 0px))" }} onClick={(e) => e.stopPropagation()}>
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-black" style={{ color: primary }}>Partager dans une conversation</h2>
                 <button onClick={() => setShareOpen(false)} aria-label="Fermer"><X /></button>

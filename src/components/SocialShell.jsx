@@ -2257,7 +2257,7 @@ export default function SocialShell({
         @media (prefers-reduced-motion: reduce) { .bb-app * { animation: none !important; transition: none !important; } }
       `}</style>
       <div aria-hidden="true" className="fixed inset-0 z-0 pointer-events-none" style={{ background: bg }} />
-      <header className="sticky top-0 z-40 border-b bb-glass" style={{ borderColor: `rgba(${primaryRgb},.08)`, paddingTop: "env(safe-area-inset-top)" }}>
+      <header className="sticky top-0 z-40 border-b bb-glass" style={{ borderColor: `rgba(${primaryRgb},.08)`, paddingTop: "env(safe-area-inset-top)", paddingLeft: "env(safe-area-inset-left)", paddingRight: "env(safe-area-inset-right)" }}>
         <div className="max-w-7xl mx-auto px-4 lg:px-8 h-[74px] flex items-center gap-4">
           {/* Bug corrigé à l'audit accessibilité clavier/lecteur d'écran : le
               nom accessible de ce bouton reposait uniquement sur le texte
@@ -2632,7 +2632,7 @@ export default function SocialShell({
           à deviner. aria-current="page" (convention pour une navigation
           entre "pages" d'une même app) sur le bouton de l'onglet actif fait
           annoncer "sélectionné(e)" par les lecteurs d'écran usuels. */}
-      <nav className="fixed bottom-0 left-0 right-0 z-40 bb-glass border-t" style={{ borderColor: `rgba(${primaryRgb},.08)`, paddingBottom: "env(safe-area-inset-bottom)" }}>
+      <nav className="fixed bottom-0 left-0 right-0 z-40 bb-glass border-t" style={{ borderColor: `rgba(${primaryRgb},.08)`, paddingBottom: "env(safe-area-inset-bottom)", paddingLeft: "env(safe-area-inset-left)", paddingRight: "env(safe-area-inset-right)" }}>
         <div className="max-w-xl mx-auto grid grid-cols-5 px-2">
           {nav.map(([key, Icon, label, getBadge]) => {
             const badgeCount = getBadge ? getBadge() : 0;

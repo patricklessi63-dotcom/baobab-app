@@ -271,12 +271,17 @@ export default function MessagesTab({
           en pleine conversation mobile. 100dvh (dynamic viewport height) se
           recalcule avec la barre d'outils ; fallback 100vh conservé pour les
           navigateurs qui ne le supportent pas encore (Safari < 15.4). */}
+      {/* Zones sûres : l'en-tête (74px) grandit de safe-area-inset-top et la
+          barre de navigation du bas de safe-area-inset-bottom (iPhone à encoche,
+          Android plein écran) ; sans les retrancher ici, le volet de conversation
+          dépassait d'autant sous la nav et le champ de saisie était masqué. Les
+          deux env() valent 0 sur desktop/navigateur classique : calcul inchangé. */}
       <style>{`
-        .bb-msg-maxh { max-height: calc(100vh - 180px); }
-        .bb-msg-h { height: calc(100vh - 180px); }
+        .bb-msg-maxh { max-height: calc(100vh - 180px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)); }
+        .bb-msg-h { height: calc(100vh - 180px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)); }
         @supports (height: 100dvh) {
-          .bb-msg-maxh { max-height: calc(100dvh - 180px); }
-          .bb-msg-h { height: calc(100dvh - 180px); }
+          .bb-msg-maxh { max-height: calc(100dvh - 180px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)); }
+          .bb-msg-h { height: calc(100dvh - 180px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)); }
         }
       `}</style>
       {ConversationList}
