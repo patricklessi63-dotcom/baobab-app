@@ -18,7 +18,7 @@ modifié : `npm run build` reste `vite build`.
 | Étape | Contenu | État |
 | --- | --- | --- |
 | 1 | Capacitor + projet Android qui se synchronise, désactivation propre du Web Push en natif | **Fait** (ce document) |
-| 2 | Adaptation UI mobile (safe areas, barre d'état, splash, icônes, bouton retour…) | À faire |
+| 2 | Adaptation UI mobile (zones sûres, hauteurs, cibles tactiles, tirer pour rafraîchir, barre d'état, splash, icônes, orientation) | **Fait** (section « Étape 2 » en bas ; bouton retour Android → étape 3) |
 | 3 | Plugins natifs : notifications push (FCM/APNs), deep links, caméra/photos, etc. | À faire |
 | 4 | Préparation des stores (fiches, signature, politique de confidentialité, paiements…) | À faire |
 | 5 | iOS + CI (builds Android/iOS automatisés) | À faire |
@@ -163,3 +163,205 @@ Dans `android/app/build.gradle` :
   Android SDK installés (`java` introuvable, `ANDROID_HOME` / `ANDROID_SDK_ROOT`
   vides, pas de dossier `%LOCALAPPDATA%\Android\Sdk`). À valider par la CI (étape 5)
   ou par le propriétaire avec Android Studio.
+
+
+---
+
+# Étape 2 — Adaptation de l'interface aux téléphones (faite le 6 octobre 2026)
+
+Principe suivi : le web ne doit pas bouger. Tout ce qui est JavaScript natif est
+derrière `isNative()` + `import()` dynamique ; tout le CSS ajouté est étroit (un nom
+de classe précis ou une media query de pointeur tactile), aucun sélecteur global.
+
+## Design system : écart avec la palette du brief (DÉCISION DU PROPRIÉTAIRE)
+
+Le brief citait Indigo #151B3D / Gold #D9A441 / Coral #E16B5D / Green #2E8B72 / Cream
+#F7F2EA. Le dépôt utilise l'identité « Baobab 3.0 » (tokens `--bb-*` dans `index.html`,
+`src/constants.js`, mode sombre réactif) qui **fait foi** ; rien n'a été remplacé.
+Valeurs réellement utilisées pour splash, barre d'état et icônes :
+
+| Brief | Dépôt (utilisé) | Remarque |
+| --- | --- | --- |
+| Indigo #151B3D | **Vert profond #14432A** (`--bb-indigo`, `theme_color` du manifest, fond du logo existant) ; #0D2E1C (`--bb-indigo-deep`) | l'indigo bleuté du brief n'existe pas dans l'app : le « primaire » est un vert |
+| Gold #D9A441 | #D9A441 (`--bb-ochre`, couleur de l'arbre du logo) ; #F6D271 / #C9962F en sombre | identique |
+| Coral #E16B5D | #E56B5D (aplats/icônes, `C.coral`) ; #C0392B comme couleur de texte/boutons danger (contraste AA) | proche |
+| Green #2E8B72 | #1F7A5A (`--bb-leaf`, actions) ; #3FB37E / #6FD6A6 décoratif | proche |
+| Cream #F7F2EA | #FAF7F2 (`--bb-bg` clair), #F8F5EF (`--bb-sand`) ; sombre #14120D | proche |
+
+Splash clair = #14432A + arbre ; splash sombre et fond de fenêtre sombre = #14120D (jeton
+`--bb-bg` sombre) ; fond de fenêtre clair = #FAF7F2. Si le propriétaire veut réellement
+la palette du brief (indigo #151B3D…), c'est un chantier de refonte du design system, pas
+un réglage mobile.
+
+## Changements, point par point
+
+**1. Zones sûres** (`viewport-fit=cover` déjà présent). Audit par grep de tous les
+`fixed`/`sticky`. Déjà corrects : nav du bas, en-tête, compositeur de messages, feuilles
+`AppModals`, `PostComposer`/`StoryComposer`, `UpdateNotice`, Auth, Landing. Corrigés :
+bandeaux globaux « connexion interrompue » / « suppression de compte » (classe
+`.bb-banner-stack`), toasts succès (au-dessus de la nav + zone basse) et erreur (sous
+l'encoche), en-tête de la coque générique (onboarding / édition de profil), pied de
+l'onboarding, `PublicPageShell`, visionneuse de stories (barres de progression, en-tête,
+réactions, champ de réponse, panneau « vues »), visionneuse de photos (fermer, compteur,
+zoom), 8 feuilles du bas sans marge de zone sûre (`AdmirersModal`, `FavoritesModal`,
+`MatchInfoModal`, `MatchPreferencesModal`, `CommunityInviteModal`, `EventInviteModal`,
+partage d'événement, `DeleteAccountModal`) + fiche de profil public ; gauche/droite
+(paysage / tablette) sur l'en-tête et la nav. Le volet de messagerie retranche désormais
+`safe-area-inset-top/bottom` de sa hauteur fixe (`calc(100dvh - 180px …)`) : sans cela
+le champ de saisie passait sous la nav sur iPhone en PWA/natif.
+*Android* : Capacitor 8 (plugin `SystemBars`, `insetsHandling: css`,
+`initialViewportFitValueHint: cover`) rend la WebView plein écran (WebView ≥ 140 : `env()`
+correct) ou l'insère avec du padding natif (WebView < 140 : `env()` = 0) ; dans les deux
+cas le CSS existant convient.
+
+**2. Hauteurs / clavier.** Le brief annonçait « 6 usages de `100vh` » : il n'y en avait
+qu'un (messagerie, déjà avec repli `dvh`) ; en revanche **12 `min-h-screen`** Tailwind
+(= `100vh`). Une seule règle `@supports (min-height: 100dvh) { .min-h-screen { min-height:
+100dvh } }` (fin de `src/tailwind.css`) les couvre ; idem `max-h-[92vh]` (fiche de profil,
+seule feuille assez haute pour dépasser). Les feuilles à 80/85 % restent en `vh` : elles
+tiennent dans la zone visible même barre d'outils affichée, et en natif `vh` = `dvh`.
+*Clavier* : `@capacitor/keyboard` 8.0.6, `resize: "native"` (iOS : la WebView est
+redimensionnée ; Android : le plugin `SystemBars` relève le padding bas de la hauteur du
+clavier). Filet de sécurité JS (`setupKeyboardGuard`, natif seulement) : à l'ouverture du
+clavier, le champ actif est ramené dans la zone visible (`scrollIntoView({block:"nearest"})`).
+
+**3. Cibles tactiles ≥ 44 × 44 px.** Classe `.bb-hit` : pseudo-élément invisible centré,
+réservé aux pointeurs « grossiers » (`@media (pointer: coarse)`), `position: relative` à
+spécificité nulle (`:where`) donc `absolute`/`fixed` existants prioritaires. Aucun
+agrandissement visuel. `.bb-hit-v` (hauteur seule) pour les rangées d'icônes collées (écart
+entre centres < 44 px : une extension horizontale volerait la zone du voisin). Appliquée à
+~165 boutons : fermer ×, retour, menus ⋯ des conversations/messages, envoi (message vocal,
+commentaires d'événement, réponse de story), j'aime / commenter / signaler / modifier /
+supprimer (fil et communautés), réactions (puces), favoris / passer / signaler / bloquer,
+onglets-pastilles (catégories du fil, filtres de messages, notifications, actualités),
+visionneuses (fermer / précédent / suivant / zoom / son / ⋯), suppression du média d'un
+brouillon, etc. Les sélecteurs d'emojis rapides (`MessageActionsMenu`, `CommunityPostCard`)
+ont reçu de vrais `min-h 44 / min-w 40` (boutons collés). Vérifié dans un navigateur en
+émulation tactile : la zone mesure 44 px, extension verticale seule pour `.bb-hit-v`, aucun
+effet à la souris.
+**Non corrigé volontairement (< 44 px restant)** : vignettes de photos 72 px de
+`EditProfileForm` / onboarding (boutons × / étoile / flèches de 20 px posés sur la
+vignette : une extension à 44 px recouvrirait la photo elle-même et ferait déclencher
+« photo principale » / « supprimer » à la place de l'agrandissement — il faut agrandir les
+vignettes ou passer à un menu ⋯, décision de design), le « + » d'ajout de statut sur sa propre
+story, les 3 boutons ↑ ↓ × des médias d'un brouillon de publication, la grille 36 px des emojis
+et des couleurs de fond de story (cellules collées), les libellés de la nav à 8 px. Les rangées
+d'onglets horizontales défilantes rognent verticalement l'extension.
+*Survol* : seuls 2 usages cachaient une action au survol : le menu ⋯ d'une ligne de
+conversation (`opacity-0 group-hover`) et le × de suppression de la grille de publications du
+profil (`hidden group-hover:flex`, injoignable au tactile) → visibles via
+`[@media(hover:none)]`. Le reste (`hover:bg-…`) n'est que décoratif.
+
+**4. Gestes.** *Tirer pour rafraîchir* : `src/hooks/usePullToRefresh.js` (touch events
+passifs, jamais de `preventDefault`, seuil 70 px, uniquement page et conteneurs défilants à
+`scrollTop 0`, un doigt, mouvement surtout vertical, aucune modale ouverte, désactivé
+pendant un rechargement / une action ; pose `overscroll-behavior-y: contain` sur `<html>`
+tant qu'il est actif pour neutraliser le rafraîchissement natif de Chrome Android).
+Indicateur discret `PullToRefreshIndicator`. Branché sur : **le fil** (`PostsFeed`,
+`loadPosts(null, {silent})` = le rechargement de la bannière « nouvelles publications »,
+sans repasser par « Chargement… » ; désactivé en grille/profil, pendant la rédaction,
+publication, suppression, signalement) et **la liste des conversations** (`MessagesTab` ←
+`SocialShell.refreshConversations` = aperçus + non-lus + notifications, mêmes fonctions que
+la reconnexion/reprise ; désactivé conversation ouverte). Les stories et suggestions du fil
+ne sont pas rechargées par ce geste.
+*Swipe Découverte* : **déjà présent** (`DiscoverTab` : glissement horizontal de la carte
+principale, `touch-action: pan-y`, seuil 110 px, retour élastique, mêmes `decideSwipe` que
+les boutons Passer / Se rencontrer) — rien ajouté. *Retour* : iOS système ; Android → étape 3.
+
+**5. Mode sombre / barre d'état.** Le thème suit déjà `prefers-color-scheme` quand le
+réglage est « Système », mais **par défaut le web est en clair** (choix produit). En natif,
+`applyNativeThemeDefault()` (appelé par `main.jsx`) enregistre « Système » au tout premier
+lancement sans préférence ; un choix explicite n'est jamais écrasé. (Le script d'amorçage de
+`index.html` n'a pas été modifié : son hash est épinglé dans la CSP de `vercel.json`.)
+`useNativeSystemBars` (appelé dans `App.jsx`) lit le fond **réellement affiché** en haut et en
+bas de l'écran (accueil/connexion toujours vert sombre ; onboarding toujours clair ; coque
+sociale selon le thème) et applique : `@capacitor/status-bar` 8.0.4 `setStyle` (+
+`setBackgroundColor` sur Android, ignoré à partir d'Android 15/16 par le plugin) et
+`SystemBars.setStyle({bar: "NavigationBar"})` (cœur de Capacitor, Android) ; recalcul
+(anti-rebond 300 ms) à chaque changement de `data-theme`, de préférence système, d'écran ou de
+navigation. Limite connue : WebView < 140 (rare) → la zone sous la barre d'état est le fond de
+fenêtre (`bb_window_background`, suit le thème système, pas le réglage interne) : icônes
+éventuellement mal contrastées si thème interne ≠ thème système.
+
+**6. Splash et icônes.** Seule source de logo : `public/icon-512.png` (512 px, raster, carré
+arrondi vert #14432A + arbre or/brun). Aucun nouveau logo :
+`scripts/generate-native-asset-sources.mjs` (`npm run assets:sources`) détoure l'arbre et le
+recompose sur fonds unis de la charte → `assets/icon-only.png` (1024², arbre ×1,5),
+`icon-foreground.png` (1024², transparent, arbre ×1,8), `icon-background.png`, `splash.png`
+(2732², #14432A), `splash-dark.png` (2732², #14120D). Puis `npm run assets:android`
+(= `npx capacitor-assets generate --android --assetPath assets`, sharp inclus, fonctionne
+sans Android Studio) a produit les 74 PNG de `android/app/src/main/res` (versionnés,
+~0,9 Mo) et l'icône adaptative. `@capacitor/splash-screen` 8.0.2 : `launchAutoHide` avec 3 s
+en secours, masquage manuel dès que la session est vérifiée (`hideSplash`), fond #14432A ;
+Android 12+ : `windowSplashScreenBackground` = `bb_splash_background` (clair #14432A / sombre
+#14120D).
+**À fournir par le propriétaire** : le logo en **vectoriel (SVG) ou PNG ≥ 1024²** (l'actuel est
+agrandi ×1,5 / ×1,8 : correct car aplats, mais moins net qu'une source native), une version de
+l'arbre sans fond, et, pour iOS (étape 5), `icon-only.png` sans transparence (déjà le cas).
+Déposer les fichiers dans `assets/` à la place des générés, puis `npm run assets:android`.
+
+**7. Orientation.** Android : `android:screenOrientation="portrait"` sur `MainActivity`. Sur
+Android 16 (targetSdk 36), le système **ignore** ce verrou sur les grands écrans (≥ 600 dp :
+tablettes, pliables) : l'interface y reste donc exploitable en paysage (conteneurs centrés
+`max-w-*`, zones sûres gauche/droite sur en-tête et nav). iOS : étape 5.
+
+**8. Performances / listes.** Mesures par lecture du code : fil = pages de 20 (curseur) avec
+défilement infini → ne dépasse ~200 cartes qu'après ~10 pages défilées d'affilée ; messages =
+30 + « charger plus » ; Découverte = 500 profils en mémoire mais **un seul** rendu en mode pile
+et 12 par clic en grille ; communautés/événements = pages de 20 + « charger plus ». **Aucune
+liste ne dépasse ~200 éléments rendus en usage normal : pas de virtualisation.**
+`content-visibility: auto` a été écarté : il impose le *paint containment* et rognerait les
+ombres des cartes (`bb-card`) et les menus déroulants positionnés sous les cartes (réactions)
+— à reconsidérer (avec marge interne) seulement si la télémétrie montre des fils > 200 cartes.
+`<img>` : audit fait ; les seuls sans `loading="lazy"` sont au premier plan (visionneuses,
+aperçus) ou décoratifs.
+
+**9. Tablettes.** Aucune casse attendue : en-tête/contenu `max-w-7xl mx-auto`, nav
+`max-w-xl mx-auto`, messagerie `max-w-6xl`, onboarding/auth `max-w-md`, pages publiques
+`max-w-2xl`, visionneuse de stories `max-w-md`. Vérifié en émulation 768 × 1024 (métriques).
+
+## Plugins ajoutés (versions vérifiées le 6 octobre 2026 avec `npm view`)
+
+| Paquet | Version | Où |
+| --- | --- | --- |
+| `@capacitor/keyboard` | 8.0.6 | dépendance (chargé dynamiquement) |
+| `@capacitor/status-bar` | 8.0.4 | dépendance (chargé dynamiquement) |
+| `@capacitor/splash-screen` | 8.0.2 | dépendance (chargé dynamiquement) |
+| `@capacitor/assets` | 3.0.5 | devDependency (génération des icônes/splash) |
+
+Configuration : `capacitor.config.json` (`SplashScreen`, `Keyboard`, `SystemBars`).
+`cap sync android` OK : 3 plugins détectés.
+
+## À tester sur appareil réel (rien n'a pu l'être ici)
+
+- Aucun test sur téléphone/émulateur Android ni iOS : ni JDK ni SDK sur cette machine. Toute
+  la partie native (styles Android, splash Android 12+, icône adaptative, barres système,
+  clavier) est **non vérifiée à l'exécution**.
+- Safe areas réelles (encoche, Dynamic Island, barre de gestes) : en-tête, nav, bandeaux,
+  toasts, visionneuses, feuilles du bas, volet de messagerie (champ de saisie visible clavier
+  ouvert).
+- Icônes des barres système correctes sur accueil/connexion (sombre), onboarding (clair),
+  coque sociale en clair et en sombre, en changeant le thème système et le réglage interne.
+- Tirer pour rafraîchir sur le fil et la liste des conversations (pas de double
+  rafraîchissement natif Chrome ; pas de conflit avec le défilement ni avec le glissement
+  horizontal des stories).
+- Zones tactiles ≥ 44 px au doigt (menus ⋯, ×, j'aime, réactions) sans touches voisines
+  parasites.
+- Splash : aspect clair/sombre, durée, absence d'écran blanc entre splash et premier écran ;
+  icône adaptative (rond, carré arrondi, goutte) : l'arbre doit rester entier.
+- Tablette/pliable en paysage (Android 16 ignore le verrou portrait).
+
+## Vérifications effectuées (étape 2)
+
+- `npm run build` : OK. `npx cap sync android` : OK. Suite complète : verte.
+- Émulation Chrome 375 × 812 et 768 × 1024 (pointeur tactile) de l'accueil, connexion,
+  inscription, à propos, confidentialité, conditions : aucun débordement horizontal, aucune
+  erreur, cartes centrées sur tablette ; zone `.bb-hit` mesurée à 44 px dans un vrai
+  navigateur. Aucun compte créé, aucune connexion : les écrans connectés n'ont PAS été vus à
+  l'écran.
+- Bundle principal (`dist/assets/index-*.js`) : 470 311 o (fin d'étape 1) → **479 872 o** (+9,5 ko brut,
+  139,3 ko gzip) : `usePullToRefresh`, `nativeUi`, `useNativeSystemBars`, indicateur, classes. Les plugins
+  natifs sont des chunks séparés, jamais chargés par un navigateur : status-bar 0,41 ko, keyboard 0,43 ko,
+  splash-screen 0,58 ko (+ `web-*.js` des plugins Capacitor). `index.html` (scripts à hash CSP) inchangé.
+- Tests : 190 → 195 fichiers, 1150 → 1195 tests, tous verts (`nativeUi`, `useNativeSystemBars`,
+  `usePullToRefresh`, intégrations fil et messagerie, garde-fous web avec mocks `@capacitor/*`).
