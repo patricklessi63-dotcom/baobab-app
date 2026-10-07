@@ -1,6 +1,9 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Search, Plus, X, Users2, Sparkles, Sprout, Flame, MessageCircle, Rocket, Target, ArrowLeft } from "lucide-react";
 import { supabase } from "../../supabaseClient";
+import { isNative } from "../../lib/platform";
+import { linkOrigin } from "../../lib/publicOrigin";
+import { shareNative } from "../../lib/nativeShare";
 import CommunityGroupCard from "./CommunityGroupCard";
 import CommunityFilters from "./CommunityFilters";
 import CommunityDetailView from "./CommunityDetailView";
@@ -1439,6 +1442,17 @@ export default function CommunitiesTab({ currentUser, onError, onBack = () => {}
   // ---------- Partage ----------
   const handleShare = async (comm) => {
     const shareText = `Découvre ${comm.name} sur Baobab !`;
+    if (isNative()) {
+      // App native : feuille de partage système avec le lien PUBLIC du site. Une communauté non
+      // publique (privée / sur invitation) ne voit PAS son nom quitter l'app : texte générique.
+      const text = comm.visibility === "public" ? shareText : "Rejoins-moi sur Baobab !";
+      const url = linkOrigin() + "/";
+      const r = await shareNative({ title: "Baobab", text, url, dialogTitle: "Partager" });
+      if (!r.ok && !r.cancelled && !r.busy) {
+        try { await navigator.clipboard?.writeText(`${text} ${url}`); } catch (_) {}
+      }
+      return;
+    }
     try {
       if (navigator.share) await navigator.share({ title: "Baobab", text: shareText });
       else await navigator.clipboard?.writeText(shareText);

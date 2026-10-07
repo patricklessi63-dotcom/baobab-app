@@ -14,6 +14,8 @@ import { LOOKING_FOR_OPTIONS, INTERESTS_OPTIONS, LANGUAGES_OPTIONS } from "../..
 import { primary, navy, navyRgb, green, coral, coralText, gold, goldText, gold1, surface2, bg, muted, card, buttonBase, online, body, primaryRgb } from "./theme";
 import { ARRIVAL_STAGE_OPTIONS, matchesArrivalStage } from "../../lib/arrivalStage";
 import { linkOrigin } from "../../lib/publicOrigin";
+import { isNative } from "../../lib/platform";
+import { shareNative } from "../../lib/nativeShare";
 
 const ACTIVE_RECENTLY_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
 
@@ -143,7 +145,20 @@ export default function DiscoverTab({
       url: inviteUrl,
     };
     try {
-      if (navigator.share) {
+      if (isNative()) {
+        // Feuille de partage système (la WebView Android n'a pas navigator.share). Fermeture de la
+        // feuille = pas une erreur ; échec réel = repli sur la copie du lien.
+        const r = await shareNative({ ...shareData, dialogTitle: "Inviter ma communauté" });
+        if (r.cancelled || r.busy) return;
+        if (r.ok) {
+          setInviteState("shared");
+        } else if (navigator.clipboard?.writeText) {
+          await navigator.clipboard.writeText(inviteUrl);
+          setInviteState("copied");
+        } else {
+          setInviteState("error");
+        }
+      } else if (navigator.share) {
         await navigator.share(shareData);
         setInviteState("shared");
       } else if (navigator.clipboard?.writeText) {

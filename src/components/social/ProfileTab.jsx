@@ -16,6 +16,7 @@ import { openBillingPortal } from "../../lib/premium/checkout";
 import { primary, navy, green, coral, coralText, gold, goldText, bg, muted, online, verified, primaryRgb, leaf } from "./theme";
 import { isNative } from "../../lib/platform";
 import { linkOrigin } from "../../lib/publicOrigin";
+import { shareNative } from "../../lib/nativeShare";
 
 // Même mapping que EventCard.jsx/EventParticipantsList.jsx (badge de statut
 // de participation) — repris ici pour "Mes événements" (onglet Profil), qui
@@ -183,7 +184,7 @@ export default function ProfileTab({
                   <div className="absolute inset-0 opacity-20 text-[150px] leading-none flex items-center justify-center">🌍</div>
                 )}
                 <div className="absolute right-4 top-4 flex gap-2">
-                  <button onClick={(e) => { e.stopPropagation(); navigator.share ? navigator.share({ title: "Baobab", text: `Découvre le profil de ${currentUser?.name} sur Baobab` }) : navigator.clipboard?.writeText(isNative() ? linkOrigin() + "/" : window.location.href); }} aria-label="Partager mon profil" className="bb-hit h-9 w-9 rounded-xl bg-white/15 backdrop-blur flex items-center justify-center border border-white/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-white">
+                  <button onClick={(e) => { e.stopPropagation(); if (isNative()) { shareNative({ title: "Baobab", text: `Découvre le profil de ${currentUser?.name} sur Baobab`, url: linkOrigin() + "/", dialogTitle: "Partager mon profil" }).then((r) => { if (r.error || r.unsupported) navigator.clipboard?.writeText(linkOrigin() + "/"); }); return; } navigator.share ? navigator.share({ title: "Baobab", text: `Découvre le profil de ${currentUser?.name} sur Baobab` }) : navigator.clipboard?.writeText(isNative() ? linkOrigin() + "/" : window.location.href); }} aria-label="Partager mon profil" className="bb-hit h-9 w-9 rounded-xl bg-white/15 backdrop-blur flex items-center justify-center border border-white/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-white">
                     <Send size={15} color="#fff" />
                   </button>
                   <button onClick={(e) => { e.stopPropagation(); openEditProfile(); }} className="rounded-xl bg-white/15 backdrop-blur text-white px-4 py-2.5 text-xs font-bold border border-white/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-white">Modifier le profil</button>
