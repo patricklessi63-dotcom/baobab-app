@@ -5,3 +5,34 @@ dist
 
 .vercel
 .env*
+
+# --- Mobile (Capacitor) : JAMAIS de clé de signature / secret dans le dépôt ---
+*.keystore
+*.jks
+*.p12
+*.p8
+*.pem
+*.mobileprovision
+*.cer
+keystore.properties
+key.properties
+android/keystore.properties
+android/local.properties
+# Générés par Android/Gradle (android/.gitignore couvre déjà le reste)
+android/.gradle/
+android/app/build/
+android/build/
+android/.idea/
+android/captures/
+# Généré par `cap sync` (copie de dist/ + config) — ne pas versionner
+android/app/src/main/assets/public/
+android/app/src/main/assets/capacitor.config.json
+android/app/src/main/assets/capacitor.plugins.json
+android/app/src/main/res/xml/config.xml
+android/capacitor-cordova-android-plugins/
+# Sortie de build mobile
+*.apk
+*.aab
+# google-services.json (Firebase/FCM, étape 3) : volontairement NON ignoré —
+# il ne contient que des identifiants publics du projet (pas de clé privée) ;
+# voir MOBILE.md.

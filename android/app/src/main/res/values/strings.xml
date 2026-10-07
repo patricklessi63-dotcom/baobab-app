@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Baobab</string>
+    <string name="title_activity_main">Baobab</string>
+    <string name="package_name">ca.baobab.app</string>
+    <string name="custom_url_scheme">ca.baobab.app</string>
+</resources>

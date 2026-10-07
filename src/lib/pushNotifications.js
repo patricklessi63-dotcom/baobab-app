@@ -1,8 +1,13 @@
 import { supabase } from "../supabaseClient";
+import { isNative } from "./platform";
 
 const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY;
 
 export function isPushSupported() {
+  // App native (Capacitor) : ni service worker ni Web Push. Les notifications
+  // natives (FCM/APNs) arrivent à l'étape 3 ; d'ici là, comme « non pris en
+  // charge » — sans erreur ni enregistrement de /sw.js dans la WebView.
+  if (isNative()) return false;
   // `Notification` est vérifié aussi : certains navigateurs/WebViews exposent
   // PushManager sans Notification, et enablePushNotifications() / le statut
   // lèveraient alors un ReferenceError sur `Notification.permission`.
@@ -18,6 +23,8 @@ export function isPushSupported() {
 // iPhone/iPad : les push web n'existent QUE dans une PWA installée sur
 // l'écran d'accueil ; dans un onglet Safari, PushManager est absent.
 export function isIosNotInstalled() {
+  // L'app iOS native n'est pas une « PWA à installer » : pas d'astuce d'installation.
+  if (isNative()) return false;
   if (typeof navigator === "undefined" || typeof window === "undefined") return false;
   const ua = navigator.userAgent || "";
   const isIos = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);

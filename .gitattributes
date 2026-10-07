@@ -15,3 +15,12 @@
 *.woff2 binary
 *.mp4 binary
 *.webm binary
+*.jar binary
+*.aar binary
+*.apk binary
+*.aab binary
+
+# Scripts Gradle/Android (Capacitor) : gradlew en LF (sinon « bad interpreter »
+# sous Linux/CI), gradlew.bat en CRLF (requis par cmd.exe).
+android/gradlew text eol=lf
+*.bat text eol=crlf
