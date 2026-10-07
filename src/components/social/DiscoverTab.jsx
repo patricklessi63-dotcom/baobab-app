@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect } from "react";
-import { Heart, X, Info, Flame, Sparkles } from "lucide-react";
+import { Heart, X, Info, Flame, Sparkles, Flag, Ban } from "lucide-react";
 import StatusBadge from "../StatusBadge";
 import { visibleAge } from "../../utils/format";
 import ChipSelect from "../ChipSelect";
@@ -441,6 +441,29 @@ export default function DiscoverTab({
                         <div className="absolute top-4 left-4 flex gap-2 z-10 pointer-events-none">
                           <span className="px-3 py-1.5 rounded-full bg-white/15 backdrop-blur-md text-white text-[11px] font-bold">{(showCity && p.city) || "Canada"}</span>
                           {showCountry && p.country && <span className="px-3 py-1.5 rounded-full bg-white/15 backdrop-blur-md text-white text-[11px] font-bold">🌍 {p.country}</span>}
+                        </div>
+
+                        {/* Signaler / Bloquer directement sur la carte (Apple 1.2, Google Play UGC :
+                            ces deux actions doivent être visibles en une touche sur un profil — en
+                            mode « Pile » elles n'étaient atteignables qu'après avoir ouvert la fiche
+                            complète). Mêmes gestionnaires que la grille (MatchCard). */}
+                        <div className="absolute top-4 right-4 flex gap-2 z-20">
+                          <button
+                            aria-label={`Signaler ${p.name}`}
+                            onPointerDown={(e) => e.stopPropagation()}
+                            onClick={() => setReportTarget(p)}
+                            className="bb-hit h-9 w-9 rounded-full bg-black/35 backdrop-blur-md text-white flex items-center justify-center focus-visible:outline focus-visible:outline-2"
+                          >
+                            <Flag size={15} />
+                          </button>
+                          <button
+                            aria-label={`Bloquer ${p.name}`}
+                            onPointerDown={(e) => e.stopPropagation()}
+                            onClick={() => handleBlock(p)}
+                            className="bb-hit h-9 w-9 rounded-full bg-black/35 backdrop-blur-md text-white flex items-center justify-center focus-visible:outline focus-visible:outline-2"
+                          >
+                            <Ban size={15} />
+                          </button>
                         </div>
 
                         <div className="absolute top-16 left-6 border-4 rounded-2xl px-3 py-1 z-10 pointer-events-none" style={{ borderColor: online, transform: `rotate(-14deg)`, opacity: likeOpacity }}>
