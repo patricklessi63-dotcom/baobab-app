@@ -22,6 +22,7 @@ import { sortMessagesChronologically } from "./lib/messageOrdering";
 import { trackActivation } from "./lib/trackActivation";
 import { fetchMyLocation, upsertMyLocation, disableMyLocation } from "./lib/locationApi";
 import { getCurrentPositionSafe, LOCATION_ERROR_MESSAGES } from "./lib/geolocation";
+import { checkNativeLocationPermission, locationSettingsPath } from "./lib/nativeGeolocation";
 import { disablePushNotifications } from "./lib/pushNotifications";
 import { isLikelyInCanada, TRAVEL_GRACE_PERIOD_MS } from "./lib/canadaGate";
 import { friendlyDbError, dbErrorCode } from "./lib/friendlyDbError";
@@ -966,7 +967,9 @@ export default function App() {
   // uniquement, pour restaurer l'accès automatiquement dès la réactivation.
   const [geoPermissionState, setGeoPermissionState] = useState(null);
   useEffect(() => {
-    if (!currentUser?.id || !navigator.permissions?.query) return;
+    // En natif, navigator.permissions.query est incomplet dans la WebView : voir
+    // l'effet natif juste en dessous (état lu auprès du plugin de géolocalisation).
+    if (!currentUser?.id || isNative() || !navigator.permissions?.query) return;
     let status;
     let cancelled = false;
     navigator.permissions.query({ name: "geolocation" }).then((s) => {
@@ -979,6 +982,25 @@ export default function App() {
       cancelled = true;
       if (status) status.onchange = null;
     };
+  }, [currentUser?.id]);
+
+  // App native : même état (granted/prompt/denied) lu auprès du plugin, relu à chaque
+  // retour au premier plan (l'utilisateur change la permission dans les réglages du
+  // téléphone puis revient : aucun événement « onchange » n'existe côté natif).
+  // No-op complet sur le web.
+  useEffect(() => {
+    if (!currentUser?.id || !isNative()) return undefined;
+    let cancelled = false;
+    let stop = () => {};
+    const refresh = async () => {
+      const state = await checkNativeLocationPermission();
+      if (!cancelled && state) setGeoPermissionState(state);
+    };
+    refresh();
+    onAppStateChange(({ isActive }) => { if (isActive) refresh(); }).then((remove) => {
+      if (cancelled) remove(); else stop = remove;
+    });
+    return () => { cancelled = true; stop(); };
   }, [currentUser?.id]);
 
   const [locationGateRetrying, setLocationGateRetrying] = useState(false);
@@ -1025,7 +1047,10 @@ export default function App() {
     setLocationGateError(null);
     try {
       const result = await getCurrentPositionSafe();
-      if (navigator.permissions?.query) {
+      if (isNative()) {
+        const state = await checkNativeLocationPermission();
+        if (state) setGeoPermissionState(state);
+      } else if (navigator.permissions?.query) {
         const status = await navigator.permissions.query({ name: "geolocation" });
         setGeoPermissionState(status.state);
       }
@@ -1035,7 +1060,9 @@ export default function App() {
         // Le message générique de geolocation.js ("tu peux l'activer plus
         // tard") est pensé pour un contexte facultatif — trompeur ici où
         // l'accès reste bloqué tant que ce n'est pas réglé.
-        setLocationGateError("Toujours refusée par ton navigateur ou ton appareil. Vérifie les réglages de localisation du site dans ton navigateur (souvent une icône près de la barre d'adresse), puis réessaie.");
+        setLocationGateError(isNative()
+          ? `Toujours refusée. Ouvre les réglages de ton téléphone (${locationSettingsPath()}), autorise la position, puis reviens ici et réessaie.`
+          : "Toujours refusée par ton navigateur ou ton appareil. Vérifie les réglages de localisation du site dans ton navigateur (souvent une icône près de la barre d'adresse), puis réessaie.");
       } else {
         setLocationGateError(result.message);
       }

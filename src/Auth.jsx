@@ -3,6 +3,7 @@ import { Loader2, Mail, ArrowLeft, MapPin, X, ShieldCheck, FileText, CheckCircle
 import { supabase } from "./supabaseClient";
 import { linkOrigin } from "./lib/publicOrigin";
 import { getCurrentPositionSafe } from "./lib/geolocation";
+import { isNative } from "./lib/platform";
 import loginBackground from "./assets/baobab-canada-bg.svg";
 import logoIcon from "./assets/logo-baobab-icon.png";
 import { PrivacyPolicyContent, TermsOfServiceContent } from "./legalContent";
@@ -663,6 +664,18 @@ export default function Auth({ justVerified = false, onAcknowledgeVerified = () 
                       {" "}de Baobab, y compris la condition d'âge minimum de 18 ans.
                     </span>
                   </label>
+                  {/* App native uniquement : explication AVANT la fenêtre système de
+                      permission (déclenchée au clic sur « Créer mon compte »). Le web garde
+                      l'invite du navigateur telle quelle (comportement inchangé). */}
+                  {isNative() && (
+                    <p id="signup-location-note" className="flex items-start gap-2 text-xs leading-5" style={{ color: C.sandDim }}>
+                      <MapPin size={14} className="mt-0.5 flex-shrink-0" aria-hidden="true" />
+                      <span>
+                        Pour créer ton compte, Baobab te demandera ta position <strong>approximative</strong> (arrondie à environ 1 km).
+                        Elle sert uniquement à te proposer des personnes, événements et communautés près de toi, et n'est jamais montrée telle quelle aux autres membres.
+                      </span>
+                    </p>
+                  )}
                 </>
               )}
 

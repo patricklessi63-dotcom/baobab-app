@@ -1,3 +1,6 @@
+import { isNative } from "./platform";
+import { getNativeCoordinates } from "./nativeGeolocation";
+
 // Wrapper autour de l'API navigateur officielle (navigator.geolocation) —
 // jamais de position simulée. Erreurs mappées en français compréhensible,
 // jamais le message technique brut du navigateur affiché à l'utilisateur.
@@ -18,6 +21,14 @@ export function roundCoordinate(value) {
 }
 
 export function getCurrentPositionSafe({ timeout = 10000 } = {}) {
+  // App native (Capacitor) : plugin @capacitor/geolocation (permission explicite,
+  // localisation approximative) — même forme de retour, mêmes codes d'erreur, même
+  // arrondi. Le web ne passe JAMAIS par cette branche (voir nativeGeolocation.js).
+  if (isNative()) {
+    return getNativeCoordinates({ timeout, messages: LOCATION_ERROR_MESSAGES }).then((r) => (
+      r.ok ? { ok: true, latitude: roundCoordinate(r.latitude), longitude: roundCoordinate(r.longitude) } : r
+    ));
+  }
   return new Promise((resolve) => {
     if (!("geolocation" in navigator)) {
       resolve({ ok: false, code: "UNSUPPORTED", message: LOCATION_ERROR_MESSAGES.UNSUPPORTED });
