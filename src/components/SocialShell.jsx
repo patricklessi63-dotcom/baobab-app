@@ -1217,6 +1217,14 @@ export default function SocialShell({
     });
   }, [resumeTick]);
 
+  // Tirer pour rafraîchir la liste des conversations (MessagesTab) : mêmes
+  // rechargements bornés et idempotents que la reconnexion/la reprise ci-dessus
+  // (aperçus + non-lus, notifications), derrière le même contrôle de session.
+  const refreshConversations = async () => {
+    if (!(await hasUsableSession(supabase))) return;
+    await Promise.all([fetchConversationsPreviewRef.current?.(), fetchNotificationsRef.current?.()]);
+  };
+
   // Les badges partagent le même compteur brut/mécanisme de remise à zéro
   // (markCommunityNotificationsRead) — répartition par "type" explicite
   // (pas par target_type) : new_follower/new_like/new_match partagent
@@ -2499,6 +2507,7 @@ export default function SocialShell({
             toggleReaction={toggleReaction}
             deleteMessageForMe={deleteMessageForMe}
             deleteMessageForEveryone={deleteMessageForEveryone}
+            onRefreshConversations={refreshConversations}
           />
         )}
 

@@ -7,6 +7,8 @@ import ConversationPane from "./ConversationPane";
 import { useClickOutside } from "../../hooks/useClickOutside";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
 import { useFocusReturn } from "../../hooks/useFocusReturn";
+import { usePullToRefresh } from "../../hooks/usePullToRefresh";
+import PullToRefreshIndicator from "../PullToRefreshIndicator";
 import { matchKey, formatMessageTime, messagePreviewLabel, formatBadgeCount } from "../../utils/format";
 import { normalizeForSearch } from "../../lib/searchQuery";
 import { isUserOnline } from "../../lib/presence";
@@ -43,6 +45,7 @@ export default function MessagesTab({
   toggleReaction,
   deleteMessageForMe,
   deleteMessageForEveryone,
+  onRefreshConversations,
 }) {
   // Recherche/filtre de la liste de conversations + menu "⋮" par ligne
   // (voir profil / signaler / bloquer sans devoir ouvrir la conversation).
@@ -59,6 +62,16 @@ export default function MessagesTab({
   // effet — le bouton ⋮ de A resterait capturé comme cible à restaurer, et
   // fermer le menu de B renverrait le focus sur le ⋮ de A au lieu de B.
   useFocusReturn(openRowMenu);
+
+  // Tirer pour rafraîchir la LISTE des conversations (aperçus + non-lus +
+  // notifications) : réutilise le rechargement déjà branché sur la reconnexion
+  // et la reprise (SocialShell.jsx). Désactivé quand une conversation est
+  // ouverte (le geste appartiendrait alors à la zone de messages), pendant
+  // l'ouverture du menu d'une ligne, ou s'il n'y a aucune conversation.
+  const pullToRefresh = usePullToRefresh({
+    enabled: Boolean(onRefreshConversations) && !activeMatch && !openRowMenu && matches.length > 0,
+    onRefresh: onRefreshConversations,
+  });
 
   const sorted = [...matches].sort((a, b) => {
     const ka = matchKey(currentUser.id, a.id);
@@ -263,6 +276,7 @@ export default function MessagesTab({
 
   return (
     <section className="max-w-6xl mx-auto grid md:grid-cols-[340px_1fr] gap-4">
+      <PullToRefreshIndicator pull={pullToRefresh.pull} refreshing={pullToRefresh.refreshing} threshold={pullToRefresh.threshold} />
       {/* 100vh sur mobile Safari inclut la zone recouverte par la barre
           d'adresse/outils : quand elle est visible, la hauteur réelle
           disponible est plus petite que 100vh, ce qui poussait le champ de

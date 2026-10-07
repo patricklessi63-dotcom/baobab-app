@@ -17,6 +17,8 @@ import { selectAllPages } from "../../lib/inChunks";
 import { useOnlineStatus } from "../../hooks/useOnlineStatus";
 import { useResumeTick } from "../../hooks/useResumeTick";
 import { useReconnectTick } from "../../hooks/useReconnectTick";
+import { usePullToRefresh } from "../../hooks/usePullToRefresh";
+import PullToRefreshIndicator from "../PullToRefreshIndicator";
 import LoadErrorNotice from "../LoadErrorNotice";
 import { insertWithRecovery } from "../../lib/writeRecovery";
 import { isAmbiguousWriteError, isNetworkFailure, networkFailureMessage } from "../../lib/networkError";
@@ -202,9 +204,13 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
   // reste correct quel que soit le nombre d'insertions/suppressions
   // survenues entre deux pages, et donne un ordre total déterministe même
   // si deux posts partagent le même created_at.
-  const loadPosts = async (pageCursor) => {
+  // `silent` (tirer pour rafraîchir) : recharge la première page SANS passer par
+  // l'état « Chargement… » qui remplacerait la liste affichée le temps de la
+  // requête, et sans marquer d'échec bloquant si elle échoue (la liste déjà
+  // affichée reste utilisable ; le message d'erreur habituel est quand même émis).
+  const loadPosts = async (pageCursor, { silent = false } = {}) => {
     const isFirstPage = !pageCursor;
-    if (isFirstPage) setPostsLoading(true);
+    if (isFirstPage && !silent) setPostsLoading(true);
     try {
       // is_founder/is_premium/email_verified/phone_verified ajoutés à toutes
       // les jointures "profiles" de ce fichier (bug corrigé à l'audit, même
@@ -262,10 +268,10 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
       await countsPromise;
     } catch (e) {
       console.error(e);
-      if (isFirstPage) setLoadError(true);
+      if (isFirstPage && !silent) setLoadError(true);
       onError("Impossible de charger les publications.");
     } finally {
-      if (isFirstPage) setPostsLoading(false);
+      if (isFirstPage && !silent) setPostsLoading(false);
     }
   };
 
@@ -364,6 +370,19 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
     // changement visible en cliquant sur la bannière.
     if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
   };
+
+  // Tirer pour rafraîchir (fil principal uniquement : ni la grille du profil, ni
+  // le fil d'un auteur). Réutilise loadPosts(null) — le même rechargement de la
+  // première page que la bannière « nouvelles publications » — et remet le
+  // compteur à zéro. Désactivé pendant le chargement initial, la rédaction, la
+  // publication, une suppression ou un signalement en cours.
+  const pullToRefresh = usePullToRefresh({
+    enabled: layout !== "grid" && !authorId && !postsLoading && !composer && !publishing && !pendingDelete && !reportTarget,
+    onRefresh: async () => {
+      await loadPosts(null, { silent: true });
+      setNewPostsCount(0);
+    },
+  });
 
   // Charge la page suivante — point d'entrée commun à la sentinelle
   // (scroll infini) ET au bouton "Charger plus" manuel. loadingMoreRef
@@ -1015,6 +1034,7 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
 
   return (
     <div className={`${card} p-5`}>
+      <PullToRefreshIndicator pull={pullToRefresh.pull} refreshing={pullToRefresh.refreshing} threshold={pullToRefresh.threshold} />
       <button onClick={openComposer} className="w-full text-left px-4 py-3 rounded-full text-sm mb-3" style={{ background: bg, color: muted }}>
         Partage quelque chose avec la communauté...
       </button>
