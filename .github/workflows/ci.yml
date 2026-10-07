@@ -28,7 +28,9 @@ jobs:
     env:
       VITE_SUPABASE_URL: https://placeholder.supabase.co
       VITE_SUPABASE_ANON_KEY: placeholder-anon-key
-      VITE_VAPID_PUBLIC_KEY: placeholder-vapid-key
+      # Doit être du base64url VALIDE (65 octets) : pushNotifications.js le décode (atob) dans les tests ;
+      # l'ancienne valeur « placeholder-vapid-key » faisait échouer pushNotifications.webUnchanged.dom.test.jsx sur la CI.
+      VITE_VAPID_PUBLIC_KEY: BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc
     steps:
       - uses: actions/checkout@v7
         with:
