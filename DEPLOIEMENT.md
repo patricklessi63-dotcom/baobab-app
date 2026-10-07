@@ -1272,3 +1272,88 @@ visibilité) ; bandeau « Connexion interrompue/rétablie » ; renvoi automatiqu
 - **Canaux Realtime** : `subscribe()` est appelé sans fonction de statut (aucune détection de
   `CHANNEL_ERROR`/`TIMED_OUT`) ; on compense par les rattrapages ci-dessus. Piste : brancher le
   statut `SUBSCRIBED` après un `CLOSED` sur le même rattrapage.
+
+### Médias envoyés depuis un mobile (audit transversal du 6 oct. 2026) — aucun SQL à exécuter ; 5 points documentés
+
+Public cible : iPhone/Android d'entrée de gamme, data limitée. Sites d'upload audités : photos de profil
+(onboarding, édition, couverture), pièces jointes de messages, posts du Fil, posts de communauté,
+couvertures/galerie d'événements, statuts, messages vocaux.
+
+**Corrigé dans le code (tests ajoutés, chacun vérifié en échec sans le correctif)**
+- **Vie privée — EXIF/GPS** : `compressImageIfNeeded` ne ré-encodait que les images dépassant la
+  limite de taille ; une photo déjà petite partait avec ses métadonnées (position GPS du domicile,
+  modèle du téléphone, date). Tout JPEG/HEIC est désormais ré-encodé via canvas (le canvas ne
+  conserve aucune métadonnée) ; PNG/WebP aussi, dans leur propre format, quand cela ne les grossit
+  pas. Appliqué à TOUS les envois d'images : profil, couverture, messages, Fil, communautés,
+  événements, statuts. **Reste non couvert : les vidéos** (voir ci-dessous).
+- **Orientation** : décodage avec `imageOrientation: "from-image"` (repli `<img>` sur Safari < 15, qui
+  n'a pas `createImageBitmap` pour les Blob) : une photo prise en portrait n'est plus envoyée couchée.
+- **HEIC/HEIF** : accepté s'il est décodable par le navigateur (Safari), converti en JPEG à l'envoi ;
+  sinon message clair (« Ce format de photo (HEIC) n'est pas lisible sur cet appareil… ») au lieu de
+  « format non autorisé ». Sur iPhone, `accept="image/*"` fait déjà convertir la photothèque en JPEG
+  par Safari : conserver `image/*` (une liste explicite contenant heic donnerait les originaux).
+- **`file.type` vide / `image/jpg`** (fréquent sur Android/Windows) : reconnu par l'extension et la
+  signature binaire, type corrigé avant l'envoi (sinon le bucket recevait `application/octet-stream`).
+  Le sélecteur de photos du Fil écartait ces fichiers **sans aucun message**.
+- **Noms de fichier** : tous les chemins Storage dérivent du type MIME (`extFromMime`), jamais du nom ;
+  seul `uploadPhoto` (profil) utilisait `name.split(".").pop()` (nom sans point, émojis, majuscules).
+- **Taille** : l'erreur affiche la taille réelle (« 12.3 Mo, max 8.0 Mo »). Cohérence client ↔ buckets
+  vérifiée (lecture des `supabase-*.sql`) : image 8 Mo ≤ tous les buckets (`avatars` 50 Mo après
+  `supabase-stories-2.sql`, `event-covers` 8 Mo, `event-media` 20 Mo, `chat-media`/`post-media`/
+  `community-media` 50 Mo) ; vidéo 50 Mo = plafond des buckets ; audio 15 Mo. **Une seule incohérence** :
+  `event-covers` n'autorise pas le GIF alors que le client l'acceptait — la création de l'événement
+  réussissait puis la couverture échouait (message générique). GIF désormais refusé tôt pour les
+  couvertures, avec un message dédié.
+- **Mémoire / durée** : la sélection de photos de profil (6 à 10) lisait chaque ORIGINAL en data URL
+  (4–8 Mo ×1,33 chacune) ; elle réduit maintenant chaque photo, UN fichier à la fois, puis fabrique
+  l'aperçu depuis le fichier réduit (quelques centaines de Ko), avec un état « Préparation… » et le
+  sélecteur verrouillé. Fichiers et aperçus sont ajoutés ensemble (plus de désynchronisation).
+  « Réessayer » un envoi ne ré-encode plus un fichier déjà réduit (perte de qualité en cascade).
+- **Réseau qui décroche** : un upload XHR pouvait rester « en cours » indéfiniment (aucun événement
+  d'erreur). `uploadWithProgress` interrompt maintenant après 60 s sans aucune activité (un envoi
+  lent mais qui progresse n'est jamais coupé) avec un message clair ; 413 expliqué.
+- **Affichage** : une URL signée de `chat-media` (1 h) expirée donnait une image cassée définitive, une
+  vidéo muette et, pour l'audio, « ne peut pas être lu sur cet appareil » (faux) — une URL neuve est
+  redemandée une fois avant le repli (« Photo/Vidéo indisponible »). Dimensions finales enregistrées dans
+  `media_meta` (`width`/`height`) pour réserver la place (`aspect-ratio`) sans saut de mise en page ;
+  `playsInline` sur les vidéos du Fil/communautés/statuts (sinon plein écran forcé sur iPhone).
+- **Messages vocaux** : démonter le composant en plein enregistrement laissait un `onstop` tardif créer
+  un Blob + une URL blob jamais révoquée (le voyant micro, lui, s'éteignait déjà) ; nom de fichier
+  `.webm` même pour du `audio/mp4` (m4a) corrigé. Déjà correct (aucune action) : `audio/mp4` choisi en
+  premier (`isTypeSupported`) pour Safari/iOS et lecteur qui lit les deux ; arrêt automatique à 2 min ;
+  `track.stop()` à l'arrêt/annulation/interruption ; messages clairs (micro refusé, absent, HTTP non
+  sécurisé/Safari ancien).
+
+**Déjà correct (aucune action)** : double envoi (boutons désactivés pendant l'envoi : Fil, galerie
+d'événement, statuts, communautés, onboarding via `submitInFlightRef`) ; `URL.createObjectURL` révoqué
+au remplacement/démontage partout ; uploads du Fil séquentiels, un échec ne perd pas les autres
+fichiers et ne laisse pas d'orphelin (nettoyage Storage sur échec d'insertion) ; `loading="lazy"` +
+`decoding="async"` + `alt` sur les `<img>` de liste ; `preload="metadata"`, aucun `autoplay` avec son
+(les statuts démarrent muets).
+
+**Documenté, NON fait (décision produit / coût / SQL)**
+1. **Vidéos : métadonnées de localisation conservées.** Les vidéos iPhone/Android contiennent la
+   position GPS dans le conteneur (atome de localisation QuickTime/MP4). Aucun retrait n'est possible
+   côté navigateur sans ré-encodage lourd. Options : (a) avertir à la sélection (« les vidéos peuvent
+   contenir ta position »), (b) tâche serveur `ffmpeg -map_metadata -1 -c copy` (Edge Function ou
+   worker externe), (c) accepter. Décision Patrick.
+2. **Grille Découverte : photos pleine taille.** `avatar_url`/`profile_photos.url` pointent vers l'original
+   (`getPublicUrl` sans transformation) servi dans des cartes de 160 px (`ProfileCard`) / pleine largeur
+   (`MatchCard`). Depuis ce correctif, les nouvelles photos sont réduites à 1280 px (≈ 150–400 Ko) : une
+   page de 20 profils ≈ 3–8 Mo ; les photos envoyées AVANT ce correctif peuvent peser 2–6 Mo chacune
+   (≈ 40–120 Mo pour 20 profils). Remède propre : transformation d'image Supabase
+   (`getPublicUrl(path, { transform: { width: 400, quality: 70 } })` ≈ 20–40 Ko/vignette, ≈ 0,5–1 Mo
+   pour 20 profils) — **fonctionnalité du plan Pro, facturée à l'usage : NON activée**, décision du
+   propriétaire. Alternative gratuite : générer une vignette 400 px à l'upload (colonne `thumb_url` dans
+   `profile_photos`, SQL à écrire) et un script de rattrapage des anciennes photos.
+3. **Photos brutes > 8 Mo refusées avant compression.** Les capteurs 50–200 Mpx des Android récents
+   produisent 10–25 Mo : refusées (message clair avec la taille) alors qu'elles tiendraient en < 1 Mo
+   après réduction. Piste : relever la limite brute des images à ~25 Mo et contrôler la taille APRÈS
+   réduction (10 sites de validation à toucher ; risque si la réduction échoue et que l'original dépasse
+   le bucket) — à valider.
+4. **Pas de bouton « Annuler » pendant un envoi** (`uploadWithProgress` accepte un `signal`, aucun
+   appelant ne le fournit) : un envoi bloqué est désormais interrompu après 60 s, mais l'utilisateur ne
+   peut pas l'abandonner lui-même. Les dimensions (`width`/`height`) manquent aussi pour `post_media`
+   (pas de colonne) : les photos du Fil sautent encore au chargement (SQL : 2 colonnes nullables).
+5. **GIF/WebP/PNG sans transformation** : un GIF animé garde ses métadonnées éventuelles et sa taille
+   (≤ 8 Mo) ; un PNG/WebP déjà plus léger que sa version ré-encodée reste inchangé (aucun GPS en pratique).
