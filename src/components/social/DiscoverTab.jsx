@@ -13,6 +13,7 @@ import { fetchNearbyProfiles } from "../../lib/locationApi";
 import { LOOKING_FOR_OPTIONS, INTERESTS_OPTIONS, LANGUAGES_OPTIONS } from "../../constants";
 import { primary, navy, navyRgb, green, coral, coralText, gold, goldText, gold1, surface2, bg, muted, card, buttonBase, online, body, primaryRgb } from "./theme";
 import { ARRIVAL_STAGE_OPTIONS, matchesArrivalStage } from "../../lib/arrivalStage";
+import { linkOrigin } from "../../lib/publicOrigin";
 
 const ACTIVE_RECENTLY_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
 
@@ -133,7 +134,8 @@ export default function DiscoverTab({
   // confirmation affichée sur le bouton, et un repli si le presse-papiers est
   // indisponible.
   const [inviteState, setInviteState] = useState("idle"); // idle | copied | shared | error
-  const inviteUrl = typeof window !== "undefined" ? window.location.origin + "/" : "https://baobab-app-zeta.vercel.app/";
+  // App native : window.location.origin vaudrait https://localhost (voir lib/publicOrigin.js).
+  const inviteUrl = linkOrigin() + "/";
   async function handleInvite() {
     const shareData = {
       title: "Baobab",

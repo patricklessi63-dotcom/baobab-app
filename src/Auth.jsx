@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Loader2, Mail, ArrowLeft, MapPin, X, ShieldCheck, FileText, CheckCircle2, AlertTriangle, MailCheck } from "lucide-react";
 import { supabase } from "./supabaseClient";
+import { linkOrigin } from "./lib/publicOrigin";
 import { getCurrentPositionSafe } from "./lib/geolocation";
 import loginBackground from "./assets/baobab-canada-bg.svg";
 import logoIcon from "./assets/logo-baobab-icon.png";
@@ -175,7 +176,7 @@ export default function Auth({ justVerified = false, onAcknowledgeVerified = () 
           // première étape de l'onboarding) : preuve horodatée, côté serveur
           // Supabase, que la case d'acceptation des CGU était bien cochée au
           // moment de l'appel signUp(), consultable depuis le dashboard Auth.
-          options: { emailRedirectTo: `${window.location.origin}/?verified=1`, data: { terms_accepted_at: new Date().toISOString() } },
+          options: { emailRedirectTo: `${linkOrigin()}/?verified=1`, data: { terms_accepted_at: new Date().toISOString() } },
         });
         if (signUpError) throw signUpError;
         // Un compte confirmé existant fait échouer signUp() (catch plus bas).
@@ -197,7 +198,7 @@ export default function Auth({ justVerified = false, onAcknowledgeVerified = () 
         if (signInError) throw signInError;
       } else if (mode === "reset") {
         const { error: resetError } = await supabase.auth.resetPasswordForEmail(cleanEmail, {
-          redirectTo: `${window.location.origin}/update-password`,
+          redirectTo: `${linkOrigin()}/update-password`,
         });
         if (resetError) throw resetError;
         setNotice("Email de réinitialisation envoyé, si ce compte existe.");
@@ -245,7 +246,7 @@ export default function Auth({ justVerified = false, onAcknowledgeVerified = () 
       const { error: resendError } = await supabase.auth.resend({
         type: "signup",
         email: email.trim().toLowerCase(),
-        options: { emailRedirectTo: `${window.location.origin}/?verified=1` },
+        options: { emailRedirectTo: `${linkOrigin()}/?verified=1` },
       });
       if (resendError) throw resendError;
       setNotice("Un nouveau lien vient d'être envoyé.");

@@ -170,6 +170,8 @@ export default function SocialShell({
   initialTab = null,
   justSubscribed = false,
   onJustSubscribedHandled = () => {},
+  deepLink = null,
+  onDeepLinkHandled = () => {},
 }) {
   const [favoritesOpen, setFavoritesOpen] = useState(false);
   const [admirersOpen, setAdmirersOpen] = useState(false);
@@ -2253,6 +2255,44 @@ export default function SocialShell({
     if (tabBackDepthRef.current > 0) window.history.back();
     else goTab("feed");
   };
+
+  // Lien profond (app native : clic sur une notification push, lien App Links /
+  // Universal Links) — destination déjà VALIDÉE par lib/deepLinks.js (liste
+  // blanche, uuid). On réutilise exactement les mécanismes des clics de
+  // notification existants (NotificationsDropdown) : fiche profil, conversation,
+  // détail d'événement / de communauté. Ces écrans interrogent Supabase sous
+  // RLS : une entité inaccessible ou supprimée donne leur message d'erreur
+  // habituel (« Ce profil n'est plus disponible. », « Impossible de charger cet
+  // événement. »), jamais un plantage ni une donnée affichée par erreur.
+  // Une destination de plus de 10 minutes (app ouverte déconnectée puis
+  // connectée bien plus tard) est abandonnée. Sans lien (web), cet effet ne fait rien.
+  const DEEP_LINK_MAX_AGE_MS = 10 * 60 * 1000;
+  useEffect(() => {
+    if (!deepLink || !currentUser?.id) return;
+    onDeepLinkHandled();
+    if (Date.now() - (deepLink.at || 0) > DEEP_LINK_MAX_AGE_MS) return;
+    switch (deepLink.kind) {
+      case "profile":
+        if (deepLink.id === currentUser.id) goTab("profile");
+        else setViewedProfileId(deepLink.id);
+        break;
+      case "messages":
+        if (deepLink.id === currentUser.id) goTab("profile");
+        else openChatWithProfileId(deepLink.id);
+        break;
+      case "event":
+        setOpenEventId(deepLink.id);
+        goTab("events");
+        break;
+      case "community":
+        setOpenCommunityId(deepLink.id);
+        goTab("communities");
+        break;
+      default:
+        break;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deepLink, currentUser?.id]);
 
   return (
     <div className="bb-app min-h-screen relative" style={{ color: body, fontFamily: "'Manrope',system-ui,sans-serif" }}>

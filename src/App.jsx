@@ -34,6 +34,8 @@ import LocationRequiredGate from "./components/LocationRequiredGate";
 import { useOnlineStatus } from "./hooks/useOnlineStatus";
 import { useNativeSystemBars } from "./hooks/useNativeSystemBars";
 import { useResumeTick } from "./hooks/useResumeTick";
+import { useNativeLinks } from "./hooks/useNativeLinks";
+import { useNativePushSync } from "./hooks/useNativePushSync";
 import { hasUsableSession } from "./lib/sessionGuard";
 import { OTHER_PROFILE_COLUMNS } from "./lib/otherProfileColumns";
 import { buildOlderMessagesFilter } from "./lib/messagesPagination";
@@ -525,6 +527,37 @@ export default function App() {
   // sans le moindre avertissement. sessionExpired force l'affichage direct
   // du formulaire de connexion avec un message clair.
   const [sessionExpired, setSessionExpired] = useState(false);
+
+  // ---------- App native uniquement : liens profonds et jetons push ----------
+  // (no-op complet sur le web — voir hooks/useNativeLinks.js, useNativePushSync.js).
+  // Destination en attente (clic sur une notification, lien App Links/Universal
+  // Links) : consommée par SocialShell dès qu'il est monté — donc aussi après la
+  // connexion si l'app a été ouverte déconnectée. Périmée au bout de 10 minutes
+  // (voir SocialShell) pour qu'elle ne s'ouvre pas des heures plus tard.
+  const [pendingDeepLink, setPendingDeepLink] = useState(null);
+  const deepLinkSeqRef = useRef(0);
+  useNativeLinks({
+    onEntityLink: (dest) => setPendingDeepLink({ ...dest, at: Date.now(), seq: ++deepLinkSeqRef.current }),
+    onAuthLink: (link) => {
+      // Lien reçu par e-mail ouvert DANS l'app. Les jetons du lien de
+      // récupération ne sont ni journalisés ni stockés : ils ne servent qu'à
+      // l'appel setSession ci-dessous (même résultat que la détection
+      // automatique de supabase-js sur le web).
+      if (link.type === "recovery") {
+        supabase.auth.setSession({ access_token: link.accessToken, refresh_token: link.refreshToken })
+          .then(({ error: recoveryError }) => {
+            if (recoveryError) { setAuthLinkError("invalid_link"); return; }
+            setView("update-password");
+          })
+          .catch(() => setAuthLinkError("invalid_link"));
+      } else if (link.type === "verified") {
+        if (!sessionRef.current?.user) { setJustVerified(true); navigate("/connexion"); }
+      } else if (link.type === "error") {
+        if (!sessionRef.current?.user) setAuthLinkError(link.code);
+      }
+    },
+  });
+  useNativePushSync(session?.user?.id);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -1285,7 +1318,7 @@ export default function App() {
     // être supprimée une fois la session de A terminée. Best-effort : ne
     // doit jamais empêcher la déconnexion si le nettoyage échoue.
     try {
-      await disablePushNotifications();
+      await disablePushNotifications({ signOut: true });
     } catch (e) {
       console.error(e);
     }
@@ -1318,6 +1351,7 @@ export default function App() {
     } finally {
       manualSignOutRef.current = false;
     }
+    setPendingDeepLink(null);
     setCurrentUser(null);
     setProfiles([]);
     setLikePairs([]);
@@ -3519,6 +3553,8 @@ export default function App() {
         <SocialShell
           updateAvailable={updateState.mandatory || updateState.recommended}
           initialTab={initialSocialTab}
+          deepLink={pendingDeepLink}
+          onDeepLinkHandled={() => setPendingDeepLink(null)}
           justSubscribed={justSubscribed}
           onJustSubscribedHandled={() => setJustSubscribed(false)}
           currentUser={currentUser}
