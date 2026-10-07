@@ -1235,6 +1235,7 @@ export default function EventsTab({ currentUser, onError, onBack = () => {}, ini
           onDeclineInvite={handleDeclineEventInvite}
           onOpenInvite={openInvite}
           onReportEvent={openReport}
+          onReportAuthor={onReportProfile}
           onEdit={() => setView("edit")}
           onCancel={handleCancel}
           onDeleteEvent={handleDeleteEvent}
@@ -1255,7 +1256,10 @@ export default function EventsTab({ currentUser, onError, onBack = () => {}, ini
           setCommentDraft={setCommentDraft}
           onSubmitComment={handleSubmitComment}
           onDeleteComment={handleDeleteComment}
-          photos={photos}
+          // Une personne bloquée (dans un sens ou l'autre) ne doit plus laisser de
+          // contenu visible : les commentaires sont déjà filtrés ci-dessus, les
+          // photos de la galerie ne l'étaient pas.
+          photos={photos.filter((p) => !blockedIds.has(p.uploaded_by))}
           photosLoading={photosLoading}
           onUploadPhoto={handleUploadPhoto}
           onDeletePhoto={handleDeletePhoto}

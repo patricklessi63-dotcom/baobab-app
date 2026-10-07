@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Send, Trash2 } from "lucide-react";
+import { Send, Trash2, Flag } from "lucide-react";
 import Avatar from "../Avatar";
 import EmptyState from "../home/EmptyState";
 import Skeleton from "../Skeleton";
@@ -11,7 +11,12 @@ import { truncateUnicodeSafe } from "../../utils/format";
 // pas une extension de la messagerie 1:1 (voir rapport final pour le
 // raisonnement : messages.match_key ne modélise que des conversations à
 // deux personnes, comme community_comments en Phase 6).
-export default function EventCommentsSection({ comments = [], loading, canPost, draft, setDraft, currentUserId, onSubmit, onDelete, canModerate }) {
+// onReportAuthor({ id, name }) : signalement de l'AUTEUR d'un message d'autrui
+// (même modale/table `reports` que le signalement d'un profil, qui propose
+// ensuite le blocage) — event_reports ne vise qu'un événement entier, pas un
+// message précis (exigence Apple 1.2 / Google Play UGC : tout contenu
+// généré par les utilisateurs doit pouvoir être signalé).
+export default function EventCommentsSection({ comments = [], loading, canPost, draft, setDraft, currentUserId, onSubmit, onDelete, canModerate, onReportAuthor }) {
   const trimmed = (draft || "").trim();
   // Remplace l'ancien window.confirm() — voir ConfirmModal.jsx.
   const [pendingDelete, setPendingDelete] = useState(null);
@@ -56,6 +61,16 @@ export default function EventCommentsSection({ comments = [], loading, canPost, 
                   <div className="text-xs font-bold" style={{ color: primary }}>{profile.name || "Utilisateur"}</div>
                   <p className="text-sm mt-0.5 whitespace-pre-wrap break-words" style={{ color: body }}>{c.body}</p>
                 </div>
+                {onReportAuthor && c.author_id && c.author_id !== currentUserId && (
+                  <button
+                    onClick={() => onReportAuthor({ id: c.author_id, name: profile.name || "cette personne" })}
+                    aria-label="Signaler ce message"
+                    className="bb-hit flex-shrink-0"
+                    style={{ color: muted }}
+                  >
+                    <Flag size={14} />
+                  </button>
+                )}
                 {canDelete && (
                   <button onClick={() => setPendingDelete(c)} aria-label="Supprimer ce message" className="bb-hit flex-shrink-0" style={{ color: muted }}>
                     <Trash2 size={14} />

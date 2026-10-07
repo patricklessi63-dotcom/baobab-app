@@ -1,5 +1,5 @@
 import React, { useRef, useState } from "react";
-import { ImagePlus, Trash2 } from "lucide-react";
+import { ImagePlus, Trash2, Flag } from "lucide-react";
 import { supabase } from "../../supabaseClient";
 import EmptyState from "../home/EmptyState";
 import Skeleton from "../Skeleton";
@@ -16,7 +16,10 @@ const BUCKET = "event-media";
 // Réutilise l'image validation existante (mediaValidation.js, limite
 // "image" = 8 Mo) — aucun nouveau kind de média nécessaire, une photo
 // d'événement est une image comme une autre côté client.
-export default function EventPhotoGallery({ photos = [], loading, canUpload, currentUserId, canModerate, onUpload, onDelete }) {
+// onReportAuthor({ id, name }) : signalement de la personne qui a partagé la
+// photo (même modale/table `reports` que le signalement d'un profil, qui
+// propose ensuite le blocage) — event_reports ne vise qu'un événement entier.
+export default function EventPhotoGallery({ photos = [], loading, canUpload, currentUserId, canModerate, onUpload, onDelete, onReportAuthor }) {
   const inputRef = useRef(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
@@ -102,6 +105,16 @@ export default function EventPhotoGallery({ photos = [], loading, canUpload, cur
                   className="w-full h-full object-cover cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
                 />
               ) : null}
+              {onReportAuthor && p.uploaded_by && p.uploaded_by !== currentUserId && (
+                <button
+                  onClick={() => onReportAuthor({ id: p.uploaded_by, name: "l'auteur de cette photo" })}
+                  aria-label="Signaler cette photo"
+                  className="bb-hit absolute top-1 left-1 h-7 w-7 rounded-full flex items-center justify-center focus-visible:outline focus-visible:outline-2"
+                  style={{ background: `rgba(${primaryRgb},.6)` }}
+                >
+                  <Flag size={13} color="#fff" />
+                </button>
+              )}
               {(p.uploaded_by === currentUserId || canModerate) && (
                 <button
                   onClick={() => setPendingDelete(p)}

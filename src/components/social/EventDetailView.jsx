@@ -46,6 +46,7 @@ export default function EventDetailView({
   onDeclineInvite = () => {},
   onOpenInvite,
   onReportEvent,
+  onReportAuthor,
   onEdit,
   onCancel,
   onDeleteEvent,
@@ -335,6 +336,7 @@ export default function EventDetailView({
               onSubmit={onSubmitComment}
               onDelete={onDeleteComment}
               canModerate={mod}
+              onReportAuthor={onReportAuthor}
             />
           </div>
         )}
@@ -364,6 +366,7 @@ export default function EventDetailView({
               canModerate={mod}
               onUpload={onUploadPhoto}
               onDelete={onDeletePhoto}
+              onReportAuthor={onReportAuthor}
             />
           </div>
         )}
