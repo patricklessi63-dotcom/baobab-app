@@ -11,7 +11,7 @@ import { validateMediaFile } from "../../lib/mediaValidation";
 import { truncateUnicodeSafe } from "../../utils/format";
 import { compressImageIfNeeded } from "../../lib/imageCompression";
 import { uploadWithProgress } from "../../lib/uploadWithProgress";
-import { POST_MEDIA_BUCKET, extFromMime } from "../../lib/mediaConstants";
+import { POST_MEDIA_BUCKET, extFromMime, looksLikeImage } from "../../lib/mediaConstants";
 import { friendlyDbError } from "../../lib/friendlyDbError";
 import { selectAllPages } from "../../lib/inChunks";
 import { useOnlineStatus } from "../../hooks/useOnlineStatus";
@@ -540,7 +540,15 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
     const files = Array.from(e.target.files || []);
     e.target.value = "";
     if (files.length === 0) return;
-    await addFiles(files.filter((f) => (kind === "video" ? f.type.startsWith("video/") : f.type.startsWith("image/"))));
+    // looksLikeImage (et non f.type.startsWith("image/")) : sur Android/Windows
+    // un JPEG/HEIC peut arriver avec un file.type VIDE — il était écarté ici
+    // sans le moindre message, comme si la sélection n'avait rien donné.
+    const accepted = files.filter((f) => (kind === "video" ? f.type.startsWith("video/") : looksLikeImage(f)));
+    if (accepted.length < files.length) {
+      onError(kind === "video" ? "Seules les vidéos peuvent être ajoutées ici." : "Seules les photos peuvent être ajoutées ici.");
+    }
+    if (accepted.length === 0) return;
+    await addFiles(accepted);
   };
 
   const removeMediaItem = (id) => {
@@ -954,7 +962,7 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
                   <div key={p.id} className="aspect-square relative overflow-hidden group">
                     {mediaUrl ? (
                       mediaKind === "video" ? (
-                        <video src={mediaUrl} preload="metadata" className="w-full h-full object-cover" />
+                        <video src={mediaUrl} playsInline preload="metadata" className="w-full h-full object-cover" />
                       ) : (
                         <img src={mediaUrl} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" />
                       )
