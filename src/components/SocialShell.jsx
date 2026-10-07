@@ -34,6 +34,7 @@ import { useHiddenRecommendations } from "../lib/useHiddenRecommendations";
 import { escapeLikePattern, escapeOrFilterValue, normalizeForSearch } from "../lib/searchQuery";
 import { isRecentArrival } from "../lib/arrivalStage";
 import { OTHER_PROFILE_COLUMNS } from "../lib/otherProfileColumns";
+import { hapticSuccess } from "../lib/haptics";
 
 // Chargées à la demande (item 27 de l'audit Phase 10) : ces 3 onglets sont
 // visités moins souvent que Fil/Découverte/Messages/Profil au démarrage de
@@ -1919,6 +1920,7 @@ export default function SocialShell({
       setStoryBgColor("");
       setStoryStep("compose");
       setStoryComposer(false);
+      hapticSuccess(); // statut publié (no-op sur le web)
     } catch (e) {
       console.error(e);
       // Upload Storage déjà réussi mais l'insertion en base a échoué ensuite

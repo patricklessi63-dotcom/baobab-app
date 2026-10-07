@@ -15,6 +15,7 @@ import PasswordField from "./components/auth/PasswordField";
 import PasswordStrengthMeter from "./components/auth/PasswordStrengthMeter";
 import { scorePassword, passwordMeetsMinimum } from "./lib/passwordStrength";
 import { traduireAuthErreur } from "./lib/authErrors";
+import { hapticError } from "./lib/haptics";
 
 const RESEND_COOLDOWN_S = 45;
 const RESET_COOLDOWN_S = 45;
@@ -113,6 +114,7 @@ export default function Auth({ justVerified = false, onAcknowledgeVerified = () 
 
     if (!isValidEmail(cleanEmail)) {
       setError("Entre une adresse email valide.");
+      hapticError(); // no-op sur le web
       focusField("email");
       return;
     }
@@ -120,11 +122,13 @@ export default function Auth({ justVerified = false, onAcknowledgeVerified = () 
     if (mode === "signup") {
       if (!passwordMeetsMinimum(scorePassword(password).checks)) {
         setError("Ton mot de passe ne respecte pas encore toutes les règles minimales.");
+        hapticError();
         focusField("password");
         return;
       }
       if (password !== passwordConfirm) {
         setError("Les mots de passe ne correspondent pas.");
+        hapticError();
         focusField("password-confirm");
         return;
       }

@@ -36,6 +36,7 @@ import { useOnlineStatus } from "./hooks/useOnlineStatus";
 import { useNativeSystemBars } from "./hooks/useNativeSystemBars";
 import { useResumeTick } from "./hooks/useResumeTick";
 import { useNativeLinks } from "./hooks/useNativeLinks";
+import { hapticLight, hapticSuccess } from "./lib/haptics";
 import { useNativePushSync } from "./hooks/useNativePushSync";
 import { hasUsableSession } from "./lib/sessionGuard";
 import { OTHER_PROFILE_COLUMNS } from "./lib/otherProfileColumns";
@@ -2344,6 +2345,7 @@ export default function App() {
         .eq("from_id", target.id)
         .eq("to_id", currentUser.id)
         .maybeSingle();
+      (reciprocal ? hapticSuccess : hapticLight)(); // retour haptique natif (no-op sur le web)
       if (reciprocal) {
         pushMatchNotice(target);
         trackActivation(currentUser.id, "first_match");
@@ -2660,6 +2662,7 @@ export default function App() {
         return sortMessagesChronologically(withoutRealtimeDupe.map((msg) => (msg.id === tempId ? data : msg)));
       });
       trackActivation(currentUser.id, "first_message");
+      hapticLight(); // message envoyé (no-op sur le web)
       return true;
     } catch (e) {
       console.error(e);

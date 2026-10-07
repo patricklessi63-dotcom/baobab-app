@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { hapticLight } from "../lib/haptics";
 
 // Tirer pour rafraîchir (geste tactile), sans dépendance.
 //
@@ -122,7 +123,7 @@ export function usePullToRefresh({ onRefresh, enabled = true, threshold = DEFAUL
       if (!tracking) return;
       const reached = lastPull >= threshold;
       reset();
-      if (reached) run();
+      if (reached) { hapticLight(); run(); } // retour haptique natif (no-op sur le web)
     };
 
     document.addEventListener("touchstart", onStart, { passive: true });
