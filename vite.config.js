@@ -42,6 +42,8 @@ export default defineConfig({
       "src/**/*.test.js",
       "src/**/__tests__/*.test.js",
       "src/**/*.dom.test.jsx",
+      // Modules purs des Edge Functions (aucun import Deno : testables ici).
+      "supabase/functions/_shared/*.test.ts",
     ],
     setupFiles: ["src/test/setup.js"],
   },
