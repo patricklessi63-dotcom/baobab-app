@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Mic, Send, Square, Trash2, Play, Pause } from "lucide-react";
-import { AUDIO_MAX_DURATION_MS } from "../../lib/mediaConstants";
+import { AUDIO_MAX_DURATION_MS, extFromMime } from "../../lib/mediaConstants";
 import { notifyAudioPlaying, notifyAudioStopped } from "../../lib/audioPlaybackRegistry";
 import MicPermissionModal from "./MicPermissionModal";
 import { primary, navy, coral, coralText, muted, bg } from "./theme";
@@ -108,7 +108,21 @@ export default function AudioRecorder({ hasDraft, onSendText, onSendAudio, onAct
     notifyAudioStopped(audioElRef.current);
   };
 
-  useEffect(() => () => cleanup(), []); // eslint-disable-line react-hooks/exhaustive-deps
+  // Démontage (changement de conversation/onglet pendant l'enregistrement) :
+  // le MediaRecorder doit être arrêté ET son onstop désarmé AVANT de couper
+  // les pistes. Sinon l'arrêt des pistes déclenche un onstop tardif qui
+  // fabrique un Blob + un URL.createObjectURL() sur un composant démonté
+  // (jamais révoqué : fuite mémoire d'un enregistrement que personne ne verra
+  // jamais) — le voyant micro, lui, s'éteint bien grâce à stopTracks().
+  useEffect(() => () => {
+    const recorder = recorderRef.current;
+    if (recorder && recorder.state !== "inactive") {
+      recorder.onstop = null;
+      recorder.ondataavailable = null;
+      try { recorder.stop(); } catch { /* déjà arrêté */ }
+    }
+    cleanup();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => () => clearTimeout(sendPopTimerRef.current), []);
 
   // Déclenche l'animation de décollage puis la laisse retomber toute seule.
@@ -317,7 +331,8 @@ export default function AudioRecorder({ hasDraft, onSendText, onSendAudio, onAct
 
   const confirmSend = () => {
     if (!blobRef.current) return;
-    const file = new File([blobRef.current], `voice-${Date.now()}.webm`, { type: blobRef.current.type });
+    // Extension cohérente avec le contenu réel (m4a sur iPhone/Safari, webm sinon).
+    const file = new File([blobRef.current], `voice-${Date.now()}.${extFromMime(blobRef.current.type)}`, { type: blobRef.current.type });
     onSendAudio(file);
     cleanup();
     setState("idle");
