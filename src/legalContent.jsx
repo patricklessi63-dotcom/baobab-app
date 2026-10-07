@@ -29,7 +29,7 @@ export const RETENTION = { storiesHours: 24, deletionGraceHours: 24, notificatio
 export function LegalSection({ title, children }) {
   return (
     <div className="mb-5">
-      <h3 className="text-[13px] font-bold mb-1.5" style={{ color: "#F2E9DC" }}>{title}</h3>
+      <h2 className="text-[13px] font-bold mb-1.5" style={{ color: "#F2E9DC" }}>{title}</h2>
       <div className="space-y-2">{children}</div>
     </div>
   );
@@ -47,7 +47,7 @@ export function PrivacyPolicyContent() {
 
       <LegalSection title="2. Données que nous collectons">
         <p>Nous collectons uniquement les données nécessaires au fonctionnement du service :</p>
-        <p>• Compte : adresse email et mot de passe (stocké de façon chiffrée par notre service d'authentification, jamais en clair), indicateur d'email vérifié.</p>
+        <p>• Compte : adresse email et mot de passe (conservé sous forme hachée par notre service d'authentification, jamais en clair), indicateur d'email vérifié.</p>
         <p>• Profil : prénom et nom, date de naissance (l'âge est calculé ; vous pouvez masquer l'année), pays d'origine, langues, ville et province, parcours au Canada (date d'arrivée, statut, études, profession, projet), ce que vous recherchez, centres d'intérêt, préférences de rencontre que vous choisissez de renseigner, biographie, photos de profil. Nous ne vous demandons ni votre genre ni votre orientation.</p>
         <p>• Localisation approximative : si vous l'autorisez dans votre téléphone ou votre navigateur, votre position est arrondie (environ 1 km) et enregistrée avec votre ville, votre région et votre pays. Elle est demandée à l'inscription (le service de rencontres est réservé au Canada) et sert à vérifier l'accès, à proposer des personnes et des événements proches et à calculer une distance ; les autres membres ne voient jamais vos coordonnées, seulement une distance si vos réglages le permettent. Vous pouvez la désactiver dans les réglages de localisation.</p>
         <p>• Ce que vous publiez : publications, statuts (stories), commentaires, messages échangés avec d'autres membres, photos, vidéos, messages vocaux et fichiers joints, communautés et événements que vous créez ou rejoignez, signalements et blocages.</p>
@@ -84,7 +84,7 @@ export function PrivacyPolicyContent() {
       </LegalSection>
 
       <LegalSection title="7. Sécurité">
-        <p>Nous mettons en œuvre des mesures techniques et organisationnelles raisonnables (chiffrement des échanges en transit, chiffrement des mots de passe, contrôle d'accès par compte, règles de sécurité au niveau de la base de données) pour protéger vos données contre l'accès non autorisé, la perte ou l'altération.</p>
+        <p>Nous mettons en œuvre des mesures techniques et organisationnelles raisonnables (chiffrement des échanges en transit, hachage des mots de passe, contrôle d'accès par compte, règles de sécurité au niveau de la base de données) pour protéger vos données contre l'accès non autorisé, la perte ou l'altération.</p>
       </LegalSection>
 
       <LegalSection title="8. Mineurs">
@@ -100,9 +100,9 @@ export function PrivacyPolicyContent() {
       </LegalSection>
 
       <LegalSection title="11. Fonctionnalités assistées par intelligence artificielle">
-        <p>Baobab propose des fonctionnalités facultatives assistées par IA (amorces de conversation, aide à la reformulation, traduction, suggestions de rédaction). Ces fonctionnalités sont désactivables à tout moment dans Confidentialité → Suggestions IA.</p>
-        <p>Lorsque vous en utilisez une, le texte concerné est envoyé à notre fournisseur d'IA, Anthropic, uniquement pour générer la suggestion demandée : votre biographie, le texte d'une publication ou d'une description d'événement, un seul message à traduire ou à reformuler, ou, pour les amorces de conversation, le prénom, la ville et les centres d'intérêt de deux personnes qui ont matché. Jamais l'historique complet d'une conversation n'est transmis, et rien n'est envoyé sans une action de votre part.</p>
-        <p>Le contenu de vos conversations privées n'est jamais utilisé pour entraîner un modèle d'IA ni partagé à des fins autres que de générer, à votre demande explicite, la suggestion demandée pour vous.</p>
+        <p>Baobab propose des fonctionnalités facultatives assistées par IA (amorces de conversation, aide à la reformulation, traduction, suggestions de rédaction). Ces fonctionnalités sont désactivables à tout moment dans Réglages → Confidentialité des champs → Suggestions IA.</p>
+        <p>Lorsque vous en utilisez une, le texte concerné est envoyé à notre fournisseur d'IA, Anthropic, uniquement pour générer la suggestion demandée : votre biographie, le texte d'une publication, le titre et la description d'un événement, l'idée d'une communauté que vous décrivez, un seul message à traduire ou à reformuler, ou, pour les amorces de conversation, le prénom, la ville et les centres d'intérêt de deux personnes qui ont matché. Jamais l'historique complet d'une conversation n'est transmis, et rien n'est envoyé sans une action de votre part.</p>
+        <p>Baobab n'utilise jamais le contenu de vos conversations privées pour entraîner un modèle d'IA, et ne le transmet à Anthropic que dans les cas décrits ci-dessus, à votre demande, pour générer la suggestion demandée.</p>
       </LegalSection>
 
       <LegalSection title="12. Contact">

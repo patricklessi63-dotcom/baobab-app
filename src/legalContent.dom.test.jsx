@@ -47,6 +47,34 @@ describe("textes légaux — exactitude vis-à-vis du code", () => {
     expect(text).toContain("sans que ce délai constitue un engagement");
   });
 
+  it("aucune promesse non fondée : pas de chiffrement de bout en bout, pas de mot de passe « chiffré », pas de marqueur à valider", () => {
+    const { unmount } = render(<PrivacyPolicyContent />);
+    const privacy = document.body.textContent;
+    unmount();
+    render(<TermsOfServiceContent />);
+    const text = privacy + document.body.textContent;
+    expect(text).not.toMatch(/bout en bout|end-to-end|E2E/i);
+    expect(text).not.toMatch(/À VALIDER|\bundefined\b|\bnull\b|\[object/);
+    // Les messages sont lisibles côté serveur (RLS, modération) : seul le hachage des mots de passe est annoncé.
+    expect(text).toContain("hachage des mots de passe");
+    expect(text).not.toMatch(/stocké de façon chiffrée|chiffrement des mots de passe/);
+    // Aucune localisation d'hébergement affirmée sans preuve.
+    expect(text).not.toMatch(/hébergé(e|es|s)? (au|en|aux) /i);
+  });
+
+  it("le chemin des suggestions IA décrit l'écran réel (Réglages → Confidentialité des champs → Suggestions IA)", () => {
+    render(<PrivacyPolicyContent />);
+    expect(document.body.textContent).toContain("Réglages → Confidentialité des champs → Suggestions IA");
+    expect(read("src/components/AppModals.jsx")).toContain("Confidentialité des champs");
+    expect(read("src/components/PrivacyFieldsModal.jsx")).toContain("Suggestions IA");
+  });
+
+  it("les titres de section sont des h2 (h1 de la page, puis h2 : pas de saut de niveau)", () => {
+    render(<PrivacyPolicyContent />);
+    expect(screen.getByRole("heading", { level: 2, name: "1. Qui nous sommes" })).toBeInTheDocument();
+    expect(screen.queryAllByRole("heading", { level: 3 })).toHaveLength(0);
+  });
+
   it("sans adresse configurée : aucune adresse inventée, renvoi vers le formulaire de signalement de l'application", () => {
     render(<ContactInfo email="" />);
     expect(screen.getByTestId("contact-info").textContent).toContain("formulaire de signalement dans l'application");
