@@ -15,6 +15,11 @@ Mise à jour 2026-10-02.
   ça les nouveaux triggers SQL appelleront une fonction qui ignore
   silencieusement ces payloads.
 
+**RESTE (applications mobiles, étape 4 — voir §12) :**
+- ⬜ Redéployer `process-scheduled-deletions` (médias de communautés effacés, listage paginé) — §12b.
+- ⬜ `supabase-content-select-block-filter-fix.sql` : **existait mais n'était listé nulle part** — §12c.
+- ⬜ (optionnel) `supabase-post-report-minor-category.sql` — §12a. Renseigner `src/config/contact.json` — §12d.
+
 **RESTE (applications mobiles, étape 3a — voir §11) :**
 - ⬜ `supabase-device-tokens.sql` (jetons push natifs) et re-déploiement de `send-push` avec les secrets FCM/APNs (tous facultatifs).
 
@@ -1417,3 +1422,46 @@ supabase secrets set APNS_KEY_P8="$(cat chemin/vers/AuthKey_XXXXXXXXXX.p8)"
 supabase functions deploy send-push
 ```
 Le fichier de compte de service et la clé `.p8` sont des **secrets** : ne jamais les committer.
+
+
+---
+
+## 12. Applications mobiles — étape 4 (7 octobre 2026) : exigences des boutiques
+
+Contexte, sources et décisions : `STORES.md`. Ici, uniquement ce qui touche au déploiement.
+
+### 12a. SQL — `supabase-post-report-minor-category.sql` — ⬜ JAMAIS EXÉCUTÉ (optionnel)
+
+**Quoi :** élargit la contrainte `post_reports_category_check` à `mineur_suspecte`. **Pourquoi :** le client ne propose plus ce motif pour une publication ou un
+commentaire du fil (la contrainte actuelle le refuse : le signalement échouait). **Additif** (contrainte plus permissive), idempotent. **Après** l'avoir exécuté : retirer
+le `.filter(...)` de `POST_REPORT_CATEGORIES` dans `src/lib/reportCategories.js` et le test correspondant (`reportCategories.test.js`).
+**Comment :** SQL Editor → coller → Run. **Vérification :** `select pg_get_constraintdef(oid) from pg_constraint where conname = 'post_reports_category_check';`
+
+### 12b. Edge function — re-déploiement de `process-scheduled-deletions` — ⬜ À FAIRE
+
+Le code (`supabase/functions/process-scheduled-deletions/index.ts`, + `_shared/storagePaths.ts`) efface désormais aussi les médias de publications de communauté
+(bucket `community-media`), pagine le listage des dossiers Storage (la limite de 100 fichiers laissait des fichiers) et ne bloque plus la suppression sur une erreur Storage.
+
+```bash
+supabase functions deploy process-scheduled-deletions --no-verify-jwt
+```
+
+(mêmes options qu'au premier déploiement : appelée par le cron avec la clé service role). **Vérification du cron** (souvent oubliée) :
+`select id, status_code, timed_out, error_msg, created from net._http_response order by created desc limit 5;` → `status_code = 200`, `timed_out = false`
+(voir `supabase-account-deletion-timeout-fix.sql`).
+
+### 12c. SQL — `supabase-content-select-block-filter-fix.sql` — ⬜ PROBABLEMENT JAMAIS EXÉCUTÉ
+
+Fichier **existant** (non modifié ici) mais **absent du COMBINED et de ce document** jusqu'à cet audit : il filtre la LECTURE de `posts`, `post_comments`, `post_likes`,
+`community_posts`, `community_comments`, `community_post_likes` et `event_comments` entre deux profils bloqués. Sans lui, le blocage n'est effectif que dans l'app
+(client) pour la lecture. Idempotent, additif (voir son en-tête). **Quand :** avant la publication native. **Comment :** SQL Editor → coller → Run. **Vérification :** voir son pied de fichier.
+
+### 12d. Contact public — `src/config/contact.json` — ⬜ À REMPLIR PAR LE PROPRIÉTAIRE
+
+`{ "supportEmail": "", "operatorName": "" }` : tant que ces champs sont vides, les pages Confidentialité, Conditions et Suppression de compte renvoient vers le formulaire de
+signalement de l'application et **n'affichent aucune adresse**. Renseigner une adresse e-mail de support (exigée par Apple 1.2/1.5, recommandée par Google) puis redéployer le site web.
+
+### 12e. Rappels déjà listés plus haut
+
+`supabase-age-check-server-side.sql` (priorité haute, contrainte 18 ans côté serveur) ; `supabase-community-orphan-account-deletion-fix.sql` et
+`supabase-event-orphan-account-deletion-fix.sql` (transfert de propriété à la suppression d'un compte) ; `supabase-admin-resolve-report-race-fix.sql`.

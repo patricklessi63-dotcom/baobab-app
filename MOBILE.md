@@ -21,7 +21,7 @@ modifié : `npm run build` reste `vite build`.
 | 2 | Adaptation UI mobile (zones sûres, hauteurs, cibles tactiles, tirer pour rafraîchir, barre d'état, splash, icônes, orientation) | **Fait** (section « Étape 2 » en bas ; bouton retour Android → étape 3) |
 | 3a | Notifications push natives (FCM Android / APNs iOS), présence, liens profonds (App Links / Universal Links), e-mails d'authentification | **Fait** (section « Étape 3a » en bas ; reste à faire par le propriétaire : voir son tableau) |
 | 3b | Caméra/photos, géolocalisation, partage, retour haptique, bouton retour Android | **Fait** (section « Étape 3b » en bas ; biométrie documentée, non implémentée) |
-| 4 | Préparation des stores (fiches, signature, politique de confidentialité, paiements…) | À faire |
+| 4 | Préparation des stores : exigences UGC, suppression de compte, âge, achats intégrés (analyse), pages légales, questionnaires de confidentialité, fiche (voir `STORES.md`) | **Fait** (code + documents ; section « Étape 4 » en bas ; démarches de comptes et validations juridiques : tableau du propriétaire dans `STORES.md` §14) |
 | 5 | iOS + CI (builds Android/iOS automatisés) | À faire |
 
 ## Versions (vérifiées le 6 octobre 2026)
@@ -737,3 +737,44 @@ l'onboarding peuvent demander quelques appuis sans effet visible avant la racine
 5. `usePullToRefresh`, `Auth`, `handleLike`, `insertMessageRow`, `addStory` : une ligne haptique ajoutée (no-op web).
 6. `nativePush` / `nativeCamera` / `nativeGeolocation` : `loadPlugin()` renvoie `{ plugin }` — tout nouvel appelant doit
    déstructurer.
+
+# Étape 4 — Exigences des boutiques (faite le 7 octobre 2026)
+
+Tout le détail (sources officielles citées, inventaire des données, réponses aux questionnaires, brouillons de fiche, tableau du
+propriétaire, tests sur appareils, risques de rejet) est dans **`STORES.md`**. Ici : le résumé de ce qui a changé dans le code.
+
+## Ce qui a changé
+
+- **UGC (signalement / blocage)** : points d'entrée ajoutés là où il en manquait — carte Découverte en mode Pile (Signaler + Bloquer), menu d'un
+  message reçu (« Signaler ce message »), commentaires et photos d'événement (signalement de l'auteur), « Bloquer l'auteur » sur publications et
+  commentaires du fil et des communautés, proposition de blocage après un signalement de contenu, avatar/nom d'un auteur du fil → sa fiche ;
+  les photos d'une personne bloquée et les événements créés par elle disparaissent. **Bug corrigé** : « Mineur suspecté » faisait échouer le
+  signalement d'une publication du fil (contrainte `post_reports`) — motifs alignés sur la base + test de dérive client/base.
+- **Pages légales** : textes mis à jour d'après ce que l'app collecte réellement, section « tolérance zéro » dans les Conditions, contact via
+  `src/config/contact.json` (**vide par défaut**), nouvelle page publique **`/suppression-compte`** (sitemap, lien d'accueil, visible aussi connecté).
+- **Suppression de compte** (code de l'edge function, **non déployé**) : médias de publications de communauté désormais effacés, listage Storage paginé
+  (avant : 100 fichiers max par dossier), jamais bloquée par une erreur Storage.
+- **Rien d'implémenté** pour les achats intégrés (analyse et recommandation : `STORES.md` §6) ; **rien masqué** dans l'UI.
+
+## Ce que le propriétaire doit faire (résumé ; liste complète : `STORES.md` §14)
+
+Renseigner `src/config/contact.json` ; exécuter `supabase-age-check-server-side.sql` (priorité) ; redéployer `process-scheduled-deletions` ;
+décider du filtre de contenu, de la conservation des signalements et du Premium au lancement ; créer les comptes Apple (99 USD/an) et Google (25 USD) ;
+test fermé Google (12 testeurs, 14 jours) ; compte de démonstration pour les relecteurs ; page « Normes de sécurité des enfants » ; revue juridique des textes.
+
+## Vérifications effectuées (étape 4)
+
+- `npm run build` : OK. `npx cap sync android` : OK. Suite complète verte, 0 « unhandled error » (voir le message de livraison pour les chiffres).
+- Nouveaux tests : signalement de message, commentaires/photos d'événement, bouton Bloquer de la carte Pile, bloquer l'auteur (fil et communautés), motifs alignés sur la
+  base, événements/photos d'un bloqué, contact (config vide : aucune adresse inventée), textes légaux (durées recoupées avec le SQL), page `/suppression-compte` (chemin
+  recoupé avec les libellés réels, route publique, sitemap), helpers Storage de la suppression de compte.
+- **NON vérifié** : aucune soumission, aucun compte développeur, aucun appareil ; sources des boutiques lues via un outil de résumé (voir `STORES.md` §0) ; consoles non consultées.
+
+## Risques de régression à auditer (web)
+
+1. **Pages publiques** : `/suppression-compte` est rendue **avant** les vues par session (même connecté) ; les autres routes publiques sont inchangées. Vérifier `/`, `/connexion`, `/a-propos`, `/confidentialite`, `/conditions`.
+2. **CGU / Confidentialité** : contenu long modifié (inscription, Réglages, pages publiques) ; `LegalSection` est exporté ; date « 7 octobre 2026 ».
+3. **Boutons nouveaux** : Découverte (Pile) — icônes sur la carte swipeable (`onPointerDown` stoppé, vérifier qu'elles n'entravent pas le glissement ni la navigation de photos) ;
+   fil et communautés — icône Bloquer à côté de Signaler ; avatar/nom des auteurs du fil devenus cliquables (ouvre `PublicProfileModal` via `setViewedProfileId`).
+4. **Signalement des publications du fil** : liste de motifs réduite (plus de « Mineur suspecté ») jusqu'à l'exécution de `supabase-post-report-minor-category.sql`.
+5. **Événements** : les événements créés par une personne bloquée disparaissent des listes ; photos d'un bloqué masquées.
