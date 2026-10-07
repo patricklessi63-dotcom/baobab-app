@@ -73,6 +73,8 @@ export default function LandingPage({ onLogin, onSignup, navigate }) {
           <button type="button" onClick={() => navigate("/confidentialite")} className="min-h-11 inline-flex items-center underline decoration-dotted underline-offset-2">Confidentialité</button>
           <span>•</span>
           <button type="button" onClick={() => navigate("/conditions")} className="min-h-11 inline-flex items-center underline decoration-dotted underline-offset-2">Conditions</button>
+          <span>•</span>
+          <button type="button" onClick={() => navigate("/suppression-compte")} className="min-h-11 inline-flex items-center underline decoration-dotted underline-offset-2">Suppression de compte</button>
         </div>
       </div>
     </main>

@@ -70,6 +70,7 @@ const OnboardingWizard = lazy(() => import("./screens/onboarding/OnboardingWizar
 const AboutPage = lazy(() => import("./screens/public/AboutPage"));
 const PrivacyPage = lazy(() => import("./screens/public/PrivacyPage"));
 const TermsPage = lazy(() => import("./screens/public/TermsPage"));
+const DeleteAccountPage = lazy(() => import("./screens/public/DeleteAccountPage"));
 
 function FullScreenFallback() {
   return (
@@ -3468,6 +3469,12 @@ export default function App() {
   if (updateState.mandatory) {
     return <UpdateNotice mandatory info={updateState.info} onReload={handleUpdateReload} />;
   }
+
+  // Page publique « Suppression de compte » (URL à fournir à Google Play, utile à Apple) :
+  // affichée quelle que soit la session — contrairement aux autres pages publiques, une
+  // personne déjà connectée doit aussi pouvoir la lire (elle n'est donc pas dans
+  // PUBLIC_ONLY_PATHS, qui renvoie les comptes connectés vers « / »).
+  if (pathname === "/suppression-compte") return lazyScreen(<DeleteAccountPage navigate={navigate} />);
 
   if (view === "loading" || view === "checking-profile" || session === undefined) {
     return (
