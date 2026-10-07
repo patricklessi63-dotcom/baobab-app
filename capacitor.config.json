@@ -4,5 +4,21 @@
   "webDir": "dist",
   "server": {
     "androidScheme": "https"
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchAutoHide": true,
+      "launchShowDuration": 3000,
+      "launchFadeOutDuration": 200,
+      "backgroundColor": "#14432A",
+      "showSpinner": false
+    },
+    "Keyboard": {
+      "resize": "native"
+    },
+    "SystemBars": {
+      "insetsHandling": "css",
+      "initialViewportFitValueHint": "cover"
+    }
   }
 }
