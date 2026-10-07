@@ -1,0 +1,17 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": ["REMPLACER_PAR_LE_TEAM_ID_APPLE.ca.baobab.app"],
+        "components": [
+          { "/": "/event/*" },
+          { "/": "/community/*" },
+          { "/": "/profile/*" },
+          { "/": "/messages/*" },
+          { "/": "/update-password" },
+          { "/": "/", "?": { "verified": "1" } }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "ca.baobab.app",
+      "sha256_cert_fingerprints": [
+        "REMPLACER_PAR_LEMPREINTE_SHA256_DU_CERTIFICAT_DE_SIGNATURE (voir MOBILE.md, étape 3a)"
+      ]
+    }
+  }
+]
