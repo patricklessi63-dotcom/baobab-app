@@ -3,6 +3,9 @@ import { createPortal } from "react-dom";
 import { X, Image as ImageIcon, Camera, ArrowLeft } from "lucide-react";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
+import NativeCameraButton from "../NativeCameraButton";
+import { isNative } from "../../lib/platform";
+import { fileListEvent } from "../../lib/nativeCamera";
 import { primary, navy, green, coral, coralText, gold, leaf, bg, primaryRgb } from "./theme";
 
 // Fonds proposés pour un statut texte — palette Baobab (pas de bleu
@@ -114,6 +117,13 @@ export default function StoryComposerModal({
                     <button onClick={() => pickStoryMedia("photo")} className="rounded-xl py-3 font-bold" style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)", color: coralText }}><ImageIcon size={17} className="inline mr-1" />Photo</button>
                     <button onClick={() => pickStoryMedia("video")} className="rounded-xl py-3 font-bold" style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)", color: green }}><Camera size={17} className="inline mr-1" />Vidéo</button>
                   </div>
+                  {/* App native uniquement (rend null sur le web) : photo prise à l'instant. Même gestionnaire que « Photo »
+                      (validation) ; la réduction + le retrait EXIF/GPS se font à la publication (addStory). */}
+                  {isNative() && !storyMedia && (
+                    <div className="mt-2">
+                      <NativeCameraButton variant="wide" disabled={storyUploading} onFile={(file) => onStoryMediaSelected(fileListEvent([file]), "photo")} />
+                    </div>
+                  )}
                 </div>
                 <div className="p-6 pt-0 shrink-0">
                   <button onClick={goPreview} disabled={!canContinue} className="bb-btn-gold w-full rounded-xl py-3 font-bold disabled:opacity-40">

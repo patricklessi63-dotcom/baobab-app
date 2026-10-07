@@ -9,6 +9,8 @@ import {
 import ChipSelect from "../components/ChipSelect";
 import AiSuggestButton from "../components/ai/AiSuggestButton";
 import { prepareImageSelection } from "../lib/prepareImageSelection";
+import NativeCameraButton from "../components/NativeCameraButton";
+import { fileListEvent } from "../lib/nativeCamera";
 import { parseArrivedSince, formatArrivedSince } from "./onboarding/steps/Step4CanadaJourney";
 import { computeAge } from "./onboarding/steps/Step1Identity";
 import { useImageLightbox } from "../lib/ImageLightboxContext";
@@ -241,6 +243,10 @@ export default function EditProfileForm({
                 <span className="text-xs text-center px-1" role={photosPreparing ? "status" : undefined} style={{ color: "rgba(var(--bb-ink-rgb-static),0.5)" }}>{photosPreparing ? "Préparation…" : "+ Ajouter"}</span>
                 <input type="file" accept="image/*" multiple disabled={savingProfile || photosPreparing} onChange={handleNewPhotosSelected} className="hidden" />
               </label>
+            )}
+            {/* App native uniquement (rend null sur le web) : prise de photo directe, même chemin que « + Ajouter ». */}
+            {existingPhotos.length + newPhotoPreviews.length < MAX_PHOTOS && (
+              <NativeCameraButton size={72} disabled={savingProfile || photosPreparing} onFile={(file) => handleNewPhotosSelected(fileListEvent([file]))} />
             )}
           </div>
           <p className="text-xs" style={{ color: "rgba(var(--bb-ink-rgb-static),0.5)" }}>

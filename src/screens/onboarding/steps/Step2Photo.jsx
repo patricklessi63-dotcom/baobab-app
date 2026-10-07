@@ -1,5 +1,7 @@
 import React from "react";
 import { C, MAX_PHOTOS } from "../../../constants";
+import NativeCameraButton from "../../../components/NativeCameraButton";
+import { fileListEvent } from "../../../lib/nativeCamera";
 
 // Une photo déjà enregistrée en base (retour arrière puis nouveau passage
 // sur cette étape, sans reselectionner de fichier) compte comme valide :
@@ -53,6 +55,11 @@ export default function Step2Photo({ photoPreviews, handlePhotosSelected, remove
             <span className="text-xs text-center px-1" role={photosPreparing ? "status" : undefined} style={{ color: "rgba(var(--bb-ink-rgb-static),0.5)" }}>{photosPreparing ? "Préparation…" : "+ Ajouter"}</span>
             <input type="file" accept="image/*" multiple disabled={photosPreparing} onChange={handlePhotosSelected} className="hidden" />
           </label>
+        )}
+        {/* App native uniquement (rend null sur le web) : prise de photo directe. Le fichier repasse par
+            handlePhotosSelected (validation + réduction + retrait EXIF/GPS), comme une photo choisie. */}
+        {photoPreviews.length < MAX_PHOTOS && (
+          <NativeCameraButton size={84} disabled={photosPreparing} onFile={(file) => handlePhotosSelected(fileListEvent([file]))} />
         )}
       </div>
       <p className="text-xs" style={{ color: "rgba(var(--bb-ink-rgb-static),0.5)" }}>
