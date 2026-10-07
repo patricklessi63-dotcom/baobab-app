@@ -32,6 +32,13 @@ export const MEDIA_LIMITS = {
   },
 };
 
+// Bucket "event-covers" (supabase-events-v2.sql) : allowlist PLUS étroite que
+// MEDIA_LIMITS.image (pas de GIF). Sans ce garde-fou client, un GIF choisi
+// comme couverture passait la validation puis était refusé par le bucket
+// APRÈS la création de l'événement (message générique, sans cause).
+export const EVENT_COVER_MIMES = ["image/jpeg", "image/png", "image/webp"];
+export const EVENT_COVER_FORMAT_ERROR = "Les images GIF ne sont pas acceptées pour une couverture. Choisis une photo JPEG, PNG ou WebP.";
+
 export const AUDIO_MAX_DURATION_MS = 120000; // 2 minutes
 
 export const MIME_TO_EXT = {
@@ -71,6 +78,56 @@ export function effectiveMime(mime) {
 
 export function extFromMime(mime) {
   return MIME_TO_EXT[effectiveMime(mime)] || "bin";
+}
+
+// Types « image » que les navigateurs étiquettent de façon inconsistante :
+// "image/jpg" (non standard, Android/anciens Windows), "image/pjpeg" (IE),
+// "image/x-png". Normalisés vers le type canonique de l'allowlist du bucket.
+const IMAGE_MIME_ALIASES = {
+  "image/jpg": "image/jpeg",
+  "image/pjpeg": "image/jpeg",
+  "image/x-png": "image/png",
+  "image/heif-sequence": "image/heif",
+  "image/heic-sequence": "image/heic",
+};
+
+// Extension (en minuscules, sans point) -> type MIME. Sert UNIQUEMENT quand
+// le navigateur fournit un file.type vide (fréquent sur Android/Windows pour
+// HEIC/HEIF et certains JPEG venant d'un gestionnaire de fichiers tiers).
+const IMAGE_EXT_TO_MIME = {
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  jpe: "image/jpeg",
+  png: "image/png",
+  webp: "image/webp",
+  gif: "image/gif",
+  heic: "image/heic",
+  heif: "image/heif",
+};
+
+export function isHeicMime(mime) {
+  return mime === "image/heic" || mime === "image/heif";
+}
+
+// Type MIME « utile » d'un fichier choisi : file.type normalisé (casse,
+// alias), et si le navigateur n'en donne aucun (ou le générique
+// application/octet-stream), déduit de l'extension du nom (IMG_0001.JPG,
+// photo.HEIC...). Ne renvoie jamais undefined ; "" si rien n'est déductible.
+// Pour une vidéo/un audio/un document le type déclaré est renvoyé tel quel.
+export function resolveImageMime(file) {
+  const declared = String(file?.type || "").trim().toLowerCase();
+  if (declared && declared !== "application/octet-stream") return IMAGE_MIME_ALIASES[declared] || declared;
+  const name = String(file?.name || "");
+  const dot = name.lastIndexOf(".");
+  if (dot === -1) return declared;
+  return IMAGE_EXT_TO_MIME[name.slice(dot + 1).trim().toLowerCase()] || declared;
+}
+
+// Vrai si le fichier est (ou se présente comme) une image, même avec un
+// file.type vide : sert aux filtres « photo » des sélecteurs, qui écartaient
+// silencieusement toute image sans type déclaré.
+export function looksLikeImage(file) {
+  return resolveImageMime(file).startsWith("image/");
 }
 
 export function formatFileSize(bytes) {
