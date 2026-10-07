@@ -1357,3 +1357,60 @@ fichiers et ne laisse pas d'orphelin (nettoyage Storage sur échec d'insertion) 
    (pas de colonne) : les photos du Fil sautent encore au chargement (SQL : 2 colonnes nullables).
 5. **GIF/WebP/PNG sans transformation** : un GIF animé garde ses métadonnées éventuelles et sa taille
    (≤ 8 Mo) ; un PNG/WebP déjà plus léger que sa version ré-encodée reste inchangé (aucun GPS en pratique).
+
+---
+
+## 11. Applications mobiles — étape 3a (7 octobre 2026) : notifications push natives, SQL + edge function
+
+Le détail technique et la liste complète des tâches du propriétaire (Firebase,
+APNs, empreinte SHA-256, Team ID…) sont dans `MOBILE.md`, section « Étape 3a ».
+Ci-dessous, uniquement ce qui touche à la base de données et au déploiement.
+
+### 11a. SQL — `supabase-device-tokens.sql` — ⬜ JAMAIS EXÉCUTÉ
+
+**Quoi :** nouvelle table `public.device_push_tokens` (jetons FCM Android / APNs iOS) :
+`user_id` → `auth.users` (`on delete cascade`), `token` unique, `platform` (`android`|`ios`),
+`app_version`, dates ; RLS (`select/insert/update/delete` limités à son propre `user_id`) ;
+index sur `user_id` ; fonction `register_device_push_token(...)` (security definer) qui
+insère **ou réassigne** un jeton au compte connecté (un jeton ne peut pas être dupliqué :
+un téléphone passant du compte A au compte B change simplement de propriétaire).
+**Additif et idempotent**, ne modifie aucune table existante, ne touche pas à `push_subscriptions`
+(Web Push inchangé).
+
+**Quand :** à n'importe quel moment avant de publier l'app native (rien ne dépend de lui côté web).
+Tant qu'il n'est pas exécuté : l'app native tourne normalement, l'enregistrement du jeton échoue
+**silencieusement** (journalisé dans la console) et aucune notification native n'est envoyée ;
+`send-push` ignore l'absence de la table.
+
+**Ordre :** indépendant des autres fichiers SQL en attente. Si tu veux aussi les notifications natives
+pour les likes/matchs/abonnés/messages, `supabase-push-notifications-triggers.sql` (§1c) doit lui aussi
+être exécuté (c'est lui qui appelle `send-push`).
+
+**Comment :** SQL Editor → coller tout le contenu de `supabase-device-tokens.sql` → Run.
+
+**Vérification :**
+```sql
+select policyname, cmd from pg_policies where tablename = 'device_push_tokens';  -- 4 lignes
+select proname from pg_proc where proname = 'register_device_push_token';        -- 1 ligne
+select has_function_privilege('anon', 'public.register_device_push_token(text,text,text)', 'execute'); -- false
+```
+Après avoir activé les notifications sur un téléphone de test :
+`select user_id, platform, app_version, updated_at from public.device_push_tokens;` → 1 ligne.
+
+### 11b. Edge function — re-déploiement de `send-push` — ⬜ À FAIRE
+
+Le code de `supabase/functions/send-push/index.ts` (+ nouveau module
+`supabase/functions/_shared/nativePush.ts`) envoie désormais **aussi** aux jetons natifs.
+Le Web Push est inchangé (mêmes payloads, mêmes préférences, mêmes suppressions 404/410).
+
+```bash
+# Secrets natifs (tous optionnels : une plateforme dont les secrets manquent est simplement ignorée,
+# le Web Push continue de partir). Voir MOBILE.md pour savoir où obtenir chaque valeur.
+supabase secrets set FCM_SERVICE_ACCOUNT_JSON="$(cat chemin/vers/compte-de-service.json)"   # Android (FCM v1)
+supabase secrets set APNS_KEY_ID=XXXXXXXXXX APNS_TEAM_ID=XXXXXXXXXX                       # iOS (APNs direct)
+supabase secrets set APNS_KEY_P8="$(cat chemin/vers/AuthKey_XXXXXXXXXX.p8)"
+# Facultatifs : APNS_BUNDLE_ID (défaut ca.baobab.app), APNS_USE_SANDBOX=true (builds de développement iOS)
+
+supabase functions deploy send-push
+```
+Le fichier de compte de service et la clé `.p8` sont des **secrets** : ne jamais les committer.
