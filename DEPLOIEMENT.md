@@ -1,5 +1,7 @@
 # Déploiement en attente — Baobab
 
+> **Voir `LANCEMENT.md` pour l'ordre consolidé** (le seul document à suivre pour lancer Baobab : SQL, edge functions, réglages, décisions). Ce fichier-ci reste la référence de détail.
+
 Mise à jour 2026-10-02.
 
 **FAIT :**
@@ -308,7 +310,11 @@ capable de tester contre la vraie base).
 
 ---
 
-## 1c. SQL — `supabase-push-notifications-triggers.sql` — ⬜ JAMAIS EXÉCUTÉ
+## 1c. SQL — `supabase-push-notifications-triggers.sql` — ⬜ JAMAIS EXÉCUTÉ (à nuancer : voir ci-dessous)
+
+> **Correction du 8 octobre 2026 (voir `LANCEMENT.md` §2) :** les triggers *message* et *match* ont très probablement été exécutés le 25 août 2026 (le secret
+> `PUSH_WEBHOOK_SECRET` a été créé ce soir-là, et l'en-tête de `supabase-account-deletion-timeout-fix.sql` parle des « triggers push mis en place ce soir »).
+> Seuls *like* et *abonnement* (ajoutés le 15 sept) sont certainement absents. Le fichier est idempotent : le rejouer est sans danger. À vérifier avec le bilan de `LANCEMENT.md` §4.
 
 **Quoi :** branche enfin les triggers SQL qui manquaient pour que les
 notifications push partent réellement. Le fichier contient 4 triggers
@@ -530,8 +536,8 @@ Edge Functions — il faut le poser explicitement) :
 ```bash
 supabase secrets set \
   STRIPE_SECRET_KEY=sk_live_... \
-  STRIPE_WEBHOOK_SECRET=whsec_... \
-  SUPABASE_SERVICE_ROLE_KEY=<clé service_role, Project Settings > API>
+  STRIPE_WEBHOOK_SECRET=whsec_...
+# (ne PAS poser SUPABASE_SERVICE_ROLE_KEY : déjà fournie par la plateforme, voir la correction sous la liste ci-dessous)
 ```
 
 Déploiement (sans vérification JWT — Stripe appelle sans session Supabase) :
@@ -546,6 +552,11 @@ Puis, côté **Dashboard Stripe** → Developers → Webhooks :
   `customer.subscription.deleted` (au minimum)
 - copie le « Signing secret » affiché dans `STRIPE_WEBHOOK_SECRET` ci-dessus si
   différent.
+
+> **Correction du 8 octobre 2026 (voir `LANCEMENT.md` §8.2) :** (1) `SUPABASE_SERVICE_ROLE_KEY` est **déjà présente** dans les secrets du projet
+> (preuve : `npx supabase secrets list`) et la CLI refuse normalement les noms commençant par `SUPABASE_` : ne pas la poser. Le commentaire « n'est pas injecté
+> automatiquement » plus haut était inexact. (2) Le code de `stripe-webhook` traite **5** événements : `checkout.session.completed`,
+> `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.payment_failed`.
 
 Sans ça, la synchro Premium/abonnements ne fonctionne pas : le frontend n'est
 jamais la source de vérité du statut Premium.
@@ -569,8 +580,11 @@ Aucun nouveau secret : réutilise les secrets VAPID / `PUSH_WEBHOOK_SECRET`
 déjà configurés pour cette fonction.
 
 ```bash
-supabase functions deploy send-push
+supabase functions deploy send-push --no-verify-jwt
 ```
+
+> **Correction du 8 octobre 2026 :** le drapeau `--no-verify-jwt` est INDISPENSABLE (la fonction est aujourd'hui en `verify_jwt: false` ; sans ce drapeau, le
+> redéploiement la repasse en « JWT obligatoire » et tous les appels des triggers pg_net, qui n'envoient que `x-webhook-secret`, échouent en 401).
 
 **Pourquoi :** le code de `supabase/functions/send-push/index.ts` a été
 étendu le 2026-09-15 pour gérer deux nouveaux types de payload, `"like"` et
@@ -1419,7 +1433,7 @@ supabase secrets set APNS_KEY_ID=XXXXXXXXXX APNS_TEAM_ID=XXXXXXXXXX             
 supabase secrets set APNS_KEY_P8="$(cat chemin/vers/AuthKey_XXXXXXXXXX.p8)"
 # Facultatifs : APNS_BUNDLE_ID (défaut ca.baobab.app), APNS_USE_SANDBOX=true (builds de développement iOS)
 
-supabase functions deploy send-push
+supabase functions deploy send-push --no-verify-jwt
 ```
 Le fichier de compte de service et la clé `.p8` sont des **secrets** : ne jamais les committer.
 
@@ -1446,7 +1460,7 @@ Le code (`supabase/functions/process-scheduled-deletions/index.ts`, + `_shared/s
 supabase functions deploy process-scheduled-deletions --no-verify-jwt
 ```
 
-(mêmes options qu'au premier déploiement : appelée par le cron avec la clé service role). **Vérification du cron** (souvent oubliée) :
+(appelée par le cron avec la clé service role ; la fonction vérifie elle-même cette clé. Correction du 8 octobre 2026 : la version en ligne est déployée avec « JWT exigé » et ce n'était donc pas « les mêmes options qu'au premier déploiement » ; `--no-verify-jwt` reste recommandé, voir `LANCEMENT.md` §8.2). **Vérification du cron** (souvent oubliée) :
 `select id, status_code, timed_out, error_msg, created from net._http_response order by created desc limit 5;` → `status_code = 200`, `timed_out = false`
 (voir `supabase-account-deletion-timeout-fix.sql`).
 

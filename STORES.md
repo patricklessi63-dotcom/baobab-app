@@ -1,5 +1,7 @@
 # Baobab — exigences des boutiques d'applications (étape 4)
 
+> **Voir `LANCEMENT.md` pour l'ordre consolidé** des opérations et la liste des décisions du propriétaire (§10) ; ce document reste la référence des règles des boutiques.
+
 Rédigé le **7 octobre 2026**. Ce document prépare la publication sur l'App Store (Apple) et Google Play :
 audit du code face aux règles officielles, réponses proposées aux questionnaires, brouillons de fiche,
 et la liste de ce que **seul le propriétaire** peut faire. Il accompagne `MOBILE.md` (tableau d'avancement,

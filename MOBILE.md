@@ -1,5 +1,7 @@
 # Baobab — applications mobiles (Android + iOS) avec Capacitor
 
+> **Voir `LANCEMENT.md` pour l'ordre consolidé** des opérations (SQL, edge functions, réglages) ; la partie « Après le lancement » (§12) renvoie vers le guide de publication ci-dessous.
+
 Ce document décrit comment le même code React/Vite que le site web est
 empaqueté en applications Android (et plus tard iOS) avec
 [Capacitor](https://capacitorjs.com). Le site web (Vercel) n'est **pas**
