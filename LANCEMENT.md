@@ -1,6 +1,6 @@
 # Baobab — LANCEMENT : le seul document à suivre
 
-Dernière mise à jour : **8 octobre 2026**. Remplace, pour l'ordre des opérations, les listes dispersées de
+Dernière mise à jour : **8 octobre 2026** ; **20 octobre 2026** : fiche SQL-22 (fuites de lecture), guide §9.7 (projet de répétition), lignes de bilan correspondantes. Remplace, pour l'ordre des opérations, les listes dispersées de
 `DEPLOIEMENT.md` (§1 à §12), `MOBILE.md` et `STORES.md` (qui restent les références de détail).
 
 **Comment l'utiliser.** Va dans l'ordre. Chaque case `- [ ]` est une action. Tout ce qui est écrit
@@ -26,7 +26,7 @@ dizaine d'appels HTTP sans identifiant (sondes).
 4. [Étape 0 — le bilan en lecture seule](#4-étape-0--le-bilan-en-lecture-seule-à-lancer-en-premier)
 5. [Ordre d'exécution du SQL (fiches)](#5-ordre-dexécution-du-sql-fiches)
 6. [Conflits entre fichiers et pièges d'ordre](#6-conflits-entre-fichiers-et-pièges-dordre)
-7. [Inventaire des 133 fichiers SQL](#7-inventaire-des-133-fichiers-sql)
+7. [Inventaire des 134 fichiers SQL](#7-inventaire-des-134-fichiers-sql)
 8. [Edge functions](#8-edge-functions)
 9. [Réglages manuels hors code](#9-réglages-manuels-hors-code)
 10. [Décisions du propriétaire](#10-décisions-du-propriétaire)
@@ -57,8 +57,9 @@ Classées par urgence (pas forcément dans l'ordre d'exécution : celui-ci est a
    peuvent pas s'inscrire ou ne reçoivent pas leur e-mail.
 3. **Imposer l'âge de 18 ans côté serveur** : `supabase-age-check-server-side.sql` (SQL-1). Aujourd'hui,
    un appel direct à l'API pourrait enregistrer un mineur.
-4. **Fermer deux fuites de confidentialité** : `can_view_event` (SQL-2, un événement privé refusé reste lisible)
-   et `supabase-content-select-block-filter-fix.sql` (SQL-3, un profil bloqué peut encore lire le contenu).
+4. **Fermer les fuites de confidentialité** : `can_view_event` (SQL-2, un événement privé refusé reste lisible),
+   `supabase-content-select-block-filter-fix.sql` (SQL-3, un profil bloqué peut encore lire le contenu) et, surtout,
+   **`supabase-close-read-leaks.sql` (SQL-22)** : les photos de profil (table `profile_photos`) sont lisibles **sans compte**, adresses d'images comprises.
 5. **Redéployer `process-scheduled-deletions`** (§8) : la version en ligne date du **22 août**, 4 correctifs de
    la suppression de compte ne sont pas déployés (effacement de fichiers d'autres personnes, ordre de
    suppression, médias de communautés). Obligatoire pour la conformité (droit à l'effacement, boutiques).
@@ -128,7 +129,7 @@ pushs natifs sont **hors de cette liste** (§12).
 - [ ] **5. SQL-2 et SQL-3** — événements privés (`can_view_event`) et filtre de lecture des blocages.
 - [ ] **6. SQL-4 et SQL-5** — index de lancement (hors heures de pointe) et `client_errors`.
 - [ ] **7. Lot SQL-6 → SQL-15** — gardes d'état de compte, gouvernance, transferts de propriété, listes d'attente,
-      bloc fusionné `accept_event_invitation`. Dans l'ordre exact du §5.
+      bloc fusionné `accept_event_invitation`. Dans l'ordre exact du §5. **Puis SQL-22** (fuites de lecture), répété d'abord sur le projet de répétition (§9.7).
 - [ ] **8. Edge functions** (§8) : redéployer `process-scheduled-deletions`, déployer `cleanup-expired-stories`,
       vérifier que le cron de suppression répond 200.
 - [ ] **9. Réglages Supabase** (§9) : Max rows ≥ 1000, sauvegardes, quotas Storage.
@@ -263,7 +264,13 @@ with
       ('supabase-COMBINED-pending-fixes.sql', '3 crons du COMBINED planifiés', (array['baobab-cleanup-old-notifications', 'baobab-send-event-reminders', 'baobab-cleanup-expired-stories']::text[] <@ array(select k from cr))),
       ('supabase-COMBINED-pending-fixes.sql', 'get_my_likers + reports.status + stripe_event_created_at', (array['get_my_likers']::text[] <@ array(select k from fn) and array['reports.status', 'subscriptions.stripe_event_created_at']::text[] <@ array(select k from col))),
       ('supabase-combined-supersede-order-regression-fix.sql', 'likes : garde banni/suspendu présente (état final autoritaire)', (exists (select 1 from pol where k = 'likes|un utilisateur like en son propre nom' and s ilike '%banned_at%'))),
-      ('supabase-combined-supersede-order-regression-fix.sql', 'reports : limite globale ; create_event : garde d''authentification', (exists (select 1 from fn where k = 'check_report_rate_limit' and s ilike '%global_recent_action_count%') and exists (select 1 from fn where k = 'create_event' and s ilike '%current_profile_id() is null%')))
+      ('supabase-combined-supersede-order-regression-fix.sql', 'reports : limite globale ; create_event : garde d''authentification', (exists (select 1 from fn where k = 'check_report_rate_limit' and s ilike '%global_recent_action_count%') and exists (select 1 from fn where k = 'create_event' and s ilike '%current_profile_id() is null%'))),
+      ('supabase-close-read-leaks.sql', 'bloc 1 : profile_photos avec RLS active et sans accès anon', coalesce((select relrowsecurity from pg_class where oid = to_regclass('public.profile_photos')) and not has_table_privilege('anon', to_regclass('public.profile_photos'), 'SELECT'), false)),
+      ('supabase-close-read-leaks.sql', 'bloc 2 : aucune fonction SECURITY DEFINER appelable par anon (hors public_user_count)', (not exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'public' and p.prosecdef and p.proname <> 'public_user_count' and has_function_privilege('anon', p.oid, 'EXECUTE')))),
+      ('supabase-close-read-leaks.sql', 'bloc 2 : toute fonction SECURITY DEFINER fixe son search_path', (not exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'public' and p.prosecdef and not exists (select 1 from unnest(coalesce(p.proconfig, '{}'::text[])) c where c like 'search_path=%')))),
+      ('supabase-close-read-leaks.sql', 'bloc 3A : fonction get_my_profile', (array['get_my_profile']::text[] <@ array(select k from fn))),
+      ('supabase-close-read-leaks.sql', 'bloc 3B : birth_date illisible pour les comptes connectés', (not has_column_privilege('authenticated', 'public.profiles', 'birth_date', 'SELECT'))),
+      ('supabase-close-read-leaks.sql', 'bloc 4A : blocks et passes sans réplique complète (Realtime DELETE)', (not exists (select 1 from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname = 'public' and c.relname in ('blocks', 'passes') and c.relreplident = 'f')))
   )
 select case when ok then 'oui' else 'NON' end as present, fichier, controle
 from bilan
@@ -498,6 +505,46 @@ Prérequis communs, **tous satisfaits d'après le bilan** (à confirmer lignes C
 - **Après** : bilan. **Annuler** : rejouer la fonction d'origine de `supabase-premium-messaging.sql` (déconseillé).
 - [ ] Exécuté.
 
+#### SQL-22 — `supabase-close-read-leaks.sql` (fuites de lecture C1, C2, I3 de l'audit ; à jouer APRÈS SQL-15)
+
+> **Gravité réelle du constat C2 (20 oct.)** : `profile_photos` est lisible **sans compte** : 11 lignes, dont l'adresse (`url`) de chaque photo.
+> Le bucket `avatars` étant **public**, ces adresses ouvrent **les images elles-mêmes**, sans compte. Ce n'est donc pas seulement une liste de chemins :
+> les photos des inscrits sont téléchargeables. À corriger **en premier** (bloc 1, aucun changement de code). Fermer la table n'empêche pas de rouvrir une adresse
+> déjà copiée (voir bloc 1B).
+
+- [ ] **Prérequis 1 — répétition.** Ce fichier n'a été validé **que sur un schéma factice local** (moteur PGlite, `src/native/closeReadLeaks.test.js`), jamais sur ta base.
+      Joue-le d'abord sur le projet de répétition (§9.7), avec **deux comptes de test**, puis seulement en production. Si la répétition n'est pas prête, le **bloc 1 seul**
+      est le plus urgent et le plus simple ; tu peux le jouer en production après sauvegarde (§9.4) et pré-contrôle, en gardant la sauvegarde des politiques.
+- [ ] **Prérequis 2 — sauvegarde** (§9.4) et **bilan** (§4) : les six lignes `supabase-close-read-leaks.sql` doivent être « NON » avant, « oui » après (le bloc 4A est « NON » tant que `blocks`/`passes` ont une réplique complète).
+- **Règle de collage** : un bloc à la fois, jamais le fichier entier. Pour chaque bloc : coller le **pré-contrôle** (lecture seule), garder le résultat ; coller le **correctif** (de `-- >>> CORRECTIF` à `-- <<<`) ; coller le **contrôle après**.
+  Les blocs 1B, 3B et 4B sont « armés » : ajoute en tête de ce que tu colles la ligne `set baobab.arm = 'bloc3b';` (ou `'bloc1b'`, `'bloc4b'`), sinon le script refuse volontairement.
+
+| Bloc | Ferme | Changement de code requis ? | Annuler |
+| --- | --- | --- | --- |
+| **1** `profile_photos` | C2 : RLS activée, 4 politiques minimales (lecture par comptes connectés, hors blocages/comptes bannis ; écriture seulement de ses propres photos), plus aucun droit pour `anon` | **Non** | Lignes `--|` du bloc + sauvegarde des politiques (pré-contrôle 1.f) |
+| **2** fonctions `SECURITY DEFINER` | I3 : retire `EXECUTE` à `anon` et PUBLIC sur toutes (liste blanche : `public_user_count`), ajoute `search_path`, règle les privilèges par défaut pour les futures | **Non** | Lignes `--|` + sauvegarde 2.d |
+| **4A** Realtime `blocks`/`passes` | Les événements DELETE ne portent plus que la clé primaire | **Non** (le temps réel des retraits de blocage devient différé) | `replica identity full` |
+| **3A** `get_my_profile()` | Prépare 3B (additif, aucun droit changé) | **Non** | `drop function` |
+| **3B** colonnes sensibles | C1 : retire à tout compte connecté la lecture de `birth_date`, `ban_reason`, `suspend_reason`, `report_count`, `flagged_for_review`, `notification_preferences` | **Oui, déjà fait** : `src/lib/ownProfile.js` (voir ci-dessous). **À jouer après le déploiement de ce code** | `grant select on profiles to authenticated` |
+| **1B** bucket `avatars` privé *(optionnel)* | Rend les anciennes adresses d'images inutilisables | **Oui, gros chantier non fait** (URL signées partout) : **ne pas jouer** | `public = true` |
+| **4B** Realtime `likes`/`follows`/`favorites` *(optionnel)* | Idem 4A | Non (perte du temps réel des retraits) | `replica identity full` |
+
+- **Ordre recommandé (code → SQL)** : (1) bloc 1 → (2) bloc 2 → (3) bloc 4A → (4) bloc 3A → (5) **déployer le code** (`git push`, contient `ownProfile.js`) et vérifier avec un compte de test :
+  connexion, ouverture de l'onboarding, modification du profil (le code se comporte comme avant tant que 3B n'est pas joué) → (6) bloc 3B → (7) vérification et test à deux comptes.
+- **Après le bloc 3B** : toute colonne ajoutée plus tard à `profiles` n'est pas lisible par les comptes connectés tant qu'on n'a pas exécuté `grant select (nouvelle_colonne) on public.profiles to authenticated;`.
+  Un test (`src/lib/ownProfile.test.js`) fait échouer la CI si du code réintroduit `select("*")` / `.select()` direct sur `profiles`.
+- **Ce que tu dois constater après** (sondes anonymes, clé publique, comptage seulement) : `profile_photos` → 401 (plus « 11 ») ; `rpc/admin_dashboard_stats` → 401/403 **avant** le corps (plus « Non autorise ») ;
+  `rpc/public_user_count` → 200 (la page d'accueil garde son compteur). Avec un jeton du compte A : `profiles?select=*&id=eq.<B>` → refusé ; `profiles?select=id,name,age,avatar_url&id=eq.<B>` → 200.
+  Les sondes « anonyme = `[]` » du plan (S1) deviennent « anonyme = `[]` **ou 401** » : une table dont la politique appelle `current_profile_id()` répond désormais 401 à un anonyme au lieu de `[]` (aucune donnée exposée dans les deux cas).
+- **Test Realtime (10 minutes, sur la répétition uniquement)** : avec deux comptes A et B ouverts dans deux navigateurs, A et B n'étant pas liés, abonner B (console du navigateur, client Supabase) à `postgres_changes` `DELETE` sur `blocks` sans filtre,
+  puis faire retirer un blocage à A. Avant le bloc 4A, B reçoit-il la ligne (`from_id`, `to_id`) de A ? Après le 4A, il ne doit recevoir que `id`. Refaire le test avec la clé publique seule (sans connexion). Note le résultat : c'est ce qui décide du bloc 4B.
+  Documentation Supabase (guides/realtime/postgres-changes) : « RLS policies are not applied to DELETE statements » ; sans `replica identity full`, un DELETE ne transmet que la clé primaire. **Non vérifié ici** : l'abonnement anonyme, et si Realtime exige le droit de lecture de la table.
+- **Risque accepté pour `likes`, `follows`, `favorites` (bloc 4B non joué)** : un DELETE révèle un couple d'identifiants (qui a retiré un like/abonnement/favori de qui), sans nom ni contenu ; il faut un compte pour s'abonner. Justification : sensibilité moindre que les blocages, et le temps réel
+  du retrait de like est une fonctionnalité visible. À réexaminer après le lancement (migration vers « Broadcast » avec canaux privés, recommandée par Supabase pour la sécurité et l'échelle). **Décision 21.**
+- **Limites connues** : (a) bloc 1 : la photo principale reste visible aux comptes connectés via `profiles.avatar_url` même pour un profil bloqué (les profils ne sont pas filtrés par blocage côté serveur) ; (b) les fonctions `SECURITY DEFINER` appelables par un compte connecté
+  mais qui ne devraient l'être que par un cron (ex. `send_event_reminders` est déjà fermée) restent à revoir à la main avec la requête 2.a ; (c) le bloc 2 ne touche pas les fonctions `SECURITY INVOKER` ; (d) PGlite exécute PostgreSQL 18, Supabase 15 ou 17 : aucune syntaxe utilisée n'est propre à la 18.
+- [ ] Bloc 1  - [ ] Bloc 2  - [ ] Bloc 4A  - [ ] Bloc 3A  - [ ] Code déployé et vérifié  - [ ] Bloc 3B  - [ ] Sondes anonymes et test à deux comptes notés
+
 ### Phase N — apps natives et notifications (après le lancement web, §12)
 
 #### SQL-16 — `supabase-device-tokens.sql`
@@ -605,7 +652,7 @@ redéfinis plusieurs fois. Quand deux fichiers redéfinissent la même chose, **
 
 ---
 
-## 7. Inventaire des 133 fichiers SQL
+## 7. Inventaire des 134 fichiers SQL
 
 Légende des catégories : **A** = en prod (prouvé) ; **B** = à exécuter ; **C** = socle d'août, supposé en prod, à
 vérifier par le bilan ; **D** = obsolète ou outil manuel, ne pas exécuter. « Modifié » = date du dernier commit.
@@ -663,7 +710,7 @@ Exécutés avec le script consolidé le **9 sept 2026** (le correctif d'ordre le
 | `supabase-cleanup-expired-stories.sql` | 09/09 | Purge des statuts expirés (cron 3 h) : appelle l'edge function du même nom. | La fonction n'est pas déployée (404) : le cron échoue chaque nuit sans dommage. |
 | `supabase-combined-supersede-order-regression-fix.sql` | 09/09 | Rétablit l'état final correct de 3 objets écrasés par l'ordre du COMBINED. | Exécuté le 10 sept ; aussi inclus en dernière section du COMBINED. |
 
-### Catégorie B — livrés, NON exécutés : à exécuter (22 fichiers)
+### Catégorie B — livrés, NON exécutés : à exécuter (23 fichiers)
 
 Ordre et fiches : §5. Tous postérieurs à l'exécution du COMBINED, aucun mentionné comme exécuté dans `DEPLOIEMENT.md` (le bilan §4 le confirme ou l'infirme).
 
@@ -691,6 +738,7 @@ Ordre et fiches : §5. Tous postérieurs à l'exécution du COMBINED, aucun ment
 | `supabase-unaccent-search.sql` | 15/09 | Extension unaccent + index de recherche sans accents. | SQL-18. Optionnel : aucun effet visible sans changement de code. |
 | `supabase-post-report-minor-category.sql` | 07/10 | Autorise le motif « mineur suspecté » sur les signalements de publications. | SQL-19. Optionnel. |
 | `supabase-storage-account-quota.sql` | 04/09 | Plafond de stockage total par compte (trigger sur storage.objects). | SQL-20. DÉCISION requise (plafond 1 Go arbitraire) ; ne pas exécuter sans relecture. |
+| `supabase-close-read-leaks.sql` | 20/10 | Ferme les fuites de lecture : `profile_photos` (RLS), `EXECUTE` retiré à anon sur les fonctions SECURITY DEFINER + search_path, colonnes sensibles de `profiles`, Realtime DELETE. | SQL-22. **Répéter d'abord** (§9.7) ; bloc par bloc ; ordre code → SQL. |
 
 ### Catégorie C — socle d'août (60 fichiers) : supposé en prod, À VÉRIFIER
 
@@ -769,7 +817,7 @@ Antérieurs au COMBINED et absents de celui-ci ; l'application tourne en bêta d
 | `supabase-cleanup-test-data.sql` | 21/08 | Outil manuel pour supprimer des comptes de test. | DESTRUCTIF : n'exécuter qu'en connaissance de cause, jamais en production réelle. |
 | `supabase-beta-dashboard.sql` | 21/08 | Requêtes de statistiques de la bêta (lecture seule). | Outil de consultation, pas une migration. |
 
-Total : 46 + 22 + 60 + 5 = 133 fichiers.
+Total : 46 + 23 + 60 + 5 = 134 fichiers.
 
 ---
 
@@ -954,12 +1002,30 @@ Secrets du dépôt (Settings > Secrets and variables > Actions), lus par `.githu
 `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD`,
 `APP_STORE_CONNECT_ISSUER_ID`, `APP_STORE_CONNECT_KEY_ID`, `APP_STORE_CONNECT_KEY_P8`, `APPLE_TEAM_ID`. Détail : `MOBILE.md` (guide de publication B et C).
 
+### 9.7 Créer un projet Supabase de répétition (staging) — il n'en existait aucun
+
+Objectif : jouer les SQL (SQL-1 à SQL-22), tester la sécurité à deux comptes et prévisualiser le site **sans jamais toucher à la production**. Le plan gratuit suffit.
+
+- [ ] **1. Créer le projet.** supabase.com > New project > nom « baobab-repetition », même région que la production, mot de passe de base de données **différent** (garde-le dans ton gestionnaire de mots de passe). Note l'URL et la clé « publishable/anon » (Project Settings > API) : ce sont les seules valeurs dont le site a besoin. **Ne copie jamais la clé `service_role` dans un fichier du dépôt.**
+- [ ] **2. Reproduire la structure de la production.**
+      **Voie recommandée : copier le schéma (sans les données) de la production.** C'est la seule qui reproduit l'état *réel*, y compris `profile_photos` (créée à la main) et les politiques inconnues du dépôt. L'export est une **lecture** de la production (aucune écriture) :
+      `npx supabase db dump --db-url "<URL de connexion de la production>" --schema public -f schema-prod.sql` (demande Docker Desktop ; sinon `pg_dump --schema-only --schema=public` avec les outils client PostgreSQL). L'URL de connexion se trouve dans Project Settings > Database (« Connection string »), avec le mot de passe de la **production** : ne la colle nulle part ailleurs que dans ton terminal, et ne commite pas `schema-prod.sql`.
+      Puis, dans le projet de répétition : SQL Editor, coller le contenu de `schema-prod.sql` (ou `psql "<URL de la répétition>" -f schema-prod.sql`). Ajouter ensuite à la main ce que l'export `public` ne contient pas : les buckets Storage (Storage > New bucket : `avatars`, `post-media`, `chat-media`, `community-media`, `event-media`, `event-covers`) et leurs politiques (`supabase-scale-security.sql` §7, `supabase-storage-anon-listing-fix.sql`, `supabase-chat-media-storage.sql`, `supabase-communities-3.sql`, `supabase-events-v2.sql` §18), les extensions (`pg_cron`, `pg_net`, `vault` : Database > Extensions) et la publication Realtime (`supabase-realtime-messages.sql`, `supabase-follows-favorites-blocks-passes-realtime-fix.sql`).
+      **Voie de secours : rejouer les fichiers dans l'ordre où la production les a reçus** (non rejoué par l'assistant : c'est l'ordre de l'histoire, à confirmer par le bilan §4) : (a) les fichiers de la catégorie C (§7) par date de création dans git — `git log --diff-filter=A --format="%aI %s" --name-only -- "supabase-*.sql"` donne cet ordre ; `supabase-schema.sql` d'abord, jamais `supabase-cleanup-test-data.sql` ; (b) `supabase-COMBINED-pending-fixes.sql` ; (c) `supabase-combined-supersede-order-regression-fix.sql` ; (d) les fiches SQL-1 à SQL-15 dans l'ordre du §5. Aucun fichier ne crée `profile_photos` : le bloc 1 de SQL-22 la crée au besoin, mais les politiques que tu veux tester ne seront alors pas celles de la production. **Lance le bilan (§4) sur la répétition** : il doit donner le même résultat que sur la production avant SQL-1.
+- [ ] **3. Réglages d'authentification de la répétition** (Authentication) : **désactiver « Confirm email »** (pas de SMTP à configurer) ; **ne pas** activer le hook « Before User Created » ; Site URL = `http://localhost:5173` ; Redirect URLs = `http://localhost:5173/?verified=1` et `http://localhost:5173/update-password`, plus l'adresse de la préversion Vercel si tu en utilises une.
+- [ ] **4. Lancer le site contre la répétition, en local.** À la racine du dépôt, créer `.env.local` (ignoré par git : `.gitignore` exclut `.env*`) avec **trois lignes** :
+      `VITE_SUPABASE_URL=https://<ref-repetition>.supabase.co`, `VITE_SUPABASE_ANON_KEY=<clé anon de la répétition>`, `VITE_VAPID_PUBLIC_KEY=` (vide : le push web n'est pas testé). Puis `npm run dev` et ouvrir `http://localhost:5173`. **Vérification de sécurité** : dans le navigateur, l'onglet Network doit montrer des requêtes vers `<ref-repetition>.supabase.co`, **jamais** vers `vozehymbihnckzklxesw.supabase.co`. Supprime `.env.local` (ou renomme-le) quand tu as fini.
+- [ ] **5. Préversion Vercel contre la répétition (facultatif).** Vercel > Project > Settings > Environment Variables : ajouter les mêmes `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` en cochant **uniquement « Preview »** (décoche Production et Development), idéalement limitées à une branche `repetition` (« Git Branch »). Pousser cette branche donne une adresse de préversion qui parle à la répétition ; `main` et la production restent sur la vraie base. Ne jamais cocher « Production » pour ces valeurs.
+- [ ] **6. Créer deux comptes de test (A et B).** Authentication > Users > Add user > Create new user, cocher « Auto Confirm User », deux adresses factices à toi (ex. `a@exemple.invalid`, `b@exemple.invalid`) et deux mots de passe **de test** que tu choisis (jamais ceux d'un vrai service). Ouvrir le site (local ou préversion) : A dans une fenêtre, B dans une fenêtre de navigation privée ; terminer l'onboarding de chacun avec une photo. Ces comptes permettent les tests du plan : S2 (A ne lit pas `birth_date` de B), blocage de A par B (les galeries se masquent), test Realtime de SQL-22.
+- [ ] **7. Rejouer dans l'ordre** : bilan → SQL-1 à SQL-15 → SQL-22 bloc par bloc (pré-contrôle, correctif, contrôle). Noter chaque résultat. Corriger les écarts **avant** d'approcher la production.
+- Ce que la répétition ne prouve pas : la charge, les e-mails réels (SMTP désactivé), les edge functions (non déployées), les vraies données.
+
 ---
 
 ## 10. Décisions du propriétaire
 
 Chaque décision : le contexte, ma recommandation (une recommandation, pas une décision prise) et la conséquence. Les numéros 1 à 12 suivent ta liste ;
-13 à 20 sont des décisions que l'analyse a fait apparaître.
+13 à 22 sont des décisions que l'analyse a fait apparaître.
 
 1. **Premium dans les apps natives** *(MOBILE.md « Risques » n° 1, STORES.md §6)*. L'interface d'achat Stripe est visible dans l'app native ; Apple (3.1.1/3.1.3(b)) et Google la rejetteront.
    **Reco : option C** — aucun Premium, aucun prix, aucun lien d'achat dans l'app native au lancement (≈ 1 jour de code, à faire AVANT toute soumission). **Conséquence** : pas de revenu natif ; le web garde Stripe ; achats intégrés (option B, 8 à 12 jours) seulement quand il y aura des abonnés.
@@ -994,6 +1060,8 @@ Chaque décision : le contexte, ma recommandation (une recommandation, pas une d
 18. **`delete-account` fantôme** : supprimer (§8.3). **Conséquence** : aucune (le site ne l'appelle pas).
 19. **Page publique « Normes de sécurité des enfants »** exigée par Google pour les apps de rencontre (STORES.md §2.5 et §14) : à publier avant la soumission Android.
 20. **Domaine officiel** : `baobab-app.ca` ou `baobab-app-zeta.vercel.app` (§9.5) : à trancher avant d'envoyer des liens publics, car l'adresse figure dans les e-mails, les liens profonds et le sitemap.
+21. **Realtime : accepter ou fermer les DELETE de `likes`/`follows`/`favorites`** (SQL-22, blocs 4A/4B). **Reco** : jouer 4A (blocks, passes) ; accepter le risque pour les trois autres jusqu'au résultat du test de répétition ; migrer vers Broadcast privé après le lancement. **Conséquence** : fermer 4B supprime le temps réel du retrait d'un like/abonnement/favori.
+22. **Bucket `avatars` public** : les images restent téléchargeables par quiconque connaît l'adresse (SQL-22, bloc 1B). **Reco** : accepter pour le 15 novembre (noms non devinables, listage fermé) et planifier le passage aux URL signées (plusieurs jours de code) ; remplacer les photos exposées si l'une pose problème. **Conséquence** : un bucket privé casse toutes les images tant que le client n'utilise pas d'URL signées.
 
 ---
 
@@ -1013,6 +1081,7 @@ Chaque décision : le contexte, ma recommandation (une recommandation, pas une d
 - [ ] Sauvegarde/point de contrôle (§9.4).
 - [ ] SQL-1 (pré-contrôle puis exécution), SQL-2, SQL-3, SQL-4 (hors pic), SQL-5.
 - [ ] SQL-6 à SQL-15, un par un, bilan après chaque série.
+- [ ] SQL-22 (fuites de lecture) bloc par bloc, **après répétition** (§9.7), puis sondes anonymes.
 - [ ] Déployer `process-scheduled-deletions` et `cleanup-expired-stories` (§8.2) ; examiner `delete-account` (§8.3).
 - [ ] Remplir `contact.json`, ajuster le domaine (§9.5), `git pull --rebase origin main` puis `git push origin main`.
 
@@ -1160,6 +1229,7 @@ curl -s -w "\n%{http_code}\n" -X POST https://vozehymbihnckzklxesw.supabase.co/f
 - Que le modèle IA par défaut soit encore disponible.
 - L'état de l'intégration continue GitHub au 8 octobre (je n'y touche pas).
 - Tout ce qui concerne les téléphones : aucun test réel, aucune compilation native réelle.
+- **SQL-22 (`supabase-close-read-leaks.sql`)** : validé uniquement sur un schéma factice local (PGlite, `src/native/closeReadLeaks.test.js`), jamais sur une base Supabase. Non vérifié : les politiques réelles de `profile_photos`, les fonctions `SECURITY DEFINER` inconnues du dépôt, le comportement de Realtime (DELETE, abonnement anonyme) et de Storage, la version de PostgreSQL de Supabase.
 
 **Corrections documentaires faites avec ce fichier** : en-têtes « Voir `LANCEMENT.md` » dans `DEPLOIEMENT.md`, `MOBILE.md` et `STORES.md` ;
 `DEPLOIEMENT.md` §1c, §2a, §2c, §11b, §12b (drapeau `--no-verify-jwt`, secrets, événements Stripe, état probable des triggers push). Aucun fichier `supabase-*.sql` n'a été modifié ;
