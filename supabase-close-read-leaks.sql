@@ -30,6 +30,13 @@
 --   une erreur et l'éditeur annule normalement TOUT (une seule transaction) : rien n'est appliqué. Il faut donc coller
 --   les blocs un par un.
 --
+-- JOURNAL DE SAUVEGARDE (ajouté à la revue indépendante du 28 oct. 2026) : les correctifs 1, 2, 3B et 4A/4B enregistrent, AVANT de
+--   modifier quoi que ce soit, l'état d'origine sous forme de SQL rejouable dans la table `public.baobab_sql22_backup`
+--   (invisible pour l'API : RLS active, aucun droit pour anon/authenticated). Une relecture du correctif n'écrase pas cet état
+--   d'origine. Le retour arrière de chaque bloc commence par un `do $$ ... baobab_sql22_backup ... $$;` (lignes `--|`) qui rejoue
+--   la sauvegarde. Ne supprime PAS cette table avant la fin de la surveillance post-lancement.
+--   Le SQL Editor n'affiche pas toujours les messages RAISE NOTICE : ce sont les requêtes [CONTRÔLE APRÈS] qui font foi.
+--
 -- ORDRE RECOMMANDÉ (détails et justification : LANCEMENT.md, fiche SQL-22)
 --   Bloc 1  (profile_photos)             -> aucun changement de code requis. À faire en premier.
 --   Bloc 2  (EXECUTE anon + search_path) -> aucun changement de code requis.
@@ -83,7 +90,8 @@
 --   select count(*) as lignes_total from public.profile_photos;
 --
 --   -- 1.f  SAUVEGARDE EXACTE des politiques actuelles, sous forme de SQL rejouable.
---   --      Copie tout le résultat dans un fichier hors dépôt : c'est le retour arrière.
+--   --      COPIE TOUT LE RÉSULTAT DANS UN FICHIER HORS DÉPÔT AVANT de coller le correctif (le correctif en garde aussi une copie
+--   --      dans public.baobab_sql22_backup, mais une copie à toi vaut mieux qu'une seule).
 --   select format('create policy %I on %I.%I as %s for %s to %s%s%s;',
 --            policyname, schemaname, tablename, permissive, cmd,
 --            array_to_string(roles, ', '),
@@ -96,6 +104,82 @@
 --
 -- [CORRECTIF]
 -- >>> CORRECTIF BLOC 1
+-- Journal de sauvegarde (voir l'en-tête du fichier ; sans effet s'il existe déjà).
+do $$
+begin
+  create table if not exists public.baobab_sql22_backup (
+    seq bigint generated always as identity,
+    bloc text not null,
+    objet text not null,
+    restore_sql text not null,
+    taken_at timestamptz not null default now(),
+    primary key (bloc, objet)
+  );
+  alter table public.baobab_sql22_backup enable row level security;
+  revoke all on public.baobab_sql22_backup from public;
+  if exists (select 1 from pg_roles where rolname = 'anon') then revoke all on public.baobab_sql22_backup from anon; end if;
+  if exists (select 1 from pg_roles where rolname = 'authenticated') then revoke all on public.baobab_sql22_backup from authenticated; end if;
+end $$;
+
+-- Garde de structure : si une colonne dont dépendent les politiques manque (table de production différente de celle
+-- que le client suppose), on s'arrête ICI avec un message clair, avant toute modification.
+do $$
+declare v_manque text;
+begin
+  select string_agg(x, ', ' order by x) into v_manque from (
+    select 'profiles.' || c as x from unnest(array['id','user_id','banned_at','suspended_until','deletion_requested_at']) c
+      where not exists (select 1 from pg_attribute where attrelid = 'public.profiles'::regclass and attname = c and attnum > 0 and not attisdropped)
+    union all
+    select 'blocks.' || c from unnest(array['from_id','to_id']) c
+      where to_regclass('public.blocks') is null
+         or not exists (select 1 from pg_attribute where attrelid = to_regclass('public.blocks') and attname = c and attnum > 0 and not attisdropped)
+    union all
+    select 'profile_photos.profile_id'
+      where to_regclass('public.profile_photos') is not null
+        and not exists (select 1 from pg_attribute where attrelid = to_regclass('public.profile_photos') and attname = 'profile_id' and attnum > 0 and not attisdropped)
+  ) q;
+  if v_manque is not null then
+    raise exception 'BLOC 1 : colonne(s) ou table introuvable(s) : % . Rien n''a été modifié. Envoie le résultat des pré-contrôles 1.d à l''assistant.', v_manque;
+  end if;
+end $$;
+
+-- Sauvegarde de l'état actuel (inconnu du dépôt) AVANT toute modification : politiques, RLS, droits de table.
+do $$
+declare r record; v_privs text;
+begin
+  if to_regclass('public.profile_photos') is null then return; end if;   -- table absente : elle va être créée, rien à sauvegarder
+  -- Le retour arrière commence par retirer les quatre nouvelles politiques et la fonction (ordre : « 00 » d'abord).
+  insert into public.baobab_sql22_backup (bloc, objet, restore_sql) values ('1', '00-retirer-les-nouvelles-politiques',
+    'drop policy if exists "profile_photos: lecture par les comptes connectes" on public.profile_photos; '
+    || 'drop policy if exists "profile_photos: ajout de ses propres photos" on public.profile_photos; '
+    || 'drop policy if exists "profile_photos: modification de ses propres photos" on public.profile_photos; '
+    || 'drop policy if exists "profile_photos: suppression de ses propres photos" on public.profile_photos; '
+    || 'drop function if exists public.can_view_profile_photos(uuid);')
+  on conflict do nothing;
+  insert into public.baobab_sql22_backup (bloc, objet, restore_sql)
+  select '1', 'politique:' || policyname,
+         format('create policy %I on %I.%I as %s for %s to %s%s%s;', policyname, schemaname, tablename, permissive, cmd,
+                array_to_string(roles, ', '),
+                case when qual is not null then ' using (' || qual || ')' else '' end,
+                case when with_check is not null then ' with check (' || with_check || ')' else '' end)
+  from pg_policies
+  where schemaname = 'public' and tablename = 'profile_photos' and policyname not like 'profile_photos: %'
+  on conflict do nothing;
+  if not (select relrowsecurity from pg_class where oid = 'public.profile_photos'::regclass) then
+    insert into public.baobab_sql22_backup (bloc, objet, restore_sql)
+    values ('1', 'rls-desactivee', 'alter table public.profile_photos disable row level security;') on conflict do nothing;
+  end if;
+  for r in select v.nom, v.oid from (values ('anon', (select oid from pg_roles where rolname = 'anon')), ('public', 0::oid)) v(nom, oid) where v.oid is not null loop
+    select string_agg(a.privilege_type, ', ' order by a.privilege_type) into v_privs
+    from pg_class c, lateral aclexplode(coalesce(c.relacl, acldefault('r', c.relowner))) a
+    where c.oid = 'public.profile_photos'::regclass and a.grantee = r.oid;
+    if v_privs is not null then
+      insert into public.baobab_sql22_backup (bloc, objet, restore_sql)
+      values ('1', 'droits-table:' || r.nom, format('grant %s on public.profile_photos to %s;', v_privs, r.nom)) on conflict do nothing;
+    end if;
+  end loop;
+end $$;
+
 -- Table versionnée (sans effet si elle existe déjà ; structure déduite du code client).
 create table if not exists public.profile_photos (
   id uuid primary key default gen_random_uuid(),
@@ -195,6 +279,11 @@ grant select, insert, update, delete on public.profile_photos to authenticated;
 --   - Les images elles-mêmes restent servies par le bucket public `avatars` (bloc 1B).
 --
 -- [RETOUR ARRIÈRE] (rouvre la fuite : à ne faire qu'en cas de panne avérée)
+--| -- Voie simple : rejoue la sauvegarde automatique du correctif (politiques d'origine, RLS, droits de anon) :
+--| do $$ declare r record; begin if to_regclass('public.baobab_sql22_backup') is not null then
+--|   for r in select restore_sql from public.baobab_sql22_backup where bloc = '1' order by seq loop execute r.restore_sql; end loop; end if;
+--| end $$;
+--| -- Voie manuelle (si la sauvegarde est absente) :
 --| drop policy if exists "profile_photos: lecture par les comptes connectes" on public.profile_photos;
 --| drop policy if exists "profile_photos: ajout de ses propres photos" on public.profile_photos;
 --| drop policy if exists "profile_photos: modification de ses propres photos" on public.profile_photos;
@@ -261,11 +350,14 @@ reset baobab.arm;
 --   fonction SECURITY DEFINER reste donc appelable par un visiteur sans compte (preuve du 20 oct. :
 --   `admin_dashboard_stats` atteint son corps). Ce bloc, pour TOUTES les fonctions/procédures SECURITY DEFINER
 --   du schéma public (hors extensions) :
---     - ajoute `set search_path = public, pg_temp` à celles qui n'en ont pas (contre le détournement par un
---       schéma temporaire ; `public, extensions, pg_temp` si le corps appelle une fonction d'extension non qualifiée) ;
+--     - ajoute `set search_path = public, extensions, pg_temp` (ou `public, pg_temp` si le schéma extensions n'existe pas)
+--       à celles qui n'en ont pas (contre le détournement par un schéma temporaire ; « extensions » est toujours inclus :
+--       une fonction qui appelle sans préfixe unaccent, pgcrypto, pg_trgm ou postgis continue de les trouver) ;
 --     - retire EXECUTE à PUBLIC et à `anon` ;
---     - conserve EXACTEMENT les droits qu'avaient `authenticated`, `service_role`, `supabase_auth_admin`,
---       `supabase_functions_admin` et `dashboard_user` (rien n'est ajouté ni retiré pour eux) ;
+--     - conserve EXACTEMENT les droits de TOUS les autres rôles (authenticated, service_role, supabase_auth_admin,
+--       supabase_functions_admin, dashboard_user, authenticator, supabase_storage_admin... : rien n'est ajouté ni retiré pour eux) ;
+--     - ne touche pas aux fonctions dont le propriétaire est un autre rôle (ex. supabase_admin) ni à celles d'une extension :
+--       elles sont journalisées (NOTICE) et le contrôle final les montrera si elles restent appelables par anon ;
 --     - LISTE BLANCHE : les fonctions listées dans v_liste_blanche restent appelables par `anon` (+ authenticated).
 --   Puis il règle les privilèges PAR DÉFAUT pour que toute FUTURE fonction ne soit plus appelable par anon/PUBLIC.
 --
@@ -304,6 +396,24 @@ reset baobab.arm;
 --   select defaclrole::regrole as pour_le_role, defaclnamespace::regnamespace as schema, defaclobjtype as type, defaclacl
 --   from pg_default_acl order by 1, 2;
 --
+--   -- 2.e  Trois pièges propres à Supabase (attendu : voir chaque commentaire) :
+--   --      (i) un réglage PostgREST qui appelle une fonction AVANT chaque requête (si une fonction listée ici est révoquée à anon,
+--   --          TOUTES les requêtes anonymes échouent) — attendu : aucune ligne mentionnant pre_request :
+--   select coalesce(r.rolname, '(tous)') as role, s.setconfig from pg_db_role_setting s left join pg_roles r on r.oid = s.setrole
+--   where array_to_string(s.setconfig, ',') ~* '(pre_request|pgrst)';
+--   --      (ii) politiques lisibles par anon/PUBLIC dont la condition appelle une fonction SECURITY DEFINER du schéma public : pour un
+--   --          anonyme, ces tables répondront 401 au lieu de [] (aucune donnée exposée ; attendu : aucune table que l'app lit AVANT connexion —
+--   --          avant connexion l'app n'écrit que dans client_errors et n'appelle que public_user_count) :
+--   select pol.tablename, pol.policyname, pol.cmd, pol.roles from pg_policies pol
+--   where pol.schemaname = 'public' and ('public' = any (pol.roles) or 'anon' = any (pol.roles))
+--     and exists (select 1 from pg_proc f join pg_namespace n on n.oid = f.pronamespace
+--                 where n.nspname = 'public' and f.prosecdef and f.proname <> 'public_user_count'
+--                   and coalesce(pol.qual, '') || ' ' || coalesce(pol.with_check, '') ~ ('\m' || f.proname || '\s*\('))
+--   order by 1, 2;
+--   --      (iii) fonctions que ce rôle ne peut PAS modifier (propriétaire différent) : attendu : 0 ligne (sinon elles resteront appelables par anon) :
+--   select p.oid::regprocedure as fonction, p.proowner::regrole as proprietaire from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+--   where n.nspname = 'public' and p.prosecdef and not pg_has_role(current_user, p.proowner, 'USAGE');
+--
 --   -- 2.d  SAUVEGARDE des droits actuels sous forme de SQL (retour arrière exact) :
 --   select format('grant execute on function %s to %s;', p.oid::regprocedure,
 --            (select string_agg(quote_ident(r.rolname), ', ') from pg_roles r
@@ -314,23 +424,46 @@ reset baobab.arm;
 --
 -- [CORRECTIF]
 -- >>> CORRECTIF BLOC 2
+-- Journal de sauvegarde (voir l'en-tête du fichier ; sans effet s'il existe déjà).
+do $$
+begin
+  create table if not exists public.baobab_sql22_backup (
+    seq bigint generated always as identity,
+    bloc text not null,
+    objet text not null,
+    restore_sql text not null,
+    taken_at timestamptz not null default now(),
+    primary key (bloc, objet)
+  );
+  alter table public.baobab_sql22_backup enable row level security;
+  revoke all on public.baobab_sql22_backup from public;
+  if exists (select 1 from pg_roles where rolname = 'anon') then revoke all on public.baobab_sql22_backup from anon; end if;
+  if exists (select 1 from pg_roles where rolname = 'authenticated') then revoke all on public.baobab_sql22_backup from authenticated; end if;
+end $$;
+
 do $$
 declare
   v_liste_blanche text[] := array['public_user_count'];   -- appelables par anon
-  v_roles_gardes  text[] := array['authenticated','service_role','supabase_auth_admin','supabase_functions_admin','dashboard_user'];
+  v_roles_gardes  text[];   -- TOUS les rôles autres que anon (hors rôles internes pg_* et super-utilisateurs) : ce qu'ils pouvaient exécuter, ils le gardent
   r record;
   v_kind text;
   v_sig text;
   v_roles_avant text[];
   v_role text;
   v_sp text;
+  v_restore text;
+  v_anon_oid oid := (select oid from pg_roles where rolname = 'anon');
   v_ext boolean := exists (select 1 from pg_namespace where nspname = 'extensions');
   v_n_revoques int := 0;
   v_n_sp int := 0;
   v_n_echecs int := 0;
 begin
+  select coalesce(array_agg(rolname order by rolname), '{}') into v_roles_gardes
+  from pg_roles where rolname <> 'anon' and rolname !~ '^pg_' and not rolsuper;
+
   for r in
-    select p.oid, p.proname, p.prokind, p.proconfig, p.prosrc
+    select p.oid, p.proname, p.prokind, p.proconfig, p.proowner, p.proacl,
+           format('%I.%I(%s)', n.nspname, p.proname, pg_get_function_identity_arguments(p.oid)) as sig
     from pg_proc p join pg_namespace n on n.oid = p.pronamespace
     where n.nspname = 'public' and p.prosecdef and p.prokind in ('f', 'p')
       and not exists (select 1 from pg_depend d where d.objid = p.oid and d.deptype = 'e')
@@ -338,14 +471,35 @@ begin
   loop
     begin
       v_kind := case r.prokind when 'p' then 'procedure' else 'function' end;
-      v_sig := r.oid::regprocedure::text;
+      v_sig := r.sig;
 
-      -- (a) search_path obligatoire
+      -- Fonction appartenant à un autre rôle (ex. supabase_admin) : on n'y touche pas (échec journalisé, le contrôle final la montrera).
+      if not pg_has_role(current_user, r.proowner, 'USAGE') then
+        v_n_echecs := v_n_echecs + 1;
+        raise notice 'BLOC 2 : fonction % ignorée (propriétaire : %)', v_sig, r.proowner::regrole;
+        continue;
+      end if;
+
+      -- (0) sauvegarde de l'état d'origine (première exécution seulement) : search_path, droits de PUBLIC et de anon
+      v_restore := '';
       if not exists (select 1 from unnest(coalesce(r.proconfig, '{}')) c where c like 'search_path=%') then
-        v_sp := case
-          when v_ext and r.prosrc ~* '\m(unaccent|gen_random_bytes|digest|crypt|gen_salt|hmac|uuid_generate_v[0-9a-z]+|similarity|word_similarity|pgp_[a-z_]+)\s*\('
-            then 'public, extensions, pg_temp'
-          else 'public, pg_temp' end;
+        v_restore := format('alter %s %s reset search_path; ', v_kind, v_sig);
+      end if;
+      if exists (select 1 from aclexplode(coalesce(r.proacl, acldefault('f', r.proowner))) a where a.grantee = 0 and a.privilege_type = 'EXECUTE') then
+        v_restore := v_restore || format('grant execute on %s %s to public; ', v_kind, v_sig);
+      end if;
+      if v_anon_oid is not null and exists (select 1 from aclexplode(coalesce(r.proacl, acldefault('f', r.proowner))) a where a.grantee = v_anon_oid and a.privilege_type = 'EXECUTE') then
+        v_restore := v_restore || format('grant execute on %s %s to anon; ', v_kind, v_sig);
+      end if;
+      if v_restore <> '' then
+        insert into public.baobab_sql22_backup (bloc, objet, restore_sql) values ('2', 'fonction:' || v_sig, v_restore) on conflict do nothing;
+      end if;
+
+      -- (a) search_path obligatoire. « extensions » est inclus dès que ce schéma existe : une fonction dont le corps appelle sans
+      --     préfixe une fonction d'extension (unaccent, pgcrypto, pg_trgm, postgis...) continue de la trouver, détectée par un
+      --     motif ou non ; seul le propriétaire de la base peut créer des objets dans ce schéma.
+      if not exists (select 1 from unnest(coalesce(r.proconfig, '{}')) c where c like 'search_path=%') then
+        v_sp := case when v_ext then 'public, extensions, pg_temp' else 'public, pg_temp' end;
         execute format('alter %s %s set search_path = %s', v_kind, v_sig, v_sp);
         v_n_sp := v_n_sp + 1;
       end if;
@@ -353,11 +507,8 @@ begin
       -- (b) mémorise qui pouvait exécuter (hors anon / PUBLIC)
       v_roles_avant := '{}';
       foreach v_role in array v_roles_gardes loop
-        -- (test explicite : SQL ne garantit pas l'ordre d'évaluation d'un AND, d'où la boucle)
-        if exists (select 1 from pg_roles where rolname = v_role) then
-          if has_function_privilege(v_role, r.oid, 'EXECUTE') then
-            v_roles_avant := v_roles_avant || v_role;
-          end if;
+        if has_function_privilege(v_role, r.oid, 'EXECUTE') then
+          v_roles_avant := v_roles_avant || v_role;
         end if;
       end loop;
 
@@ -385,6 +536,13 @@ end $$;
 
 -- Privilèges PAR DÉFAUT : une future fonction créée par `postgres` n'est plus exécutable par anon / PUBLIC.
 -- (Pour exposer une future RPC à anon, il faudra un `grant execute ... to anon` explicite.)
+-- Le retrait global de PUBLIC (seul moyen d'empêcher anon de recevoir EXECUTE par PUBLIC) vaut pour TOUT schéma ;
+-- on rend donc explicitement ce que PUBLIC donnait avant, là où c'est nécessaire :
+--   - public : authenticated et service_role (déjà le réglage de Supabase, rappelé au cas où il aurait été modifié) ;
+--   - extensions : anon, authenticated, service_role (sinon une extension installée plus tard par `postgres`, ex. unaccent
+--     ou pg_trgm (SQL-18), serait inutilisable par les comptes connectés : « permission denied for function »).
+-- Les privilèges par défaut de `supabase_admin` ne sont PAS modifiés (les extensions activées depuis le tableau de bord
+-- sont créées par ce rôle : un retrait global de PUBLIC les rendrait inutilisables).
 do $$
 begin
   begin
@@ -393,12 +551,18 @@ begin
   begin
     alter default privileges for role postgres revoke execute on functions from public;
   exception when others then raise notice 'BLOC 2 : default privileges (postgres, public) : %', sqlerrm; end;
-  if exists (select 1 from pg_roles where rolname = 'supabase_admin') then
+  begin
+    alter default privileges for role postgres in schema public grant execute on functions to authenticated, service_role;
+  exception when others then raise notice 'BLOC 2 : default privileges (postgres, public, authenticated) : %', sqlerrm; end;
+  if exists (select 1 from pg_namespace where nspname = 'extensions') then
     begin
-      alter default privileges for role supabase_admin in schema public revoke execute on functions from anon;
-      alter default privileges for role supabase_admin revoke execute on functions from public;
-    exception when others then raise notice 'BLOC 2 : default privileges (supabase_admin) ignorés : %', sqlerrm; end;
+      alter default privileges for role postgres in schema extensions grant execute on functions to anon, authenticated, service_role;
+    exception when others then raise notice 'BLOC 2 : default privileges (postgres, extensions) : %', sqlerrm; end;
   end if;
+  insert into public.baobab_sql22_backup (bloc, objet, restore_sql) values ('2', '00-privileges-par-defaut',
+    'alter default privileges for role postgres in schema public grant execute on functions to anon; '
+    || 'alter default privileges for role postgres grant execute on functions to public;')
+  on conflict do nothing;
 end $$;
 -- <<<
 --
@@ -428,14 +592,24 @@ end $$;
 --     c'était déjà le cas pour les tables.
 --   - Les crons (pg_cron, rôle postgres), les triggers (pas de contrôle EXECUTE à l'exécution) et les edge functions
 --     (service_role, droit préservé) ne sont pas touchés. Le hook d'inscription garde `supabase_auth_admin`.
+--   - Avant connexion, l'app n'appelle que `public_user_count` (rpc) et n'écrit que dans `client_errors` (politique INSERT sans fonction) :
+--     vérifié dans src/ (LandingPage, Auth, errorReporter). Le pré-contrôle 2.e(ii) liste les politiques que anon ne pourra plus évaluer.
+--   - Piège connu : une extension installée PLUS TARD (SQL-18 : unaccent, pg_trgm) par `postgres` dans le schéma `extensions` reste
+--     exécutable grâce aux privilèges par défaut ajoutés ci-dessus ; si l'une est créée par un autre rôle (tableau de bord), vérifier
+--     avec : select has_function_privilege('authenticated', 'extensions.unaccent(text)', 'EXECUTE');
 --   - Les fonctions SECURITY DEFINER qui n'avaient pas de search_path en prod sont inconnues du dépôt (le dépôt n'en a
 --     aucune) : le pré-contrôle 2.a les liste ; relire leur corps si l'une d'elles appelle un objet d'un autre schéma.
 --
 -- [RETOUR ARRIÈRE]
---| -- Rendre anon exécutable sur tout ce qui l'était (rejouer les lignes du pré-contrôle 2.d, gardées en fichier ; le droit PUBLIC n'est pas
---| -- restitué, ce qui est équivalent pour anon) ;
---| -- ou, pour une fonction précise : grant execute on function public.nom(args) to anon;
---| -- Retirer un search_path : alter function public.nom(args) reset search_path;
+--| -- Voie simple : rejoue la sauvegarde automatique du correctif (pour chaque fonction : droits de PUBLIC et de anon d'origine, retrait
+--| -- du search_path ajouté ; puis privilèges par défaut). Les droits explicites que le correctif a donnés aux AUTRES rôles restent (sans effet nuisible) :
+--| do $$ declare r record; begin if to_regclass('public.baobab_sql22_backup') is not null then
+--|   for r in select restore_sql from public.baobab_sql22_backup where bloc = '2' order by seq loop
+--|     begin execute r.restore_sql; exception when others then raise notice 'retour arrière bloc 2 : % (%)', r.restore_sql, sqlerrm; end;
+--|   end loop; end if;
+--| end $$;
+--| -- Voie manuelle (si la sauvegarde est absente) : rejouer les lignes du pré-contrôle 2.d gardées en fichier, ou pour une fonction précise :
+--| --   grant execute on function public.nom(args) to anon;      -- retirer un search_path : alter function public.nom(args) reset search_path;
 --| alter default privileges for role postgres in schema public grant execute on functions to anon;
 --| alter default privileges for role postgres grant execute on functions to public;
 
@@ -463,6 +637,8 @@ as $$
 $$;
 revoke all on function public.get_my_profile() from public, anon;
 grant execute on function public.get_my_profile() to authenticated;
+-- Demande à l'API de recharger son cache de schéma (sinon la fonction peut répondre « introuvable » quelques secondes ; sans danger).
+notify pgrst, 'reload schema';
 -- <<<
 --
 -- [CONTRÔLE APRÈS]
@@ -494,8 +670,11 @@ grant execute on function public.get_my_profile() to authenticated;
 -- >>> sur `profiles` (voir [IMPACT APP]) : sinon l'app répond « permission denied for table profiles ».
 --
 -- PIÈGE : `select *` s'étend à toutes les colonnes ; dès qu'une seule est interdite, la requête entière échoue (42501).
--- PIÈGE : toute colonne AJOUTÉE plus tard à `profiles` n'est pas lisible tant qu'on n'a pas exécuté
---         `grant select (nouvelle_colonne) on public.profiles to authenticated;`
+-- PIÈGE : toute colonne AJOUTÉE plus tard à `profiles` (SQL du dépôt joué après ce bloc, ex. un futur `alter table profiles add column`)
+--         n'est pas lisible par les comptes connectés tant qu'on n'a pas exécuté `grant select (nouvelle_colonne) on public.profiles to authenticated;`
+--         OU rejoué ce correctif 3B (idempotent : il recalcule la liste de toutes les colonnes existantes sauf les six). Jouer d'abord TOUS les SQL
+--         qui ajoutent des colonnes à profiles (SQL-1 à SQL-15 : LANCEMENT.md), puis seulement 3B. Après chaque SQL ajoutant une colonne à profiles :
+--         la requête 3.f ci-dessous doit rendre exactement les six colonnes sensibles.
 --
 -- [PRÉ-CONTRÔLE]
 --   -- 3.a  Colonnes de profiles
@@ -513,15 +692,53 @@ grant execute on function public.get_my_profile() to authenticated;
 --   union all
 --   select 'vue', schemaname || '.' || viewname from pg_views where schemaname = 'public'
 --     and definition ~* '(birth_date|ban_reason|suspend_reason|report_count|flagged_for_review|notification_preferences)';
+--   -- 3.c2 Fonctions NON-DEFINER qui lisent TOUTES les colonnes de profiles (`select *`, `p.*`, to_jsonb(p.*)) : elles casseraient au 3B (attendu : 0 ligne)
+--   select p.oid::regprocedure as fonction_invoker_select_etoile from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+--     where n.nspname = 'public' and not p.prosecdef and p.prokind = 'f' and p.prosrc ~* 'profiles' and p.prosrc ~* '(\.\*|select\s+\*)';
 --   -- 3.d  Privilèges actuels sur la table
 --   select grantee, privilege_type from information_schema.role_table_grants where table_schema = 'public' and table_name = 'profiles' order by 1, 2;
+--   -- 3.e  Colonnes lues par le client chez autrui (OTHER_PROFILE_COLUMNS) ABSENTES de la table (attendu : 0 ligne ; sinon le client échoue déjà)
+--   select c as colonne_du_client_absente from unnest(array[
+--     'id', 'name', 'age', 'city', 'country', 'languages', 'arrived_since', 'looking_for', 'bio', 'created_at',
+--     'avatar_url', 'cover_url', 'occupation', 'education_level', 'interests', 'is_online', 'last_seen',
+--     'show_online_status', 'email_verified', 'phone_verified', 'is_founder', 'is_premium', 'show_birth_year',
+--     'show_city', 'show_country', 'show_occupation', 'show_studies', 'show_canada_journey', 'show_life_project',
+--     'show_interests', 'immigration_status', 'arrival_city', 'languages_detail', 'relationship_values',
+--     'wants_children', 'family_importance', 'career_goal', 'geographic_openness', 'personality_evening',
+--     'personality_travel', 'relationship_needs', 'dating_enabled', 'banned_at', 'suspended_until',
+--     'onboarding_completed_at', 'deletion_requested_at'
+--   ]) c where not exists (select 1 from pg_attribute where attrelid = 'public.profiles'::regclass and attname = c and attnum > 0 and not attisdropped);
+--   -- 3.f  Colonnes que les comptes connectés NE peuvent PAS lire (avant le correctif : 0 ligne ; APRÈS : exactement les six sensibles)
+--   select attname as colonne_illisible from pg_attribute
+--     where attrelid = 'public.profiles'::regclass and attnum > 0 and not attisdropped
+--       and not has_column_privilege('authenticated', attrelid, attnum, 'SELECT') order by 1;
 --
 -- [CORRECTIF]
 -- >>> CORRECTIF BLOC 3B
+-- Journal de sauvegarde (voir l'en-tête du fichier ; sans effet s'il existe déjà).
+do $$
+begin
+  create table if not exists public.baobab_sql22_backup (
+    seq bigint generated always as identity,
+    bloc text not null,
+    objet text not null,
+    restore_sql text not null,
+    taken_at timestamptz not null default now(),
+    primary key (bloc, objet)
+  );
+  alter table public.baobab_sql22_backup enable row level security;
+  revoke all on public.baobab_sql22_backup from public;
+  if exists (select 1 from pg_roles where rolname = 'anon') then revoke all on public.baobab_sql22_backup from anon; end if;
+  if exists (select 1 from pg_roles where rolname = 'authenticated') then revoke all on public.baobab_sql22_backup from authenticated; end if;
+end $$;
+
 do $$
 declare
   v_sensibles text[] := array['birth_date','ban_reason','suspend_reason','report_count','flagged_for_review','notification_preferences'];
   v_cols text;
+  v_n_illisibles int;
+  v_n_attendus int;
+  r record;
 begin
   if coalesce(current_setting('baobab.arm', true), '') <> 'bloc3b' then
     raise exception 'BLOC 3B non armé : ne se joue que seul, après déploiement du code client (get_my_profile)';
@@ -529,11 +746,33 @@ begin
   if to_regprocedure('public.get_my_profile()') is null then
     raise exception 'BLOC 3B : jouer d''abord le bloc 3A (get_my_profile)';
   end if;
+  -- Sauvegarde du droit de lecture de table d'origine (première exécution seulement).
+  for r in select v.nom, v.oid from (values ('authenticated', (select oid from pg_roles where rolname = 'authenticated')),
+                                            ('anon', (select oid from pg_roles where rolname = 'anon')), ('public', 0::oid)) v(nom, oid) where v.oid is not null loop
+    if exists (select 1 from pg_class c, lateral aclexplode(coalesce(c.relacl, acldefault('r', c.relowner))) a
+               where c.oid = 'public.profiles'::regclass and a.grantee = r.oid and a.privilege_type = 'SELECT') then
+      insert into public.baobab_sql22_backup (bloc, objet, restore_sql)
+      values ('3B', 'droit-lecture-table:' || r.nom, format('grant select on public.profiles to %s;', r.nom)) on conflict do nothing;
+    end if;
+  end loop;
+  -- Toutes les colonnes EXISTANT AU MOMENT DE L'EXÉCUTION sauf les six sensibles (donc aucune colonne connue n'est oubliée).
   select string_agg(quote_ident(attname), ', ' order by attnum) into v_cols
   from pg_attribute
   where attrelid = 'public.profiles'::regclass and attnum > 0 and not attisdropped and attname <> all (v_sensibles);
-  execute 'revoke select on public.profiles from authenticated, anon';
+  if v_cols is null then raise exception 'BLOC 3B : aucune colonne lisible calculée (table profiles inattendue)'; end if;
+  execute 'revoke select on public.profiles from authenticated, anon, public';
   execute format('grant select (%s) on public.profiles to authenticated', v_cols);
+  -- Vérification interne : exactement les colonnes sensibles EXISTANTES sont devenues illisibles, rien d'autre ; sinon tout est annulé.
+  select count(*) into v_n_illisibles from pg_attribute
+  where attrelid = 'public.profiles'::regclass and attnum > 0 and not attisdropped
+    and not has_column_privilege('authenticated', attrelid, attnum, 'SELECT');
+  select count(*) into v_n_attendus from pg_attribute
+  where attrelid = 'public.profiles'::regclass and attnum > 0 and not attisdropped and attname = any (v_sensibles);
+  if v_n_illisibles <> v_n_attendus
+     or not has_column_privilege('authenticated', 'public.profiles', 'id', 'SELECT')
+     or not has_column_privilege('authenticated', 'public.profiles', 'user_id', 'SELECT') then
+    raise exception 'BLOC 3B : vérification interne échouée (% colonne(s) illisible(s), % attendue(s)) : rien n''est appliqué', v_n_illisibles, v_n_attendus;
+  end if;
 end $$;
 reset baobab.arm;
 -- <<<
@@ -544,6 +783,8 @@ reset baobab.arm;
 --                     'id','name','avatar_url','age','banned_at']) c;
 --       -- attendu : false pour les six premières, true pour les cinq dernières
 --   select has_table_privilege('anon', 'public.profiles', 'SELECT');     -- attendu : false
+--   select attname as colonne_illisible from pg_attribute where attrelid = 'public.profiles'::regclass and attnum > 0 and not attisdropped
+--     and not has_column_privilege('authenticated', attrelid, attnum, 'SELECT') order by 1;    -- attendu : EXACTEMENT les six colonnes sensibles, rien d'autre
 --   Test à deux comptes (S2 du plan) : avec le jeton de A, GET /rest/v1/profiles?select=*&id=eq.<B> -> 401/403 (permission denied) ;
 --   GET /rest/v1/profiles?select=id,name,age,avatar_url&id=eq.<B> -> 200 ; POST /rest/v1/rpc/get_my_profile -> MA ligne complète.
 --
@@ -566,8 +807,13 @@ reset baobab.arm;
 --   Les edge functions (service_role) : inchangé.
 --
 -- [RETOUR ARRIÈRE]
+--| -- Voie simple : rejoue la sauvegarde automatique (droits de lecture de table d'origine) :
+--| do $$ declare r record; begin if to_regclass('public.baobab_sql22_backup') is not null then
+--|   for r in select restore_sql from public.baobab_sql22_backup where bloc = '3B' order by seq loop execute r.restore_sql; end loop; end if;
+--| end $$;
+--| -- Voie manuelle :
 --| grant select on public.profiles to authenticated;
---| grant select on public.profiles to anon;      -- seulement si le pré-contrôle 3.d montrait que anon l'avait
+--| -- si le pré-contrôle 3.d montrait que anon avait ce droit (la voie simple le rétablit déjà) : grant select on public.profiles to anon;
 
 
 -- ############################################################################
@@ -594,17 +840,53 @@ reset baobab.arm;
 --   from pg_class c join pg_namespace n on n.oid = c.relnamespace
 --   where n.nspname = 'public' and c.relname in ('likes','passes','blocks','favorites','follows','messages','message_reactions');
 --   select tablename from pg_publication_tables where pubname = 'supabase_realtime' order by 1;    -- tables diffusées
+--   -- Clé primaire OBLIGATOIRE (sans elle, `replica identity default` interdit tout DELETE/UPDATE sur une table publiée : le
+--   -- correctif refuse alors de s'exécuter). Attendu : une ligne par table, a_cle_primaire = true :
+--   select c.relname, exists (select 1 from pg_index i where i.indrelid = c.oid and i.indisprimary) as a_cle_primaire
+--   from pg_class c join pg_namespace n on n.oid = c.relnamespace
+--   where n.nspname = 'public' and c.relname in ('blocks','passes','likes','follows','favorites') order by 1;
 --
 -- [CORRECTIF]
 -- >>> CORRECTIF BLOC 4A
+-- Journal de sauvegarde (voir l'en-tête du fichier ; sans effet s'il existe déjà).
 do $$
 begin
-  if to_regclass('public.blocks') is not null then
-    execute 'alter table public.blocks replica identity default';
-  end if;
-  if to_regclass('public.passes') is not null then
-    execute 'alter table public.passes replica identity default';
-  end if;
+  create table if not exists public.baobab_sql22_backup (
+    seq bigint generated always as identity,
+    bloc text not null,
+    objet text not null,
+    restore_sql text not null,
+    taken_at timestamptz not null default now(),
+    primary key (bloc, objet)
+  );
+  alter table public.baobab_sql22_backup enable row level security;
+  revoke all on public.baobab_sql22_backup from public;
+  if exists (select 1 from pg_roles where rolname = 'anon') then revoke all on public.baobab_sql22_backup from anon; end if;
+  if exists (select 1 from pg_roles where rolname = 'authenticated') then revoke all on public.baobab_sql22_backup from authenticated; end if;
+end $$;
+
+do $$
+declare t text; v_oid regclass; v_ident "char"; v_idx text;
+begin
+  foreach t in array array['blocks','passes'] loop
+    v_oid := to_regclass('public.' || t);
+    if v_oid is not null then
+      -- Garde : sans clé primaire, `replica identity default` interdit TOUT delete/update sur une table publiée par Realtime
+      -- (erreur 55000) : on s'arrête avant de rien modifier.
+      if not exists (select 1 from pg_index where indrelid = v_oid and indisprimary) then
+        raise exception 'BLOC 4A : public.% n''a pas de clé primaire : replica identity default empêcherait tout DELETE/UPDATE. Rien n''est appliqué.', t;
+      end if;
+      select relreplident into v_ident from pg_class where oid = v_oid;
+      if v_ident <> 'd' then
+        select quote_ident(i.relname) into v_idx from pg_index x join pg_class i on i.oid = x.indexrelid where x.indrelid = v_oid and x.indisreplident;
+        insert into public.baobab_sql22_backup (bloc, objet, restore_sql)
+        values ('4A', 'replica:' || t, format('alter table public.%I replica identity %s;', t,
+                case v_ident when 'f' then 'full' when 'n' then 'nothing' else 'using index ' || coalesce(v_idx, 'full') end))
+        on conflict do nothing;
+        execute format('alter table public.%I replica identity default', t);
+      end if;
+    end if;
+  end loop;
 end $$;
 -- <<<
 --
@@ -617,8 +899,20 @@ end $$;
 --     répercuté EN DIRECT sur mes autres onglets/appareils ; il l'est au prochain rechargement ou resync réseau
 --     (resyncSocialGraph). Les INSERT (nouveau blocage, nouvelle passe) continuent d'être livrés en direct, filtrés par la RLS.
 --   - Aucun écouteur DELETE n'existe sur `passes`. Aucune erreur, aucun changement de code.
+--   - Vérifié dans le code (revue du 28 oct.) : les deux écouteurs DELETE de blocks lisent `payload.old.to_id` / `payload.old.from_id`.
+--     Si Realtime livrait quand même l'événement (sans filtre), ces champs seraient `undefined` : les filtres de état (`filter(pair => ...)`)
+--     ne retirent alors rien et ne lèvent aucune erreur. La documentation Supabase dit que les DELETE ne sont filtrables que si la table
+--     est en `replica identity full` : avec `default`, le filtre `from_id=eq.moi` ne livre simplement plus l'événement.
+--     Effet visible : si A débloque B, B garde A masqué (Découverte, conversation) jusqu'à son prochain rechargement : dégradation
+--     côté « prudent » (masquage de trop, jamais de fuite).
+--   - Sans clé primaire, ce bloc refuserait de s'exécuter (voir le pré-contrôle) : `blocks` a été créée à la main en production.
 --
 -- [RETOUR ARRIÈRE]
+--| -- Voie simple : rejoue la sauvegarde automatique (valeur d'origine de replica identity de chaque table) :
+--| do $$ declare r record; begin if to_regclass('public.baobab_sql22_backup') is not null then
+--|   for r in select restore_sql from public.baobab_sql22_backup where bloc = '4A' order by seq loop execute r.restore_sql; end loop; end if;
+--| end $$;
+--| -- Voie manuelle :
 --| alter table public.blocks replica identity full;
 --| alter table public.passes replica identity full;
 
@@ -635,15 +929,44 @@ end $$;
 -- [PRÉ-CONTRÔLE] celui du bloc 4A.
 -- [CORRECTIF]
 -- >>> CORRECTIF BLOC 4B
+-- Journal de sauvegarde (voir l'en-tête du fichier ; sans effet s'il existe déjà).
 do $$
-declare t text;
+begin
+  create table if not exists public.baobab_sql22_backup (
+    seq bigint generated always as identity,
+    bloc text not null,
+    objet text not null,
+    restore_sql text not null,
+    taken_at timestamptz not null default now(),
+    primary key (bloc, objet)
+  );
+  alter table public.baobab_sql22_backup enable row level security;
+  revoke all on public.baobab_sql22_backup from public;
+  if exists (select 1 from pg_roles where rolname = 'anon') then revoke all on public.baobab_sql22_backup from anon; end if;
+  if exists (select 1 from pg_roles where rolname = 'authenticated') then revoke all on public.baobab_sql22_backup from authenticated; end if;
+end $$;
+
+do $$
+declare t text; v_oid regclass; v_ident "char"; v_idx text;
 begin
   if coalesce(current_setting('baobab.arm', true), '') <> 'bloc4b' then
     raise exception 'BLOC 4B non armé : optionnel, se joue seul';
   end if;
   foreach t in array array['likes','follows','favorites'] loop
-    if to_regclass('public.' || t) is not null then
-      execute format('alter table public.%I replica identity default', t);
+    v_oid := to_regclass('public.' || t);
+    if v_oid is not null then
+      if not exists (select 1 from pg_index where indrelid = v_oid and indisprimary) then
+        raise exception 'BLOC 4B : public.% n''a pas de clé primaire : replica identity default empêcherait tout DELETE/UPDATE. Rien n''est appliqué.', t;
+      end if;
+      select relreplident into v_ident from pg_class where oid = v_oid;
+      if v_ident <> 'd' then
+        select quote_ident(i.relname) into v_idx from pg_index x join pg_class i on i.oid = x.indexrelid where x.indrelid = v_oid and x.indisreplident;
+        insert into public.baobab_sql22_backup (bloc, objet, restore_sql)
+        values ('4B', 'replica:' || t, format('alter table public.%I replica identity %s;', t,
+                case v_ident when 'f' then 'full' when 'n' then 'nothing' else 'using index ' || coalesce(v_idx, 'full') end))
+        on conflict do nothing;
+        execute format('alter table public.%I replica identity default', t);
+      end if;
     end if;
   end loop;
 end $$;
@@ -652,6 +975,9 @@ reset baobab.arm;
 -- [CONTRÔLE APRÈS] relancer le pré-contrôle : likes, follows, favorites -> « default (clé primaire) ».
 -- [IMPACT APP] voir [OBJECTIF] ; aucun changement de code, aucune erreur.
 -- [RETOUR ARRIÈRE]
+--| do $$ declare r record; begin if to_regclass('public.baobab_sql22_backup') is not null then
+--|   for r in select restore_sql from public.baobab_sql22_backup where bloc = '4B' order by seq loop execute r.restore_sql; end loop; end if;
+--| end $$;
 --| alter table public.likes replica identity full;
 --| alter table public.follows replica identity full;
 --| alter table public.favorites replica identity full;

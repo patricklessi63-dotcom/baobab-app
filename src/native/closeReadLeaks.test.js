@@ -3,6 +3,7 @@ import { describe, it, expect, afterEach } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
 import { PGlite } from "@electric-sql/pglite";
+import { OTHER_PROFILE_COLUMNS } from "../lib/otherProfileColumns.js";
 
 // ============================================================================
 // Validation de supabase-close-read-leaks.sql sur un SCHÉMA FACTICE.
@@ -404,7 +405,7 @@ describe("Bloc 1 — profile_photos (schéma factice)", () => {
     expect((await photoUrls(db, "authenticated", U.a)).length).toBe(4);
   });
 
-  it("le retour arrière (sauvegarde du pré-contrôle 1.f + lignes --|) restaure exactement l'état d'avant", async () => {
+  it("le retour arrière MANUEL (sauvegarde du pré-contrôle 1.f + lignes --|, journal absent) restaure exactement l'état d'avant", async () => {
     const db = await freshDb();
     const q = "select policyname, cmd, permissive, roles::text, qual, with_check from pg_policies where tablename = 'profile_photos' order by cmd, policyname";
     const before = (await db.query(q)).rows;
@@ -415,6 +416,8 @@ describe("Bloc 1 — profile_photos (schéma factice)", () => {
     expect(backup.length).toBe(5);
     await db.exec(fixSql("1"));
     expect((await tryQ(db, "anon", null, "select 1 from public.profile_photos")).error).toBe("42501");
+    // le journal automatique est perdu : seule la voie manuelle reste
+    await db.exec("drop table public.baobab_sql22_backup");
     // retour arrière : lignes --| du fichier, puis rejeu de la sauvegarde, puis rétablissement du droit anon d'origine
     await db.exec(rollbackSql("1"));
     for (const s of backup) await db.exec(s);
@@ -763,5 +766,309 @@ describe("LANCEMENT.md — les six lignes de bilan de supabase-close-read-leaks.
     await db.exec("set baobab.arm = 'bloc3b';\n" + fixSql("3B"));
     const after = await bilanRows(db);
     expect(Object.values(after)).toEqual(Array(6).fill("oui"));
+  });
+});
+
+// ============================================================================
+// REVUE INDÉPENDANTE ET ADVERSARIALE (28 oct. 2026) — cas que le schéma factice d'origine ne couvrait pas.
+// Ce que PGlite NE PEUT PAS représenter (donc à vérifier sur le projet de répétition) : Realtime (livraison réelle des
+// DELETE, filtres), Storage, PostgREST (cache de schéma, codes HTTP), les rôles réels de Supabase (supabase_admin, pgbouncer,
+// authenticator... et surtout le fait que `postgres` n'y est PAS super-utilisateur), la version de PostgreSQL de Supabase.
+// ============================================================================
+describe("Revue indépendante — bloc 2 (portée, propriétaires, extensions, rôles, défauts, journal)", () => {
+  const canExec = async (db, role, sig) =>
+    (await db.query("select has_function_privilege($1, $2::regprocedure, 'EXECUTE') as ok", [role, sig])).rows[0].ok;
+  const aclSnap = async (db) =>
+    (await db.query(`select p.proname, p.proconfig::text as cfg,
+        (select string_agg(a.grantee::text || ':' || a.privilege_type, ',' order by a.grantee)
+           from aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) a
+          where a.grantee = 0 or a.grantee = (select oid from pg_roles where rolname = 'anon')) as acl
+      from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'public' and p.prosecdef order by 1`)).rows;
+
+  it("ne touche ni les fonctions des autres schémas (extensions, private, graphql_public), ni celles qui appartiennent à une extension", async () => {
+    const db = await freshDb({ photos: false });
+    await db.exec(`
+      create schema extensions; create schema private; create schema graphql_public;
+      create function extensions.ext_definer() returns int language sql security definer as $$ select 1 $$;
+      create function private.prv_definer() returns int language sql security definer as $$ select 1 $$;
+      create function graphql_public.graphql_like() returns int language sql security definer as $$ select 1 $$;
+      create function public.ext_member() returns int language sql security definer as $$ select 1 $$;
+      -- marque public.ext_member comme appartenant à une extension (dépendance 'e', comme pg_depend le fait pour de vraies extensions)
+      insert into pg_depend (classid, objid, objsubid, refclassid, refobjid, refobjsubid, deptype)
+        select 'pg_proc'::regclass, f.oid, 0, 'pg_extension'::regclass, e.oid, 0, 'e' from pg_proc f, pg_extension e where f.proname = 'ext_member' and e.extname = 'plpgsql';
+    `);
+    const snap = async () => (await db.query(`select n.nspname, p.proname, p.proacl::text as acl, p.proconfig::text as cfg from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+      where p.proname in ('ext_definer','prv_definer','graphql_like','ext_member') order by 1, 2`)).rows;
+    const before = await snap();
+    await db.exec(fixSql("2"));
+    expect(await snap()).toEqual(before);
+    // et elles restent exécutables par anon (rien n'a été retiré hors du schéma public)
+    expect(await canExec(db, "anon", "public.ext_member()")).toBe(true);
+    expect(await canExec(db, "anon", "extensions.ext_definer()")).toBe(true);
+  });
+
+  it("ignore, sans échouer, une fonction appartenant à un autre rôle quand le script est joué par un rôle NON super-utilisateur (comme `postgres` chez Supabase)", async () => {
+    const db = await freshDb({ photos: false, functions: false });
+    await db.exec(`
+      create role editor login createrole; create role supabase_admin_like;
+      grant all on schema public to editor;
+      create function public.mine() returns int language sql security definer set search_path = public as $$ select 1 $$;
+      create function public.theirs() returns int language sql security definer as $$ select 2 $$;
+      alter function public.mine() owner to editor;
+      alter function public.theirs() owner to supabase_admin_like;
+    `);
+    const theirsBefore = (await db.query("select proacl::text as acl, proconfig::text as cfg from pg_proc where proname = 'theirs'")).rows[0];
+    await db.exec("set role editor");
+    try { await db.exec(fixSql("2")); } finally { await db.exec("reset role"); }
+    expect(await canExec(db, "anon", "public.mine()")).toBe(false);          // la sienne est corrigée
+    expect(await canExec(db, "anon", "public.theirs()")).toBe(true);         // l'autre n'est pas touchée...
+    expect((await db.query("select proacl::text as acl, proconfig::text as cfg from pg_proc where proname = 'theirs'")).rows[0]).toEqual(theirsBefore); // ...ni son search_path
+    // le pré-contrôle 2.e(iii) la signale (exécuté par le même rôle)
+    const pre = sectionSql("2", "PRÉ-CONTRÔLE").find((s) => s.includes("proprietaire"));
+    expect(pre).toBeTruthy();
+    await db.exec("set role editor");
+    let rows;
+    try { rows = (await db.query(pre)).rows; } finally { await db.exec("reset role"); }
+    expect(rows.map((r) => String(r.fonction))).toEqual(["theirs()"]);
+  });
+
+  it("conserve l'EXECUTE de TOUT rôle (pas seulement la liste d'origine) qui le tenait de PUBLIC : authenticator, supabase_storage_admin, rôle maison...", async () => {
+    const db = await freshDb({ photos: false });
+    await db.exec("create role supabase_storage_admin nologin; create role authenticator noinherit login; create role custom_reader nologin;");
+    const roles = ["supabase_storage_admin", "authenticator", "custom_reader"];
+    for (const r of roles) expect(await canExec(db, r, "public.only_via_public()")).toBe(true); // via PUBLIC
+    await db.exec(fixSql("2"));
+    for (const r of roles) expect(await canExec(db, r, "public.only_via_public()"), r).toBe(true);
+    expect(await canExec(db, "anon", "public.only_via_public()")).toBe(false);
+  });
+
+  it("une politique lisible par anon qui appelle une fonction révoquée : lecture avant, 42501 après (jamais 42501 pour un connecté) ; le pré-contrôle 2.e(ii) la signale", async () => {
+    const db = await freshDb({ photos: false });
+    await db.exec(`
+      create function public.is_open_helper() returns boolean language sql stable security definer set search_path = public as $$ select true $$;
+      create table public.news (id int primary key, status text);
+      alter table public.news enable row level security;
+      create policy "lecture publique" on public.news for select using (status = 'published' or public.is_open_helper());
+      insert into public.news values (1, 'published'), (2, 'draft');
+    `);
+    expect((await tryQ(db, "anon", null, "select id from public.news order by 1")).rows).toEqual([{ id: 1 }, { id: 2 }]);
+    const pre = sectionSql("2", "PRÉ-CONTRÔLE").find((s) => s.includes("pol.tablename"));
+    expect(pre).toBeTruthy();
+    expect((await db.query(pre)).rows.map((r) => r.tablename)).toEqual(["news"]);
+    await db.exec(fixSql("2"));
+    // le contrôle d'EXECUTE a lieu à la préparation de la requête : même une ligne `published` (court-circuit du OR) échoue pour anon
+    expect((await tryQ(db, "anon", null, "select id from public.news where status = 'published'")).error).toBe("42501");
+    expect((await tryQ(db, "authenticated", U.a, "select id from public.news order by 1")).rows).toEqual([{ id: 1 }, { id: 2 }]);
+  });
+
+  it("un trigger dont la fonction SECURITY DEFINER n'est exécutable par personne continue de se déclencher (pas de contrôle EXECUTE au tir)", async () => {
+    const db = await freshDb({ photos: false });
+    await db.exec(`
+      create table public.audit_log (n int);
+      grant all on public.audit_log to authenticated;
+      create function public.trg_audit() returns trigger language plpgsql security definer set search_path = public as $$ begin insert into public.audit_log values (1); return new; end $$;
+      revoke all on function public.trg_audit() from public, anon, authenticated;
+      create trigger t_audit after update on public.profiles for each row execute function public.trg_audit();
+    `);
+    await db.exec(fixSql("2"));
+    expect(await canExec(db, "authenticated", "public.trg_audit()")).toBe(false);
+    expect((await tryQ(db, "authenticated", U.a, "update public.profiles set name = 'Alice2' where user_id = $1", [U.a])).error).toBeUndefined();
+    expect((await db.query("select count(*)::int as n from public.audit_log")).rows[0].n).toBe(1);
+  });
+
+  it("privilèges par défaut : même sur une base SANS les privilèges par défaut de Supabase, une future fonction reste exécutable par authenticated/service_role (jamais par anon), y compris dans « extensions »", async () => {
+    const db = new PGlite();
+    dbs.push(db);
+    await db.exec(BASE_SCHEMA.replace(/alter default privileges[^;]*;/g, ""));
+    await db.exec("create schema extensions; grant usage on schema extensions to anon, authenticated, service_role;");
+    await db.exec(fixSql("2"));
+    await db.exec(`
+      create function public.future_rpc() returns int language sql security definer set search_path = public as $$ select 1 $$;
+      create function extensions.future_ext() returns int language sql immutable as $$ select 1 $$;
+    `);
+    expect([await canExec(db, "anon", "public.future_rpc()"), await canExec(db, "authenticated", "public.future_rpc()"), await canExec(db, "service_role", "public.future_rpc()")]).toEqual([false, true, true]);
+    expect([await canExec(db, "anon", "extensions.future_ext()"), await canExec(db, "authenticated", "extensions.future_ext()"), await canExec(db, "service_role", "extensions.future_ext()")]).toEqual([true, true, true]);
+  });
+
+  it("ne crée aucun privilège par défaut pour supabase_admin (les extensions du tableau de bord ne doivent pas perdre PUBLIC)", async () => {
+    const db = await freshDb({ photos: false, functions: false });
+    await db.exec("create role supabase_admin nologin;");
+    await db.exec(fixSql("2"));
+    const n = (await db.query("select count(*)::int as n from pg_default_acl where defaclrole = 'supabase_admin'::regrole")).rows[0].n;
+    expect(n).toBe(0);
+  });
+
+  it("journal de sauvegarde : le retour arrière automatique rend EXACTEMENT les droits de PUBLIC/anon et le search_path d'origine, même après une relecture du correctif", async () => {
+    const db = await freshDb();
+    const before = await aclSnap(db);
+    await db.exec(fixSql("2"));
+    await db.exec(fixSql("2")); // relecture : ne doit pas écraser l'état d'origine
+    expect(await aclSnap(db)).not.toEqual(before);
+    await db.exec(rollbackSql("2"));
+    expect(await aclSnap(db)).toEqual(before);
+    expect((await tryQ(db, "anon", null, "select public.admin_dashboard_stats()")).error).toBeUndefined();
+  });
+
+  it("la table du journal est invisible pour l'API (anon et authenticated : permission refusée)", async () => {
+    const db = await freshDb();
+    await db.exec(fixSql("2"));
+    expect((await tryQ(db, "anon", null, "select * from public.baobab_sql22_backup")).error).toBe("42501");
+    expect((await tryQ(db, "authenticated", U.a, "select * from public.baobab_sql22_backup")).error).toBe("42501");
+    expect((await db.query("select relrowsecurity from pg_class where oid = 'public.baobab_sql22_backup'::regclass")).rows[0].relrowsecurity).toBe(true);
+  });
+});
+
+describe("Revue indépendante — bloc 1 (garde de structure, journal, performance)", () => {
+  it("refuse, avec un message clair et SANS rien modifier, si profile_photos existe sans la colonne profile_id", async () => {
+    const db = new PGlite();
+    dbs.push(db);
+    await db.exec(BASE_SCHEMA);
+    await db.exec(`create table public.profile_photos (id uuid primary key default gen_random_uuid(), owner_id uuid, storage_path text);
+      alter table public.profile_photos enable row level security;
+      create policy "lecture" on public.profile_photos for select using (true);`);
+    await expect(db.exec(fixSql("1"))).rejects.toThrow(/profile_photos\.profile_id/);
+    expect((await db.query("select count(*)::int as n from pg_policies where tablename = 'profile_photos'")).rows[0].n).toBe(1);
+    expect((await db.query("select count(*)::int as n from pg_proc where proname = 'can_view_profile_photos'")).rows[0].n).toBe(0);
+  });
+
+  it("refuse si la table blocks n'a pas les colonnes from_id / to_id", async () => {
+    const db = await freshDb({ photos: false, functions: false });
+    await db.exec("alter table public.blocks rename column to_id to blocked_id;");
+    await expect(db.exec(fixSql("1"))).rejects.toThrow(/blocks.to_id/);
+  });
+
+  it("journal : le retour arrière automatique restaure politiques, RLS et droits d'origine, y compris après relecture du correctif", async () => {
+    const db = await freshDb();
+    const q = "select policyname, cmd, permissive, roles::text, qual, with_check from pg_policies where tablename = 'profile_photos' order by cmd, policyname";
+    const before = (await db.query(q)).rows;
+    await db.exec(fixSql("1"));
+    await db.exec(fixSql("1"));
+    await db.exec(rollbackSql("1"));
+    expect((await db.query(q)).rows).toEqual(before);
+    expect((await photoUrls(db, "anon")).length).toBe(7);
+    expect((await db.query("select count(*)::int as n from pg_proc where proname = 'can_view_profile_photos'")).rows[0].n).toBe(0);
+  });
+
+  it("journal : une table sans RLS au départ retrouve sa RLS désactivée au retour arrière", async () => {
+    const db = await freshDb();
+    await db.exec("alter table public.profile_photos disable row level security;");
+    await db.exec(fixSql("1"));
+    await db.exec(rollbackSql("1"));
+    expect((await db.query("select relrowsecurity from pg_class where oid = 'public.profile_photos'::regclass")).rows[0].relrowsecurity).toBe(false);
+  });
+
+  it("performance : 500 profils x 6 photos (3000 lignes) se lisent en moins de 5 s même sur PGlite (WebAssembly, plus lent qu'un vrai serveur)", async () => {
+    const db = await freshDb({ photos: false });
+    await db.exec(`insert into public.profiles (user_id, name) select gen_random_uuid(), 'p' || g from generate_series(1, 497) g;
+      create table public.profile_photos (id uuid primary key default gen_random_uuid(), profile_id uuid not null references public.profiles(id) on delete cascade, url text not null, position integer not null default 0, created_at timestamptz not null default now());
+      insert into public.profile_photos (profile_id, url, position) select p.id, 'u' || g, g from public.profiles p, generate_series(0, 5) g;`);
+    await db.exec(fixSql("1"));
+    const t0 = Date.now();
+    const r = await tryQ(db, "authenticated", U.a, "select count(*)::int as n from public.profile_photos");
+    const ms = Date.now() - t0;
+    expect(r.rows[0].n).toBeGreaterThan(2500); // 3000 moins les galeries masquées (banni, suspendue, suppression)
+    expect(ms).toBeLessThan(5000);
+  }, 60000);
+});
+
+describe("Revue indépendante — bloc 3A / 3B (colonnes ajoutées plus tard, voies d'accès cachées, liste du client)", () => {
+  it("la liste OTHER_PROFILE_COLUMNS du client est recopiée à l'identique dans le pré-contrôle 3.e du fichier SQL", () => {
+    const t = blockText("3B");
+    const m = /3\.e[\s\S]*?unnest\(array\[([\s\S]*?)\]\) c where not exists/.exec(t);
+    expect(m).toBeTruthy();
+    const inSql = [...m[1].matchAll(/'([a-z_]+)'/g)].map((x) => x[1]);
+    expect(inSql).toEqual(OTHER_PROFILE_COLUMNS.split(","));
+  });
+
+  it("get_my_profile() n'accepte AUCUN argument (impossible de lire le profil d'un autre) et suit les colonnes ajoutées plus tard", async () => {
+    const db = await freshDb({ photos: false, functions: false });
+    await db.exec(fixSql("3A"));
+    expect((await db.query("select pronargs::int as n, prosecdef from pg_proc where proname = 'get_my_profile'")).rows[0]).toEqual({ n: 0, prosecdef: true });
+    await db.exec("alter table public.profiles add column usage_goals text; update public.profiles set usage_goals = 'amis' where id = '" + P.a + "'");
+    const mine = await tryQ(db, "authenticated", U.a, "select * from public.get_my_profile()");
+    expect(mine.rows[0].usage_goals).toBe("amis");
+  });
+
+  it("colonne AJOUTÉE après le bloc 3B : illisible (42501) jusqu'à la relecture du correctif 3B (idempotent) ; le contrôle 3.f montre alors exactement les six colonnes sensibles", async () => {
+    const db = await freshDb({ photos: false, functions: false });
+    await db.exec(fixSql("3A"));
+    await db.exec("set baobab.arm = 'bloc3b';\n" + fixSql("3B"));
+    await db.exec("alter table public.profiles add column usage_goals text;");
+    expect((await tryQ(db, "authenticated", U.a, "select usage_goals from public.profiles where id = $1", [P.b])).error).toBe("42501");
+    const f = sectionSql("3B", "PRÉ-CONTRÔLE").find((s) => s.includes("colonne_illisible"));
+    expect(f).toBeTruthy();
+    expect((await db.query(f)).rows.map((r) => r.colonne_illisible).sort()).toEqual(["ban_reason", "birth_date", "flagged_for_review", "notification_preferences", "report_count", "suspend_reason", "usage_goals"]);
+    await db.exec("set baobab.arm = 'bloc3b';\n" + fixSql("3B")); // relecture = réconciliation
+    expect((await tryQ(db, "authenticated", U.a, "select usage_goals from public.profiles where id = $1", [P.b])).error).toBeUndefined();
+    expect((await db.query(f)).rows.map((r) => r.colonne_illisible).sort()).toEqual(["ban_reason", "birth_date", "flagged_for_review", "notification_preferences", "report_count", "suspend_reason"]);
+  });
+
+  it("3B s'annule ENTIÈREMENT si une autre voie (rôle dont authenticated est membre) donne encore la lecture des colonnes sensibles", async () => {
+    const db = await freshDb({ photos: false, functions: false });
+    await db.exec(fixSql("3A"));
+    await db.exec("create role viewer nologin; grant select on public.profiles to viewer; grant viewer to authenticated;");
+    await expect(db.exec("set baobab.arm = 'bloc3b';\n" + fixSql("3B"))).rejects.toThrow(/vérification interne/);
+    // rien n'a changé : la lecture complète fonctionne toujours et le droit de table d'origine est intact
+    expect((await tryQ(db, "authenticated", U.a, "select birth_date from public.profiles where id = $1", [P.b])).error).toBeUndefined();
+    expect((await db.query("select has_table_privilege('authenticated', 'public.profiles', 'SELECT') as t")).rows[0].t).toBe(true);
+  });
+
+  it("journal : le retour arrière automatique de 3B rend la lecture de table à authenticated", async () => {
+    const db = await freshDb({ photos: false, functions: false });
+    await db.exec(fixSql("3A"));
+    await db.exec("set baobab.arm = 'bloc3b';\n" + fixSql("3B"));
+    expect((await tryQ(db, "authenticated", U.a, "select birth_date from public.profiles where id = $1", [P.b])).error).toBe("42501");
+    await db.exec(rollbackSql("3B"));
+    expect((await tryQ(db, "authenticated", U.a, "select birth_date from public.profiles where id = $1", [P.b])).error).toBeUndefined();
+  });
+
+  it("la requête 3.c2 repère une fonction INVOKER qui lit profiles par `select *` (elle casserait au 3B)", async () => {
+    const db = await freshDb({ photos: false, functions: false });
+    await db.exec("create function public.whole_row(p uuid) returns setof public.profiles language sql stable as $$ select * from public.profiles where id = p $$;");
+    const q = sectionSql("3B", "PRÉ-CONTRÔLE").find((s) => s.includes("fonction_invoker_select_etoile"));
+    expect(q).toBeTruthy();
+    expect((await db.query(q)).rows.length).toBe(1);
+    // et c'est bien vrai : après 3B elle échoue pour un connecté
+    await db.exec(fixSql("3A"));
+    await db.exec("set baobab.arm = 'bloc3b';\n" + fixSql("3B"));
+    expect((await tryQ(db, "authenticated", U.a, "select * from public.whole_row($1)", [P.b])).error).toBe("42501");
+  });
+});
+
+describe("Revue indépendante — bloc 4A / 4B (clé primaire, journal)", () => {
+  const ident = async (db, t) => (await db.query("select relreplident from pg_class where oid = $1::regclass", [`public.${t}`])).rows[0].relreplident;
+
+  it("refuse (et ne change rien) si blocks n'a pas de clé primaire : `replica identity default` casserait tout DELETE/UPDATE d'une table publiée par Realtime", async () => {
+    const db = new PGlite();
+    dbs.push(db);
+    await db.exec(`create table public.blocks (from_id uuid, to_id uuid, unique (from_id, to_id));
+      alter table public.blocks replica identity full;
+      create publication supabase_realtime for table public.blocks;
+      insert into public.blocks values (gen_random_uuid(), gen_random_uuid());`);
+    await expect(db.exec(fixSql("4A"))).rejects.toThrow(/clé primaire/);
+    expect(await ident(db, "blocks")).toBe("f");
+    await db.exec("delete from public.blocks"); // toujours possible
+    // preuve que la garde est nécessaire : sans elle, la même instruction rend les DELETE impossibles
+    await db.exec("alter table public.blocks replica identity default; insert into public.blocks values (gen_random_uuid(), gen_random_uuid());");
+    await expect(db.exec("delete from public.blocks")).rejects.toThrow(/replica identity/);
+  });
+
+  it("avec une clé primaire : les DELETE restent possibles après 4A, et le journal restaure la valeur d'origine (full), même après une relecture", async () => {
+    const db = await freshDb({ photos: false, functions: false });
+    await db.exec("create publication supabase_realtime for table public.blocks, public.passes;");
+    await db.exec(fixSql("4A"));
+    await db.exec(fixSql("4A")); // relecture : l'état d'origine (full) n'est pas écrasé par « default »
+    expect(await ident(db, "blocks")).toBe("d");
+    await db.exec("insert into public.blocks (from_id, to_id) values ('" + P.a + "', '" + P.b + "'); delete from public.blocks;");
+    await db.exec(rollbackSql("4A"));
+    expect(await ident(db, "blocks")).toBe("f");
+    expect(await ident(db, "passes")).toBe("f");
+  });
+
+  it("4B : même garde de clé primaire (annulé en bloc : aucune table n'est modifiée)", async () => {
+    const db = await freshDb({ photos: false, functions: false });
+    await db.exec("drop table public.favorites; create table public.favorites (from_id uuid, to_id uuid); alter table public.favorites replica identity full;");
+    await expect(db.exec("set baobab.arm = 'bloc4b';\n" + fixSql("4B"))).rejects.toThrow(/clé primaire/);
+    expect(await ident(db, "likes")).toBe("f");
   });
 });
