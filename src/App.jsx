@@ -2213,10 +2213,12 @@ export default function App() {
       // profile_photos ou mise à jour du profil) a échoué : sans ce
       // nettoyage, les photos/couverture fraîchement envoyées restaient
       // orphelines dans le bucket "avatars" pour toujours.
-      if (freshlyUploadedPaths.length > 0) {
+      // EXCEPTION : e.writeCommitted (voir lib/ownProfile.js) = l'UPDATE du profil est DÉJÀ en base et seule sa
+      // relecture a échoué : le profil référence ces fichiers/lignes, les supprimer casserait avatar et couverture.
+      if (freshlyUploadedPaths.length > 0 && !e?.writeCommitted) {
         supabase.storage.from("avatars").remove(freshlyUploadedPaths).catch(() => {});
       }
-      if (insertedPhotoRowIds.length > 0) {
+      if (insertedPhotoRowIds.length > 0 && !e?.writeCommitted) {
         supabase.from("profile_photos").delete().in("id", insertedPhotoRowIds).then(() => {}).catch(() => {});
       }
     } finally {

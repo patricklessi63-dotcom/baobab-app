@@ -322,11 +322,12 @@ export default function OnboardingWizard({
       setError("Une erreur est survenue lors de l'enregistrement. Réessaie.");
       // Voir commentaire au début de saveStep : nettoyage des photos
       // fraîchement uploadées (Storage) et/ou insérées (profile_photos) si
-      // une étape suivante de l'étape 3 a échoué avant la fin.
-      if (freshlyUploadedPaths.length > 0) {
+      // une étape suivante de l'étape 3 a échoué avant la fin. Pas de nettoyage si e.writeCommitted (lib/ownProfile.js) :
+      // l'UPDATE du profil est déjà en base (seule sa relecture a échoué), il référence ces fichiers.
+      if (freshlyUploadedPaths.length > 0 && !e?.writeCommitted) {
         supabase.storage.from("avatars").remove(freshlyUploadedPaths).catch(() => {});
       }
-      if (insertedPhotoRowIds.length > 0) {
+      if (insertedPhotoRowIds.length > 0 && !e?.writeCommitted) {
         supabase.from("profile_photos").delete().in("id", insertedPhotoRowIds).then(() => {}).catch(() => {});
       }
       return null;

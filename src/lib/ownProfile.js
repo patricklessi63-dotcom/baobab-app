@@ -10,15 +10,22 @@
 // Comportement (aucune étape d'ordre imposée au propriétaire, pas de variable d'environnement) :
 //  - Tant que le bloc 3B n'est pas exécuté : EXACTEMENT les mêmes requêtes qu'avant (select("*"), update().select().single()).
 //  - Si l'une d'elles échoue avec 42501 (le bloc 3B vient d'être joué), on bascule sur get_my_profile() et on mémorise ce
-//    choix dans le navigateur : les chargements suivants appellent get_my_profile() d'emblée (aucun 403 de plus dans la console).
+//    choix dans le navigateur (avec l'heure) : les chargements suivants appellent get_my_profile() d'emblée (aucun 403 de plus
+//    dans la console). Le choix EXPIRE après RPC_PREF_TTL_MS : on retente alors le chemin direct (un retour arrière du bloc 3B
+//    est ainsi repris sans intervention) ; s'il est encore refusé, on rebascule et on re-mémorise.
 //  - Si get_my_profile() est introuvable (bloc 3A annulé), on oublie ce choix et on revient aux requêtes directes.
 // Une écriture refusée avec 42501 n'a RIEN écrit (une seule instruction SQL, annulée en bloc) : la rejouer sans RETURNING est sûre.
 
 const PREF_KEY = "baobab:ownProfileViaRpc";
 
-function rpcPreferred() {
+// Durée de validité du choix « passer par get_my_profile() » (6 h). Valeur non numérique (ancienne valeur "1") = expirée.
+export const RPC_PREF_TTL_MS = 6 * 60 * 60 * 1000;
+
+function rpcPreferred(now = Date.now()) {
   try {
-    return typeof localStorage !== "undefined" && localStorage.getItem(PREF_KEY) === "1";
+    if (typeof localStorage === "undefined") return false;
+    const at = Number(localStorage.getItem(PREF_KEY));
+    return Number.isFinite(at) && at > 1 && at <= now && now - at < RPC_PREF_TTL_MS;
   } catch {
     return false;
   }
@@ -27,7 +34,7 @@ function rpcPreferred() {
 function setRpcPreferred(on) {
   try {
     if (typeof localStorage === "undefined") return;
-    if (on) localStorage.setItem(PREF_KEY, "1");
+    if (on) localStorage.setItem(PREF_KEY, String(Date.now()));
     else localStorage.removeItem(PREF_KEY);
   } catch {
     /* stockage indisponible (navigation privée...) : le repli 42501 suffit */
@@ -71,13 +78,38 @@ export async function readOwnProfile(client, authUserId) {
   return direct;
 }
 
+const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+// Relectures après une écriture DÉJÀ VALIDÉE : on insiste (une coupure d'une seconde ne doit pas transformer une écriture
+// réussie en échec). Délais avant chaque nouvel essai.
+const REREAD_RETRY_DELAYS_MS = [300, 900];
+
+// L'écriture est déjà en base : si la relecture échoue malgré tout, l'erreur porte `writeCommitted: true` pour que
+// l'appelant ne « nettoie » pas (suppression des fichiers Storage / lignes profile_photos que le profil référence désormais).
+function committed(error) {
+  return { ...error, writeCommitted: true };
+}
+
 // Après une écriture réussie : relit la ligne complète. Renvoie { data, error } comme `.select().single()`.
 async function reread(client, id) {
-  const res = await callGetMyProfile(client);
-  if (res.error) return res;
-  if (!res.data) return { data: null, error: { code: "PGRST116", message: "Profil introuvable après écriture", details: `id=${id}` } };
-  setRpcPreferred(true);
-  return res;
+  let res = await callGetMyProfile(client);
+  for (const delay of REREAD_RETRY_DELAYS_MS) {
+    if (!res.error || isMissingRpc(res.error) || isPermissionDenied(res.error)) break;
+    await wait(delay);
+    res = await callGetMyProfile(client);
+  }
+  if (res.error && isMissingRpc(res.error)) {
+    // get_my_profile() a disparu (retour arrière) alors que le choix était mémorisé : retour aux requêtes directes.
+    setRpcPreferred(false);
+    const direct = await Promise.resolve(client.from("profiles").select("*").eq("id", id).maybeSingle());
+    if (direct?.error) return { data: null, error: committed(direct.error) };
+    if (direct?.data) return direct;
+  } else if (res.error) {
+    return { data: null, error: committed(res.error) };
+  } else if (res.data) {
+    setRpcPreferred(true);
+    return res;
+  }
+  return { data: null, error: committed({ code: "PGRST116", message: "Profil introuvable après écriture", details: `id=${id}` }) };
 }
 
 // Remplace `from("profiles").update(payload).eq("id", id).select().single()`.
@@ -98,6 +130,14 @@ export async function insertOwnProfile(client, payload) {
     if (!(direct?.error && isPermissionDenied(direct.error) && hasRpc(client))) return direct;
   }
   const written = await Promise.resolve(client.from("profiles").insert(payload).select("id").single());
-  if (written?.error) return written;
+  if (written?.error) {
+    // Profil déjà créé (23505 sur user_id : un essai précédent a écrit mais sa relecture a échoué) : get_my_profile() ne
+    // renvoie que MA ligne, on la reprend au lieu de bloquer l'onboarding sur « existe déjà ».
+    if (written.error.code === "23505") {
+      const mine = await callGetMyProfile(client);
+      if (!mine.error && mine.data) return mine;
+    }
+    return written;
+  }
   return reread(client, written.data?.id);
 }
