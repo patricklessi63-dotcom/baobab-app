@@ -1,4 +1,5 @@
 import { OTHER_PROFILE_COLUMNS } from "./otherProfileColumns";
+import { readOwnProfile } from "./ownProfile";
 import { selectAllPages, selectInChunks } from "./inChunks";
 
 // Requêtes du chargement initial d'une session (App.jsx, loadAll) — extraites
@@ -85,7 +86,7 @@ export async function fetchSocialGraph(client, myProfileId) {
 // seconde. Un seul nouvel essai absorbe le cas courant ; si les deux échouent,
 // l'erreur est renvoyée telle quelle (jamais traitée comme "aucun profil").
 async function fetchOwnProfile(client, authUserId) {
-  const run = () => Promise.resolve(client.from("profiles").select("*").eq("user_id", authUserId).maybeSingle());
+  const run = () => readOwnProfile(client, authUserId);
   const first = await run();
   return first?.error ? run() : first;
 }

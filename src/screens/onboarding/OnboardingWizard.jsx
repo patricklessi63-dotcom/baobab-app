@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { ArrowLeft } from "lucide-react";
 import { supabase } from "../../supabaseClient";
+import { updateOwnProfile, insertOwnProfile } from "../../lib/ownProfile";
 import { pushBackEntry } from "../../hooks/useEscapeKey";
 import { C, EDUCATION_LEVELS } from "../../constants";
 import OnboardingProgress from "./OnboardingProgress";
@@ -182,12 +183,7 @@ export default function OnboardingWizard({
         // viole la contrainte unique profiles_user_id_unique et bloquait
         // définitivement l'onboarding avec une erreur générique.
         if (currentUser?.id) {
-          const { data, error: updateError } = await supabase
-            .from("profiles")
-            .update({ usage_goals: draft.usageGoals.join(", "), onboarding_step: 1 })
-            .eq("id", currentUser.id)
-            .select()
-            .single();
+          const { data, error: updateError } = await updateOwnProfile(supabase, currentUser.id, { usage_goals: draft.usageGoals.join(", "), onboarding_step: 1 });
           if (updateError) throw updateError;
           setCurrentUser(data);
           setProfiles((prev) => prev.map((p) => (p.id === data.id ? data : p)));
@@ -198,7 +194,7 @@ export default function OnboardingWizard({
           usage_goals: draft.usageGoals.join(", "),
           onboarding_step: 1,
         };
-        const { data, error: insertError } = await supabase.from("profiles").insert(payload).select().single();
+        const { data, error: insertError } = await insertOwnProfile(supabase, payload);
         if (insertError) throw insertError;
         setCurrentUser(data);
         setProfiles((prev) => [...prev, data]);
@@ -213,7 +209,7 @@ export default function OnboardingWizard({
           age: computeAge(draft.birthDate),
           onboarding_step: 2,
         };
-        const { data, error: updateError } = await supabase.from("profiles").update(payload).eq("id", currentUser.id).select().single();
+        const { data, error: updateError } = await updateOwnProfile(supabase, currentUser.id, payload);
         if (updateError) throw updateError;
         setCurrentUser(data);
         setProfiles((prev) => prev.map((p) => (p.id === data.id ? data : p)));
@@ -261,7 +257,7 @@ export default function OnboardingWizard({
           insertedPhotoRowIds = photoRows.map((p) => p.id).filter(Boolean);
         }
         const payload = { avatar_url: uploadedUrls[0] || currentUser.avatar_url || null, onboarding_step: 3 };
-        const { data, error: updateError } = await supabase.from("profiles").update(payload).eq("id", currentUser.id).select().single();
+        const { data, error: updateError } = await updateOwnProfile(supabase, currentUser.id, payload);
         if (updateError) throw updateError;
         setCurrentUser(data);
         setProfiles((prev) => prev.map((p) => (p.id === data.id ? data : p)));
@@ -316,7 +312,7 @@ export default function OnboardingWizard({
         };
       }
 
-      const { data, error: updateError } = await supabase.from("profiles").update(payload).eq("id", currentUser.id).select().single();
+      const { data, error: updateError } = await updateOwnProfile(supabase, currentUser.id, payload);
       if (updateError) throw updateError;
       setCurrentUser(data);
       setProfiles((prev) => prev.map((p) => (p.id === data.id ? data : p)));
@@ -399,12 +395,7 @@ export default function OnboardingWizard({
     setSaving(true);
     setError("");
     try {
-      const { data, error: updateError } = await supabase
-        .from("profiles")
-        .update({ onboarding_completed_at: new Date().toISOString() })
-        .eq("id", currentUser.id)
-        .select()
-        .single();
+      const { data, error: updateError } = await updateOwnProfile(supabase, currentUser.id, { onboarding_completed_at: new Date().toISOString() });
       if (updateError) throw updateError;
       setCurrentUser(data);
       setProfiles((prev) => prev.map((p) => (p.id === data.id ? data : p)));

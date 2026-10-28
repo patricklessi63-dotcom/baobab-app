@@ -41,6 +41,7 @@ import { hapticLight, hapticSuccess } from "./lib/haptics";
 import { useNativePushSync } from "./hooks/useNativePushSync";
 import { hasUsableSession } from "./lib/sessionGuard";
 import { OTHER_PROFILE_COLUMNS } from "./lib/otherProfileColumns";
+import { readOwnProfile, updateOwnProfile } from "./lib/ownProfile";
 import { buildOlderMessagesFilter } from "./lib/messagesPagination";
 import { startPresence } from "./lib/presenceHeartbeat";
 import { isNative } from "./lib/platform";
@@ -1154,7 +1155,7 @@ export default function App() {
     const prefetched = ownProfilePrefetch.take(session.user.id);
     const ownProfileQuery = prefetched
       ? Promise.resolve(prefetched)
-      : supabase.from("profiles").select("*").eq("user_id", session.user.id).maybeSingle();
+      : readOwnProfile(supabase, session.user.id);
     ownProfileQuery.then(({ data, error }) => {
       if (!alive) return;
       if (error) {
@@ -2185,12 +2186,7 @@ export default function App() {
         relationship_needs: (editForm.relationshipNeeds || []).join(", "),
         avatar_url: newAvatarUrl,
       };
-      const { data, error: updateError } = await supabase
-        .from("profiles")
-        .update(payload)
-        .eq("id", currentUser.id)
-        .select()
-        .single();
+      const { data, error: updateError } = await updateOwnProfile(supabase, currentUser.id, payload);
       if (updateError) throw updateError;
 
       // Nettoyage Storage de l'ancienne couverture désormais sûr : l'UPDATE
