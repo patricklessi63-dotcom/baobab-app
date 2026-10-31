@@ -1,4 +1,4 @@
-import { parseInterests } from "../parseInterests";
+import { parseInterests, matchInterests } from "../parseInterests";
 import { categoryLabel } from "./eventConfig";
 import { normalizeForSearch } from "../searchQuery";
 
@@ -20,8 +20,12 @@ export function scoreEvent(user, event, myCommunityIds = []) {
 
   const interests = parseInterests(user?.interests);
   if (interests.length > 0) {
-    const haystack = `${categoryLabel(event.category)} ${event.title} ${event.description || ""}`.toLowerCase();
-    const matched = interests.filter((interest) => haystack.includes(interest.toLowerCase()));
+    // Les intérêts stockés portent un emoji ("🍳 Cuisine") et peuvent avoir
+    // des accents : voir matchInterests (parseInterests.js).
+    const matched = matchInterests(
+      interests,
+      `${categoryLabel(event.category)} ${event.title} ${event.description || ""}`
+    );
     if (matched.length > 0) {
       score += matched.length * 2;
       reasons.push(`Lié à ${matched.slice(0, 2).join(", ")}`);

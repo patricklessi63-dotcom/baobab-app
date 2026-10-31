@@ -39,6 +39,30 @@ describe("scoreCommunity", () => {
     expect(res.reasons[0]).toContain("Lié à");
   });
 
+  it("+2 pour un intérêt avec emoji (valeur réelle de ChipSelect) trouvé dans la description", () => {
+    // INTERESTS_OPTIONS stocke "🍳 Cuisine" tel quel : sans retrait de l'emoji,
+    // la sous-chaîne "🍳 cuisine" n'apparaissait jamais dans un texte libre.
+    const res = scoreCommunity(
+      { interests: "🍳 Cuisine" },
+      community({ category: "art", name: "Les gourmets", description: "on parle cuisine" })
+    );
+    expect(res.score).toBe(2);
+    expect(res.reasons[0]).toBe("Lié à 🍳 Cuisine");
+  });
+
+  it("intérêt avec emoji et accent (🎬 Cinéma) trouvé sans accent dans la description", () => {
+    const res = scoreCommunity(
+      { interests: "🎬 Cinéma, 🏃 Sport" },
+      community({ category: "art", name: "Ciné-club", description: "soirées cinema du jeudi" })
+    );
+    expect(res.score).toBe(2);
+    expect(res.reasons[0]).toBe("Lié à 🎬 Cinéma");
+  });
+
+  it("un intérêt réduit à un emoji ne matche jamais", () => {
+    expect(scoreCommunity({ interests: "🍳" }, community({ description: "cuisine" })).score).toBe(0);
+  });
+
   it("cumule ville + intérêts", () => {
     const res = scoreCommunity(
       { city: "Laval", interests: "musique" },

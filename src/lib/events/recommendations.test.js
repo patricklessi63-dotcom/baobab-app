@@ -36,6 +36,30 @@ describe("scoreEvent", () => {
     expect(res.reasons[0]).toContain("Lié à");
   });
 
+  it("+2 pour un intérêt avec emoji (valeur réelle de ChipSelect) trouvé dans la description", () => {
+    // INTERESTS_OPTIONS stocke "🍳 Cuisine" tel quel : sans retrait de l'emoji,
+    // la sous-chaîne "🍳 cuisine" n'apparaissait jamais dans un texte libre.
+    const res = scoreEvent(
+      { interests: "🍳 Cuisine" },
+      event({ category: "art", title: "Atelier", description: "on parle cuisine" })
+    );
+    expect(res.score).toBe(2);
+    expect(res.reasons[0]).toBe("Lié à 🍳 Cuisine");
+  });
+
+  it("intérêt avec emoji et accent (🎬 Cinéma) trouvé sans accent dans la description", () => {
+    const res = scoreEvent(
+      { interests: "🎬 Cinéma, 🏃 Sport" },
+      event({ category: "art", title: "Projection", description: "soirée cinema en plein air" })
+    );
+    expect(res.score).toBe(2);
+    expect(res.reasons[0]).toBe("Lié à 🎬 Cinéma");
+  });
+
+  it("un intérêt réduit à un emoji ne matche jamais", () => {
+    expect(scoreEvent({ interests: "🍳" }, event({ description: "cuisine" })).score).toBe(0);
+  });
+
   it("+2 si l'événement vient d'une de mes communautés", () => {
     const res = scoreEvent({}, event({ community_id: "c1" }), ["c1", "c2"]);
     expect(res.score).toBe(2);
