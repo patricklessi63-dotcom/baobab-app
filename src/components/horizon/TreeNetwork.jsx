@@ -268,6 +268,9 @@ export default function TreeNetwork({
       window.clearTimeout(buildTimer);
       buildTimer = window.setTimeout(() => {
         if (disposed) return;
+        // ResizeObserver notifie aussi à l'observation initiale : sans changement
+        // de taille réel, on ne reconstruit pas (et on ne remet pas la scène à zéro).
+        if (model && wrap.clientWidth === W && wrap.clientHeight === H) return;
         stop();
         build();
         refresh();

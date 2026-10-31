@@ -308,6 +308,43 @@ describe("TreeNetwork", () => {
     }).not.toThrow();
   });
 
+  it("redimensionnement : sans changement de taille réel on ne reconstruit pas, avec changement on reconstruit", () => {
+    vi.useFakeTimers();
+    render(<TreeNetwork />);
+    const builds = () => ctx.setTransform.mock.calls.length;
+    expect(builds()).toBe(1);
+    // Notification initiale du ResizeObserver, taille inchangée : rien à refaire.
+    act(() => ros[0].cb([]));
+    act(() => {
+      vi.advanceTimersByTime(300);
+    });
+    expect(builds()).toBe(1);
+    // Vraie nouvelle taille : reconstruction après le délai anti-rebond.
+    sizeW = 500;
+    sizeH = 400;
+    act(() => ros[0].cb([]));
+    act(() => ros[0].cb([]));
+    act(() => {
+      vi.advanceTimersByTime(300);
+    });
+    expect(builds()).toBe(2);
+    vi.useRealTimers();
+  });
+
+  it("un redimensionnement en attente est annulé au démontage", () => {
+    vi.useFakeTimers();
+    const { unmount } = render(<TreeNetwork />);
+    sizeW = 500;
+    act(() => ros[0].cb([]));
+    unmount();
+    const before = ctx.setTransform.mock.calls.length;
+    act(() => {
+      vi.advanceTimersByTime(300);
+    });
+    expect(ctx.setTransform.mock.calls.length).toBe(before);
+    vi.useRealTimers();
+  });
+
   it("sans contexte 2D (navigateur sans canvas), ne plante pas et ne boucle pas", () => {
     HTMLCanvasElement.prototype.getContext = vi.fn(() => null);
     expect(() => render(<TreeNetwork />)).not.toThrow();
