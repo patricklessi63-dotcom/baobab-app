@@ -180,6 +180,14 @@ revoke all on function remove_community_member_and_cleanup_events(uuid) from pub
 revoke all on function remove_community_member_and_cleanup_events(uuid) from anon;
 grant execute on function remove_community_member_and_cleanup_events(uuid) to authenticated;
 
+-- La fonction d'aide ci-dessus (SECURITY DEFINER) ne doit pas non plus être
+-- appelable par un visiteur non connecté : elle révélerait si un profil donné
+-- est le dernier owner/admin d'une communauté. `authenticated` garde EXECUTE
+-- (la policy DELETE de community_members l'appelle avec les droits du client).
+revoke all on function community_would_be_orphaned_by_leaving(uuid, uuid) from public;
+revoke all on function community_would_be_orphaned_by_leaving(uuid, uuid) from anon;
+grant execute on function community_would_be_orphaned_by_leaving(uuid, uuid) to authenticated;
+
 -- ----------------------------------------------------------------------------
 -- Vérification (facultatif, à exécuter séparément après) :
 --

@@ -191,6 +191,12 @@ describe("supabase-remove-community-member-cleanup-events-fix.sql", () => {
     expect(r).toEqual([{ anon_peut: false, auth_peut: true }]);
   });
 
+  it("la fonction d'aide community_would_be_orphaned_by_leaving n'est pas appelable par anon, l'est par authenticated (la policy DELETE l'appelle)", async () => {
+    const r = await q(`select has_function_privilege('anon', 'community_would_be_orphaned_by_leaving(uuid, uuid)', 'execute') as anon_peut,
+      has_function_privilege('authenticated', 'community_would_be_orphaned_by_leaving(uuid, uuid)', 'execute') as auth_peut`);
+    expect(r).toEqual([{ anon_peut: false, auth_peut: true }]);
+  });
+
   it("sans le correctif, un owner ne peut PAS nettoyer lui-même les lignes d'un tiers (le trou documenté existe bien)", async () => {
     await reseed();
     await asUser(1, async () => {
