@@ -1,0 +1,206 @@
+/* ==========================================================================
+   Page d'accueil « Baobab Horizon » (LandingPage.jsx). Tout est préfixé .hz-* :
+   aucun sélecteur global, aucun effet sur les écrans connectés. Les couleurs et
+   polices viennent des jetons --hz-* (horizon-tokens.css).
+   ========================================================================== */
+.hz-root {
+  position: relative;
+  isolation: isolate;
+  min-height: 100vh;
+  min-height: 100dvh;
+  overflow-x: clip;
+  color-scheme: dark;
+  background-color: var(--hz-nuit);
+  background-image:
+    radial-gradient(70% 45% at 85% 0%, rgba(31, 122, 90, 0.22), transparent 70%),
+    radial-gradient(60% 40% at 0% 55%, rgba(242, 163, 58, 0.08), transparent 70%);
+  color: var(--hz-ivoire);
+  font-family: var(--hz-font-body);
+  font-size: 16px;
+  line-height: 1.55;
+  /* Gouttières >= 16 px et zones sûres (encoche, barre d'accueil, coins arrondis). */
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-bottom: max(40px, calc(24px + env(safe-area-inset-bottom, 0px)));
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+}
+.hz-root *,
+.hz-root *::before,
+.hz-root *::after { box-sizing: border-box; }
+.hz-root :focus-visible { outline: 2px solid var(--hz-signal); outline-offset: 3px; }
+.hz-wrap { max-width: 1180px; margin-inline: auto; }
+
+.hz-skip {
+  position: absolute; left: 16px; top: -64px; z-index: 30;
+  min-height: 44px; display: inline-flex; align-items: center; padding: 0 16px;
+  border-radius: 999px; background: var(--hz-ivoire); color: var(--hz-nuit);
+  font-weight: 700; text-decoration: none;
+}
+.hz-skip:focus { top: calc(8px + env(safe-area-inset-top, 0px)); }
+
+.hz-eyebrow {
+  font-family: var(--hz-font-mono); font-size: 0.74rem; letter-spacing: 0.16em; text-transform: uppercase;
+  color: var(--hz-signal); margin: 0 0 18px;
+}
+.hz-mono { font-family: var(--hz-font-mono); font-size: 0.74rem; letter-spacing: 0.06em; }
+
+/* En-tête */
+.hz-top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 16px; padding-block: 12px; }
+.hz-brand {
+  display: flex; align-items: center; gap: 10px; min-height: 44px;
+  font-family: var(--hz-font-display); font-weight: 800; letter-spacing: 0.18em; font-size: 0.95rem;
+}
+.hz-brand svg { width: 30px; height: 30px; flex: none; }
+
+/* Interrupteur « Réduire les animations » */
+.hz-switch {
+  display: inline-flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 4px;
+  background: none; border: 0; color: var(--hz-ivoire); cursor: pointer;
+  font-family: var(--hz-font-body); font-weight: 600; font-size: 0.88rem;
+}
+.hz-switch[aria-disabled="true"] { cursor: default; opacity: 0.85; }
+.hz-switch i { position: relative; flex: none; width: 46px; height: 26px; border-radius: 99px; background: rgba(243, 238, 228, 0.22); transition: background 0.25s; }
+.hz-switch i::after { content: ""; position: absolute; left: 3px; top: 3px; width: 20px; height: 20px; border-radius: 50%; background: var(--hz-ivoire); transition: transform 0.25s; }
+.hz-switch[aria-checked="true"] i { background: var(--hz-seve); }
+.hz-switch[aria-checked="true"] i::after { transform: translateX(20px); }
+
+/* Héros */
+.hz-hero {
+  display: grid; grid-template-columns: minmax(0, 1.02fr) minmax(0, 1fr); align-items: center;
+  gap: clamp(24px, 5vw, 64px);
+  padding-block: clamp(12px, 3vw, 40px) clamp(40px, 6vw, 80px);
+}
+/* Syne est très large : « communauté. » mesure 7,8 em en graisse 700 (11,3 em en 800,
+   qui débordait de sa colonne à 1280 px et ne tenait pas à 360 px). On garde donc la
+   graisse 700 et une taille liée à la largeur de la colonne (une colonne <= 900 px,
+   deux colonnes au-delà), avec un plafond ; overflow-wrap en filet de sécurité. */
+.hz-h1 {
+  font-family: var(--hz-font-display); font-weight: 700;
+  font-size: min(4.2rem, 5.2vw);
+  line-height: 1.06; letter-spacing: -0.02em; margin: 0 0 22px; text-wrap: balance; overflow-wrap: break-word;
+}
+.hz-grad {
+  background: linear-gradient(100deg, var(--hz-braise), var(--hz-corail) 45%, var(--hz-braise) 90%);
+  background-size: 200% 100%; -webkit-background-clip: text; background-clip: text; color: transparent;
+  animation: hz-sun 7s linear infinite;
+}
+@keyframes hz-sun { to { background-position: 200% 0; } }
+.hz-lead { max-width: 52ch; color: var(--hz-brume); font-size: 1.08rem; margin: 0 0 28px; }
+
+.hz-cta { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 24px; }
+.hz-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; padding: 0 26px;
+  border-radius: 999px; font-weight: 700; font-size: 0.98rem; cursor: pointer; border: 1px solid transparent;
+  font-family: var(--hz-font-body); transition: transform 0.2s, box-shadow 0.25s, background 0.25s;
+}
+.hz-btn-primary { background: linear-gradient(100deg, var(--hz-braise), var(--hz-corail)); color: #1a0d06; box-shadow: 0 10px 36px -12px rgba(234, 95, 75, 0.7); }
+.hz-btn-primary:hover { transform: translateY(-2px); box-shadow: 0 16px 44px -10px rgba(234, 95, 75, 0.85); }
+.hz-btn-ghost { border-color: rgba(98, 240, 186, 0.5); color: var(--hz-signal); background: rgba(98, 240, 186, 0.06); }
+.hz-btn-ghost:hover { background: rgba(98, 240, 186, 0.13); }
+
+.hz-count {
+  display: inline-flex; align-items: center; gap: 8px; margin: 0 0 24px; padding: 8px 16px; border-radius: 999px;
+  background: var(--hz-verre); border: 1px solid var(--hz-trait); color: var(--hz-brume); font-size: 0.82rem; font-weight: 600;
+}
+.hz-count svg { color: var(--hz-braise); flex: none; }
+
+.hz-zones { display: flex; flex-wrap: wrap; gap: 8px; }
+.hz-zone {
+  display: inline-flex; align-items: center; gap: 9px; min-height: 44px; padding: 0 16px; border-radius: 12px; cursor: pointer;
+  font-family: var(--hz-font-mono); font-size: 0.78rem; letter-spacing: 0.08em; text-transform: uppercase;
+  border: 1px solid var(--hz-trait); background: rgba(243, 238, 228, 0.03); color: var(--hz-ivoire);
+  transition: border-color 0.2s, background 0.2s;
+}
+.hz-zone i { display: block; width: 9px; height: 9px; border-radius: 50%; }
+.hz-zone[data-zone="0"] i { background: var(--hz-braise); box-shadow: 0 0 12px var(--hz-braise); }
+.hz-zone[data-zone="1"] i { background: var(--hz-ivoire); box-shadow: 0 0 12px var(--hz-ivoire); }
+.hz-zone[data-zone="2"] i { background: var(--hz-signal); box-shadow: 0 0 12px var(--hz-signal); }
+.hz-zone:hover,
+.hz-zone[aria-pressed="true"] { border-color: var(--hz-signal); background: rgba(98, 240, 186, 0.09); }
+.hz-caption { min-height: 3.2em; margin: 14px 0 0; color: var(--hz-brume); font-size: 0.95rem; max-width: 50ch; }
+
+/* Scène de l'arbre */
+.hz-stage {
+  position: relative; height: clamp(380px, 50vw, 600px); border-radius: 28px; overflow: hidden; isolation: isolate;
+  border: 1px solid var(--hz-trait);
+  background:
+    radial-gradient(62% 36% at 50% 72%, rgba(242, 163, 58, 0.38), transparent 72%),
+    radial-gradient(34% 22% at 50% 70%, rgba(234, 95, 75, 0.34), transparent 72%),
+    linear-gradient(180deg, #050a08 0%, #0a1a14 52%, #1b1510 72%, #060b09 100%);
+}
+.hz-stage::before {
+  content: ""; position: absolute; left: 50%; top: 48%; width: 34%; aspect-ratio: 1; z-index: -1;
+  transform: translate(-50%, -50%); border-radius: 50%; filter: blur(10px);
+  background: radial-gradient(circle at 50% 50%, rgba(242, 163, 58, 0.7), rgba(234, 95, 75, 0.35) 55%, transparent 72%);
+  animation: hz-breathe 6s ease-in-out infinite;
+}
+@keyframes hz-breathe { 50% { transform: translate(-50%, -50%) scale(1.08); opacity: 0.8; } }
+.hz-hud { position: absolute; z-index: 2; margin: 0; color: rgba(243, 238, 228, 0.72); pointer-events: none; }
+.hz-hud.tl { left: 20px; top: 16px; color: var(--hz-signal); }
+.hz-hud.bl { left: 20px; bottom: 14px; max-width: calc(100% - 40px); }
+.hz-corner { position: absolute; width: 18px; height: 18px; border: 1.5px solid rgba(98, 240, 186, 0.55); z-index: 2; pointer-events: none; }
+.hz-corner.c1 { left: 10px; top: 10px; border-right: 0; border-bottom: 0; }
+.hz-corner.c2 { right: 10px; top: 10px; border-left: 0; border-bottom: 0; }
+.hz-corner.c3 { left: 10px; bottom: 10px; border-right: 0; border-top: 0; }
+.hz-corner.c4 { right: 10px; bottom: 10px; border-left: 0; border-top: 0; }
+/* Balayage : une bande de la hauteur de la scène, glissée de haut en bas. */
+.hz-scan {
+  position: absolute; left: 0; right: 0; top: -100%; height: 100%; z-index: 1; pointer-events: none;
+  background: linear-gradient(180deg, transparent calc(100% - 90px), rgba(98, 240, 186, 0.09) calc(100% - 45px), transparent 100%);
+  animation: hz-scan 9s linear infinite;
+}
+@keyframes hz-scan { to { transform: translateY(200%); } }
+
+/* Fonctions */
+.hz-block { padding-block: clamp(40px, 7vw, 96px); }
+.hz-h2 {
+  font-family: var(--hz-font-display); font-weight: 800; font-size: clamp(1.8rem, 4vw, 3rem);
+  line-height: 1.1; letter-spacing: -0.015em; margin: 0 0 16px; text-wrap: balance;
+}
+.hz-intro { max-width: 56ch; color: var(--hz-brume); margin: 0 0 36px; }
+.hz-features { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); }
+.hz-feature {
+  position: relative; display: flex; flex-direction: column; gap: 10px; padding: 22px 20px; border-radius: 20px; overflow: hidden;
+  border: 1px solid var(--hz-trait); background: linear-gradient(150deg, rgba(31, 122, 90, 0.2), rgba(243, 238, 228, 0.03));
+}
+.hz-feature-ico { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 14px; background: rgba(98, 240, 186, 0.1); border: 1px solid rgba(98, 240, 186, 0.35); color: var(--hz-signal); }
+.hz-feature h3 { margin: 4px 0 0; font-family: var(--hz-font-display); font-weight: 700; font-size: 1.2rem; line-height: 1.2; }
+.hz-feature p { margin: 0; color: var(--hz-brume); font-size: 0.95rem; }
+
+/* Pied de page */
+.hz-foot { border-top: 1px solid var(--hz-trait); padding-top: 14px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 16px; color: var(--hz-brume); font-size: 0.85rem; }
+.hz-foot-nav { display: flex; flex-wrap: wrap; align-items: center; gap: 0 4px; }
+.hz-link {
+  display: inline-flex; align-items: center; min-height: 44px; padding: 0 10px; background: none; border: 0; cursor: pointer;
+  color: var(--hz-brume); font: inherit; text-decoration: underline; text-decoration-style: dotted; text-underline-offset: 3px;
+}
+.hz-link:hover { color: var(--hz-ivoire); }
+
+/* Entrée en douceur : le contenu est visible par défaut, l'animation part de l'état final. */
+.hz-rise { animation: hz-rise 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) backwards; }
+@keyframes hz-rise { from { opacity: 0; transform: translateY(22px); } to { opacity: 1; transform: none; } }
+
+@media (max-width: 900px) {
+  .hz-hero { grid-template-columns: minmax(0, 1fr); }
+  .hz-h1 { font-size: min(4.2rem, calc((100vw - 32px) * 0.115)); }
+  .hz-stage { height: clamp(340px, 92vw, 520px); }
+}
+@media (max-width: 520px) {
+  .hz-cta { flex-direction: column; }
+  .hz-btn { width: 100%; }
+}
+@media (hover: none) {
+  .hz-btn-primary:hover { transform: none; }
+}
+@media (forced-colors: active) {
+  .hz-grad { color: CanvasText; background: none; }
+  .hz-zone[aria-pressed="true"] { border-color: Highlight; }
+}
+
+/* Réduction des animations : préférence système OU interrupteur de la page. */
+@media (prefers-reduced-motion: reduce) {
+  .hz-root *, .hz-root *::before, .hz-root *::after { animation: none !important; transition: none !important; }
+}
+.hz-root[data-motion="reduce"] *,
+.hz-root[data-motion="reduce"] *::before,
+.hz-root[data-motion="reduce"] *::after { animation: none !important; transition: none !important; }
