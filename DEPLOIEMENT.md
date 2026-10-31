@@ -660,7 +660,7 @@ décision produit sur où l'afficher) — non traitée ici.
 
 ## 6. Exclusion d'un membre par le staff : nettoyage de ses événements —
 correctif SQL livré dans `supabase-remove-community-member-cleanup-events-fix.sql`
-(⬜ JAMAIS EXÉCUTÉ)
+(✅ EXÉCUTÉ EN PRODUCTION le 31 octobre 2026)
 
 Le trou signalé à l'audit du 30 septembre 2026 est désormais **corrigé dans le
 code** et **livré en SQL**. Rappel du problème : `handleRemoveMember`
@@ -692,7 +692,7 @@ connecté (`revoke` de `public` et `anon`, `grant` à `authenticated`).
 
 **À faire (par Patrick)** :
 
-- [ ] Exécuter `supabase-remove-community-member-cleanup-events-fix.sql` dans le
+- [x] (Fait le 31/10/2026, avec le `revoke anon` de la fonction d'aide ; droits vérifiés : `anon` non, `authenticated` oui.) Exécuter `supabase-remove-community-member-cleanup-events-fix.sql` dans le
       SQL Editor de Supabase **avant** de déployer le client qui l'appelle
       (sinon, l'exclusion d'un membre affiche « Impossible de retirer ce
       membre » tant que la fonction n'existe pas). Idempotent, autonome (il
