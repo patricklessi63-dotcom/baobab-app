@@ -163,7 +163,7 @@ export function buildTreeModel({ width, height, density = 1, seed = DEFAULT_SEED
   }
   for (const k of [-1, -0.5, 0, 0.5, 1]) {
     const start = nearest(topRow, cx + k * S * 0.075, ty);
-    branch(nodes[start].x, nodes[start].y, -Math.PI / 2 + k * 1.15, S * 0.14, crownDepth, start, ZONE.BRANCHES);
+    branch(nodes[start].x, nodes[start].y, -Math.PI / 2 + k * 1.15, S * (crownDepth === 3 ? 0.14 : 0.19), crownDepth, start, ZONE.BRANCHES);
   }
   for (const k of [-1, -0.55, -0.15, 0.2, 0.6, 1]) {
     const start = nearest(botRow, cx + k * S * 0.105, groundY);
