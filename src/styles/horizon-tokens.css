@@ -1,0 +1,35 @@
+/* ==========================================================================
+   Baobab Horizon : jetons de la direction visuelle « nuit verte, horizon de
+   savane au coucher du soleil ». Préfixe --hz-* : aucun conflit avec les
+   --bb-* de l'identité existante (index.html) ni avec les thèmes clair/sombre,
+   que ce fichier ne touche pas. Les polices Horizon ne s'appliquent QU'AUX
+   éléments qui portent une classe .hz-* (voir horizon-landing.css) ; le reste
+   de l'app garde ses polices.
+   ========================================================================== */
+:root {
+  --hz-nuit: #060b09;
+  --hz-nuit-2: #0b1511;
+  --hz-canopee: #0f2b21;
+  --hz-seve: #1f7a5a;
+  --hz-braise: #f2a33a;
+  --hz-corail: #ea5f4b;
+  --hz-signal: #62f0ba;
+  --hz-ivoire: #f3eee4;
+
+  /* Dérivés (texte secondaire, filets, verre) : contrastes mesurés sur --hz-nuit
+     (brume ~8:1, trait réservé aux bordures décoratives). */
+  --hz-brume: rgba(243, 238, 228, 0.68);
+  --hz-trait: rgba(243, 238, 228, 0.14);
+  --hz-verre: rgba(15, 43, 33, 0.55);
+
+  /* Piles de polices avec repli système robuste : si Google Fonts est
+     injoignable (hors ligne, CSP, app native), la mise en page reste correcte. */
+  --hz-font-display: "Syne", "Arial Black", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --hz-font-body: "Manrope", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --hz-font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+}
+
+/* Classes de police utilitaires, opt-in. */
+.hz-font-display { font-family: var(--hz-font-display); }
+.hz-font-body { font-family: var(--hz-font-body); }
+.hz-font-mono { font-family: var(--hz-font-mono); }
