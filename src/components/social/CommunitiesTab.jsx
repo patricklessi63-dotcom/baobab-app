@@ -1349,25 +1349,21 @@ export default function CommunitiesTab({ currentUser, onError, onBack = () => {}
     // (la suppression d'une ligne déjà supprimée ne renvoie pas d'erreur
     // Postgrest, donc le second appel se déroulait comme un succès).
     //
-    // Écart connu et volontairement NON corrigé ici (audit du 30 sept. 2026,
-    // voir DEPLOIEMENT.md section 6 pour le détail complet) : contrairement à
-    // handleLeave ci-dessus, cette fonction ne décline pas les invitations
-    // "en attente" du membre exclu ni ne retire ses inscriptions
-    // event_attendees aux événements `visibility='community'` de cette
-    // communauté — même trou que celui corrigé pour le départ volontaire.
-    // MAIS le copier-coller du correctif de handleLeave ne marcherait pas :
-    // decline_event_invitation() exige invited_profile_id = current_profile_id()
-    // (échoue toujours si appelée par le staff pour quelqu'un d'autre), et la
-    // policy DELETE d'event_attendees n'autorise que profile_id=soi-même OU
-    // is_event_mod (staff de CET événement précis, pas staff de la
-    // communauté) — un owner/admin qui exclut un membre n'a généralement ni
-    // l'un ni l'autre droit sur les événements de cette communauté. Un vrai
-    // correctif demande une fonction SECURITY DEFINER ou un trigger côté SQL
-    // (hors périmètre : supabase-*.sql en lecture seule ici).
+    // Contrairement à handleLeave ci-dessus, le nettoyage des invitations
+    // "en attente" et des inscriptions aux événements `visibility='community'`
+    // de cette communauté ne peut PAS se faire côté client : le staff n'a pas
+    // le droit de décliner l'invitation d'un tiers (decline_event_invitation()
+    // exige invited_profile_id = soi) ni de supprimer ses lignes event_attendees
+    // (policy DELETE : soi-même ou staff de CET événement). La fonction
+    // SECURITY DEFINER remove_community_member_and_cleanup_events()
+    // (supabase-remove-community-member-cleanup-events-fix.sql, DEPLOIEMENT.md
+    // section 6) vérifie les droits du staff, nettoie puis supprime la ligne
+    // community_members dans une seule transaction. Ce SQL doit être exécuté
+    // AVANT le déploiement de ce client, sinon l'exclusion échoue.
     if (removeMemberInFlightRef.current.has(member.id)) return;
     removeMemberInFlightRef.current.add(member.id);
     try {
-      const { error } = await supabase.from("community_members").delete().eq("id", member.id);
+      const { error } = await supabase.rpc("remove_community_member_and_cleanup_events", { p_member_id: member.id });
       if (error) throw error;
       setMembers((m) => m.filter((x) => x.id !== member.id));
       adjustMemberCount(community.id, -1);

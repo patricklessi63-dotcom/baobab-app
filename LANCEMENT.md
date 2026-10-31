@@ -26,7 +26,7 @@ dizaine d'appels HTTP sans identifiant (sondes).
 4. [Étape 0 — le bilan en lecture seule](#4-étape-0--le-bilan-en-lecture-seule-à-lancer-en-premier)
 5. [Ordre d'exécution du SQL (fiches)](#5-ordre-dexécution-du-sql-fiches)
 6. [Conflits entre fichiers et pièges d'ordre](#6-conflits-entre-fichiers-et-pièges-dordre)
-7. [Inventaire des 134 fichiers SQL](#7-inventaire-des-134-fichiers-sql)
+7. [Inventaire des 135 fichiers SQL](#7-inventaire-des-135-fichiers-sql)
 8. [Edge functions](#8-edge-functions)
 9. [Réglages manuels hors code](#9-réglages-manuels-hors-code)
 10. [Décisions du propriétaire](#10-décisions-du-propriétaire)
@@ -579,6 +579,7 @@ Prérequis communs, **tous satisfaits d'après le bilan** (à confirmer lignes C
 - [ ] **SQL-19 — `supabase-post-report-minor-category.sql`** : autorise le motif « mineur suspecté » sur les signalements de publications (contrainte plus permissive). Aujourd'hui le site ne propose simplement pas ce motif pour une publication. Après l'avoir exécuté, retirer le `.filter(...)` dans `src/lib/reportCategories.js` (code : session de développement). *Additif.*
 - [ ] **SQL-20 — `supabase-storage-account-quota.sql`** : plafond de stockage par compte (1 Go « arbitraire »), trigger sur `storage.objects`. **Décision requise** (plafond, comptes existants au-dessus). Pré-contrôle dans le fichier (requête « avant d'activer »). **Risque non vérifié** : la table `storage.objects` appartient à Supabase ; la création du trigger peut être refusée (« must be owner of table objects »). Si c'est refusé, abandonne : ce n'est pas indispensable.
 - [ ] **SQL-21 — filet « événement privé non partageable en conversation »** (`DEPLOIEMENT.md` §8, 2 blocs : trigger `trg_block_private_event_share`, puis nettoyage des cartes déjà envoyées). Optionnel : le site masque déjà l'option ; ce trigger protège contre un client modifié.
+- [ ] **SQL-23 — `supabase-remove-community-member-cleanup-events-fix.sql`** : fonction `SECURITY DEFINER` `remove_community_member_and_cleanup_events(p_member_id)` ; exclure un membre décline désormais ses invitations « pending » et retire ses inscriptions aux événements « membres » à venir (`DEPLOIEMENT.md` §6). *Additif (une fonction), aucune policy modifiée.* **À jouer AVANT le déploiement du client** qui l'appelle (`handleRemoveMember`) : sans elle, l'exclusion d'un membre échoue (« Impossible de retirer ce membre »). Contrôle : `select prosecdef, has_function_privilege('anon', oid, 'execute') from pg_proc where proname = 'remove_community_member_and_cleanup_events';` → `true | false`. Annuler : `drop function if exists remove_community_member_and_cleanup_events(uuid);` (le client doit alors revenir au `.delete()` direct). Validé seulement sur un schéma factice PGlite (`src/native/removeCommunityMember.test.js`).
 
 ### Fichiers à NE PAS exécuter (récapitulatif)
 Tous ceux des catégories A, C et D du §7, `supabase-accept-event-invitation-membership-check-fix.sql` (remplacé par SQL-14), et — sauf choix contraire expliqué en SQL-10 — `supabase-community-orphan-guard-fix.sql`, `supabase-community-role-change-orphan-fix.sql`, `supabase-community-invite-block-bypass-fix.sql`.
@@ -655,7 +656,7 @@ redéfinis plusieurs fois. Quand deux fichiers redéfinissent la même chose, **
 
 ---
 
-## 7. Inventaire des 134 fichiers SQL
+## 7. Inventaire des 135 fichiers SQL
 
 Légende des catégories : **A** = en prod (prouvé) ; **B** = à exécuter ; **C** = socle d'août, supposé en prod, à
 vérifier par le bilan ; **D** = obsolète ou outil manuel, ne pas exécuter. « Modifié » = date du dernier commit.
@@ -713,7 +714,7 @@ Exécutés avec le script consolidé le **9 sept 2026** (le correctif d'ordre le
 | `supabase-cleanup-expired-stories.sql` | 09/09 | Purge des statuts expirés (cron 3 h) : appelle l'edge function du même nom. | La fonction n'est pas déployée (404) : le cron échoue chaque nuit sans dommage. |
 | `supabase-combined-supersede-order-regression-fix.sql` | 09/09 | Rétablit l'état final correct de 3 objets écrasés par l'ordre du COMBINED. | Exécuté le 10 sept ; aussi inclus en dernière section du COMBINED. |
 
-### Catégorie B — livrés, NON exécutés : à exécuter (23 fichiers)
+### Catégorie B — livrés, NON exécutés : à exécuter (24 fichiers)
 
 Ordre et fiches : §5. Tous postérieurs à l'exécution du COMBINED, aucun mentionné comme exécuté dans `DEPLOIEMENT.md` (le bilan §4 le confirme ou l'infirme).
 
@@ -742,6 +743,7 @@ Ordre et fiches : §5. Tous postérieurs à l'exécution du COMBINED, aucun ment
 | `supabase-post-report-minor-category.sql` | 07/10 | Autorise le motif « mineur suspecté » sur les signalements de publications. | SQL-19. Optionnel. |
 | `supabase-storage-account-quota.sql` | 04/09 | Plafond de stockage total par compte (trigger sur storage.objects). | SQL-20. DÉCISION requise (plafond 1 Go arbitraire) ; ne pas exécuter sans relecture. |
 | `supabase-close-read-leaks.sql` | 20/10 | Ferme les fuites de lecture : `profile_photos` (RLS), `EXECUTE` retiré à anon sur les fonctions SECURITY DEFINER + search_path, colonnes sensibles de `profiles`, Realtime DELETE. | SQL-22. **Répéter d'abord** (§9.7) ; bloc par bloc ; ordre code → SQL. |
+| `supabase-remove-community-member-cleanup-events-fix.sql` | 31/10 | Fonction `remove_community_member_and_cleanup_events()` : l'exclusion d'un membre par le staff décline aussi ses invitations et retire ses inscriptions aux événements « membres » à venir de la communauté (une transaction). | SQL-23. À jouer **AVANT** de déployer le client qui l'appelle. |
 
 ### Catégorie C — socle d'août (60 fichiers) : supposé en prod, À VÉRIFIER
 
@@ -820,7 +822,7 @@ Antérieurs au COMBINED et absents de celui-ci ; l'application tourne en bêta d
 | `supabase-cleanup-test-data.sql` | 21/08 | Outil manuel pour supprimer des comptes de test. | DESTRUCTIF : n'exécuter qu'en connaissance de cause, jamais en production réelle. |
 | `supabase-beta-dashboard.sql` | 21/08 | Requêtes de statistiques de la bêta (lecture seule). | Outil de consultation, pas une migration. |
 
-Total : 46 + 23 + 60 + 5 = 134 fichiers.
+Total : 46 + 24 + 60 + 5 = 135 fichiers.
 
 ---
 
