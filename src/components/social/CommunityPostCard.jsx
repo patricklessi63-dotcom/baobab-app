@@ -9,6 +9,7 @@ import { primary, coral, coralText, muted, bg, primaryRgb, navy } from "./theme"
 import { useClickOutside } from "../../hooks/useClickOutside";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
 import { useFocusReturn } from "../../hooks/useFocusReturn";
+import { isImeComposing } from "../../utils/keyboard";
 
 const QUICK_REACTIONS = ["❤️", "😂", "👍", "😮", "😢", "🎉"];
 
@@ -177,7 +178,7 @@ export default function CommunityPostCard({
                                 dir="auto"
                                 value={editDraft}
                                 onChange={(e) => setEditDraft(truncateUnicodeSafe(e.target.value, 1000))}
-                                onKeyDown={(e) => { if (e.key === "Enter") submitEdit(); }}
+                                onKeyDown={(e) => { if (e.key === "Enter" && !isImeComposing(e)) submitEdit(); }}
                                 aria-label="Modifier le commentaire"
                                 className="flex-1 text-xs rounded-full px-3 py-1.5 outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--bb-leaf)]"
                                 style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)", color: primary }}
@@ -240,7 +241,7 @@ export default function CommunityPostCard({
                   dir="auto"
                   value={commentDraft}
                   onChange={(e) => setCommentDraft(truncateUnicodeSafe(e.target.value, 1000))}
-                  onKeyDown={(e) => { if (e.key === "Enter") submitComment(); }}
+                  onKeyDown={(e) => { if (e.key === "Enter" && !isImeComposing(e)) submitComment(); }}
                   placeholder="Écrire un commentaire..."
                   aria-label="Écrire un commentaire"
                   className="flex-1 text-xs rounded-full px-3.5 py-2 outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--bb-leaf)]"

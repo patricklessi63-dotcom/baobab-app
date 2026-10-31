@@ -5,6 +5,7 @@ import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { navy, coralText } from "./theme";
 import Avatar from "../Avatar";
 import StatusBadge from "../StatusBadge";
+import { isImeComposing } from "../../utils/keyboard";
 
 const REACTIONS = ["❤️", "😂", "😍", "😮", "👏", "🔥"];
 const SWIPE_THRESHOLD = 60;
@@ -360,7 +361,7 @@ export default function StoryViewerModal({
               <input
                 value={storyReply}
                 onChange={(e) => setStoryReply(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && sendStoryReply()}
+                onKeyDown={(e) => e.key === "Enter" && !isImeComposing(e) && sendStoryReply()}
                 placeholder={`Répondre à ${story.name}...`}
                 // maxLength=4000 : contrairement au brouillon de conversation
                 // (ConversationPane) ou au composeur de publication, ce champ

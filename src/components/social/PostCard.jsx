@@ -8,6 +8,7 @@ import ConfirmModal from "./ConfirmModal";
 import { useImageLightbox } from "../../lib/ImageLightboxContext";
 import { formatMessageTime, formatDayLabel, truncateUnicodeSafe } from "../../utils/format";
 import { primary, coral, coralText, muted, bg, primaryRgb } from "./theme";
+import { isImeComposing } from "../../utils/keyboard";
 
 const MAX_LENGTH = 4000;
 
@@ -231,7 +232,7 @@ export default function PostCard({
                   dir="auto"
                   value={commentDraft}
                   onChange={(e) => setCommentDraft(truncateUnicodeSafe(e.target.value, 1000))}
-                  onKeyDown={(e) => { if (e.key === "Enter") submitComment(); }}
+                  onKeyDown={(e) => { if (e.key === "Enter" && !isImeComposing(e)) submitComment(); }}
                   placeholder="Écrire un commentaire..."
                   aria-label="Écrire un commentaire"
                   className="flex-1 text-xs rounded-full px-3.5 py-2 outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--bb-leaf)]"

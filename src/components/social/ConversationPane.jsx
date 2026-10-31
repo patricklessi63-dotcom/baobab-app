@@ -26,6 +26,7 @@ import ChatDropZone from "./ChatDropZone";
 import MessageActionsMenu from "./MessageActionsMenu";
 import ConfirmModal from "./ConfirmModal";
 import { primary, coral, coralText, bg, muted, offline, leafLight, body, primaryRgb } from "./theme";
+import { isImeComposing } from "../../utils/keyboard";
 
 function MessageText({ text }) {
   return (
@@ -871,7 +872,7 @@ export default function ConversationPane({
                 value={messageDraft}
                 onChange={(e) => { setMessageDraft(e.target.value); broadcastTyping(); }}
                 onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); }
+                  if (e.key === "Enter" && !e.shiftKey && !isImeComposing(e)) { e.preventDefault(); handleSend(); }
                 }}
                 placeholder="Écris un message..."
                 aria-label="Écrire un message"
