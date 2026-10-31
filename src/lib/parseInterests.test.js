@@ -72,5 +72,30 @@ describe("matchInterests", () => {
 
   it("ignore un intérêt sans lettre ni chiffre (sinon il matcherait tout)", () => {
     expect(matchInterests(["🍳", "  "], "n'importe quoi")).toEqual([]);
+    expect(matchInterests(["🍳 & /"], "n'importe quoi")).toEqual([]);
+  });
+
+  it("un intérêt composé (🧘 Yoga & méditation) matche sur chacun de ses mots-clés", () => {
+    const yoga = ["🧘 Yoga & méditation"];
+    expect(matchInterests(yoga, "cours de yoga le soir")).toEqual(yoga);
+    expect(matchInterests(yoga, "atelier de meditation guidée")).toEqual(yoga);
+    expect(matchInterests(yoga, "randonnée en forêt")).toEqual([]);
+  });
+
+  it("le mot-clé doit commencer un mot : pas de faux positif au milieu d'un mot", () => {
+    expect(matchInterests(["🏃 Sport"], "gare de transport en commun")).toEqual([]);
+    expect(matchInterests(["🏃 Sport"], "tournoi sportif")).toEqual(["🏃 Sport"]);
+  });
+
+  it("une clé courte doit être un mot entier (🎨 Art ≠ départ, 👗 Mode ≠ modération)", () => {
+    expect(matchInterests(["🎨 Art"], "départ à 18h, partage du quartier")).toEqual([]);
+    expect(matchInterests(["🎨 Art"], "exposition d'art contemporain")).toEqual(["🎨 Art"]);
+    expect(matchInterests(["🎨 Art"], "les arts du cirque")).toEqual(["🎨 Art"]);
+    expect(matchInterests(["👗 Mode"], "modération des commentaires")).toEqual([]);
+    expect(matchInterests(["👗 Mode"], "défilé de mode")).toEqual(["👗 Mode"]);
+  });
+
+  it("ne plante pas sur un intérêt contenant des caractères spéciaux de regex", () => {
+    expect(matchInterests(["C++ (débutant)"], "cours de c++ (debutant)")).toEqual(["C++ (débutant)"]);
   });
 });

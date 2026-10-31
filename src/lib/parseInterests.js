@@ -25,14 +25,38 @@ export function interestSearchKey(interest) {
   return normalizeForSearch(String(interest || "").replace(NON_ALNUM_PREFIX_RE, "")).trim();
 }
 
+// Un intérêt composé ("Yoga & méditation") est cherché mot-clé par mot-clé :
+// la phrase entière n'apparaît presque jamais telle quelle dans un texte libre.
+const COMPOUND_SPLIT_RE = /\s*[&/]\s*/;
+// En dessous de cette longueur, la clé doit être un mot entier ("art" ne doit
+// pas matcher "départ", "mode" ne doit pas matcher "modération").
+const SHORT_KEY_MAX = 4;
+const WORD_CHAR = "\\p{L}\\p{N}";
+
+function escapeRegExp(s) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+// Pas de lookbehind (?<!...) : non supporté avant Safari/iOS 16.4, et l'app
+// tourne aussi dans une WebView Capacitor — on capture le caractère précédent.
+function keywordRegExp(key) {
+  const tail = key.length <= SHORT_KEY_MAX ? `[sx]?(?![${WORD_CHAR}])` : "";
+  return new RegExp(`(?:^|[^${WORD_CHAR}])${escapeRegExp(key)}${tail}`, "u");
+}
+
 // Renvoie les intérêts (sous leur forme d'origine, emoji compris, pour
-// l'affichage de la raison) dont le mot-clé apparaît dans `text`. Un intérêt
+// l'affichage de la raison) dont un mot-clé apparaît dans `text`. Le mot-clé
+// doit commencer un mot ("sport" retrouve "sportif", pas "transport") ; les
+// clés courtes doivent être un mot entier, pluriel simple accepté. Un intérêt
 // sans lettre ni chiffre (clé vide) est ignoré : "".includes(...) est toujours
 // vrai et matcherait n'importe quel texte.
 export function matchInterests(interests, text) {
   const haystack = normalizeForSearch(text);
-  return interests.filter((interest) => {
-    const key = interestSearchKey(interest);
-    return key !== "" && haystack.includes(key);
-  });
+  return interests.filter((interest) =>
+    interestSearchKey(interest)
+      .split(COMPOUND_SPLIT_RE)
+      .map((k) => k.trim())
+      .filter(Boolean)
+      .some((k) => keywordRegExp(k).test(haystack))
+  );
 }
