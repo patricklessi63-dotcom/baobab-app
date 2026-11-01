@@ -45,7 +45,8 @@ const CommunitiesTab = lazy(() => import("./social/CommunitiesTab"));
 const EventsTab = lazy(() => import("./social/EventsTab"));
 const AdminDashboard = lazy(() => import("./admin/AdminDashboard"));
 const PremiumPage = lazy(() => import("./premium/PremiumPage"));
-import PremiumGate from "./premium/PremiumGate";
+const PremiumGate = lazy(() => import("./premium/PremiumGate"));
+import { isPremiumEnabled, isAiEnabled } from "../lib/featureFlags";
 const ImmigrationNewsView = lazy(() => import("./social/ImmigrationNewsView"));
 
 // Modales secondaires chargées à la demande (item 2c de l'allègement du
@@ -2591,6 +2592,7 @@ export default function SocialShell({
           <ChunkErrorBoundary>
             <Suspense fallback={<TabLoadingFallback />}>
               <CommunitiesTab
+                aiEnabled={isAiEnabled()}
                 currentUser={currentUser}
                 onError={onError}
                 onBack={goBack}
@@ -2651,7 +2653,7 @@ export default function SocialShell({
         {tab === "premium" && (
           <ChunkErrorBoundary>
             <Suspense fallback={<TabLoadingFallback />}>
-              <PremiumGate currentUser={currentUser} onBack={goBack}>
+              <PremiumGate enabled={isPremiumEnabled()} currentUser={currentUser} onBack={goBack}>
                 <PremiumPage currentUser={currentUser} onBack={goBack} onError={onError} justSubscribed={justSubscribed} onJustSubscribedHandled={onJustSubscribedHandled} />
               </PremiumGate>
             </Suspense>

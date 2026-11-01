@@ -4,7 +4,6 @@ import ChipSelect from "../ChipSelect";
 import { supabase } from "../../supabaseClient";
 import { COMMUNITY_CATEGORIES, COMMUNITY_VISIBILITY } from "../../lib/communities/communityConfig";
 import { invokeAI } from "../../lib/ai/aiClient";
-import { isAiEnabled } from "../../lib/featureFlags";
 import { validateMediaFile } from "../../lib/mediaValidation";
 import { compressImageIfNeeded } from "../../lib/imageCompression";
 import { extFromMime } from "../../lib/mediaConstants";
@@ -25,7 +24,8 @@ const RULES_MAX = 1000;
 // formulaire ait été rempli. 80 reprend exactement cette limite serveur.
 const CITY_MAX = 80;
 
-export default function CommunityCreateForm({ currentUser, onCreated, onCancel, onError, onDirtyChange = () => {}, onSubmittingChange = () => {} }) {
+// aiEnabled : drapeau de lancement IA, lu par SocialShell (lib/featureFlags.js) et passé en prop.
+export default function CommunityCreateForm({ aiEnabled = false, currentUser, onCreated, onCancel, onError, onDirtyChange = () => {}, onSubmittingChange = () => {} }) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState("");
@@ -238,7 +238,7 @@ export default function CommunityCreateForm({ currentUser, onCreated, onCancel, 
         </label>
       </label>
 
-      {isAiEnabled() && currentUser?.ai_suggestions_enabled !== false && (
+      {aiEnabled && currentUser?.ai_suggestions_enabled !== false && (
         <div className="rounded-2xl p-3.5" style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)" }}>
           <div className="text-[10px] font-black uppercase tracking-wider flex items-center gap-1" style={{ color: goldText }}>
             <Sparkles size={11} /> Suggestion IA

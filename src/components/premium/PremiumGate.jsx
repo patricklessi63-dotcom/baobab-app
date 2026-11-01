@@ -1,6 +1,5 @@
 import React from "react";
 import { usePremiumStatus } from "../../lib/premium/usePremiumStatus";
-import { isPremiumEnabled } from "../../lib/featureFlags";
 import { primary, muted, card } from "../social/theme";
 
 // Garde de l'écran Premium (onglet « premium » de SocialShell). Drapeau de
@@ -9,6 +8,10 @@ import { primary, muted, card } from "../social/theme";
 // (?premium=cancelled), une notification « premium_* » ou un bouton d'erreur
 // de messagerie. Un compte déjà Premium garde l'accès (gérer / résilier son
 // abonnement). Drapeau allumé : transparent, aucune requête en plus.
+// La valeur du drapeau arrive en prop (lue par SocialShell) : ce composant,
+// chargé à la demande, n'importe pas lib/featureFlags, ce qui garderait le
+// drapeau « replié » à la compilation dans le chunk principal (code Premium/IA
+// retiré du bundle tant que le drapeau est éteint).
 function PremiumGateLegacy({ currentUser, onBack, children }) {
   const { isPremium, loading } = usePremiumStatus(currentUser);
   if (loading) return null;
@@ -24,7 +27,7 @@ function PremiumGateLegacy({ currentUser, onBack, children }) {
   );
 }
 
-export default function PremiumGate({ currentUser, onBack, children }) {
-  if (isPremiumEnabled()) return children;
+export default function PremiumGate({ enabled = false, currentUser, onBack, children }) {
+  if (enabled) return children;
   return <PremiumGateLegacy currentUser={currentUser} onBack={onBack}>{children}</PremiumGateLegacy>;
 }

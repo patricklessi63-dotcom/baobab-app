@@ -12,24 +12,22 @@ vi.mock("../../supabaseClient", () => ({
 
 import CommunityCreateForm from "./CommunityCreateForm";
 
-afterEach(() => { cleanup(); vi.unstubAllEnvs(); });
+afterEach(() => { cleanup(); });
 
-const renderForm = () => render(
-  <CommunityCreateForm currentUser={{ id: "u1", user_id: "au1", city: "Montréal" }} onCreated={() => {}} onCancel={() => {}} onError={() => {}} onDirtyChange={() => {}} />
+const renderForm = (aiEnabled) => render(
+  <CommunityCreateForm aiEnabled={aiEnabled} currentUser={{ id: "u1", user_id: "au1", city: "Montréal" }} onCreated={() => {}} onCancel={() => {}} onError={() => {}} onDirtyChange={() => {}} />
 );
 
 describe("CommunityCreateForm — drapeau IA de lancement", () => {
   it("drapeau éteint : aucun bloc « Suggestion IA », le formulaire reste complet", () => {
-    vi.stubEnv("VITE_FEATURE_AI", "");
-    renderForm();
+    renderForm(false);
     expect(screen.queryByText(/Suggestion IA/)).toBeNull();
     expect(screen.queryByRole("button", { name: "Suggérer" })).toBeNull();
     expect(screen.getByText("Image de couverture")).toBeTruthy();
   });
 
   it("drapeau allumé : le bloc apparaît", () => {
-    vi.stubEnv("VITE_FEATURE_AI", "true");
-    renderForm();
+    renderForm(true);
     expect(screen.getByText(/Suggestion IA/)).toBeTruthy();
   });
 });
