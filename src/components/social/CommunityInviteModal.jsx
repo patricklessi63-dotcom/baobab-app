@@ -50,14 +50,18 @@ export default function CommunityInviteModal({ community, currentUser, memberIds
     setResults([]);
     setInvitedIds(new Set());
     setSendingId(null);
-    searchSeqRef.current++; // invalide aussi toute recherche encore en vol pour l'ancienne communauté
+    setSearching(false); // la recherche en vol est invalidée ci-dessous : son finally ne remettra pas le drapeau à faux
+    searchSeqRef.current++; // invalide aussi toute recherche encore en vol pour l’ancienne communauté
   }, [community?.id]);
   if (!community) return null;
 
   const runSearch = async (value) => {
     setSearch(value);
     const seq = ++searchSeqRef.current;
-    if (!value.trim()) { setResults([]); return; }
+    // setSearching(false) : une requête encore en vol vient d’être invalidée par le ++seq
+    // ci-dessus, donc son finally ne le remettra pas à faux — sans ça, vider le champ
+    // pendant une recherche laissait « Recherche... » affiché indéfiniment.
+    if (!value.trim()) { setResults([]); setSearching(false); return; }
     setSearching(true);
     try {
       const { data, error } = await supabase
