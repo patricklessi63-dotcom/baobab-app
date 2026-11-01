@@ -252,7 +252,9 @@ export default function StoryViewerModal({
                     role="menuitem"
                     onClick={() => { setMenuOpen(false); closeStoryViewer(); onBlock?.({ id: story.profile_id, name: story.name }); }}
                     className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-left border-t border-black/10 focus-visible:outline focus-visible:outline-2"
-                    style={{ color: coralText }}
+                    // Menu à fond blanc FIXE : le rouge foncé fixe (5.4:1 sur blanc) remplace coralText,
+                    // qui devient un corail clair en thème sombre (illisible sur blanc).
+                    style={{ color: "#C0392B" }}
                   >
                     <Ban size={14} /> Bloquer
                   </button>

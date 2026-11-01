@@ -513,7 +513,7 @@ export default function FeedTab({
         {FEED_TABS.map(([key, label]) => (
           <button key={key} onClick={() => setFeedTab(key)} role="tab" aria-selected={feedTab === key} className="flex-1 py-3 text-sm font-bold relative focus-visible:outline focus-visible:outline-2" style={{ color: feedTab === key ? primary : muted }}>
             {label}
-            {feedTab === key && <span className="absolute bottom-0 left-1/2 -translate-x-1/2 h-[3px] w-10 rounded-full" style={{ background: coral }} />}
+            {feedTab === key && <span className="absolute bottom-0 left-1/2 -translate-x-1/2 h-[3px] w-10 rounded-full" style={{ background: "var(--bb-accent)", boxShadow: "0 4px 14px 1px rgba(var(--bb-accent-rgb), .45)" }} />}
           </button>
         ))}
       </div>
