@@ -153,9 +153,15 @@
 
 /* Fonctions */
 .hz-block { padding-block: clamp(40px, 7vw, 96px); }
+/* Syne est très large, surtout en graisse 800 : le titre « Quatre façons de créer du
+   lien. » s'étirait sur toute la largeur (ordinateur) et frôlait le bord (mobile).
+   Même remède que .hz-h1 : graisse 700, taille modérée liée à la largeur, et une
+   largeur maximale en em pour que le titre se coupe proprement sur deux lignes
+   équilibrées (text-wrap: balance), avec overflow-wrap en filet de sécurité. */
 .hz-h2 {
-  font-family: var(--hz-font-display); font-weight: 800; font-size: clamp(1.8rem, 4vw, 3rem);
-  line-height: 1.1; letter-spacing: -0.015em; margin: 0 0 16px; text-wrap: balance;
+  font-family: var(--hz-font-display); font-weight: 700; font-size: clamp(1.5rem, 1.1rem + 1.8vw, 2.35rem);
+  line-height: 1.14; letter-spacing: -0.01em; max-width: 15em; margin: 0 0 16px;
+  text-wrap: balance; overflow-wrap: break-word;
 }
 .hz-intro { max-width: 56ch; color: var(--hz-brume); margin: 0 0 36px; }
 .hz-features { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); }
