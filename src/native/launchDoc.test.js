@@ -86,9 +86,10 @@ describe("LANCEMENT.md — cohérence", () => {
 
   it("le document est opérationnel : table des matières, cases à cocher, 12 étapes du lancement minimal", () => {
     expect(doc).toContain("## Table des matières");
-    expect((doc.match(/^\s*- \[ \]/gm) || []).length).toBeGreaterThan(60);
+    // Cases « à faire » ou « faites » : cocher une étape ne doit pas casser le document.
+    expect((doc.match(/^\s*- \[[ x]\]/gm) || []).length).toBeGreaterThan(60);
     const minimal = doc.slice(doc.indexOf("## 3. Lancement web minimal"), doc.indexOf("## 4. Étape 0"));
-    const steps = [...minimal.matchAll(/^- \[ \] \*\*(\d+)\./gm)].map((m) => Number(m[1]));
+    const steps = [...minimal.matchAll(/^- \[[ x]\] \*\*(\d+)\./gm)].map((m) => Number(m[1]));
     expect(steps).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
   });
 
