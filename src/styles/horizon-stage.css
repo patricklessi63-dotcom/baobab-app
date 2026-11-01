@@ -49,8 +49,15 @@
 }
 @media (min-width: 768px) {
   .bb-hero-stage { min-height: 320px; }
-  .bb-hero-tree { left: 38%; }
-  .bb-hero-tree::after { background: linear-gradient(90deg, rgba(6, 11, 9, 0.92) 0%, rgba(6, 11, 9, 0.2) 38%, transparent 70%); }
+  /* Un voile sombre à gauche de l'arbre laissait une coupure verticale nette là où
+     commence son calque (constaté avec de vraies données) : on estompe plutôt le bord
+     gauche du calque par un masque, sans voile, pour un fondu continu. */
+  .bb-hero-tree {
+    left: 28%;
+    -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 38%);
+    mask-image: linear-gradient(90deg, transparent 0%, #000 38%);
+  }
+  .bb-hero-tree::after { background: none; }
 }
 
 /* Marque : pictogramme de l'arbre + nom en capitales espacées. */
