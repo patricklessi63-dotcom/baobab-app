@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { Sparkles, Loader2 } from "lucide-react";
 import { invokeAI } from "../../lib/ai/aiClient";
 import { primary, coralText, bg, goldText, body } from "../social/theme";
+import { isAiEnabled } from "../../lib/featureFlags";
 
 // Bouton réutilisable "✨ Améliorer avec l'IA" pour un champ texte unique
 // (bio/publication/description d'événement) — n'écrit JAMAIS
@@ -25,6 +26,8 @@ export default function AiSuggestButton({ action, buildPayload, onApply, label =
     if (err) { setError(err); return; }
     setSuggestion(data?.text || "");
   };
+
+  if (!isAiEnabled()) return null; // drapeau de lancement : clé IA non posée côté serveur
 
   if (suggestion) {
     return (

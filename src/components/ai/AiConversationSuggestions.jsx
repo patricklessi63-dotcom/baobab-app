@@ -5,6 +5,7 @@ import { useClickOutside } from "../../hooks/useClickOutside";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
 import { useFocusReturn } from "../../hooks/useFocusReturn";
 import { invokeAI } from "../../lib/ai/aiClient";
+import { isAiEnabled } from "../../lib/featureFlags";
 
 // "name" est déjà le prénom seul (Step1Identity.jsx sépare "Nom" de famille
 // dans last_name) — un split(/\s+/)[0] coupait à tort un prénom composé
@@ -54,6 +55,8 @@ export default function AiConversationSuggestions({ currentUser, match, onPick }
     if (err) { setError(err); return; }
     setSuggestions(Array.isArray(data?.suggestions) ? data.suggestions : []);
   };
+
+  if (!isAiEnabled()) return null; // drapeau de lancement : clé IA non posée côté serveur
 
   return (
     <div ref={ref} className="relative flex-shrink-0">

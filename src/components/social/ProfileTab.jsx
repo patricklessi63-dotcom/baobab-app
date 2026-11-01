@@ -17,6 +17,7 @@ import { primary, navy, green, coral, coralText, gold, goldText, bg, muted, onli
 import { isNative } from "../../lib/platform";
 import { linkOrigin } from "../../lib/publicOrigin";
 import { shareNative } from "../../lib/nativeShare";
+import { isPremiumEnabled } from "../../lib/featureFlags";
 
 // Même mapping que EventCard.jsx/EventParticipantsList.jsx (badge de statut
 // de participation) — repris ici pour "Mes événements" (onglet Profil), qui
@@ -110,6 +111,9 @@ export default function ProfileTab({
   blockedIds,
 }) {
           const { isPremium, subscription, loading: premiumLoading, error: premiumError, refresh: refreshPremiumStatus } = usePremiumStatus(currentUser);
+          // Drapeau de lancement : Premium n'est proposé (onglet Abonnement, « Qui m'a aimé »)
+          // que s'il est activé, ou si le compte est déjà abonné (il doit pouvoir gérer son abonnement).
+          const showPremium = isPremiumEnabled() || isPremium;
           const [managingSubscription, setManagingSubscription] = useState(false);
           // Garde anti-double-clic par ref, même motif que PremiumPage.jsx
           // (handleSubscribe) — `disabled={managingSubscription}` seul ne
@@ -309,10 +313,12 @@ export default function ProfileTab({
                   </button>
                 </div>
 
+                {showPremium && (
                 <button onClick={onOpenAdmirers} className="w-full flex items-center justify-between rounded-2xl p-4 mt-3 focus-visible:outline focus-visible:outline-2" style={{ background: bg }}>
                   <span className="flex items-center gap-2 text-sm font-bold" style={{ color: primary }}><Heart size={16} color={coral} /> Qui m'a aimé {admirersCount > 0 && `(${admirersCount})`}</span>
                   <ChevronRight size={16} color={muted} />
                 </button>
+                )}
 
               </div>
 
@@ -328,7 +334,7 @@ export default function ProfileTab({
                   ["communities", "Mes communautés"],
                   ["events", "Événements"],
                   ["network", "Mon réseau"],
-                  ["premium", "Abonnement"],
+                  ...(showPremium ? [["premium", "Abonnement"]] : []),
                   ["about", "À propos"],
                 ]}
                 active={profileTab}

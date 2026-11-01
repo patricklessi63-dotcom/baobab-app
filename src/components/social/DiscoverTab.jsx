@@ -16,6 +16,7 @@ import { ARRIVAL_STAGE_OPTIONS, matchesArrivalStage } from "../../lib/arrivalSta
 import { linkOrigin } from "../../lib/publicOrigin";
 import { isNative } from "../../lib/platform";
 import { shareNative } from "../../lib/nativeShare";
+import { isPremiumEnabled } from "../../lib/featureFlags";
 
 const ACTIVE_RECENTLY_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
 
@@ -604,7 +605,7 @@ export default function DiscoverTab({
                           Actif·ve récemment uniquement
                         </label>
                       </div>
-                    ) : (
+                    ) : isPremiumEnabled() && (
                       <div className="mb-4">
                         <Paywall
                           title="Filtres de recherche avancés"

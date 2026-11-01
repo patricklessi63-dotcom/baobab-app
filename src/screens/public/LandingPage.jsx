@@ -5,6 +5,7 @@ import { loadHorizonFonts } from "../../components/horizon/loadHorizonFonts";
 import { useReduceMotion } from "../../components/horizon/useReduceMotion";
 import { isNative } from "../../lib/platform";
 import { supabase } from "../../supabaseClient";
+import { MEMBER_COUNT_PUBLIC_MIN } from "../../lib/featureFlags";
 import "../../styles/horizon-landing.css";
 
 // Page d'accueil publique, direction « Baobab Horizon » : un baobab dessiné par
@@ -148,7 +149,7 @@ export default function LandingPage({ onLogin, onSignup, navigate }) {
               <button type="button" onClick={onLogin} className="hz-btn hz-btn-ghost">Se connecter</button>
             </div>
 
-            {Boolean(userCount) && (
+            {userCount >= MEMBER_COUNT_PUBLIC_MIN && (
               <p className="hz-count">
                 <Users size={14} aria-hidden="true" /> {userCount.toLocaleString("fr-CA")} membre{userCount > 1 ? "s" : ""} déjà sur Baobab
               </p>
