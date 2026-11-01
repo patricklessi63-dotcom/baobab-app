@@ -100,7 +100,23 @@ export function formatDayLabel(iso) {
   const sameDay = (a, b) => a.toDateString() === b.toDateString();
   if (sameDay(d, today)) return "Aujourd'hui";
   if (sameDay(d, yesterday)) return "Hier";
-  return d.toLocaleDateString("fr-CA", { day: "numeric", month: "long" });
+  // L'année n'est ajoutée que pour une date d'une autre année : « 3 mars »
+  // seul, d'une année précédente, se confondait avec le 3 mars de cette année
+  // (même libellé -> aucun séparateur de jour dans une conversation qui
+  // enjambe deux années).
+  const sameYear = d.getFullYear() === today.getFullYear();
+  return d.toLocaleDateString("fr-CA", sameYear ? { day: "numeric", month: "long" } : { day: "numeric", month: "long", year: "numeric" });
+}
+
+// Clé de jour calendaire locale (AAAA-M-J) : sert à décider d'afficher un
+// séparateur de jour. Comparer les LIBELLÉS (formatDayLabel) est fragile :
+// deux jours distincts peuvent partager un libellé (même jour d'une autre
+// année).
+export function dayKey(iso) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
 }
 
 export function messagePreviewLabel(m) {

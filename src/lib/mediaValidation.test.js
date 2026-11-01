@@ -22,6 +22,19 @@ const PNG_MAGIC = [0x89, 0x50, 0x4e, 0x47];
 const JPEG_MAGIC = [0xff, 0xd8, 0xff];
 const WEBP_HEAD = [0x52, 0x49, 0x46, 0x46, 0, 0, 0, 0, 0x57, 0x45, 0x42, 0x50];
 
+describe("validateMediaFile — messages vocaux (jamais de fichier corrompu)", () => {
+  it("accepte un webm avec son en-tête EBML, un ogg avec OggS, un mp4 quelconque", async () => {
+    expect((await validateMediaFile(fakeFile({ type: "audio/webm", head: [0x1a, 0x45, 0xdf, 0xa3] }), "audio")).ok).toBe(true);
+    expect((await validateMediaFile(fakeFile({ type: "audio/ogg", head: [0x4f, 0x67, 0x67, 0x53] }), "audio")).ok).toBe(true);
+    expect((await validateMediaFile(fakeFile({ type: "audio/mp4", head: [0, 0, 0, 0x20, 0x66, 0x74, 0x79, 0x70] }), "audio")).ok).toBe(true);
+  });
+  it("refuse un webm/ogg tronqué ou faussement étiqueté, et un vocal vide", async () => {
+    expect((await validateMediaFile(fakeFile({ type: "audio/webm", head: [1, 2, 3, 4] }), "audio")).ok).toBe(false);
+    expect((await validateMediaFile(fakeFile({ type: "audio/ogg", head: [1, 2, 3, 4] }), "audio")).ok).toBe(false);
+    expect((await validateMediaFile({ type: "audio/mp4", size: 0, slice: () => ({ arrayBuffer: async () => new ArrayBuffer(0) }) }, "audio")).ok).toBe(false);
+  });
+});
+
 describe("validateMediaFile", () => {
   it("rejette un kind inconnu", async () => {
     expect(await validateMediaFile(fakeFile({ type: "image/png", head: PNG_MAGIC }), "hologramme")).toEqual({

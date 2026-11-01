@@ -40,3 +40,10 @@ export function useImageLightbox() {
   if (!ctx) throw new Error("useImageLightbox doit être utilisé sous ImageLightboxProvider");
   return ctx;
 }
+
+// Variante tolérante : renvoie null hors fournisseur (tests de composants qui ne
+// montent pas ImageLightboxProvider). En production le fournisseur est monté à
+// la racine (main.jsx), donc le contexte existe toujours.
+export function useOptionalImageLightbox() {
+  return useContext(ImageLightboxContext);
+}
