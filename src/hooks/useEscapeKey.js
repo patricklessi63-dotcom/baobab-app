@@ -26,7 +26,9 @@ function ensureListeners() {
   if (listenersAttached || typeof document === "undefined") return;
   listenersAttached = true;
   document.addEventListener("keydown", (e) => {
-    if (e.key !== "Escape" || stack.length === 0) return;
+    // Pendant une composition IME (clavier chinois, japonais, coréen), Échap annule la saisie
+    // en cours : le même appui ne doit pas fermer en plus la modale ouverte.
+    if (e.key !== "Escape" || e.isComposing || stack.length === 0) return;
     stack[stack.length - 1].onClose();
   });
   window.addEventListener("popstate", () => {
