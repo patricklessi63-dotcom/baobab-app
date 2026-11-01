@@ -44,8 +44,8 @@ Aucune autre couleur dans la marque.
 Laisser autour de la marque un vide d'au moins 1/8 de sa largeur (soit environ 45 unités sur la
 grille de 512), sans texte ni bord. Pour une icône d'application, la marque occupe 70 à 84 % de
 la hauteur du carré ; pour l'icône « maskable » PWA et l'avant-plan adaptatif Android, elle reste
-dans un cercle centré (80 % du côté pour la PWA, 91,6 % de l'image pour Android, qui l'affiche
-dans 72 dp avec un cercle sûr de 66 dp).
+dans un cercle centré (80 % du côté pour la PWA ; 64 % du côté pour l'avant-plan adaptatif
+Android et la couche monochrome, sous le cercle sûr de 66 %).
 
 ## Tailles minimales
 

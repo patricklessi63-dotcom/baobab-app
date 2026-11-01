@@ -313,8 +313,8 @@ splash Android 12+ ; (4) couleurs : `bb_splash_background` ivoire #F3EEE4 en cla
 inchangé (déjà ivoire / nuit), `capacitor.config.json` `SplashScreen.backgroundColor` ivoire. Plus aucune
 trace de #14432A / #14120D dans les ressources de lancement (test `src/native/logoAssets.test.js`).
 `@capacitor/splash-screen` 8.0.2 : `launchAutoHide` avec 3 s en secours, masquage manuel dès que la session
-est vérifiée (`hideSplash`). Zone sûre : l'avant-plan adaptatif (marque dans un cercle de rayon 44 % de
-l'image ; la limite est 45,8 %, car l'image est affichée dans 72 dp avec un cercle sûr de 66 dp) est aussi
+est vérifiée (`hideSplash`). Zone sûre : l'avant-plan adaptatif (marque dans un cercle de rayon 32 % de
+l'image, soit un diamètre de 64 % < 66 % ; la marge réelle est plus grande car l'image est affichée dans 72 dp avec un cercle sûr de 66 dp) est aussi
 l'icône du splash Android 12+ sur fond uni. Le texte « Baobab » n'est pas sur les splash (marque seule).
 Le composant `BaobabLogo.jsx` (marque inline, `title` => nom accessible, sinon `aria-hidden`) reprend la même géométrie.
 **À vérifier par le propriétaire** (rien de tout cela n'a pu être testé ici, ni appareil, ni émulateur) :
