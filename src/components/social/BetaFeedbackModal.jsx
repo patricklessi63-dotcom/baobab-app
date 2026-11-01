@@ -23,7 +23,10 @@ export default function BetaFeedbackModal({ open, onClose, currentUser, screen }
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState("");
   const panelRef = useRef(null);
-  useEscapeKey(open, onClose);
+  // Fermeture bloquée pendant l’envoi (même garde que ReportModal) : le composant reste monté
+  // sous `return null`, donc l’envoi qui se termine après une fermeture repassait `submitted`
+  // à true et la modale rouverte affichait « Merci ! » au lieu d’un formulaire vierge.
+  useEscapeKey(open && !sending, onClose);
   useFocusTrap(open, panelRef);
   if (!open) return null;
 
@@ -38,6 +41,7 @@ export default function BetaFeedbackModal({ open, onClose, currentUser, screen }
   // que onClose() (batché par React, donc jamais visible : le composant
   // rend déjà `null` sur ce re-render) supprime cette fenêtre de course.
   const handleClose = () => {
+    if (sending) return;
     onClose();
     setMessage("");
     setCategory(null);
@@ -127,7 +131,7 @@ export default function BetaFeedbackModal({ open, onClose, currentUser, screen }
               autoFocus
             />
             <div className="flex gap-2 mt-4">
-              <button onClick={handleClose} className="flex-1 py-2.5 rounded-full text-sm font-semibold" style={{ border: `1px solid rgba(${primaryRgb},.12)`, color: primary }}>
+              <button onClick={handleClose} disabled={sending} className="flex-1 py-2.5 rounded-full text-sm font-semibold disabled:opacity-40" style={{ border: `1px solid rgba(${primaryRgb},.12)`, color: primary }}>
                 Annuler
               </button>
               <button
