@@ -99,6 +99,14 @@ async function resolveProfileId() {
   return cachedProfileId;
 }
 
+// URL de la page SANS paramètres ni fragment : le lien de réinitialisation du mot de passe porte
+// #access_token=… et les retours d’authentification ?code=… ; location.href les aurait écrits tels quels
+// dans client_errors (lisible par les modérateurs). Le chemin suffit à situer une erreur.
+function safePageUrl() {
+  if (typeof location === "undefined") return null;
+  return `${location.origin}${location.pathname}`.slice(0, 2000);
+}
+
 export async function reportError({ message, stack, kind = "error" } = {}) {
   try {
     if (!reportingEnabled) return;
@@ -119,7 +127,7 @@ export async function reportError({ message, stack, kind = "error" } = {}) {
       // Bornes alignées sur les contraintes CHECK de la table
       // (supabase-client-errors.sql) pour qu'un rapport légitime ne soit
       // jamais rejeté silencieusement.
-      url: typeof location !== "undefined" ? String(location.href).slice(0, 2000) : null,
+      url: safePageUrl(),
       user_agent: typeof navigator !== "undefined" ? String(navigator.userAgent).slice(0, 500) : null,
       app_version: CURRENT_VERSION ? String(CURRENT_VERSION).slice(0, 40) : null,
       kind,
