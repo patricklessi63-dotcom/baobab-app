@@ -377,8 +377,8 @@ export default function Auth({ justVerified = false, onAcknowledgeVerified = () 
         .bb-auth .bb-bg { animation: bbKenBurns 22s ease-in-out alternate infinite; }
         .bb-auth .bb-hero { animation: bbRise .8s cubic-bezier(.22,1,.36,1) both; }
         .bb-auth .bb-card { animation: bbRise .9s .12s cubic-bezier(.22,1,.36,1) both; }
-        .bb-auth .bb-word { display:inline-block; opacity:0; animation: bbWord .75s cubic-bezier(.22,1,.36,1) both; transform-origin: 50% 100%; }
-        .bb-auth .bb-word-gradient { background: linear-gradient(100deg, #F2A33A, #EA5F4B 45%, #F2A33A 90%); background-size: 200% auto; -webkit-background-clip: text; background-clip: text; color: transparent; animation: bbWord .75s cubic-bezier(.22,1,.36,1) both, bbGradientMove 4s ease-in-out .9s infinite; }
+        .bb-auth .bb-word { display:inline-block; animation: bbWord .75s cubic-bezier(.22,1,.36,1) backwards; transform-origin: 50% 100%; }
+        .bb-auth .bb-word-gradient { background: linear-gradient(100deg, #F2A33A, #EA5F4B 45%, #F2A33A 90%); background-size: 200% auto; -webkit-background-clip: text; background-clip: text; color: transparent; animation: bbWord .75s cubic-bezier(.22,1,.36,1) backwards, bbGradientMove 4s ease-in-out .9s infinite; }
         .bb-auth .bb-caret { display:inline-block; width: 2px; margin-left: 2px; animation: bbCaret 1.1s step-end infinite; }
         .bb-auth .bb-badge { animation: bbFloat 5s ease-in-out infinite; }
         .bb-auth .bb-brand-icon { animation: bbGlow 3s ease-in-out infinite; }

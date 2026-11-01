@@ -356,7 +356,7 @@
     chaque enfant direct de .bb-stagger apparaît avec un léger décalage
     dans le temps plutôt que tous d'un coup. prefers-reduced-motion est
     déjà couvert par la règle globale tout en bas de ce fichier. */
-    .bb-stagger > * { opacity: 0; animation: bbFadeIn .65s var(--bb-ease) forwards; }
+    .bb-stagger > * { animation: bbFadeIn .65s var(--bb-ease) backwards; }
     .bb-stagger > *:nth-child(1) { animation-delay: .04s; }
     .bb-stagger > *:nth-child(2) { animation-delay: .14s; }
     .bb-stagger > *:nth-child(3) { animation-delay: .24s; }
