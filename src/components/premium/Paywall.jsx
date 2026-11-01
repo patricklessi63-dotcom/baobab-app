@@ -8,7 +8,7 @@ import { primary, muted, card } from "../social/theme";
 export default function Paywall({ title = "Fonction Premium", description, onDiscover }) {
   return (
     <div className={`${card} p-6 text-center`} style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)" }}>
-      <div className="h-11 w-11 rounded-2xl mx-auto flex items-center justify-center" style={{ background: "rgba(242,184,75,.18)" }}>
+      <div className="h-11 w-11 rounded-2xl mx-auto flex items-center justify-center" style={{ background: "rgba(242,163,58,.18)" }}>
         <span style={{ fontSize: 20 }}>💎</span>
       </div>
       <h3 className="text-base font-black mt-3" style={{ color: primary }}>{title}</h3>

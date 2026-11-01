@@ -99,7 +99,7 @@ export default function PremiumPage({ currentUser, onBack, onError, justSubscrib
       </button>
 
       <div className="text-center mb-8">
-        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-[11px] font-black uppercase tracking-wider" style={{ background: "rgba(242,184,75,.16)", color: goldText }}>
+        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-[11px] font-black uppercase tracking-wider" style={{ background: "rgba(242,163,58,.16)", color: goldText }}>
           💎 Baobab Premium
         </div>
         <h1 className="text-3xl md:text-4xl font-black mt-3" style={{ color: primary }}>Plus de possibilités pour créer de vraies connexions.</h1>
@@ -109,7 +109,7 @@ export default function PremiumPage({ currentUser, onBack, onError, justSubscrib
       </div>
 
       {confirmingPayment && !isPremium && (
-        <div className={`${card} p-4 mb-6 text-center text-sm font-semibold`} style={{ color: goldText, background: "rgba(242,184,75,.12)" }}>
+        <div className={`${card} p-4 mb-6 text-center text-sm font-semibold`} style={{ color: goldText, background: "rgba(242,163,58,.12)" }}>
           Paiement reçu, confirmation de ton abonnement en cours...
         </div>
       )}

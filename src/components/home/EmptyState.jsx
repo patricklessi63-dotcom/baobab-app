@@ -3,8 +3,12 @@ import { primary, muted } from "../social/theme";
 
 export default function EmptyState({ icon: Icon, title, subtitle, actionLabel, onAction }) {
   return (
-    <div className="text-center py-8 px-3">
-      {Icon && <Icon size={26} className="mx-auto mb-3" color={muted} aria-hidden="true" />}
+    <div className="bb-rise text-center py-8 px-3">
+      {Icon && (
+        <span className="bb-empty-ring mx-auto mb-3" aria-hidden="true">
+          <Icon size={22} color="var(--bb-accent)" />
+        </span>
+      )}
       <p className="text-sm font-bold" style={{ color: primary }}>{title}</p>
       {subtitle && <p className="text-xs mt-1.5 max-w-xs mx-auto leading-5" style={{ color: muted }}>{subtitle}</p>}
       {actionLabel && onAction && (

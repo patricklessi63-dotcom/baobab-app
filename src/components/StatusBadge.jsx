@@ -11,7 +11,7 @@ import { gold, goldText, verified, coral } from "./social/theme";
 // Crown/Gem : ce badge est une ICÔNE SEULE sans texte visible à côté
 // (title/aria-label ne sont que pour les lecteurs d'écran) — elle porte
 // l'info seule (fondateur/premium), donc soumise au seuil WCAG AA
-// "graphique non-textuel" (3:1), pas 4.5:1. Le or fixe #F2B84B ne donne
+// "graphique non-textuel" (3:1), pas 4.5:1. Le or fixe #F2A33A ne donne
 // que ~1.5-1.8:1 sur --bb-surface/--bb-bg/--bb-surface-2 en thème clair
 // (échec massif) : par défaut on remplit désormais avec "goldText", déjà
 // réactif au thème (~4.9-5.7:1 en clair, ~9-10:1 en sombre, voir
@@ -41,7 +41,7 @@ export default function StatusBadge({ isFounder, isPremium, emailVerified, phone
     const c = color || verified;
     return (
       <span title={title} aria-label={title} className="inline-flex items-center justify-center flex-shrink-0" style={{ color: c }}>
-        <ShieldCheck size={size} fill={c === "#fff" ? "rgba(255,255,255,0.2)" : "rgba(217,164,65,0.18)"} />
+        <ShieldCheck size={size} fill={c === "#fff" ? "rgba(255,255,255,0.2)" : "rgba(242,163,58,0.18)"} />
       </span>
     );
   }

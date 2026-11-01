@@ -71,7 +71,7 @@ export default function NotificationsOptIn({ onDone }) {
 
   return (
     <div className="p-6 max-w-md mx-auto w-full text-center bb-fade-in">
-      <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full" style={{ background: "rgba(217,164,65,0.14)" }}>
+      <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full" style={{ background: "rgba(242,163,58,0.14)" }}>
         <Bell size={28} color={C.ochre} />
       </div>
       <h2 style={{ fontFamily: "var(--bb-font-display)", fontSize: 22, color: C.primary }}>

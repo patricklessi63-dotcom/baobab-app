@@ -6,12 +6,16 @@ import PasswordField from "../components/auth/PasswordField";
 import PasswordStrengthMeter from "../components/auth/PasswordStrengthMeter";
 import { scorePassword, passwordMeetsMinimum } from "../lib/passwordStrength";
 import { traduireAuthErreur } from "../lib/authErrors";
+import HorizonTree from "../components/horizon/HorizonTree";
+import { useReduceMotion } from "../components/horizon/useReduceMotion";
+import { isNative } from "../lib/platform";
 
 // Réaligné sur la palette sombre d'Auth.jsx (Phase 7.5) — utilisait
 // auparavant la palette claire de constants.js, ce qui créait une rupture
 // visuelle en plein milieu du parcours d'authentification. La logique
 // supabase.auth.updateUser() est inchangée.
 export default function UpdatePasswordScreen({ onDone, onSignOut }) {
+  const { reduce: reduceMotion } = useReduceMotion();
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [loading, setLoading] = useState(false);
@@ -105,10 +109,14 @@ export default function UpdatePasswordScreen({ onDone, onSignOut }) {
   }
 
   return (
-    <div className="bb-auth min-h-screen flex items-center justify-center px-4" style={{ background: C.dusk, color: C.sand, fontFamily: "Inter, system-ui, sans-serif" }}>
+    <div className="bb-auth min-h-screen relative overflow-hidden flex items-center justify-center px-4" style={{ background: C.dusk, color: C.sand, fontFamily: "var(--bb-font-body)" }}>
+      <div aria-hidden="true" className="absolute inset-x-0 top-0" style={{ height: 300, zIndex: 0 }}>
+        <HorizonTree reduceMotion={reduceMotion} lite={isNative()} />
+        <div className="absolute inset-0" style={{ background: "linear-gradient(180deg, rgba(6,11,9,0) 0%, rgba(6,11,9,0.55) 60%, #060B09 100%)" }} />
+      </div>
       <style>{`@media (prefers-reduced-motion: reduce) { .bb-auth * { animation: none !important; transition: none !important; } }`}</style>
-      <div className="w-full max-w-sm rounded-[30px] p-6 sm:p-7"
-        style={{ background: "rgba(13,32,22,0.80)", border: "1px solid rgba(242,233,220,0.16)",
+      <div className="relative z-10 w-full max-w-sm rounded-[30px] p-6 sm:p-7"
+        style={{ background: "rgba(11,21,17,0.82)", border: "1px solid rgba(243,238,228,0.16)",
           boxShadow: "0 30px 90px rgba(0,0,0,0.52)", backdropFilter: "blur(22px)" }}>
         <div style={{ fontFamily: "var(--bb-font-display)", fontSize: 24 }} className="mb-1">
           Nouveau mot de passe

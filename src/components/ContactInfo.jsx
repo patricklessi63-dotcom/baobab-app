@@ -12,7 +12,7 @@ export default function ContactInfo({ subject = "", email = SUPPORT_EMAIL, class
       {email ? (
         <>
           Écrivez-nous à{" "}
-          <a href={href} className="underline font-semibold" style={{ color: "#D9A441" }}>{email}</a>.
+          <a href={href} className="underline font-semibold" style={{ color: "#F2A33A" }}>{email}</a>.
         </>
       ) : (
         <>

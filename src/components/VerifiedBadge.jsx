@@ -22,7 +22,7 @@ export default function VerifiedBadge({ emailVerified, phoneVerified, size = 14,
       className="inline-flex items-center justify-center flex-shrink-0"
       style={{ color }}
     >
-      <ShieldCheck size={size} fill={color === "#fff" ? "rgba(255,255,255,0.2)" : "rgba(217,164,65,0.18)"} />
+      <ShieldCheck size={size} fill={color === "#fff" ? "rgba(255,255,255,0.2)" : "rgba(242,163,58,0.18)"} />
     </span>
   );
 }

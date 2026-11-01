@@ -49,9 +49,9 @@ export default function UpdateNotice({ mandatory, recommended, info, onReload, o
 
   return (
     <div className="fixed z-[90] left-4 right-4 bottom-[max(1rem,env(safe-area-inset-bottom))] sm:left-auto sm:right-6 sm:bottom-6 sm:w-full sm:max-w-sm" role="status">
-      <div className="rounded-[20px] p-4 shadow-2xl" style={{ background: C.dusk3, color: C.sand, border: "1px solid rgba(217,164,65,0.25)" }}>
+      <div className="rounded-[20px] p-4 shadow-2xl" style={{ background: C.dusk3, color: C.sand, border: "1px solid rgba(242,163,58,0.25)" }}>
         <div className="flex items-start gap-3">
-          <span className="flex-shrink-0 h-9 w-9 rounded-full flex items-center justify-center" style={{ background: "rgba(217,164,65,0.16)" }}>
+          <span className="flex-shrink-0 h-9 w-9 rounded-full flex items-center justify-center" style={{ background: "rgba(242,163,58,0.16)" }}>
             <Sparkles size={17} color={C.ochre} />
           </span>
           <div className="min-w-0 flex-1">

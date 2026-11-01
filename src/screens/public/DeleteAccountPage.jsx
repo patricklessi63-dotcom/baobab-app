@@ -65,7 +65,7 @@ export default function DeleteAccountPage({ navigate }) {
         <ContactInfo subject="Baobab — suppression de compte" />
         <p>
           Plus de détails dans notre{" "}
-          <button type="button" onClick={() => navigate("/confidentialite")} className="underline font-semibold" style={{ color: "#D9A441" }}>
+          <button type="button" onClick={() => navigate("/confidentialite")} className="underline font-semibold" style={{ color: "#F2A33A" }}>
             politique de confidentialité
           </button>
           .

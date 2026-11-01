@@ -172,7 +172,7 @@ export default function ProfileTab({
                 style={
                   currentUser?.cover_url
                     ? { background: `url(${currentUser.cover_url}) center/cover`, cursor: "zoom-in" }
-                    : { background: `linear-gradient(135deg,${navy},#1E4632 50%,${green})` }
+                    : { background: `linear-gradient(135deg,${navy},#0F2B21 50%,${green})` }
                 }
                 onClick={() => currentUser?.cover_url && openLightbox([{ url: currentUser.cover_url, alt: "Photo de couverture" }])}
                 onKeyDown={(e) => { if (currentUser?.cover_url && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); openLightbox([{ url: currentUser.cover_url, alt: "Photo de couverture" }]); } }}

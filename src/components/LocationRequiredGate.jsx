@@ -11,7 +11,7 @@ export default function LocationRequiredGate({ onRetry, retrying, error, onSignO
   return (
     <div className="min-h-screen flex items-center justify-center p-6" style={{ background: C.sand }}>
       <div className="bb-card p-8 max-w-sm w-full text-center">
-        <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full" style={{ background: "rgba(217,164,65,0.14)" }}>
+        <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full" style={{ background: "rgba(242,163,58,0.14)" }}>
           <MapPin size={26} color={C.ochre} />
         </div>
         <h1 className="text-lg font-black" style={{ color: "var(--bb-text)" }}>Localisation requise</h1>

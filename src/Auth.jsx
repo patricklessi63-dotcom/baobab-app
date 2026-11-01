@@ -428,7 +428,7 @@ export default function Auth({ justVerified = false, onAcknowledgeVerified = () 
       <div className="bb-hero relative z-10 hidden lg:block w-full max-w-6xl mr-auto">
         <div className="max-w-md pl-4 lg:pl-10">
           <div className="bb-badge inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-semibold"
-            style={{ background: "rgba(13,32,22,0.52)", border: "1px solid rgba(242,233,220,0.16)", backdropFilter: "blur(12px)" }}>
+            style={{ background: "rgba(11,21,17,0.52)", border: "1px solid rgba(242,233,220,0.16)", backdropFilter: "blur(12px)" }}>
             <MapPin size={14} color={C.ochre} /> Une communauté partout au Canada
           </div>
           <h2 className="mt-5 text-3xl lg:text-5xl leading-[1.08]" style={{ fontFamily: "var(--bb-font-display)", fontWeight: 700, perspective: "700px" }}>
@@ -483,8 +483,8 @@ export default function Auth({ justVerified = false, onAcknowledgeVerified = () 
               déconnexion volontaire via "Déconnexion" (voir manualSignOutRef
               dans App.jsx). */}
           {mode === "signin" && sessionExpired && (
-            <div role="status" className="mb-5 rounded-2xl px-4 py-4 flex items-center gap-3" style={{ background: "rgba(217,164,65,0.14)", border: "1px solid rgba(217,164,65,0.28)" }}>
-              <span className="flex-shrink-0 h-9 w-9 rounded-full flex items-center justify-center" style={{ background: "rgba(217,164,65,0.25)" }}>
+            <div role="status" className="mb-5 rounded-2xl px-4 py-4 flex items-center gap-3" style={{ background: "rgba(242,163,58,0.14)", border: "1px solid rgba(242,163,58,0.28)" }}>
+              <span className="flex-shrink-0 h-9 w-9 rounded-full flex items-center justify-center" style={{ background: "rgba(242,163,58,0.25)" }}>
                 <AlertTriangle size={19} color={C.ochre} />
               </span>
               <div>
@@ -513,7 +513,7 @@ export default function Auth({ justVerified = false, onAcknowledgeVerified = () 
               <button type="button" onClick={() => switchMode("signin")} className="bb-tap rounded-xl px-3.5 py-2 text-xs font-bold text-white" style={{ background: "var(--bb-leaf)" }}>
                 Se connecter
               </button>
-              <button type="button" onClick={() => switchMode("reset")} className="bb-tap rounded-xl px-3.5 py-2 text-xs font-semibold" style={{ color: C.ochre, border: "1px solid rgba(217,164,65,0.35)" }}>
+              <button type="button" onClick={() => switchMode("reset")} className="bb-tap rounded-xl px-3.5 py-2 text-xs font-semibold" style={{ color: C.ochre, border: "1px solid rgba(242,163,58,0.35)" }}>
                 Mot de passe oublié ?
               </button>
             </div>
@@ -549,7 +549,7 @@ export default function Auth({ justVerified = false, onAcknowledgeVerified = () 
           {mode === "check-email" && (
             <div className="mt-1">
               <div className="flex items-center gap-3 mb-4">
-                <span className="flex-shrink-0 h-11 w-11 rounded-full flex items-center justify-center" style={{ background: "rgba(217,164,65,0.14)" }}>
+                <span className="flex-shrink-0 h-11 w-11 rounded-full flex items-center justify-center" style={{ background: "rgba(242,163,58,0.14)" }}>
                   <MailCheck size={20} color={C.ochre} />
                 </span>
                 <div>
@@ -615,7 +615,7 @@ export default function Auth({ justVerified = false, onAcknowledgeVerified = () 
                 </button>
               </form>
               <div className="mt-5 flex flex-col gap-2.5">
-                <button onClick={handleResend} disabled={resendCooldown > 0 || resendLoading} className="bb-tap py-3 rounded-2xl text-sm font-semibold disabled:opacity-50" style={{ color: C.ochre, border: "1px solid rgba(217,164,65,0.3)" }}>
+                <button onClick={handleResend} disabled={resendCooldown > 0 || resendLoading} className="bb-tap py-3 rounded-2xl text-sm font-semibold disabled:opacity-50" style={{ color: C.ochre, border: "1px solid rgba(242,163,58,0.3)" }}>
                   {resendLoading ? "Envoi..." : resendCooldown > 0 ? `Renvoyer (${resendCooldown}s)` : "Renvoyer l'email"}
                 </button>
                 <button onClick={() => switchMode("signup")} className="bb-tap py-3 rounded-2xl text-sm font-semibold" style={{ color: C.sandDim }}>
@@ -753,7 +753,7 @@ export default function Auth({ justVerified = false, onAcknowledgeVerified = () 
       </section>
 
       {legalView && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-6" style={{ background: "rgba(7,20,13,0.72)" }} onClick={() => setLegalView(null)} role="dialog" aria-modal="true" aria-label={legalView === "privacy" ? "Politique de confidentialité" : "Conditions d'utilisation"}>
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-6" style={{ background: "rgba(6,11,9,0.72)" }} onClick={() => setLegalView(null)} role="dialog" aria-modal="true" aria-label={legalView === "privacy" ? "Politique de confidentialité" : "Conditions d'utilisation"}>
           <div ref={legalPanelRef} tabIndex={-1} className="w-full sm:max-w-lg max-h-[88vh] sm:max-h-[80vh] flex flex-col rounded-t-[28px] sm:rounded-[24px] overflow-hidden"
             style={{ background: C.dusk3, color: C.sand, paddingBottom: "env(safe-area-inset-bottom)" }} onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between px-5 py-4 border-b flex-shrink-0" style={{ borderColor: "rgba(242,233,220,0.12)" }}>

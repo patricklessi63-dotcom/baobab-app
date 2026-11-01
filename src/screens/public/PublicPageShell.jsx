@@ -1,6 +1,7 @@
 import React, { useEffect } from "react";
 import { ArrowLeft } from "lucide-react";
 import { C } from "../../components/auth/authTheme";
+import HorizonBrand from "../../components/horizon/HorizonBrand";
 
 // Mise en page partagée par les pages publiques (À propos, Confidentialité,
 // Conditions) — même palette sombre que Auth.jsx/UpdatePasswordScreen.jsx,
@@ -37,13 +38,14 @@ export default function PublicPageShell({ title, navigate, children }) {
 
   return (
     <main className="min-h-screen flex flex-col items-center px-4 py-8 sm:px-6"
-      style={{ background: C.dusk, color: C.sand, fontFamily: "Inter, system-ui, sans-serif", paddingTop: "max(2rem, env(safe-area-inset-top, 0px))", paddingBottom: "max(2rem, env(safe-area-inset-bottom, 0px))" }}>
+      style={{ backgroundColor: C.dusk, backgroundImage: "radial-gradient(70% 40% at 85% 0%, rgba(31,122,90,0.22), transparent 70%), radial-gradient(60% 40% at 0% 60%, rgba(242,163,58,0.08), transparent 70%)", color: C.sand, fontFamily: "var(--bb-font-body)", paddingTop: "max(2rem, env(safe-area-inset-top, 0px))", paddingBottom: "max(2rem, env(safe-area-inset-bottom, 0px))" }}>
       <div className="w-full max-w-2xl">
+        <div className="mb-4" style={{ color: C.sand }}><HorizonBrand /></div>
         <button type="button" onClick={() => navigate("/")} className="min-h-11 inline-flex items-center gap-1 text-xs font-semibold mb-6" style={{ color: C.sandDim }}>
           <ArrowLeft size={14} /> Retour à l'accueil
         </button>
 
-        <div className="rounded-[24px] p-6 sm:p-8" style={{ background: C.dusk3, border: "1px solid rgba(242,233,220,0.12)" }}>
+        <div className="bb-rise rounded-[24px] p-6 sm:p-8" style={{ background: C.dusk3, border: "1px solid rgba(243,238,228,0.14)", boxShadow: "0 24px 56px -20px rgba(0,0,0,0.7)" }}>
           {title && (
             <h1 className="mb-5" style={{ fontFamily: "var(--bb-font-display)", fontWeight: 600, fontSize: 26, color: C.sand }}>
               {title}

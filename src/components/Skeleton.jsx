@@ -7,7 +7,7 @@ import { primaryRgb } from "../constants";
 export default function Skeleton({ rows = 3, height = 14, gap = 8, widths, className = "" }) {
   const items = Array.from({ length: rows });
   return (
-    <div className={`animate-pulse ${className}`} aria-hidden="true">
+    <div className={`bb-skel ${className}`} aria-hidden="true">
       {items.map((_, i) => (
         <div
           key={i}
@@ -26,7 +26,7 @@ export default function Skeleton({ rows = 3, height = 14, gap = 8, widths, class
 
 export function SkeletonCard({ className = "" }) {
   return (
-    <div className={`rounded-[28px] border bg-[var(--bb-surface)] p-5 animate-pulse ${className}`} style={{ borderColor: `rgba(${primaryRgb},.08)` }} aria-hidden="true">
+    <div className={`bb-skel rounded-[28px] border bg-[var(--bb-surface)] p-5 ${className}`} style={{ borderColor: `rgba(${primaryRgb},.08)` }} aria-hidden="true">
       <div className="rounded-2xl mb-3" style={{ height: 120, background: `rgba(${primaryRgb},.08)` }} />
       <div className="rounded-lg mb-2" style={{ height: 16, width: "70%", background: `rgba(${primaryRgb},.08)` }} />
       <div className="rounded-lg" style={{ height: 12, width: "40%", background: `rgba(${primaryRgb},.08)` }} />

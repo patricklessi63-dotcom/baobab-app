@@ -27,7 +27,7 @@ export default function ProfileMenu({
 }) {
   return (
     <div className="absolute right-0 top-14 w-64 bg-[var(--bb-surface)] rounded-2xl border border-[var(--bb-border)] shadow-2xl p-2 z-50">
-      <div className="rounded-xl p-3 mb-1" style={{ background: `linear-gradient(135deg,${navy},#1E4632)` }}>
+      <div className="rounded-xl p-3 mb-1" style={{ background: `linear-gradient(135deg,${navy},#0F2B21)` }}>
         <div className="text-white font-bold">{currentUser?.name || "Ton profil"}</div>
         <div className="text-white/60 text-xs mt-0.5">{currentUser?.city || "Canada"} · 🟢 En ligne</div>
       </div>
