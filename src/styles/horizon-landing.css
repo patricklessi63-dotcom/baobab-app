@@ -170,7 +170,7 @@
   border: 1px solid var(--hz-trait); background: linear-gradient(150deg, rgba(31, 122, 90, 0.2), rgba(243, 238, 228, 0.03));
 }
 .hz-feature-ico { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 14px; background: rgba(98, 240, 186, 0.1); border: 1px solid rgba(98, 240, 186, 0.35); color: var(--hz-signal); }
-.hz-feature h3 { margin: 4px 0 0; font-family: var(--hz-font-display); font-weight: 700; font-size: 1.2rem; line-height: 1.2; }
+.hz-feature h3 { margin: 4px 0 0; font-family: var(--hz-font-body); font-weight: 800; font-size: 1.15rem; line-height: 1.25; }
 .hz-feature p { margin: 0; color: var(--hz-brume); font-size: 0.95rem; }
 
 /* Pied de page */

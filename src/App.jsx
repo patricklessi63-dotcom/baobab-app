@@ -3722,7 +3722,7 @@ export default function App() {
       {/* Header */}
       <div className="relative z-20 flex items-center justify-between px-5 py-4 bb-generic-glass" style={{ borderBottom: `1px solid rgba(var(--bb-ink-rgb-static),0.08)`, boxShadow: "0 1px 0 rgba(8,20,14,0.06)", position: "sticky", top: 0, zIndex: 10, paddingTop: "calc(1rem + env(safe-area-inset-top, 0px))" }}>
         <div className="flex items-center gap-2">
-          <span style={{ fontFamily: "var(--bb-font-display)", fontWeight: 600, fontSize: 20, color: C.primary }}>
+          <span style={{ fontFamily: "var(--bb-font-title)", fontWeight: 800, fontSize: 20, color: C.primary }}>
             Baobab
           </span>
           <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: C.ochre, color: C.indigoDeep, fontWeight: 700 }}>

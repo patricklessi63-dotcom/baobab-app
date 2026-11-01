@@ -61,7 +61,7 @@ export default function Avatar({ name, size = 44, url, eager = false }) {
         alignItems: "center",
         justifyContent: "center",
         color: "#1C1608",
-        fontFamily: "var(--bb-font-display)",
+        fontFamily: "var(--bb-font-title)", fontWeight: 800,
         fontWeight: 700,
         fontSize: size * 0.4,
         flexShrink: 0,

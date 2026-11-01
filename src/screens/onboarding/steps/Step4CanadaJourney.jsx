@@ -46,7 +46,7 @@ export default function Step4CanadaJourney({ draft, update }) {
 
   return (
     <div className="flex flex-col gap-3">
-      <h2 style={{ fontFamily: "var(--bb-font-display)", fontSize: 22, color: C.primary }}>
+      <h2 style={{ fontFamily: "var(--bb-font-title)", fontWeight: 800, fontSize: 22, color: C.primary }}>
         🇨🇦 Ton parcours au Canada
       </h2>
 

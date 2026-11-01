@@ -2324,7 +2324,7 @@ export default function SocialShell({
               <HorizonMark size={30} />
             </div>
             <div className="hidden sm:block text-left">
-              <div className="bb-display text-base" style={{ color: primary, fontWeight: 800, letterSpacing: ".18em" }}>BAOBAB</div>
+              <div className="bb-wordmark text-base" style={{ color: primary }}>BAOBAB</div>
               <div className="bb-mono text-[9px] uppercase tracking-[.2em]" style={{ color: muted }}>connecter · s'intégrer · aimer</div>
             </div>
           </button>

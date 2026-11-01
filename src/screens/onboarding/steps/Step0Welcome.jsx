@@ -9,7 +9,7 @@ export function isStep0Valid(draft) {
 export default function Step0Welcome({ draft, update }) {
   return (
     <div className="flex flex-col gap-3">
-      <h2 style={{ fontFamily: "var(--bb-font-display)", fontSize: 24, color: C.primary }}>
+      <h2 style={{ fontFamily: "var(--bb-font-title)", fontWeight: 800, fontSize: 24, color: C.primary }}>
         Bienvenue sur Baobab 🌍
       </h2>
       <p className="text-sm" style={{ color: "rgba(var(--bb-ink-rgb-static),0.6)" }}>

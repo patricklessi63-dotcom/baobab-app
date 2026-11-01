@@ -14,7 +14,7 @@ export default function BaobabHero({ recommendationsCount = 0, profileCompletePc
     >
       <div className="bb-hero-body relative max-w-2xl p-6 pt-12 md:p-9 md:pt-12">
         <p className="bb-eyebrow" style={{ color: "var(--hz-signal)", margin: 0 }}>Ton réseau · Canada</p>
-        <h2 className="text-2xl md:text-4xl mt-3 leading-tight" style={{ color: "var(--hz-ivoire)" }}>
+        <h2 className="bb-display text-2xl md:text-4xl mt-3" style={{ color: "var(--hz-ivoire)" }}>
           Ton cercle <span className="bb-sun-text">canadien</span> commence ici.
         </h2>
         <p className="text-sm md:text-base mt-3 leading-6 max-w-md" style={{ color: "rgba(243,238,228,0.78)" }}>

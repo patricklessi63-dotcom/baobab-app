@@ -100,7 +100,7 @@ export default function EditProfileForm({
       <button onClick={() => setView("feed")} className="bb-hit flex items-center gap-1 text-sm mb-4" style={{ color: C.primary }}>
         <ArrowLeft size={16} /> Retour
       </button>
-      <h2 style={{ fontFamily: "var(--bb-font-display)", fontSize: 24, color: C.primary }} className="mb-4">
+      <h2 style={{ fontFamily: "var(--bb-font-title)", fontWeight: 800, fontSize: 24, color: C.primary }} className="mb-4">
         Modifier mon profil
       </h2>
 

@@ -60,7 +60,7 @@ export default function PrivacyFieldsModal({ open, onClose, onBack, currentUser,
           {onBack && (
             <button className="bb-hit" onClick={onBack} aria-label="Retour" style={{ color: "var(--bb-text)" }}><ArrowLeft size={16} /></button>
           )}
-          <div style={{ fontFamily: "var(--bb-font-display)", fontSize: 20, color: "var(--bb-text)" }}>
+          <div style={{ fontFamily: "var(--bb-font-title)", fontWeight: 800, fontSize: 20, color: "var(--bb-text)" }}>
             Confidentialité des champs
           </div>
         </div>

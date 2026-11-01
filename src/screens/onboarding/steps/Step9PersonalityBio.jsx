@@ -14,7 +14,7 @@ export function isStep9Valid() {
 export default function Step9PersonalityBio({ draft, update }) {
   return (
     <div className="flex flex-col gap-3">
-      <h2 style={{ fontFamily: "var(--bb-font-display)", fontSize: 22, color: C.primary }}>
+      <h2 style={{ fontFamily: "var(--bb-font-title)", fontWeight: 800, fontSize: 22, color: C.primary }}>
         Un peu de personnalité
       </h2>
       <p className="text-sm" style={{ color: "rgba(var(--bb-ink-rgb-static),0.6)" }}>

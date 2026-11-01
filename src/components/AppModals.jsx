@@ -150,7 +150,7 @@ export default function AppModals({
       {settingsOpen && (
         <div className="bb-fade-in fixed inset-0 flex items-end md:items-center justify-center z-[70] p-0 md:p-5" style={{ background: "rgba(8,20,14,0.55)", backdropFilter: "blur(3px)" }} onClick={() => setSettingsOpen(false)} role="dialog" aria-modal="true" aria-label="Paramètres">
           <div ref={settingsDialogRef} tabIndex={-1} className="bb-card p-6 w-full max-w-md rounded-t-[20px] md:rounded-[20px]" style={{ maxHeight: "85vh", overflowY: "auto", paddingBottom: "max(1.5rem, env(safe-area-inset-bottom))" }} onClick={(e) => e.stopPropagation()}>
-            <div style={{ fontFamily: "var(--bb-font-display)", fontSize: 20, color: "var(--bb-text)" }} className="mb-4">
+            <div style={{ fontFamily: "var(--bb-font-title)", fontWeight: 800, fontSize: 20, color: "var(--bb-text)" }} className="mb-4">
               Paramètres
             </div>
 
@@ -368,7 +368,7 @@ export default function AppModals({
           <div ref={blockedDialogRef} tabIndex={-1} className="bb-card p-6 w-full max-w-md rounded-t-[20px] md:rounded-[20px]" style={{ maxHeight: "80vh", overflowY: "auto", paddingBottom: "max(1.5rem, env(safe-area-inset-bottom))" }} onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center gap-2 mb-1">
               <button onClick={() => { setBlockedOpen(false); setSettingsOpen(true); }} aria-label="Retour aux réglages" className="bb-hit focus-visible:outline focus-visible:outline-2" style={{ color: "var(--bb-text)" }}><ArrowLeft size={16} /></button>
-              <div style={{ fontFamily: "var(--bb-font-display)", fontSize: 20, color: "var(--bb-text)" }}>Comptes bloqués</div>
+              <div style={{ fontFamily: "var(--bb-font-title)", fontWeight: 800, fontSize: 20, color: "var(--bb-text)" }}>Comptes bloqués</div>
             </div>
             <p className="text-sm mb-3" style={{ color: "rgba(var(--bb-ink-rgb),0.6)" }}>
               Ces profils ne peuvent plus te contacter ni apparaître dans ta liste de découverte.
@@ -414,7 +414,7 @@ export default function AppModals({
       {privacyOpen && (
         <div className="bb-fade-in fixed inset-0 flex items-end md:items-center justify-center z-[70] p-0 md:p-5" style={{ background: "rgba(8,20,14,0.55)", backdropFilter: "blur(3px)" }} onClick={() => setPrivacyOpen(false)} role="dialog" aria-modal="true" aria-label="Politique de confidentialité">
           <div ref={privacyDialogRef} tabIndex={-1} className="p-6 w-full max-w-md rounded-t-[20px] md:rounded-[20px]" style={{ background: C.dusk3, border: "1px solid rgba(242,233,220,0.12)", boxShadow: "var(--bb-shadow-lg)", maxHeight: "80vh", overflowY: "auto", paddingBottom: "max(1.5rem, env(safe-area-inset-bottom))" }} onClick={(e) => e.stopPropagation()}>
-            <div style={{ fontFamily: "var(--bb-font-display)", fontSize: 20, color: C.sand }} className="mb-3">
+            <div style={{ fontFamily: "var(--bb-font-title)", fontWeight: 800, fontSize: 20, color: C.sand }} className="mb-3">
               Politique de confidentialité
             </div>
             <div className="text-sm" style={{ color: C.sandDim }}>
@@ -433,7 +433,7 @@ export default function AppModals({
       {termsOpen && (
         <div className="bb-fade-in fixed inset-0 flex items-end md:items-center justify-center z-[70] p-0 md:p-5" style={{ background: "rgba(8,20,14,0.55)", backdropFilter: "blur(3px)" }} onClick={() => setTermsOpen(false)} role="dialog" aria-modal="true" aria-label="Conditions d'utilisation">
           <div ref={termsDialogRef} tabIndex={-1} className="p-6 w-full max-w-md rounded-t-[20px] md:rounded-[20px]" style={{ background: C.dusk3, border: "1px solid rgba(242,233,220,0.12)", boxShadow: "var(--bb-shadow-lg)", maxHeight: "80vh", overflowY: "auto", paddingBottom: "max(1.5rem, env(safe-area-inset-bottom))" }} onClick={(e) => e.stopPropagation()}>
-            <div style={{ fontFamily: "var(--bb-font-display)", fontSize: 20, color: C.sand }} className="mb-3">
+            <div style={{ fontFamily: "var(--bb-font-title)", fontWeight: 800, fontSize: 20, color: C.sand }} className="mb-3">
               Conditions d'utilisation
             </div>
             <div className="text-sm" style={{ color: C.sandDim }}>
@@ -458,7 +458,7 @@ export default function AppModals({
       {aboutOpen && (
         <div className="bb-fade-in fixed inset-0 flex items-end md:items-center justify-center z-[70] p-0 md:p-5" style={{ background: "rgba(8,20,14,0.55)", backdropFilter: "blur(3px)" }} onClick={() => setAboutOpen(false)} role="dialog" aria-modal="true" aria-label="À propos">
           <div ref={aboutDialogRef} tabIndex={-1} className="bb-card p-6 w-full max-w-md text-center rounded-t-[20px] md:rounded-[20px]" style={{ paddingBottom: "max(1.5rem, env(safe-area-inset-bottom))", maxHeight: "80vh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
-            <div style={{ fontFamily: "var(--bb-font-display)", fontWeight: 600, fontSize: 24, color: "var(--bb-text)" }} className="mb-1">
+            <div style={{ fontFamily: "var(--bb-font-title)", fontWeight: 800, fontSize: 24, color: "var(--bb-text)" }} className="mb-1">
               Baobab
             </div>
             <p className="text-sm mb-4" style={{ color: "rgba(var(--bb-ink-rgb),0.6)" }}>
