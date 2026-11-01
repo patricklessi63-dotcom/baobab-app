@@ -476,10 +476,13 @@ existent ailleurs ; mentionner l'âge 18+ et la zone Canada. **URL d'assistance*
 | Boutique | Taille | Remarque |
 | --- | --- | --- |
 | Apple iPhone | **6,9" : 1320×2868** (ou 1290×2796 / 1260×2736) — ou 6,5" 1284×2778 — ou 6,3" 1206×2622 / 6,1" 1179×2556 | 1 à 10, PNG/JPEG **sans transparence** ; la plus grande taille requise est mise à l'échelle pour les autres |
+| Apple icône de l'app | **1024×1024 PNG, SANS canal alpha**, sans coins arrondis (Apple arrondit lui-même) | fournie : `assets/store/icon-1024.png` (vérifiée : PNG RVB de type 2, test `logoAssets.test.js`) ; c'est aussi l'icône embarquée `AppIcon-512@2x.png` |
 | Apple iPad (si l'app est proposée sur iPad) | **13" : 2064×2752** (ou 2048×2732) | décider à l'étape 5 si iPad est pris en charge |
 | Google téléphone | 2 à 8 captures, côté 320 à 3 840 px, rapport ≤ 2:1 (recommandé 1080×1920 ou 1920×1080) | |
-| Google icône / image de présentation | **512×512 PNG ≤ 1 024 Ko** / **1024×500** (JPEG ou PNG 24 bits sans alpha) | l'icône source est `public/icon-512.png` ; image 1024×500 : **à créer** **[PROPRIÉTAIRE]** |
+| Google icône / image de présentation | **512×512 PNG ≤ 1 024 Ko** / **1024×500** (JPEG ou PNG 24 bits sans alpha) | icône fournie : `assets/store/icon-512.png` (512×512, opaque, logo Horizon, régénérable par `npm run assets:logo`) ; image 1024×500 : **à créer** **[PROPRIÉTAIRE]** |
 | Google tablettes 7"/10" | 1080–7680 px, 16:9 ou 9:16 | facultatif |
+
+**Icônes de boutique (identité Horizon, novembre 2026)** : `assets/store/icon-1024.png` (App Store) et `assets/store/icon-512.png` (Google Play) sont générées par `npm run assets:logo` à partir du logo vectoriel `assets/logo/` (fond nuit + lueur canopée, marque à 70 % de la hauteur, opaques). Le logo, la zone de protection et les tailles minimales sont décrits dans `assets/logo/README.md`. Une image de présentation Google 1024×500 reste à créer (le mot-symbole `assets/logo/baobab-wordmark.svg` peut servir de base).
 
 ---
 

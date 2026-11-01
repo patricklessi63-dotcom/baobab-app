@@ -191,8 +191,8 @@ Valeurs réellement utilisées pour splash, barre d'état et icônes :
 | Green #2E8B72 | #1F7A5A (`--bb-leaf`, actions) ; #3FB37E / #6FD6A6 décoratif | proche |
 | Cream #F7F2EA | #FAF7F2 (`--bb-bg` clair), #F8F5EF (`--bb-sand`) ; sombre #14120D | proche |
 
-Splash clair = #14432A + arbre ; splash sombre et fond de fenêtre sombre = #14120D (jeton
-`--bb-bg` sombre) ; fond de fenêtre clair = #FAF7F2. Si le propriétaire veut réellement
+Splash clair = ivoire #F3EEE4 + marque ; splash sombre et fond de fenêtre sombre = nuit #060B09
+(jeton `--bb-bg` sombre) ; fond de fenêtre clair = ivoire #F3EEE4 (identité Horizon, 1er novembre 2026 : ce tableau de comparaison avec le brief reste historique). Si le propriétaire veut réellement
 la palette du brief (indigo #151B3D…), c'est un chantier de refonte du design system, pas
 un réglage mobile.
 
@@ -286,22 +286,41 @@ navigation. Limite connue : WebView < 140 (rare) → la zone sous la barre d'ét
 fenêtre (`bb_window_background`, suit le thème système, pas le réglage interne) : icônes
 éventuellement mal contrastées si thème interne ≠ thème système.
 
-**6. Splash et icônes.** Seule source de logo : `public/icon-512.png` (512 px, raster, carré
-arrondi vert #14432A + arbre or/brun). Aucun nouveau logo :
-`scripts/generate-native-asset-sources.mjs` (`npm run assets:sources`) détoure l'arbre et le
-recompose sur fonds unis de la charte → `assets/icon-only.png` (1024², arbre ×1,5),
-`icon-foreground.png` (1024², transparent, arbre ×1,8), `icon-background.png`, `splash.png`
-(2732², #14432A), `splash-dark.png` (2732², #14120D). Puis `npm run assets:android`
-(= `npx capacitor-assets generate --android --assetPath assets`, sharp inclus, fonctionne
-sans Android Studio) a produit les 74 PNG de `android/app/src/main/res` (versionnés,
-~0,9 Mo) et l'icône adaptative. `@capacitor/splash-screen` 8.0.2 : `launchAutoHide` avec 3 s
-en secours, masquage manuel dès que la session est vérifiée (`hideSplash`), fond #14432A ;
-Android 12+ : `windowSplashScreenBackground` = `bb_splash_background` (clair #14432A / sombre
-#14120D).
-**À fournir par le propriétaire** : le logo en **vectoriel (SVG) ou PNG ≥ 1024²** (l'actuel est
-agrandi ×1,5 / ×1,8 : correct car aplats, mais moins net qu'une source native), une version de
-l'arbre sans fond, et, pour iOS (étape 5), `icon-only.png` sans transparence (déjà le cas).
-Déposer les fichiers dans `assets/` à la place des générés, puis `npm run assets:android`.
+**6. Splash et icônes — identité « Baobab Horizon » (1er novembre 2026).** Le vrai logo vectoriel
+existe : `assets/logo/` (`baobab-mark.svg`, `-light`, `-mono`, `baobab-wordmark.svg`, README : usage, couleurs,
+zone de protection, tailles minimales). Source unique : `src/components/baobabMark.js` (géométrie, palette
+Horizon uniquement : nuit #060B09, canopée #0F2B21, sève #1F7A5A, braise #F2A33A, corail #EA5F4B, menthe
+#62F0BA, ivoire #F3EEE4). `scripts/generate-logo-assets.mjs` (`npm run assets:logo`, moteur `sharp`
+déjà présent via @capacitor/assets, désormais devDependency directe) régénère, sans rien dessiner à la
+main : les SVG, `public/` (favicon.svg, icon-64/192/512, icon-512-maskable dans le cercle sûr de 80 %,
+apple-touch-icon 180 sans alpha, og-baobab 1200×630), les sources natives `assets/` (icon-only 1024² SANS
+alpha, icon-foreground 1024² transparent, icon-background 1024², splash 2732² clair = ivoire, splash-dark
+2732² = nuit + lueur braise et ligne d'horizon), `assets/store/` (icônes de store) et les ressources
+Android propres à la marque. Les anciens scripts (`generate-native-asset-sources.mjs`,
+`generate-maskable-icon.mjs`, `generate-push-icon.mjs`, qui détouraient l'ancien logo vert #14432A) sont
+supprimés : les relancer aurait écrasé la nouvelle identité.
+
+Chaîne native : `npm run assets:logo` puis `npm run assets:android` (= `capacitor-assets generate --android`
+puis `generate-logo-assets.mjs --android-extras`) et `npm run assets:ios`. Les « extras » Android, que
+@capacitor/assets ne produit pas ou produit mal : (1) `ic_stat_baobab` en 5 densités (blanc + alpha, issu de
+la marque monochrome, 20 dp utiles sur 24) ; (2) `mipmap-*/ic_launcher_monochrome.png` + balise
+`<monochrome>` dans `ic_launcher.xml`/`ic_launcher_round.xml` (icônes thématiques Android 13) — c'est pourquoi
+l'étape est enchaînée : capacitor-assets réécrit ces XML ; (3) `mipmap-*/ic_launcher_foreground.png` à la
+taille exacte (72 dp × densité : 72/108/144/216/288 px) au lieu des 48-192 px de capacitor-assets, que
+`ic_launcher.xml` agrandit (inset 16,7 %) : sinon l'avant-plan est flou sur les écrans denses et sur le
+splash Android 12+ ; (4) couleurs : `bb_splash_background` ivoire #F3EEE4 en clair / nuit #060B09 en sombre
+(= bords des images de splash : aucune bande), `ic_launcher_background` nuit, `bb_window_background`
+inchangé (déjà ivoire / nuit), `capacitor.config.json` `SplashScreen.backgroundColor` ivoire. Plus aucune
+trace de #14432A / #14120D dans les ressources de lancement (test `src/native/logoAssets.test.js`).
+`@capacitor/splash-screen` 8.0.2 : `launchAutoHide` avec 3 s en secours, masquage manuel dès que la session
+est vérifiée (`hideSplash`). Zone sûre : l'avant-plan adaptatif (marque dans un cercle de rayon 44 % de
+l'image ; la limite est 45,8 %, car l'image est affichée dans 72 dp avec un cercle sûr de 66 dp) est aussi
+l'icône du splash Android 12+ sur fond uni. Le texte « Baobab » n'est pas sur les splash (marque seule).
+Le composant `BaobabLogo.jsx` (marque inline, `title` => nom accessible, sinon `aria-hidden`) reprend la même géométrie.
+**À vérifier par le propriétaire** (rien de tout cela n'a pu être testé ici, ni appareil, ni émulateur) :
+l'aspect réel de l'icône adaptative selon le lanceur (cercle, carré arrondi, goutte), du splash Android 12+
+et de l'icône thématique Android 13, de l'écran de lancement iOS (image carrée « aspect fill », recadrée
+au centre) et de la petite icône de notification sur la barre d'état.
 
 **7. Orientation.** Android : `android:screenOrientation="portrait"` sur `MainActivity`. Sur
 Android 16 (targetSdk 36), le système **ignore** ce verrou sur les grands écrans (≥ 600 dp :
@@ -452,11 +471,11 @@ RS256 signé avec la clé du compte de service (`FCM_SERVICE_ACCOUNT_JSON`, port
    que l'écouteur est posé. `pushNotificationReceived` (app au premier plan) n'est **pas** écouté : les canaux
    Realtime existants affichent déjà la nouvelle activité (badge, liste) ; afficher en plus une alerte système
    la doublerait (`presentationOptions: ["badge"]` côté iOS pour la même raison).
-9. **Icône de notification** : petite icône monochrome blanche (silhouette de l'arbre du logo existant,
-   `ic_stat_baobab` en 5 densités) générée par `node scripts/generate-push-icon.mjs` à partir de
-   `assets/icon-foreground.png` ; référencée avec la couleur d'accent `#14432A` et le canal par défaut dans
-   `AndroidManifest.xml` (utilisés par le système quand l'app est fermée). Remplaçable par un logo
-   monochrome fourni par le propriétaire.
+9. **Icône de notification** : petite icône monochrome blanche (silhouette du baobab Horizon,
+   `ic_stat_baobab` en 5 densités) générée à partir de `assets/logo/baobab-mark-mono.svg` par
+   `node scripts/generate-logo-assets.mjs --android-extras` ; référencée avec la couleur d'accent
+   `bb_notification_color` (#185C43, vert Horizon) et le canal par défaut dans `AndroidManifest.xml`
+   (utilisés par le système quand l'app est fermée).
 10. **Liens des pushs** : message → `/messages/<profil expéditeur>` ; match → `/messages/<profil de l'autre>` ;
     like, abonné → `/profile/<profil>` (uuid vérifiés côté serveur, sinon `/`). La charge utile Web Push garde
     `url: "/"`.
@@ -855,7 +874,7 @@ Le `.gitignore` racine interdit en plus `*.p8 *.p12 *.pem *.mobileprovision *.ce
 | `aps-environment` | `development` dans le fichier ; à l'export App Store, Xcode signe avec le profil de **distribution** (valeur `production`). Le workflow imprime les droits réellement signés pour le contrôler |
 | `UIRequiredDeviceCapabilities` | `armv7` (valeur du modèle Capacitor, inchangée) |
 | Région / langues | région de développement `fr`, `CFBundleLocalizations` fr + en (les boîtes système — « Autoriser » — suivent la langue du téléphone ; les textes d'autorisation sont en français) |
-| Écran de lancement | storyboard Capacitor + jeu d'images `Splash` (fond #14432A clair, #14120D sombre, arbre au centre : mêmes visuels qu'Android, générés par `capacitor-assets`) ; plugin `SplashScreen` : `backgroundColor` #14432A |
+| Écran de lancement | storyboard Capacitor + jeu d'images `Splash` (clair = ivoire #F3EEE4, sombre = nuit #060B09 avec lueur d'horizon, marque Horizon au centre : mêmes visuels qu'Android, générés par `capacitor-assets` à partir de `assets/splash*.png`) ; plugin `SplashScreen` : `backgroundColor` #F3EEE4. Icône d'app : `AppIcon-512@2x.png` 1024×1024 **sans alpha** (type de couleur 2, testé), issue de `assets/icon-only.png` |
 
 ### Manifeste de confidentialité (`PrivacyInfo.xcprivacy`)
 
