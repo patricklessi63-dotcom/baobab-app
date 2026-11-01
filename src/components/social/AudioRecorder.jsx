@@ -86,6 +86,15 @@ export default function AudioRecorder({ hasDraft, onSendText, onSendAudio, onAct
   // deux flux), puis le onstop tardif du premier finissait par couper le
   // flux du second en cours d'enregistrement.
   const micBusyRef = useRef(false);
+  // getUserMedia() peut se résoudre APRÈS le démontage (on quitte la conversation
+  // pendant que le navigateur demande l’accès au micro, puis on clique « Autoriser ») :
+  // sans ce garde, beginRecording() démarrait un enregistrement fantôme sur un
+  // composant démonté — micro ouvert (voyant allumé) et minuteur tournant à jamais.
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
 
   useEffect(() => {
     onActiveChange?.(state === "recording" || state === "preview" || permissionOpen);
@@ -253,6 +262,10 @@ export default function AudioRecorder({ hasDraft, onSendText, onSendAudio, onAct
     setPermissionRequesting(true);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      if (!mountedRef.current) {
+        stream.getTracks().forEach((t) => t.stop());
+        return;
+      }
       setPermissionOpen(false);
       beginRecording(stream);
     } catch (e) {
