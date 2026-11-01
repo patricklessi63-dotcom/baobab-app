@@ -20,6 +20,7 @@ import { prepareImageSelection } from "./lib/prepareImageSelection";
 import { uploadWithProgress } from "./lib/uploadWithProgress";
 import { MEDIA_BUCKET, extFromMime } from "./lib/mediaConstants";
 import { sortMessagesChronologically } from "./lib/messageOrdering";
+import { planReactionToggle } from "./lib/reactionToggle";
 import { trackActivation } from "./lib/trackActivation";
 import { fetchMyLocation, upsertMyLocation, disableMyLocation } from "./lib/locationApi";
 import { getCurrentPositionSafe, LOCATION_ERROR_MESSAGES } from "./lib/geolocation";
@@ -356,6 +357,7 @@ export default function App() {
   const [otherTyping, setOtherTyping] = useState(false);
   const typingChannelRef = useRef(null);
   const typingTimeoutRef = useRef(null);
+  const lastTypingSentRef = useRef(0);
   const messagesChannelRef = useRef(null);
 
   // Photos multiples — création de profil
@@ -2440,6 +2442,7 @@ export default function App() {
   }
 
   const MESSAGES_PAGE_SIZE = 30;
+  const TYPING_BROADCAST_INTERVAL_MS = 2000;
 
   async function openChat(match) {
     setActiveMatch(match);
@@ -2753,6 +2756,54 @@ export default function App() {
     );
   }
 
+  // Transfert de message(s) vers une AUTRE conversation (menu d'un message ou
+  // mode sélection). Les médias ne sont ni retéléchargés ni ré-uploadés : le
+  // fichier est copié côté Storage (copy) vers le dossier de la conversation de
+  // destination — la policy Storage d'INSERT vérifie déjà le like mutuel et
+  // l'absence de blocage avec le destinataire, et le trigger des messages
+  // applique les limites Premium comme pour un envoi normal. Envoi séquentiel
+  // pour conserver l'ordre. Retourne { sent, failed } (jamais de rejet).
+  async function forwardMessages(targetProfile, sourceMessages) {
+    const list = (sourceMessages || []).filter((src) => src && !src.deleted_at && src.kind !== "event").slice(0, 10);
+    if (!currentUser || !targetProfile || list.length === 0) return { sent: 0, failed: sourceMessages?.length || 0 };
+    const targetKey = matchKey(currentUser.id, targetProfile.id);
+    let sent = 0;
+    let failed = 0;
+    let lastError = null;
+    for (const src of list) {
+      let copiedPath = null;
+      try {
+        const row = { match_key: targetKey, from_id: currentUser.id, kind: src.kind, text: null, media_path: null, media_meta: null };
+        if (src.kind === "text") {
+          row.text = src.text;
+          row.media_meta = { forwarded: true };
+        } else if (src.kind === "sticker") {
+          row.media_meta = { ...(src.media_meta || {}), forwarded: true };
+        } else {
+          if (!src.media_path) throw new Error("Média indisponible");
+          const ext = String(src.media_path).split(".").pop() || "bin";
+          copiedPath = `${targetKey}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+          const { error: copyError } = await supabase.storage.from(MEDIA_BUCKET).copy(src.media_path, copiedPath);
+          if (copyError) throw copyError;
+          row.media_path = copiedPath;
+          row.media_meta = { ...(src.media_meta || {}), forwarded: true };
+        }
+        const { error: insError } = await supabase.from("messages").insert(row);
+        if (insError) throw insError;
+        sent += 1;
+      } catch (e) {
+        console.error(e);
+        failed += 1;
+        lastError = e;
+        // Fichier copié mais message refusé : pas de fichier orphelin.
+        if (copiedPath) supabase.storage.from(MEDIA_BUCKET).remove([copiedPath]).catch(() => {});
+      }
+    }
+    if (sent > 0) hapticLight();
+    if (failed > 0 && sent === 0) setError(friendlyDbError(lastError) || "Impossible de transférer ce message.");
+    return { sent, failed };
+  }
+
   // Un sticker n'implique jamais d'upload — la carte affichée dans le
   // sélecteur EST déjà l'aperçu, donc l'envoi est instantané.
   async function sendStickerMessage(sticker) {
@@ -2787,7 +2838,7 @@ export default function App() {
   // Envoie une photo/vidéo/audio/fichier avec progression réelle.
   // tempIdOverride est fourni lors d'un "Réessayer" — dans ce cas le
   // message optimiste existe déjà (avec _file), on ne le recrée pas.
-  async function sendMediaMessage(file, kind, tempIdOverride) {
+  async function sendMediaMessage(file, kind, tempIdOverride, extraMeta) {
     if (!currentUser || !activeMatch) return;
     const validation = await validateMediaFile(file, kind);
     if (!validation.ok) {
@@ -2801,7 +2852,11 @@ export default function App() {
     if (kind === "image") file = await compressImageIfNeeded(file, 1600);
     const key = matchKey(currentUser.id, activeMatch.id);
     const tempId = tempIdOverride || `temp-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-    const media_meta = { original_name: file.name, mime: file.type, size: file.size };
+    // Un « Réessayer » reprend les métadonnées du message optimiste (durée et
+    // forme d'onde d'un vocal) : les recalculer ici les perdrait, le fichier
+    // seul ne les porte pas.
+    const previousMeta = tempIdOverride ? messagesRef.current.find((msg) => msg.id === tempIdOverride)?.media_meta : null;
+    const media_meta = { ...(previousMeta || {}), ...(extraMeta || {}), original_name: file.name, mime: file.type, size: file.size };
     // Dimensions finales d'une photo (connues quand compressImageIfNeeded l'a
     // réduite) : la bulle réserve la place de l'image avant son chargement
     // (aspect-ratio) au lieu de sauter quand elle arrive.
@@ -3056,7 +3111,13 @@ export default function App() {
           setMessages((prev) =>
             prev.some((m) => m.id === payload.new.id) ? prev : sortMessagesChronologically([...dropGhostTemps(prev, payload.new), payload.new])
           );
-          if (payload.new.from_id !== currentUser.id) markConversationRead(activeMatch);
+          if (payload.new.from_id !== currentUser.id) {
+            // Le message est arrivé : « en train d'écrire… » n'a plus lieu d'être
+            // (sinon il restait affiché jusqu'à 3 s sous un message déjà reçu).
+            clearTimeout(typingTimeoutRef.current);
+            setOtherTyping(false);
+            markConversationRead(activeMatch);
+          }
         }
       )
       .on(
@@ -3076,8 +3137,9 @@ export default function App() {
     typingChannel
       .on("broadcast", { event: "typing" }, ({ payload }) => {
         if (payload.user_id === currentUser.id) return; // ignorer sa propre frappe
-        setOtherTyping(true);
         clearTimeout(typingTimeoutRef.current);
+        if (payload.state === "idle") { setOtherTyping(false); return; }
+        setOtherTyping(payload.state === "recording" ? "recording" : "typing");
         typingTimeoutRef.current = setTimeout(() => setOtherTyping(false), 3000);
       })
       .subscribe();
@@ -3373,43 +3435,48 @@ export default function App() {
     return () => { supabase.removeChannel(channel); };
   }, [currentUser?.id]);
 
-  function broadcastTyping() {
+  // state : "typing" (frappe, défaut) | "recording" (message vocal en cours) |
+  // "idle" (arrêt explicite : le correspondant efface l'indicateur tout de suite
+  // au lieu d'attendre l'expiration de 3 s). La frappe est limitée à un envoi
+  // toutes les 2 s : un événement Realtime PAR TOUCHE saturait le canal
+  // (quotas Supabase) pour un indicateur qui dure 3 s de toute façon.
+  function broadcastTyping(state = "typing") {
     if (!currentUser || !typingChannelRef.current) return;
     if (currentUser.show_read_receipts === false) return; // même réglage que les indicateurs de lecture
+    const now = Date.now();
+    if (state === "typing" && now - lastTypingSentRef.current < TYPING_BROADCAST_INTERVAL_MS) return;
+    lastTypingSentRef.current = state === "idle" ? 0 : now;
     typingChannelRef.current.send({
       type: "broadcast",
       event: "typing",
-      payload: { user_id: currentUser.id },
+      payload: { user_id: currentUser.id, state },
     });
   }
 
   // Toggle : si je réagis déjà avec cet emoji sur ce message, je le retire.
   async function toggleReaction(message, emoji) {
     if (!currentUser) return;
-    const existing = (reactionsByMessageId[message.id] || []).some(
-      (r) => r.profile_id === currentUser.id && r.emoji === emoji
-    );
+    // Une seule réaction par personne et par message (voir lib/reactionToggle.js) :
+    // choisir un autre emoji REMPLACE la réaction précédente.
+    const plan = planReactionToggle(reactionsByMessageId[message.id] || [], currentUser.id, emoji);
     try {
-      if (existing) {
-        setReactionsByMessageId((prev) => ({
-          ...prev,
-          [message.id]: (prev[message.id] || []).filter((r) => !(r.profile_id === currentUser.id && r.emoji === emoji)),
-        }));
+      setReactionsByMessageId((prev) => ({
+        ...prev,
+        [message.id]: plan.next.map((r) => (r.message_id ? r : { ...r, message_id: message.id })),
+      }));
+      if (plan.removeEmojis.length) {
         const { error: delError } = await supabase
           .from("message_reactions")
           .delete()
           .eq("message_id", message.id)
           .eq("profile_id", currentUser.id)
-          .eq("emoji", emoji);
+          .in("emoji", plan.removeEmojis);
         if (delError) throw delError;
-      } else {
-        setReactionsByMessageId((prev) => ({
-          ...prev,
-          [message.id]: [...(prev[message.id] || []), { message_id: message.id, profile_id: currentUser.id, emoji }],
-        }));
+      }
+      if (plan.addEmoji) {
         const { error: insError } = await supabase
           .from("message_reactions")
-          .insert({ message_id: message.id, profile_id: currentUser.id, emoji });
+          .insert({ message_id: message.id, profile_id: currentUser.id, emoji: plan.addEmoji });
         if (insError) throw insError;
       }
     } catch (e) {
@@ -3641,6 +3708,8 @@ export default function App() {
           toggleReaction={toggleReaction}
           deleteMessageForMe={deleteMessageForMe}
           deleteMessageForEveryone={deleteMessageForEveryone}
+          forwardMessages={forwardMessages}
+          showSuccessNotice={showSuccessNotice}
         />
         {matchNotice && (
           <MatchCelebrationModal

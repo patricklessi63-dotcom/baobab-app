@@ -1,10 +1,10 @@
 import React from "react";
-import { Reply, Copy, Trash2, Flag } from "lucide-react";
+import { Reply, Copy, Trash2, Flag, Forward, CheckSquare } from "lucide-react";
 import { primary, coralText, muted, card, primaryRgb } from "./theme";
 
 const QUICK_REACTIONS = ["❤️", "😂", "👍", "😮", "😢", "🎉"];
 
-export default function MessageActionsMenu({ message, isMine, align, onReact, onReply, onCopy, onReport, onDeleteForMe, onDeleteForEveryone, onClose }) {
+export default function MessageActionsMenu({ message, isMine, align, onReact, onReply, onCopy, onForward, onSelect, onReport, onDeleteForMe, onDeleteForEveryone, onClose }) {
   return (
     <div
       role="menu"
@@ -31,6 +31,16 @@ export default function MessageActionsMenu({ message, isMine, align, onReact, on
       {message.kind === "text" && (
         <button role="menuitem" onClick={() => { onCopy(); onClose(); }} className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-left" style={{ color: primary, borderTop: `1px solid rgba(${primaryRgb},.08)` }}>
           <Copy size={14} /> Copier
+        </button>
+      )}
+      {onForward && message.kind !== "event" && (
+        <button role="menuitem" onClick={() => { onForward(); onClose(); }} className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-left" style={{ color: primary, borderTop: `1px solid rgba(${primaryRgb},.08)` }}>
+          <Forward size={14} /> Transférer
+        </button>
+      )}
+      {onSelect && (
+        <button role="menuitem" onClick={() => { onSelect(); onClose(); }} className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-left" style={{ color: primary, borderTop: `1px solid rgba(${primaryRgb},.08)` }}>
+          <CheckSquare size={14} /> Sélectionner
         </button>
       )}
       {/* Signalement d'un message précis (Apple 1.2 / Google Play UGC : un moyen de
