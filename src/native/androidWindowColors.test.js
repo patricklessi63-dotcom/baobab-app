@@ -12,7 +12,8 @@ const win = (text) => text.match(/name="bb_window_background">(#[0-9A-Fa-f]{6})<
 
 describe("fond de fenêtre Android aligné sur les jetons Horizon", () => {
   const light = html.match(/--bb-bg: (#[0-9A-Fa-f]{6});/)[1].toUpperCase();
-  const dark = html.match(/:root\[data-theme="dark"\] \{\s*--bb-bg: (#[0-9A-Fa-f]{6});/)[1].toUpperCase();
+  const darkBlock = html.slice(html.indexOf(':root[data-theme="dark"] {'));
+  const dark = darkBlock.match(/--bb-bg: (#[0-9A-Fa-f]{6});/)[1].toUpperCase();
 
   it("thème clair = --bb-bg clair", () => expect(win(xml("values"))).toBe(light));
   it("thème sombre = --bb-bg sombre", () => expect(win(xml("values-night"))).toBe(dark));
