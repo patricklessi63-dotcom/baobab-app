@@ -12,7 +12,7 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "icons:maskable": "node scripts/generate-maskable-icon.mjs",
+    "assets:logo": "node scripts/generate-logo-assets.mjs",
     "cap:sync": "vite build && cap sync",
     "cap:open:android": "cap open android",
     "cap:sync:ios": "vite build && cap sync ios",
@@ -20,8 +20,7 @@
     "android:build:debug": "node scripts/android-gradle.mjs assembleDebug",
     "android:build:release": "node scripts/android-gradle.mjs bundleRelease",
     "ios:build:sim": "xcodebuild -project ios/App/App.xcodeproj -scheme App -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build",
-    "assets:sources": "node scripts/generate-native-asset-sources.mjs",
-    "assets:android": "capacitor-assets generate --android --assetPath assets",
+    "assets:android": "capacitor-assets generate --android --assetPath assets && node scripts/generate-logo-assets.mjs --android-extras",
     "assets:ios": "capacitor-assets generate --ios --assetPath assets"
   },
   "dependencies": {
@@ -56,6 +55,7 @@
     "plist": "^5.0.0",
     "postcss": "^8.5.26",
     "rollup-plugin-visualizer": "^5.12.0",
+    "sharp": "^0.32.6",
     "supabase": "^2.114.0",
     "tailwindcss": "^3.4.19",
     "vite": "^5.2.0",
