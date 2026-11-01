@@ -61,6 +61,13 @@ async function startRecording(props = {}) {
   return utils;
 }
 
+// Un enregistrement de moins de 0,6 s est refusé (voir MIN_VOICE_DURATION_MS) :
+// les tests qui veulent un aperçu avancent donc l'horloge avant d'arrêter.
+function advanceClock(ms) {
+  const base = Date.now();
+  vi.spyOn(Date, "now").mockReturnValue(base + ms);
+}
+
 describe("AudioRecorder — démontage en plein enregistrement", () => {
   it("arrête le MediaRecorder, coupe le micro et ne fabrique aucun Blob/URL après coup", async () => {
     const { unmount } = await startRecording();
@@ -87,6 +94,7 @@ describe("AudioRecorder — format selon la plateforme", () => {
     const onSendAudio = vi.fn();
     await startRecording({ onSendAudio });
     expect(FakeMediaRecorder.instances[0].options).toEqual({ mimeType: "audio/mp4" });
+    advanceClock(1500);
     await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Arrêter l'enregistrement" })); });
     await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Envoyer le message vocal" })); });
     const file = onSendAudio.mock.calls[0][0];
@@ -100,11 +108,56 @@ describe("AudioRecorder — format selon la plateforme", () => {
     const onSendAudio = vi.fn();
     await startRecording({ onSendAudio });
     expect(FakeMediaRecorder.instances[0].options).toEqual({ mimeType: "audio/webm;codecs=opus" });
+    advanceClock(1500);
     await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Arrêter l'enregistrement" })); });
     await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Envoyer le message vocal" })); });
     const file = onSendAudio.mock.calls[0][0];
     expect(file.type).toBe("audio/webm");
     expect(file.name).toMatch(/\.webm$/);
+  });
+});
+
+describe("AudioRecorder — jamais de vocal corrompu, durée et forme d'onde", () => {
+  it("un enregistrement trop court (appui involontaire) n'ouvre pas d'aperçu et affiche une erreur", async () => {
+    const onSendAudio = vi.fn();
+    await startRecording({ onSendAudio });
+    // pas d'avance d'horloge : ~0 ms
+    await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Arrêter l'enregistrement" })); });
+    expect(screen.queryByRole("button", { name: "Envoyer le message vocal" })).toBeNull();
+    expect(screen.getByText(/trop court/)).toBeInTheDocument();
+    expect(onSendAudio).not.toHaveBeenCalled();
+  });
+
+  it("un enregistrement sans aucune donnée (blob vide) est refusé, même s'il dure assez longtemps", async () => {
+    const onSendAudio = vi.fn();
+    await startRecording({ onSendAudio });
+    const recorder = FakeMediaRecorder.instances[0];
+    recorder.stop = function stopEmpty() { this.state = "inactive"; this.onstop?.(); }; // aucun dataavailable
+    advanceClock(2000);
+    await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Arrêter l'enregistrement" })); });
+    expect(screen.queryByRole("button", { name: "Envoyer le message vocal" })).toBeNull();
+    expect(screen.getByText(/vide/)).toBeInTheDocument();
+    expect(onSendAudio).not.toHaveBeenCalled();
+  });
+
+  it("l'envoi transmet la durée mesurée et une forme d'onde de 40 barres", async () => {
+    const onSendAudio = vi.fn();
+    await startRecording({ onSendAudio });
+    advanceClock(2300);
+    await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Arrêter l'enregistrement" })); });
+    await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Envoyer le message vocal" })); });
+    const meta = onSendAudio.mock.calls[0][1];
+    expect(meta.duration).toBeGreaterThanOrEqual(2.2);
+    expect(meta.duration).toBeLessThan(4);
+    expect(meta.waveform).toHaveLength(40);
+  });
+
+  it("signale l'état « enregistre » au parent, puis son arrêt", async () => {
+    const onRecordingChange = vi.fn();
+    await startRecording({ onRecordingChange });
+    expect(onRecordingChange).toHaveBeenLastCalledWith(true);
+    await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Annuler l'enregistrement" })); });
+    expect(onRecordingChange).toHaveBeenLastCalledWith(false);
   });
 });
 

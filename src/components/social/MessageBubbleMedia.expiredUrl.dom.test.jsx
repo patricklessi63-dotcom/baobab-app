@@ -83,7 +83,11 @@ describe("MessageBubbleMedia — URL signée expirée", () => {
   it("image : réserve la place avant chargement quand les dimensions sont connues (aspect-ratio)", async () => {
     const { container } = render(<MessageBubbleMedia m={imageMsg({ width: 1600, height: 1200 })} isMine={false} />);
     await waitFor(() => expect(container.querySelector("img")).not.toBeNull());
-    expect(container.querySelector("img").style.aspectRatio).toBe("1600 / 1200");
+    // La boîte (wrapper) porte le rapport réel de la photo, ramené à la taille
+    // d'affichage de la bulle (240 px de large max) : paysage 4:3 -> 240 × 180.
+    const box = container.querySelector("img").parentElement;
+    expect(box.style.aspectRatio).toBe("240 / 180");
+    expect(box.style.width).toBe("240px");
   });
 
   it("image sans dimensions connues (anciens messages) : pas d'aspect-ratio forcé", async () => {
