@@ -51,9 +51,9 @@ function timeAgo(iso) {
 // rien n'a changé depuis.
 function freshness(publishedAt) {
   const days = (Date.now() - new Date(publishedAt).getTime()) / 86_400_000;
-  if (days <= 14) return { emoji: "🟢", label: "Vérifiée récemment", color: "#1E7A4C" };
-  if (days <= 45) return { emoji: "🟡", label: "À revérifier", color: "#A5761F" };
-  return { emoji: "🔴", label: "Ancienne — vérifier la source", color: "#B3432B" };
+  if (days <= 14) return { emoji: "🟢", label: "Vérifiée récemment", color: "var(--bb-accent)" };
+  if (days <= 45) return { emoji: "🟡", label: "À revérifier", color: "var(--bb-gold-text)" };
+  return { emoji: "🔴", label: "Ancienne — vérifier la source", color: "var(--bb-coral-text)" };
 }
 
 function NewsCard({ item, featured, isFavorite, onToggleFavorite }) {
@@ -183,7 +183,7 @@ function OrgEntry({ org }) {
       </div>
       {org.services && <p className="text-[11px] leading-5 mt-2" style={{ color: muted }}>{org.services}</p>}
       {org.note && (
-        <p className="text-[11px] leading-5 mt-2 italic" style={{ color: "#A5761F" }}>{org.note}</p>
+        <p className="text-[11px] leading-5 mt-2 italic" style={{ color: "var(--bb-gold-text)" }}>{org.note}</p>
       )}
     </div>
   );
@@ -254,7 +254,7 @@ function ProvinceDirectory() {
             <p className="text-xs leading-5" style={{ color: muted }}>{entry.note}</p>
           )}
           {entry.orgs.length > 0 && entry.note && (
-            <p className="text-[11px] leading-5 mt-2 italic" style={{ color: "#A5761F" }}>{entry.note}</p>
+            <p className="text-[11px] leading-5 mt-2 italic" style={{ color: "var(--bb-gold-text)" }}>{entry.note}</p>
           )}
         </div>
       )}

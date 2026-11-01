@@ -102,7 +102,7 @@ export default function NotificationsOptIn({ onDone }) {
           <button onClick={handleAllow} disabled={status === "requesting"} className="bb-btn bb-btn-primary w-full mt-6 py-3 rounded-full font-semibold text-sm disabled:opacity-60">
             {status === "requesting" ? "Activation..." : "Activer les notifications"}
           </button>
-          <button onClick={finish} className="w-full mt-2 py-2.5 text-sm font-semibold" style={{ color: "rgba(var(--bb-ink-rgb-static),0.5)" }}>
+          <button onClick={finish} className="w-full mt-2 py-2.5 text-sm font-semibold" style={{ color: "var(--bb-text-faint)" }}>
             Plus tard
           </button>
         </>

@@ -10,7 +10,7 @@ export default function LoadErrorNotice({ onRetry, what = "cette liste" }) {
   const offline = typeof navigator !== "undefined" && navigator.onLine === false;
   return (
     <div role="alert" className="p-8 text-center">
-      <p className="text-sm mb-4" style={{ color: "rgba(var(--bb-ink-rgb),0.6)" }}>
+      <p className="text-sm mb-4" style={{ color: "var(--bb-text-faint)" }}>
         {offline
           ? `Tu es hors ligne : impossible de charger ${what}. Cela s'affichera dès que ta connexion reviendra.`
           : `Impossible de charger ${what}. Vérifie ta connexion et réessaie.`}

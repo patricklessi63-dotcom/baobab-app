@@ -60,7 +60,7 @@ export default function DeleteAccountModal({ open, onClose, currentUser, onReque
           Ton compte sera définitivement supprimé le {deletionDate} à {deletionTime} (dans 24 heures) — profil, photos, matchs, messages, communautés, événements et abonnement inclus. Tu pourras annuler à tout moment avant cette date.
         </p>
         <label className="block mb-3">
-          <span className="text-xs font-bold" style={{ color: "rgba(var(--bb-ink-rgb),0.6)" }}>Tape SUPPRIMER pour confirmer</span>
+          <span className="text-xs font-bold" style={{ color: "var(--bb-text-faint)" }}>Tape SUPPRIMER pour confirmer</span>
           <input value={confirmText} onChange={(e) => setConfirmText(e.target.value)} className="bb-input w-full mt-1.5" placeholder="SUPPRIMER" autoComplete="off" />
         </label>
         {error && <p role="alert" className="text-sm mb-3" style={{ color: C.coralText }}>{error}</p>}

@@ -3501,7 +3501,7 @@ export default function App() {
           <button onClick={handleRetryProfileLoad} className="w-full mt-6 py-3 rounded-full text-sm font-bold text-white" style={{ background: C.navy }}>
             Réessayer
           </button>
-          <button onClick={() => handleSignOut().then(() => navigate("/connexion"))} className="w-full mt-2 py-3 rounded-full text-sm font-bold" style={{ color: "rgba(var(--bb-text-rgb),0.6)" }}>
+          <button onClick={() => handleSignOut().then(() => navigate("/connexion"))} className="w-full mt-2 py-3 rounded-full text-sm font-bold" style={{ color: "var(--bb-text-faint)" }}>
             Se déconnecter
           </button>
         </div>
@@ -3557,7 +3557,7 @@ export default function App() {
               : `Ton compte est temporairement suspendu${until ? ` jusqu'au ${formatLongDate(currentUser.suspended_until)} à ${until.toLocaleTimeString("fr-CA", { hour: "2-digit", minute: "2-digit" })}` : ""}.`}
           </p>
           {reason && (
-            <p className="text-sm mt-2 rounded-xl p-3" style={{ background: "rgba(var(--bb-text-rgb),0.05)", color: "rgba(var(--bb-text-rgb),0.6)" }}>
+            <p className="text-sm mt-2 rounded-xl p-3" style={{ background: "rgba(var(--bb-text-rgb),0.05)", color: "var(--bb-text-faint)" }}>
               Motif : {reason}
             </p>
           )}

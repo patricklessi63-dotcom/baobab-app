@@ -13,20 +13,20 @@ export default function Step7LifeProject({ draft, update }) {
       <h2 style={{ fontFamily: "var(--bb-font-title)", fontWeight: 800, fontSize: 22, color: C.primary }}>
         ✨ Ton projet de vie
       </h2>
-      <p className="text-sm" style={{ color: "rgba(var(--bb-ink-rgb-static),0.6)" }}>
+      <p className="text-sm" style={{ color: "var(--bb-text-faint)" }}>
         Tout est facultatif — réponds seulement à ce qui te parle.
       </p>
 
-      <p className="text-xs font-semibold mt-1" style={{ color: "rgba(var(--bb-ink-rgb-static),0.55)" }}>Souhaites-tu avoir des enfants ?</p>
+      <p className="text-xs font-semibold mt-1" style={{ color: "var(--bb-text-faint)" }}>Souhaites-tu avoir des enfants ?</p>
       <ChipSelect options={WANTS_CHILDREN_OPTIONS} value={draft.wantsChildren} onChange={(v) => update({ wantsChildren: v })} />
 
-      <p className="text-xs font-semibold mt-2" style={{ color: "rgba(var(--bb-ink-rgb-static),0.55)" }}>Importance de la famille</p>
+      <p className="text-xs font-semibold mt-2" style={{ color: "var(--bb-text-faint)" }}>Importance de la famille</p>
       <ChipSelect options={FAMILY_IMPORTANCE_OPTIONS} value={draft.familyImportance} onChange={(v) => update({ familyImportance: v })} />
 
-      <p className="text-xs font-semibold mt-2" style={{ color: "rgba(var(--bb-ink-rgb-static),0.55)" }}>Projet professionnel</p>
+      <p className="text-xs font-semibold mt-2" style={{ color: "var(--bb-text-faint)" }}>Projet professionnel</p>
       <ChipSelect options={CAREER_GOAL_OPTIONS} value={draft.careerGoal} onChange={(v) => update({ careerGoal: v })} />
 
-      <p className="text-xs font-semibold mt-2" style={{ color: "rgba(var(--bb-ink-rgb-static),0.55)" }}>Projet géographique</p>
+      <p className="text-xs font-semibold mt-2" style={{ color: "var(--bb-text-faint)" }}>Projet géographique</p>
       <ChipSelect options={GEOGRAPHIC_OPENNESS_OPTIONS} value={draft.geographicOpenness} onChange={(v) => update({ geographicOpenness: v })} />
     </div>
   );

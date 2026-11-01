@@ -27,6 +27,7 @@ import MessageActionsMenu from "./MessageActionsMenu";
 import ConfirmModal from "./ConfirmModal";
 import { primary, coral, coralText, bg, muted, offline, leafLight, body, primaryRgb } from "./theme";
 import { isImeComposing } from "../../utils/keyboard";
+import { isPremiumEnabled, isAiEnabled } from "../../lib/featureFlags";
 
 function MessageText({ text }) {
   return (
@@ -656,7 +657,7 @@ export default function ConversationPane({
                     })}
                   </div>
                 )}
-                {!isMine && !isDeleted && m.kind === "text" && (
+                {!isMine && !isDeleted && m.kind === "text" && isAiEnabled() && (
                   translations[m.id] ? (
                     translations[m.id].loading ? (
                       <p className="text-xs mt-1 flex items-center gap-1" style={{ color: muted }}>
@@ -715,7 +716,7 @@ export default function ConversationPane({
                 <div className="self-end text-xs flex flex-col items-end gap-1 mt-0.5 text-right" style={{ color: coralText }}>
                   <span>{m._error || "Action réservée aux membres Premium."}</span>
                   <span className="flex items-center gap-2">
-                    {goTab && (
+                    {goTab && isPremiumEnabled() && (
                       <button onClick={() => goTab("premium")} className="font-bold underline" style={{ color: primary }}>
                         Passer à Premium
                       </button>

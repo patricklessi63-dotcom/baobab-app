@@ -50,7 +50,7 @@ export default function Step4CanadaJourney({ draft, update }) {
         🇨🇦 Ton parcours au Canada
       </h2>
 
-      <label className="text-xs font-semibold" style={{ color: "rgba(var(--bb-ink-rgb-static),0.55)" }}>Depuis combien de temps vis-tu au Canada ?</label>
+      <label className="text-xs font-semibold" style={{ color: "var(--bb-text-faint)" }}>Depuis combien de temps vis-tu au Canada ?</label>
       <div className="flex gap-2">
         <input
           type="number"
@@ -75,16 +75,16 @@ export default function Step4CanadaJourney({ draft, update }) {
         </div>
       </div>
 
-      <label className="text-xs font-semibold mt-1" style={{ color: "rgba(var(--bb-ink-rgb-static),0.55)" }}>Situation actuelle</label>
+      <label className="text-xs font-semibold mt-1" style={{ color: "var(--bb-text-faint)" }}>Situation actuelle</label>
       <ChipSelect options={IMMIGRATION_STATUS_OPTIONS} value={draft.immigrationStatus} onChange={(v) => update({ immigrationStatus: v })} />
 
-      <label className="text-xs font-semibold mt-1" style={{ color: "rgba(var(--bb-ink-rgb-static),0.55)" }}>Profession</label>
+      <label className="text-xs font-semibold mt-1" style={{ color: "var(--bb-text-faint)" }}>Profession</label>
       <input value={draft.occupation} onChange={(e) => update({ occupation: e.target.value })} placeholder="Ton métier" maxLength={120} className="bb-input w-full text-sm" />
 
-      <label className="text-xs font-semibold mt-1" style={{ color: "rgba(var(--bb-ink-rgb-static),0.55)" }}>Études</label>
+      <label className="text-xs font-semibold mt-1" style={{ color: "var(--bb-text-faint)" }}>Études</label>
       <ChipSelect options={EDUCATION_LEVELS} value={draft.educationLevel} onChange={(v) => update({ educationLevel: v })} />
 
-      <label className="text-xs font-semibold mt-1" style={{ color: "rgba(var(--bb-ink-rgb-static),0.55)" }}>Ville d'arrivée au Canada (facultatif)</label>
+      <label className="text-xs font-semibold mt-1" style={{ color: "var(--bb-text-faint)" }}>Ville d'arrivée au Canada (facultatif)</label>
       <input value={draft.arrivalCity} onChange={(e) => update({ arrivalCity: e.target.value })} placeholder="Si différente de ta ville actuelle" maxLength={80} className="bb-input w-full text-sm" />
     </div>
   );

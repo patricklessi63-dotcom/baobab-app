@@ -64,7 +64,7 @@ export default function PrivacyFieldsModal({ open, onClose, onBack, currentUser,
             Confidentialité des champs
           </div>
         </div>
-        <p className="text-sm mb-3" style={{ color: "rgba(var(--bb-ink-rgb),0.6)" }}>
+        <p className="text-sm mb-3" style={{ color: "var(--bb-text-faint)" }}>
           Ceci contrôle uniquement ce que l'app affiche dans ton profil public — ce
           n'est pas un accès à ta base de données Supabase, qui reste soumise à ses
           propres règles de sécurité.
@@ -93,7 +93,7 @@ export default function PrivacyFieldsModal({ open, onClose, onBack, currentUser,
           </label>
         ))}
 
-        <div className="mt-4 mb-1 text-xs font-black uppercase tracking-wider" style={{ color: "rgba(var(--bb-ink-rgb),0.5)" }}>Messagerie</div>
+        <div className="mt-4 mb-1 text-xs font-black uppercase tracking-wider" style={{ color: "var(--bb-text-faint)" }}>Messagerie</div>
         {MESSAGING_FIELDS.map(({ key, label, icon: Icon }) => (
           <label key={key} className="flex items-center justify-between py-2.5" style={{ borderTop: "1px solid rgba(var(--bb-ink-rgb),0.08)", minHeight: 44 }}>
             <div className="flex items-center gap-2 text-sm"><Icon size={14} color="var(--bb-text)" /> {label}</div>
@@ -106,7 +106,7 @@ export default function PrivacyFieldsModal({ open, onClose, onBack, currentUser,
           </label>
         ))}
 
-        <div className="mt-4 mb-1 text-xs font-black uppercase tracking-wider" style={{ color: "rgba(var(--bb-ink-rgb),0.5)" }}>Personnalisation</div>
+        <div className="mt-4 mb-1 text-xs font-black uppercase tracking-wider" style={{ color: "var(--bb-text-faint)" }}>Personnalisation</div>
         {PERSONALIZATION_FIELDS.map(({ key, label, icon: Icon }) => (
           <label key={key} className="flex items-center justify-between py-2.5" style={{ borderTop: "1px solid rgba(var(--bb-ink-rgb),0.08)", minHeight: 44 }}>
             <div className="flex items-center gap-2 text-sm"><Icon size={14} color="var(--bb-text)" /> {label}</div>
@@ -119,7 +119,7 @@ export default function PrivacyFieldsModal({ open, onClose, onBack, currentUser,
           </label>
         ))}
 
-        <div className="mt-4 mb-1 text-xs font-black uppercase tracking-wider" style={{ color: "rgba(var(--bb-ink-rgb),0.5)" }}>Profil</div>
+        <div className="mt-4 mb-1 text-xs font-black uppercase tracking-wider" style={{ color: "var(--bb-text-faint)" }}>Profil</div>
         {PROFILE_DISPLAY_FIELDS.map(({ key, label, icon: Icon }) => (
           <label key={key} className="flex items-center justify-between py-2.5" style={{ borderTop: "1px solid rgba(var(--bb-ink-rgb),0.08)", minHeight: 44 }}>
             <div className="flex items-center gap-2 text-sm"><Icon size={14} color="var(--bb-text)" /> {label}</div>

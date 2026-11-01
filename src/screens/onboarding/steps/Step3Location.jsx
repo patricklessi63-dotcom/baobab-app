@@ -11,17 +11,17 @@ export default function Step3Location({ draft, update }) {
       <h2 style={{ fontFamily: "var(--bb-font-title)", fontWeight: 800, fontSize: 22, color: C.primary }}>
         Où es-tu ?
       </h2>
-      <p className="text-sm" style={{ color: "rgba(var(--bb-ink-rgb-static),0.6)" }}>
+      <p className="text-sm" style={{ color: "var(--bb-text-faint)" }}>
         Seule ta ville sera visible publiquement — jamais une adresse exacte.
       </p>
 
-      <label className="text-xs font-semibold" style={{ color: "rgba(var(--bb-ink-rgb-static),0.55)" }}>Pays d'origine</label>
+      <label className="text-xs font-semibold" style={{ color: "var(--bb-text-faint)" }}>Pays d'origine</label>
       <input value={draft.country} onChange={(e) => update({ country: e.target.value })} placeholder="Ex : Sénégal, Philippines, Haïti…" maxLength={80} className="bb-input w-full text-sm" />
 
-      <label className="text-xs font-semibold mt-1" style={{ color: "rgba(var(--bb-ink-rgb-static),0.55)" }}>Province</label>
+      <label className="text-xs font-semibold mt-1" style={{ color: "var(--bb-text-faint)" }}>Province</label>
       <input value={draft.province} onChange={(e) => update({ province: e.target.value })} placeholder="Ex : Québec" maxLength={80} className="bb-input w-full text-sm" />
 
-      <label className="text-xs font-semibold mt-1" style={{ color: "rgba(var(--bb-ink-rgb-static),0.55)" }}>Ville (Canada)</label>
+      <label className="text-xs font-semibold mt-1" style={{ color: "var(--bb-text-faint)" }}>Ville (Canada)</label>
       <input value={draft.city} onChange={(e) => update({ city: e.target.value })} placeholder="Ex : Montréal" maxLength={80} className="bb-input w-full text-sm" />
     </div>
   );

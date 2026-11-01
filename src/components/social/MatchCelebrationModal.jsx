@@ -44,7 +44,7 @@ export default function MatchCelebrationModal({ match, currentUser, onStartChat,
         <button
           onClick={onDismiss}
           className="w-full mt-2 py-2.5 text-sm font-semibold"
-          style={{ color: "rgba(var(--bb-ink-rgb),0.5)" }}
+          style={{ color: "var(--bb-text-faint)" }}
         >
           Plus tard
         </button>

@@ -154,7 +154,7 @@ export default function AppModals({
               Paramètres
             </div>
 
-            <div className="text-[11px] font-black uppercase tracking-wider mt-2" style={{ color: "rgba(var(--bb-ink-rgb),0.4)" }}>Rencontres</div>
+            <div className="text-[11px] font-black uppercase tracking-wider mt-2" style={{ color: "var(--bb-text-faint)" }}>Rencontres</div>
             <label className="flex items-center justify-between py-2.5" style={{ borderTop: "1px solid rgba(var(--bb-ink-rgb),0.08)", minHeight: 44 }}>
               <div className="flex items-center gap-2 text-sm"><Heart size={14} color={C.leaf} /> Activer les Rencontres</div>
               <input
@@ -164,11 +164,11 @@ export default function AppModals({
                 style={{ width: 18, height: 18 }}
               />
             </label>
-            <p className="text-[11px] mt-1 mb-2" style={{ color: "rgba(var(--bb-ink-rgb),0.45)" }}>
+            <p className="text-[11px] mt-1 mb-2" style={{ color: "var(--bb-text-faint)" }}>
               Désactive pour ne plus apparaître dans Découverte ni recevoir de nouveaux likes.
             </p>
 
-            <div className="text-[11px] font-black uppercase tracking-wider mt-2" style={{ color: "rgba(var(--bb-ink-rgb),0.4)" }}>Confidentialité</div>
+            <div className="text-[11px] font-black uppercase tracking-wider mt-2" style={{ color: "var(--bb-text-faint)" }}>Confidentialité</div>
             <label className="flex items-center justify-between py-2.5" style={{ borderTop: "1px solid rgba(var(--bb-ink-rgb),0.08)", minHeight: 44 }}>
               <div className="flex items-center gap-2 text-sm"><Circle size={14} color={C.acacia} /> Statut en ligne visible</div>
               <input
@@ -247,7 +247,7 @@ export default function AppModals({
                 ))}
               </div>
               {language === "en" && (
-                <p className="text-[11px] mt-2" style={{ color: "rgba(var(--bb-ink-rgb),0.45)" }}>
+                <p className="text-[11px] mt-2" style={{ color: "var(--bb-text-faint)" }}>
                   Baobab is currently only available in French — full English translation is coming soon. Your preference has been saved.
                 </p>
               )}
@@ -255,7 +255,7 @@ export default function AppModals({
             <button onClick={() => { setSettingsOpen(false); setBlockedOpen(true); }} className="w-full flex items-center justify-between py-3" style={{ borderTop: "1px solid rgba(var(--bb-ink-rgb),0.08)", minHeight: 44 }}>
               <span className="flex items-center gap-2 text-sm"><UserX size={14} color="var(--bb-text)" /> Comptes bloqués</span>
               <span className="flex items-center gap-2">
-                {blockedProfiles.length > 0 && <span className="text-xs font-bold" style={{ color: "rgba(var(--bb-ink-rgb),0.4)" }}>{blockedProfiles.length}</span>}
+                {blockedProfiles.length > 0 && <span className="text-xs font-bold" style={{ color: "var(--bb-text-faint)" }}>{blockedProfiles.length}</span>}
                 <ArrowLeft size={14} style={{ transform: "rotate(180deg)", color: "rgba(var(--bb-ink-rgb),0.35)" }} />
               </span>
             </button>
@@ -271,7 +271,7 @@ export default function AppModals({
               </span>
             </button>
 
-            <div className="text-[11px] font-black uppercase tracking-wider mt-4" style={{ color: "rgba(var(--bb-ink-rgb),0.4)" }}>Baobab Protect</div>
+            <div className="text-[11px] font-black uppercase tracking-wider mt-4" style={{ color: "var(--bb-text-faint)" }}>Baobab Protect</div>
             <div className="flex items-center justify-between py-2.5" style={{ borderTop: "1px solid rgba(var(--bb-ink-rgb),0.08)" }}>
               {/* Bug corrigé : C.ink est un jeton FIXE (voir constants.js, "Chrome
               applicatif" à fond crème fixe C.sand) — ici l'icône est dans une
@@ -286,7 +286,7 @@ export default function AppModals({
             </div>
             <div className="flex items-center justify-between py-2.5" style={{ borderTop: "1px solid rgba(var(--bb-ink-rgb),0.08)" }}>
               <div className="flex items-center gap-2 text-sm"><Smartphone size={14} color="var(--bb-text)" /> Téléphone vérifié</div>
-              <span className="text-xs" style={{ color: "rgba(var(--bb-ink-rgb),0.4)" }}>Bientôt</span>
+              <span className="text-xs" style={{ color: "var(--bb-text-faint)" }}>Bientôt</span>
             </div>
 
             <button onClick={() => { setSettingsOpen(false); setPrivacyOpen(true); }} className="w-full flex items-center justify-between py-3 mt-2" style={{ borderTop: "1px solid rgba(var(--bb-ink-rgb),0.08)", minHeight: 44 }}>
@@ -304,7 +304,7 @@ export default function AppModals({
             <button onClick={() => { setSettingsOpen(false); setAboutOpen(true); }} className="w-full flex items-center justify-between py-3" style={{ borderTop: "1px solid rgba(var(--bb-ink-rgb),0.08)", minHeight: 44 }}>
               <span className="flex items-center gap-2 text-sm"><Info size={14} color="var(--bb-text)" /> À propos de Baobab</span>
               <span className="flex items-center gap-2">
-                <span className="text-xs font-bold" style={{ color: "rgba(var(--bb-ink-rgb),0.4)" }}>v{CURRENT_VERSION}</span>
+                <span className="text-xs font-bold" style={{ color: "var(--bb-text-faint)" }}>v{CURRENT_VERSION}</span>
                 <ArrowLeft size={14} style={{ transform: "rotate(180deg)", color: "rgba(var(--bb-ink-rgb),0.35)" }} />
               </span>
             </button>
@@ -370,11 +370,11 @@ export default function AppModals({
               <button onClick={() => { setBlockedOpen(false); setSettingsOpen(true); }} aria-label="Retour aux réglages" className="bb-hit focus-visible:outline focus-visible:outline-2" style={{ color: "var(--bb-text)" }}><ArrowLeft size={16} /></button>
               <div style={{ fontFamily: "var(--bb-font-title)", fontWeight: 800, fontSize: 20, color: "var(--bb-text)" }}>Comptes bloqués</div>
             </div>
-            <p className="text-sm mb-3" style={{ color: "rgba(var(--bb-ink-rgb),0.6)" }}>
+            <p className="text-sm mb-3" style={{ color: "var(--bb-text-faint)" }}>
               Ces profils ne peuvent plus te contacter ni apparaître dans ta liste de découverte.
             </p>
             {blockedProfiles.length === 0 ? (
-              <p className="text-sm text-center py-6" style={{ color: "rgba(var(--bb-ink-rgb),0.5)" }}>Aucun compte bloqué pour l'instant.</p>
+              <p className="text-sm text-center py-6" style={{ color: "var(--bb-text-faint)" }}>Aucun compte bloqué pour l'instant.</p>
             ) : (
               <div className="flex flex-col gap-2">
                 {blockedProfiles.map((p) => (
@@ -461,10 +461,10 @@ export default function AppModals({
             <div style={{ fontFamily: "var(--bb-font-title)", fontWeight: 800, fontSize: 24, color: "var(--bb-text)" }} className="mb-1">
               Baobab
             </div>
-            <p className="text-sm mb-4" style={{ color: "rgba(var(--bb-ink-rgb),0.6)" }}>
+            <p className="text-sm mb-4" style={{ color: "var(--bb-text-faint)" }}>
               L'app de rencontres pensée pour la communauté qui s'installe au Canada.
             </p>
-            <p style={{ fontFamily: "monospace", fontSize: 11, letterSpacing: "0.06em", color: "rgba(var(--bb-ink-rgb),0.45)" }}>
+            <p style={{ fontFamily: "monospace", fontSize: 11, letterSpacing: "0.06em", color: "var(--bb-text-faint)" }}>
               BAOBAB — BY LESSI PATRICK
             </p>
 
@@ -483,7 +483,7 @@ export default function AppModals({
                   {updateCheck.info.releaseNotes?.length > 0 && (
                     <ul className="mt-1.5 space-y-0.5">
                       {updateCheck.info.releaseNotes.map((note, i) => (
-                        <li key={i} className="text-xs" style={{ color: "rgba(var(--bb-ink-rgb),0.6)" }}>• {note}</li>
+                        <li key={i} className="text-xs" style={{ color: "var(--bb-text-faint)" }}>• {note}</li>
                       ))}
                     </ul>
                   )}

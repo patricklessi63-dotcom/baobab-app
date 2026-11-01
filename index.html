@@ -135,11 +135,14 @@
       /* Halos d'ambiance du fond (voir .bb-horizon-bg) — doux en clair. */
       --bb-glow-a: rgba(31,122,90,0.10);
       --bb-glow-b: rgba(242,163,58,0.12);
+      /* Contrôles natifs (listes déroulantes, calendriers, barres de défilement) : clairs avec le thème clair. */
+      color-scheme: light;
     }
     /* --- Thème SOMBRE (Horizon) : nuit verte, ivoire, signal. Mêmes valeurs
     pour le réglage « Système » (media query) et le choix manuel. --- */
     @media (prefers-color-scheme: dark) {
       :root:not([data-theme="light"]) {
+        color-scheme: dark;
         --bb-bg: #060B09;
         --bb-surface: #0B1511;
         --bb-surface-rgb: 11,21,17;
@@ -166,6 +169,7 @@
       }
     }
     :root[data-theme="dark"] {
+      color-scheme: dark;
       --bb-bg: #060B09;
       --bb-surface: #0B1511;
       --bb-surface-rgb: 11,21,17;
@@ -356,7 +360,7 @@
     chaque enfant direct de .bb-stagger apparaît avec un léger décalage
     dans le temps plutôt que tous d'un coup. prefers-reduced-motion est
     déjà couvert par la règle globale tout en bas de ce fichier. */
-    .bb-stagger > * { opacity: 0; animation: bbFadeIn .65s var(--bb-ease) forwards; }
+    .bb-stagger > * { animation: bbFadeIn .65s var(--bb-ease) backwards; }
     .bb-stagger > *:nth-child(1) { animation-delay: .04s; }
     .bb-stagger > *:nth-child(2) { animation-delay: .14s; }
     .bb-stagger > *:nth-child(3) { animation-delay: .24s; }

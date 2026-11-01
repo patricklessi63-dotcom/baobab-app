@@ -113,6 +113,37 @@ Classées par urgence (pas forcément dans l'ordre d'exécution : celui-ci est a
 | Réglages du tableau de bord Supabase (Auth, SMTP, Max rows…) | **Inconnus** : non lisibles par la CLI | §9 : à vérifier à la main |
 | Appareil réel (Android/iOS) | Rien n'a été testé sur un vrai téléphone | `MOBILE.md` §(G) |
 
+### 2.1 Journal d'exécution SQL en production, 1er novembre 2026
+
+**Source** : compte rendu d'une autre session de travail du propriétaire, qui dit avoir agi avec l'**accord explicite du propriétaire**. L'assistant de l'audit n'a exécuté **aucun** SQL et n'a pas de preuve directe de l'exécution fichier par fichier ; il a seulement revérifié de l'extérieur, en lecture seule, les effets visibles (voir « Vérifié » ci-dessous).
+
+**Déclaré exécuté, un fichier à la fois, bilan §4 relancé après chacun (35 « NON » → 10, aucune régression)** :
+- **SQL-1** : contrainte `profiles_min_age_18` posée **puis validée** (pré-contrôle : 5 profils, 0 mineur, 0 sans date de naissance).
+- **SQL-2** (`can_view_event`), **SQL-3** (8 politiques), **SQL-4** (12 index), **SQL-5** (`client_errors` + tâche de purge).
+- **SQL-6 à SQL-13**, **SQL-14** (bloc **fusionné**, et non le fichier `accept-event-invitation-membership-check`), **SQL-15**.
+- **SQL-22** : blocs **1** (`profile_photos`), **2** (`EXECUTE` retiré à `anon` : une seule fonction reste appelable en anonyme, `public_user_count`), **4A** (`blocks`/`passes` en réplique par défaut), **3A** (`get_my_profile()`), **3B** (6 colonnes sensibles illisibles par `authenticated`). Le code client qui passe par `get_my_profile()` avait été vérifié dans le bundle en ligne avant le 3B.
+- **SQL-23** (exclusion de membre) : déjà exécuté le 31 octobre.
+
+**Volontairement NON exécutés** : blocs **1B** et **4B** de SQL-22.
+**Restent « NON » (10, optionnels ou à décision)** : SQL-16 et SQL-17 (push natifs), SQL-18 (`unaccent`), SQL-19 (motif « mineur » des publications, avec changement de code), SQL-20 (quota de stockage : plafond à décider), SQL-21 (trigger de partage d'événement privé), `geolocation-privacy-fix`, `scale-security` (politique de création de profil), `account-deletion-timeout-fix`, `report-minor-category`.
+
+**Vérifié par l'assistant de l'audit, le 1er novembre, depuis l'extérieur (lecture seule, clé publique du site)** :
+- `profile_photos` : **401** pour un visiteur sans compte (le 31 octobre : 11 lignes lisibles sans compte). **La fuite C2 est fermée côté lecture anonyme.**
+- `profiles`, `events`, `messages`, `blocks` : 401 en anonyme.
+- `client_errors` : la table **existe** (200, 0 ligne ; le 31 octobre : 404).
+- `admin_dashboard_stats` et `get_my_profile` : « permission denied » en anonyme (42501) ; `public_user_count` : 200, renvoie 4.
+- Le site répond 200.
+- **Non revérifié par moi** : le contenu exact des fonctions, politiques et contraintes (le bilan §4 de l'autre session fait foi), et le comportement d'un compte connecté (simulation en transaction annulée faite par l'autre session : `get_my_profile` renvoie la seule ligne de l'appelant, les colonnes des autres restent lisibles, `select *` est refusé, les photos sont visibles).
+
+**Retour arrière** : table `public.baobab_sql22_backup` (blocs 1, 3B, 4A) et instantané des définitions (106 fonctions, 160 politiques, 49 triggers, 261 contraintes, droits) enregistré **hors dépôt**. Ils permettent de défaire les définitions, **pas de restaurer des données**.
+
+**Risques à garder en tête**
+1. **Aucune sauvegarde restaurable** (offre gratuite, `pitr_enabled=false`) : critère GO **O1 toujours NON rempli** (§9.4). Les SQL ont été exécutés sans point de retour des données.
+2. `client_errors` accepte des **INSERT anonymes sans limite de débit** (amélioration n° 7 de l'audit non faite) : à plafonner avant l'ouverture.
+3. Après le 3B, **toute colonne ajoutée plus tard à `profiles`** exige `grant select (colonne) on public.profiles to authenticated;`, sinon elle sera illisible.
+4. Un onglet resté ouvert avec l'ancien code client peut afficher des erreurs jusqu'au rechargement.
+5. Le test de bout en bout à deux comptes réels (§3, étape 12) n'est toujours pas fait : il est maintenant **plus important**, car il valide en vrai ce que les simulations n'ont montré que sur des schémas factices.
+
 ---
 
 ## 3. Lancement web minimal (12 étapes)
@@ -126,11 +157,12 @@ pushs natifs sont **hors de cette liste** (§12).
 - [ ] **3. Inscriptions et e-mails** (§9.1) : désactiver le hook de bêta privée (ou élargir la liste), SMTP
       personnalisé, Site URL, URL de redirection, confirmation d'e-mail activée. **Teste avec une vraie adresse
       externe** (une adresse qui n'est pas celle de l'équipe Supabase).
-- [ ] **4. SQL-1 — âge 18 ans** (§5, pré-contrôle puis exécution).
-- [ ] **5. SQL-2 et SQL-3** — événements privés (`can_view_event`) et filtre de lecture des blocages.
-- [ ] **6. SQL-4 et SQL-5** — index de lancement (hors heures de pointe) et `client_errors`.
-- [ ] **7. Lot SQL-6 → SQL-15** — gardes d'état de compte, gouvernance, transferts de propriété, listes d'attente,
+- [x] **4. SQL-1 — âge 18 ans** (§5, pré-contrôle puis exécution). *Déclaré exécuté le 1er nov. (§2.1).*
+- [x] **5. SQL-2 et SQL-3** — événements privés (`can_view_event`) et filtre de lecture des blocages. *Déclaré exécuté le 1er nov.*
+- [x] **6. SQL-4 et SQL-5** — index de lancement (hors heures de pointe) et `client_errors`. *Déclaré exécuté le 1er nov. ; `client_errors` existe (sonde).*
+- [x] **7. Lot SQL-6 → SQL-15** — gardes d'état de compte, gouvernance, transferts de propriété, listes d'attente,
       bloc fusionné `accept_event_invitation`. Dans l'ordre exact du §5. **Puis SQL-22** (fuites de lecture), répété d'abord sur le projet de répétition (§9.7).
+      *Déclaré exécuté le 1er nov., SQL-22 compris (blocs 1, 2, 4A, 3A, 3B), **sans répétition préalable et sans sauvegarde** (§2.1) ; fuite `profile_photos` fermée en lecture anonyme (sonde).*
 - [ ] **8. Edge functions** (§8) : redéployer `process-scheduled-deletions`, déployer `cleanup-expired-stories`,
       vérifier que le cron de suppression répond 200.
 - [ ] **9. Réglages Supabase** (§9) : Max rows ≥ 1000, sauvegardes, quotas Storage.

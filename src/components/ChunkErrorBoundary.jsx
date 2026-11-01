@@ -83,7 +83,7 @@ export default class ChunkErrorBoundary extends React.Component {
     if (!this.state.error) return this.props.children;
     return (
       <div className="max-w-md mx-auto px-4 py-10 text-center">
-        <p className="text-sm mb-4" style={{ color: "rgba(var(--bb-ink-rgb),0.6)" }}>
+        <p className="text-sm mb-4" style={{ color: "var(--bb-text-faint)" }}>
           {this.state.offline
             ? "Tu es hors ligne : cette section s'affichera dès que ta connexion reviendra."
             : "Impossible de charger cette section. Vérifie ta connexion et réessaie."}

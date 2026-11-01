@@ -4,6 +4,8 @@ Rédigé le **mardi 20 octobre 2026 (J0)**. Cible : **dimanche 15 novembre 2026 
 S'appuie sur `AUDIT-BAOBAB.md` (constats C1–C7, I1–I13) et sur `LANCEMENT.md` (fiches SQL-1 à SQL-21, §8 fonctions,
 §9 réglages, §10 décisions, §13 contrôles de santé), qui restent les références de détail. Rien ici n'a été exécuté.
 
+> **Mise à jour du 1er novembre 2026.** Une autre session du propriétaire déclare avoir exécuté en production, avec son accord et **sans sauvegarde** (offre gratuite), SQL-1 à SQL-15 et SQL-22 (blocs 1, 2, 4A, 3A, 3B) : détail, vérifications de l'assistant par sondes anonymes en lecture seule, risques et retour arrière dans `LANCEMENT.md` §2.1. Effet vérifié de l'extérieur : `profile_photos` n'est plus lisible sans compte (fuite C2 fermée), `client_errors` existe. **Restent ouverts** : critère O1 (sauvegarde) NON rempli, `client_errors` sans limite de débit, test de bout en bout à deux comptes réels, SMTP/DNS/contact/textes légaux, SQL optionnels (SQL-16 à SQL-21). Le chemin critique des étapes SQL (28 oct. – 6 nov.) est donc **tenu avec plusieurs jours d'avance** ; le risque principal est maintenant la validation en conditions réelles, pas l'exécution.
+
 **Trois colonnes dans chaque journée** : **(a) Assistant** = ce que je peux faire seul dans le dépôt (code, tests, doc) ;
 **(b) Propriétaire** = ce que seul le propriétaire peut faire (SQL en production, secrets, déploiements, DNS, comptes,
 tableaux de bord) ; **(c) Dépendance** = ce qui bloque la suite. Une case « (a) » suppose qu'une session de travail est

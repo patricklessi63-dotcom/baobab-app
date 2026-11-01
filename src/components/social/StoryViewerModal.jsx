@@ -398,9 +398,9 @@ export default function StoryViewerModal({
             </div>
             <div className="overflow-y-auto px-4 pb-4">
               {storyViewersLoading ? (
-                <p className="text-sm text-center py-6" style={{ color: "rgba(var(--bb-ink-rgb),0.5)" }}>Chargement...</p>
+                <p className="text-sm text-center py-6" style={{ color: "var(--bb-text-faint)" }}>Chargement...</p>
               ) : storyViewers.length === 0 ? (
-                <p className="text-sm text-center py-6" style={{ color: "rgba(var(--bb-ink-rgb),0.5)" }}>Personne n'a encore vu ce statut.</p>
+                <p className="text-sm text-center py-6" style={{ color: "var(--bb-text-faint)" }}>Personne n'a encore vu ce statut.</p>
               ) : (
                 storyViewers.map((v) => {
                   // Bug corrigé à l'audit, même famille que CommunityMemberRow.jsx/
@@ -424,7 +424,7 @@ export default function StoryViewerModal({
                       {unavailable ? (
                         <div className="text-xs" style={{ color: coralText }}>Ce compte n'est plus disponible</div>
                       ) : (
-                        <div className="text-xs" style={{ color: "rgba(var(--bb-ink-rgb),0.5)" }}>{timeAgo(v.viewed_at)}</div>
+                        <div className="text-xs" style={{ color: "var(--bb-text-faint)" }}>{timeAgo(v.viewed_at)}</div>
                       )}
                     </div>
                     {v.reaction && <span className="text-lg shrink-0">{v.reaction}</span>}

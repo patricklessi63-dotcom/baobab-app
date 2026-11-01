@@ -377,8 +377,8 @@ export default function Auth({ justVerified = false, onAcknowledgeVerified = () 
         .bb-auth .bb-bg { animation: bbKenBurns 22s ease-in-out alternate infinite; }
         .bb-auth .bb-hero { animation: bbRise .8s cubic-bezier(.22,1,.36,1) both; }
         .bb-auth .bb-card { animation: bbRise .9s .12s cubic-bezier(.22,1,.36,1) both; }
-        .bb-auth .bb-word { display:inline-block; opacity:0; animation: bbWord .75s cubic-bezier(.22,1,.36,1) both; transform-origin: 50% 100%; }
-        .bb-auth .bb-word-gradient { background: linear-gradient(100deg, #F2A33A, #EA5F4B 45%, #F2A33A 90%); background-size: 200% auto; -webkit-background-clip: text; background-clip: text; color: transparent; animation: bbWord .75s cubic-bezier(.22,1,.36,1) both, bbGradientMove 4s ease-in-out .9s infinite; }
+        .bb-auth .bb-word { display:inline-block; animation: bbWord .75s cubic-bezier(.22,1,.36,1) backwards; transform-origin: 50% 100%; }
+        .bb-auth .bb-word-gradient { background: linear-gradient(100deg, #F2A33A, #EA5F4B 45%, #F2A33A 90%); background-size: 200% auto; -webkit-background-clip: text; background-clip: text; color: transparent; animation: bbWord .75s cubic-bezier(.22,1,.36,1) backwards, bbGradientMove 4s ease-in-out .9s infinite; }
         .bb-auth .bb-caret { display:inline-block; width: 2px; margin-left: 2px; animation: bbCaret 1.1s step-end infinite; }
         .bb-auth .bb-badge { animation: bbFloat 5s ease-in-out infinite; }
         .bb-auth .bb-brand-icon { animation: bbGlow 3s ease-in-out infinite; }
@@ -741,13 +741,13 @@ export default function Auth({ justVerified = false, onAcknowledgeVerified = () 
           )}
 
           <div className="mt-7 border-t pt-5 text-center text-[10px]"
-            style={{ borderColor: "rgba(242,233,220,0.10)", color: "rgba(242,233,220,0.42)" }}>
+            style={{ borderColor: "rgba(242,233,220,0.10)", color: "rgba(243,238,228,0.62)" }}>
             <div className="flex justify-center flex-wrap gap-x-4 gap-y-2">
               <button type="button" onClick={() => setLegalView("privacy")} className="bb-tap underline decoration-dotted underline-offset-2">Confidentialité</button>
               <span>•</span>
               <button type="button" onClick={() => setLegalView("terms")} className="bb-tap underline decoration-dotted underline-offset-2">Conditions</button>
             </div>
-            <div className="mt-3" style={{ fontFamily: "'JetBrains Mono', monospace", letterSpacing: "0.08em" }}>BAOBAB — BY LESSI PATRICK</div>
+            <div className="mt-3" style={{ fontFamily: "var(--bb-font-mono)", letterSpacing: "0.08em" }}>BAOBAB — BY LESSI PATRICK</div>
           </div>
         </div>
       </section>

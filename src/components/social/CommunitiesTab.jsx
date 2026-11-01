@@ -80,7 +80,7 @@ function withMemberCount(rows) {
   return (rows || []).map((c) => ({ ...c, memberCount: c.community_members?.[0]?.count || 0 }));
 }
 
-export default function CommunitiesTab({ currentUser, onError, onBack = () => {}, onCommunitiesChanged, initialCommunityId, onConsumedInitial, blockedIds = new Set(), onOpenEvents = () => {}, onCreateEventInCommunity = () => {}, myPlatformRole = null, onReportProfile = () => {}, onBlockProfile = () => {},
+export default function CommunitiesTab({ aiEnabled = false, currentUser, onError, onBack = () => {}, onCommunitiesChanged, initialCommunityId, onConsumedInitial, blockedIds = new Set(), onOpenEvents = () => {}, onCreateEventInCommunity = () => {}, myPlatformRole = null, onReportProfile = () => {}, onBlockProfile = () => {},
   // Bug identifié à l'audit (passe 94) : PublicProfileModal ouvert depuis la
   // liste des membres d'une communauté n'avait ni onMessage, ni onLike/
   // onUnlike, ni onToggleFollow, ni onToggleFavorite — contrairement à la
@@ -1486,7 +1486,7 @@ export default function CommunitiesTab({ currentUser, onError, onBack = () => {}
           <button onClick={requestCancelCreate} disabled={createSubmitting} aria-label="Annuler" className="bb-hit text-sm font-bold disabled:opacity-40" style={{ color: primary }}>← Annuler</button>
         </div>
         <h1 className="text-2xl font-black mb-4" style={{ color: primary }}>Créer une communauté</h1>
-        <CommunityCreateForm currentUser={currentUser} onCreated={handleCreated} onCancel={requestCancelCreate} onDirtyChange={setCreateDirty} onSubmittingChange={setCreateSubmitting} onError={onError} />
+        <CommunityCreateForm aiEnabled={aiEnabled} currentUser={currentUser} onCreated={handleCreated} onCancel={requestCancelCreate} onDirtyChange={setCreateDirty} onSubmittingChange={setCreateSubmitting} onError={onError} />
         <ConfirmModal
           open={confirmDiscardCreate}
           title="Quitter sans enregistrer ?"

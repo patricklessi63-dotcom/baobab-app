@@ -6,7 +6,7 @@ export default function OnboardingProgress({ step }) {
   return (
     <div className="mb-5">
       <div className="flex items-center justify-between mb-1.5">
-        <span className="text-xs font-semibold" style={{ color: "rgba(var(--bb-ink-rgb-static),0.55)" }}>
+        <span className="text-xs font-semibold" style={{ color: "var(--bb-text-faint)" }}>
           Étape {step} sur {ONBOARDING_STEP_COUNT}
         </span>
         <span className="text-xs font-bold" style={{ color: C.primary }}>{pct}%</span>

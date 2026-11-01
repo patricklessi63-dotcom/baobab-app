@@ -12,7 +12,7 @@ export default function Step0Welcome({ draft, update }) {
       <h2 style={{ fontFamily: "var(--bb-font-title)", fontWeight: 800, fontSize: 24, color: C.primary }}>
         Bienvenue sur Baobab 🌍
       </h2>
-      <p className="text-sm" style={{ color: "rgba(var(--bb-ink-rgb-static),0.6)" }}>
+      <p className="text-sm" style={{ color: "var(--bb-text-faint)" }}>
         L'espace pour rencontrer des personnes, rejoindre des communautés et
         vivre des expériences ensemble.
       </p>
@@ -24,7 +24,7 @@ export default function Step0Welcome({ draft, update }) {
         menu, une fois connecté.
       </div>
 
-      <p className="text-xs font-semibold mt-2" style={{ color: "rgba(var(--bb-ink-rgb-static),0.55)" }}>
+      <p className="text-xs font-semibold mt-2" style={{ color: "var(--bb-text-faint)" }}>
         Qu'est-ce que tu recherches ? Choisis autant d'options que nécessaire.
       </p>
       <ChipSelect
