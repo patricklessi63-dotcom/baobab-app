@@ -8,7 +8,7 @@ export function isStep3Valid(draft) {
 export default function Step3Location({ draft, update }) {
   return (
     <div className="flex flex-col gap-3">
-      <h2 style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 22, color: C.indigo }}>
+      <h2 style={{ fontFamily: "var(--bb-font-display)", fontSize: 22, color: C.primary }}>
         Où es-tu ?
       </h2>
       <p className="text-sm" style={{ color: "rgba(var(--bb-ink-rgb-static),0.6)" }}>

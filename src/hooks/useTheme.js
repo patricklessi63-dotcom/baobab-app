@@ -18,12 +18,12 @@ function readStoredTheme() {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored === "dark" || stored === "light" || stored === "system") return stored;
-    // Aucune préférence enregistrée (première visite) : clair par défaut,
-    // plutôt que de suivre silencieusement le thème sombre du système —
-    // "Système" reste un choix explicite disponible dans les réglages.
-    return "light";
+    // Aucune préférence enregistrée (première visite) : sombre par défaut,
+    // l'identité Baobab Horizon (même rendu que la page d'accueil) — "Clair"
+    // et "Système" restent des choix explicites disponibles dans les réglages.
+    return "dark";
   } catch (_) {
-    return "light";
+    return "dark";
   }
 }
 

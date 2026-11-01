@@ -13,18 +13,21 @@ export const C = {
   // --- Chrome applicatif / onboarding / édition de profil ---
   indigo: "#14432A",
   indigoDeep: "#0D2E1C",
+  // Identité Baobab Horizon (nuit verte, braise/corail, signal) : les jetons
+  // ci-dessous (ochre, sand, dusk, dusk3, acacia, gold, coral) portent désormais
+  // ses valeurs, mêmes que --hz-* / --bb-* de index.html.
   // (Ancien "clay" #C1613D retiré : l'orange terracotta a été remplacé
   // partout par "leaf" pour l'action et "coralText" pour l'alerte.)
-  ochre: "#D9A441",
-  sand: "#F2E9DC",
+  ochre: "#F2A33A",
+  sand: "#F3EEE4",
   ink: "#2B2420",
 
   // --- Écrans pré-connexion (auth, landing, pages légales) ---
-  dusk: "#0C2318",
-  dusk3: "#1E4632",
+  dusk: "#060B09",
+  dusk3: "#0F2B21",
   bark: "#8A6A52",
-  acacia: "#8FAE86",
-  sandDim: "rgba(242,233,220,0.72)",
+  acacia: "#62F0BA",
+  sandDim: "rgba(243,238,228,0.72)",
 
   // --- Coquille sociale post-connexion (fil, découverte, messages...) ---
   // "primary" est le jeton de TEXTE/TITRE principal — réactif au thème via
@@ -37,7 +40,9 @@ export const C = {
   // fonds de bouton pleins et dégradés décoratifs qui doivent rester vert
   // foncé dans les deux thèmes (voir navyRgb plus bas). Nom historique
   // conservé (ex-marine) pour éviter de retoucher ~15 fichiers.
-  navy: "#14432A",
+  // Horizon : vert « leaf-deep » (#185C43), plus vif que l'ancien #14432A pour rester
+  // visible sur la nuit verte du thème sombre, avec du texte blanc à 7.9:1.
+  navy: "#185C43",
   // "green" : vert secondaire (turquoise) — accent lumineux, distinct du vert
   // profond primaire ci-dessus.
   green: "#2DBF9E",
@@ -53,7 +58,7 @@ export const C = {
   // « écrit… », halos/fonds teintés). Contraste insuffisant pour du texte
   // ou une icône fine — ornement uniquement (voir --bb-leaf-light).
   leafLight: "var(--bb-leaf-light)",
-  coral: "#E56B5D",
+  coral: "#EA5F4B",
   // "coralText" : corail réactif au thème, réservé au CORAIL UTILISÉ COMME
   // COULEUR DE TEXTE (messages d'erreur, libellés de badges, item Déconnexion,
   // highlightText...). En clair, #E56B5D échoue au contraste WCAG AA sur fond
@@ -68,7 +73,7 @@ export const C = {
   // repasserait au corail vif #E56B5D en sombre, illisible sur crème fixe.
   // Même valeur que --bb-coral-text en clair et que le fond .bb-btn-danger.
   coralTextStatic: "#C0392B",
-  gold: "#F2B84B",
+  gold: "#F2A33A",
 
   // --- Jetons de surface, réactifs au thème (clair/sombre, voir index.html) ---
   bg: "var(--bb-bg)",
@@ -117,7 +122,7 @@ export const C = {
 // dégradés/scrims décoratifs qui doivent rester marine dans les deux thèmes
 // (voir C.navy).
 export const primaryRgb = "var(--bb-text-rgb)";
-export const navyRgb = "20,67,42";
+export const navyRgb = "24,92,67";
 
 export const EDUCATION_LEVELS = ["Secondaire", "Collégial / DEC", "Baccalauréat", "Maîtrise", "Doctorat", "Formation professionnelle"];
 export const HAS_CHILDREN_OPTIONS = ["Oui", "Non"];

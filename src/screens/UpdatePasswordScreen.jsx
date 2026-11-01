@@ -110,7 +110,7 @@ export default function UpdatePasswordScreen({ onDone, onSignOut }) {
       <div className="w-full max-w-sm rounded-[30px] p-6 sm:p-7"
         style={{ background: "rgba(13,32,22,0.80)", border: "1px solid rgba(242,233,220,0.16)",
           boxShadow: "0 30px 90px rgba(0,0,0,0.52)", backdropFilter: "blur(22px)" }}>
-        <div style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 24 }} className="mb-1">
+        <div style={{ fontFamily: "var(--bb-font-display)", fontSize: 24 }} className="mb-1">
           Nouveau mot de passe
         </div>
         <p className="text-sm mb-5" style={{ color: C.sandDim }}>

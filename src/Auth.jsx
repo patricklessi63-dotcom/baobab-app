@@ -4,8 +4,11 @@ import { supabase } from "./supabaseClient";
 import { linkOrigin } from "./lib/publicOrigin";
 import { getCurrentPositionSafe } from "./lib/geolocation";
 import { isNative } from "./lib/platform";
-import loginBackground from "./assets/baobab-canada-bg.svg";
-import logoIcon from "./assets/logo-baobab-icon.png";
+import HorizonTree from "./components/horizon/HorizonTree";
+import HorizonStage from "./components/horizon/HorizonStage";
+import { HorizonMark } from "./components/horizon/HorizonBrand";
+import { loadHorizonFonts } from "./components/horizon/loadHorizonFonts";
+import { useReduceMotion } from "./components/horizon/useReduceMotion";
 import { PrivacyPolicyContent, TermsOfServiceContent } from "./legalContent";
 import { useEscapeKey } from "./hooks/useEscapeKey";
 import { useFocusTrap } from "./hooks/useFocusTrap";
@@ -334,6 +337,21 @@ export default function Auth({ justVerified = false, onAcknowledgeVerified = () 
     : mode === "link-error" ? "Pas d'inquiétude, on peut t'en envoyer un autre."
     : "Rencontre, échange et crée des connexions avec des immigrants partout au Canada.";
 
+  const { reduce: reduceMotion } = useReduceMotion();
+  const [isWide, setIsWide] = useState(() => {
+    try { return typeof window.matchMedia === "function" && window.matchMedia("(min-width: 1024px)").matches; } catch { return false; }
+  });
+  useEffect(() => {
+    let mq;
+    try { mq = typeof window.matchMedia === "function" ? window.matchMedia("(min-width: 1024px)") : null; } catch { mq = null; }
+    if (!mq) return undefined;
+    const onChange = () => setIsWide(mq.matches);
+    onChange();
+    if (mq.addEventListener) { mq.addEventListener("change", onChange); return () => mq.removeEventListener("change", onChange); }
+    mq.addListener?.(onChange);
+    return () => mq.removeListener?.(onChange);
+  }, []);
+  useEffect(() => { loadHorizonFonts(); }, []);
   const passwordCheckResult = scorePassword(password);
   const confirmMatches = passwordConfirm.length > 0 && password === passwordConfirm;
   const confirmMismatch = passwordConfirm.length > 0 && password !== passwordConfirm;
@@ -341,14 +359,14 @@ export default function Auth({ justVerified = false, onAcknowledgeVerified = () 
 
   return (
     <main className="bb-auth min-h-screen relative flex items-center justify-center overflow-hidden px-4 py-6 sm:px-6"
-      style={{ fontFamily: "Inter, system-ui, sans-serif", color: C.sand, background: C.dusk,
+      style={{ fontFamily: "var(--bb-font-body)", color: C.sand, background: C.dusk,
         paddingTop: "max(1.5rem, env(safe-area-inset-top))", paddingBottom: "max(1.5rem, env(safe-area-inset-bottom))" }}>
       <style>{`
         @keyframes bbKenBurns { from { transform: scale(1.04); } to { transform: scale(1.12); } }
         @keyframes bbRise { from { opacity: 0; transform: translateY(22px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes bbWord { from { opacity: 0; transform: translateY(34px) rotateX(60deg) scale(.94); filter: blur(6px); } 60% { filter: blur(0); } to { opacity: 1; transform: translateY(0) rotateX(0) scale(1); filter: blur(0); } }
         @keyframes bbGradientMove { 0%,100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
-        @keyframes bbGlow { 0%,100% { box-shadow: 0 0 0 0 rgba(217,164,65,.12); } 50% { box-shadow: 0 0 0 14px rgba(217,164,65,0); } }
+        @keyframes bbGlow { 0%,100% { box-shadow: 0 0 0 0 rgba(98,240,186,.16); } 50% { box-shadow: 0 0 0 14px rgba(98,240,186,0); } }
         @keyframes bbFloat { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
         @keyframes bbShimmer { 0% { transform: translateX(-120%); } 100% { transform: translateX(220%); } }
         @keyframes bbCaret { 0%,45% { opacity: 1; } 50%,95% { opacity: 0; } 100% { opacity: 1; } }
@@ -360,34 +378,40 @@ export default function Auth({ justVerified = false, onAcknowledgeVerified = () 
         .bb-auth .bb-hero { animation: bbRise .8s cubic-bezier(.22,1,.36,1) both; }
         .bb-auth .bb-card { animation: bbRise .9s .12s cubic-bezier(.22,1,.36,1) both; }
         .bb-auth .bb-word { display:inline-block; opacity:0; animation: bbWord .75s cubic-bezier(.22,1,.36,1) both; transform-origin: 50% 100%; }
-        .bb-auth .bb-word-gradient { background: linear-gradient(90deg, ${C.ochre}, #F0C878, ${C.ochre}); background-size: 200% auto; -webkit-background-clip: text; background-clip: text; color: transparent; animation: bbWord .75s cubic-bezier(.22,1,.36,1) both, bbGradientMove 4s ease-in-out .9s infinite; }
+        .bb-auth .bb-word-gradient { background: linear-gradient(100deg, #F2A33A, #EA5F4B 45%, #F2A33A 90%); background-size: 200% auto; -webkit-background-clip: text; background-clip: text; color: transparent; animation: bbWord .75s cubic-bezier(.22,1,.36,1) both, bbGradientMove 4s ease-in-out .9s infinite; }
         .bb-auth .bb-caret { display:inline-block; width: 2px; margin-left: 2px; animation: bbCaret 1.1s step-end infinite; }
         .bb-auth .bb-badge { animation: bbFloat 5s ease-in-out infinite; }
         .bb-auth .bb-brand-icon { animation: bbGlow 3s ease-in-out infinite; }
         .bb-auth .bb-submit { position:relative; overflow:hidden; }
         .bb-auth .bb-submit::after { content:""; position:absolute; inset:0 auto 0 -40%; width:35%; background:linear-gradient(90deg,transparent,rgba(255,255,255,.28),transparent); transform:skewX(-18deg); animation:bbShimmer 3.8s ease-in-out infinite; }
         .bb-auth .bb-field { transition: transform .25s ease, border-color .25s ease, box-shadow .25s ease, background .25s ease; }
-        .bb-auth .bb-field:focus-within { transform: translateY(-1px); border-color: rgba(217,164,65,.55) !important; box-shadow: 0 10px 30px rgba(0,0,0,.16), 0 0 0 3px rgba(217,164,65,.08); background: rgba(26,54,38,.92) !important; }
+        .bb-auth .bb-field:focus-within { transform: translateY(-1px); border-color: rgba(98,240,186,.6) !important; box-shadow: 0 10px 30px rgba(0,0,0,.2), 0 0 0 3px rgba(98,240,186,.10); background: rgba(15,34,25,.94) !important; }
         .bb-auth .bb-check-pop { animation: bbCheckPop .5s cubic-bezier(.22,1.4,.36,1) both, bbHaloPulse 1.6s ease-out .3s; }
         .bb-auth .bb-alert-shake { animation: bbShake .4s linear; }
         .bb-auth .bb-particle { position:absolute; border-radius:9999px; background:${C.ochre}; animation: bbParticle linear infinite; }
+        .bb-auth .bb-auth-tree { position: absolute; left: 30%; top: 0; bottom: 0; width: 52%; z-index: 0; }
+        .bb-auth .bb-auth-shade { position: absolute; inset: 0; pointer-events: none; background: linear-gradient(90deg, rgba(6,11,9,0.55) 0%, rgba(6,11,9,0.2) 26%, rgba(6,11,9,0) 40%, rgba(6,11,9,0.55) 72%, #060B09 100%); }
         .bb-auth input { font-size: 16px; }
         .bb-auth .bb-tap { min-height: 44px; }
         @media (prefers-reduced-motion: reduce) { .bb-auth * { animation: none !important; transition: none !important; } }
       `}</style>
 
-      <div aria-hidden="true" className="bb-bg absolute inset-0 bg-cover bg-center"
-        style={{ backgroundImage: `url(${loginBackground})`, backgroundPosition: "center center" }} />
-
       <div aria-hidden="true" className="absolute inset-0"
-        style={{ background: "linear-gradient(90deg, rgba(7,20,13,0.08) 0%, rgba(7,20,13,0.18) 32%, rgba(7,20,13,0.72) 57%, rgba(7,20,13,0.96) 100%)" }} />
+        style={{ background: "radial-gradient(70% 45% at 85% 0%, rgba(31,122,90,0.24), transparent 70%), radial-gradient(60% 40% at 0% 55%, rgba(242,163,58,0.10), transparent 70%)" }} />
 
-      <div aria-hidden="true" className="absolute inset-0 md:hidden"
-        style={{ background: "linear-gradient(180deg, rgba(7,20,13,0.20), rgba(7,20,13,0.58) 35%, rgba(7,20,13,0.96) 72%, rgba(7,20,13,1) 100%)" }} />
+      {/* L'arbre vivant de la page d'accueil Horizon : bandeau en haut sur mobile,
+          colonne de gauche sur grand écran. Décoratif (aria-hidden), mis en pause
+          hors écran / onglet caché, image fixe avec « Réduire les animations ». */}
+      {isWide && (
+        <>
+          <div aria-hidden="true" className="bb-auth-tree"><HorizonTree reduceMotion={reduceMotion} lite={isNative()} /></div>
+          <div aria-hidden="true" className="bb-auth-shade" />
+        </>
+      )}
 
       {/* Halo discret + particules très légères — décor uniquement, jamais lourd. */}
       <div aria-hidden="true" className="absolute -top-32 right-[12%] h-72 w-72 rounded-full pointer-events-none hidden md:block"
-        style={{ background: `radial-gradient(circle, rgba(217,164,65,.16), transparent 70%)`, filter: "blur(10px)" }} />
+        style={{ background: `radial-gradient(circle, rgba(242,163,58,.16), transparent 70%)`, filter: "blur(10px)" }} />
       <div aria-hidden="true" className="absolute inset-0 pointer-events-none overflow-hidden hidden lg:block">
         {[18, 34, 52, 68, 81].map((left, i) => (
           <span key={left} className="bb-particle" style={{ left: `${left}%`, bottom: "-10px", width: 3, height: 3, animationDuration: `${9 + i}s`, animationDelay: `${i * 1.6}s` }} />
@@ -407,7 +431,7 @@ export default function Auth({ justVerified = false, onAcknowledgeVerified = () 
             style={{ background: "rgba(13,32,22,0.52)", border: "1px solid rgba(242,233,220,0.16)", backdropFilter: "blur(12px)" }}>
             <MapPin size={14} color={C.ochre} /> Une communauté partout au Canada
           </div>
-          <h2 className="mt-5 text-4xl lg:text-6xl font-bold leading-[1.05]" style={{ fontFamily: "Fraunces, serif", perspective: "700px" }}>
+          <h2 className="mt-5 text-3xl lg:text-5xl leading-[1.08]" style={{ fontFamily: "var(--bb-font-display)", fontWeight: 700, perspective: "700px" }}>
             <span className="bb-word" style={{ animationDelay: ".12s" }}>Nouvelle</span> <span className="bb-word" style={{ animationDelay: ".2s" }}>vie.</span><br />
             <span className="bb-word bb-word-gradient" style={{ animationDelay: ".34s" }}>Nouvelles</span> <span className="bb-word bb-word-gradient" style={{ animationDelay: ".42s" }}>connexions.</span><span className="bb-caret" style={{ height: "0.85em", background: C.ochre, verticalAlign: "-0.1em" }} />
           </h2>
@@ -418,18 +442,23 @@ export default function Auth({ justVerified = false, onAcknowledgeVerified = () 
       </div>
 
       <section className="relative z-20 w-full max-w-md lg:absolute lg:right-[7vw]" aria-label="Authentification Baobab">
+        {!isWide && (
+          <div aria-hidden="true">
+            <HorizonStage className="mb-4" style={{ height: 190 }} hudTop="Baobab · réseau" hudBottom="Chaque point est un lien" />
+          </div>
+        )}
         <div className="bb-card rounded-[30px] p-5 sm:p-7 md:p-8"
-          style={{ background: "rgba(13,32,22,0.80)", border: "1px solid rgba(242,233,220,0.16)",
-            boxShadow: "0 30px 90px rgba(0,0,0,0.52)", backdropFilter: "blur(22px)", WebkitBackdropFilter: "blur(22px)" }}>
+          style={{ background: "rgba(11,21,17,0.82)", border: "1px solid rgba(243,238,228,0.16)",
+            boxShadow: "0 30px 90px rgba(0,0,0,0.6), 0 0 0 1px rgba(98,240,186,0.04)", backdropFilter: "blur(22px)", WebkitBackdropFilter: "blur(22px)" }}>
 
           <button type="button" onClick={onGoHome} className="flex items-center gap-3 mb-6 text-left">
-            <div className="bb-brand-icon h-12 w-12 rounded-2xl overflow-hidden"
-              style={{ background: "#000", border: "1px solid rgba(217,164,65,0.25)" }}>
-              <img src={logoIcon} alt="" className="h-full w-full object-cover" />
+            <div className="bb-brand-icon h-12 w-12 rounded-2xl overflow-hidden flex items-center justify-center"
+              style={{ background: "#060B09", border: "1px solid rgba(98,240,186,0.35)" }}>
+              <HorizonMark size={32} />
             </div>
             <div>
-              <div style={{ fontFamily: "Fraunces, serif", fontStyle: "italic", fontWeight: 600, fontSize: 28, lineHeight: 1 }}>Baobab</div>
-              <div className="mt-1" style={{ fontSize: 9, letterSpacing: "0.22em", color: C.sandDim }}>BY LESSI PATRICK</div>
+              <div style={{ fontFamily: "var(--bb-font-display)", fontWeight: 800, fontSize: 22, letterSpacing: "0.18em", lineHeight: 1 }}>BAOBAB</div>
+              <div className="mt-1.5" style={{ fontFamily: "var(--bb-font-mono)", fontSize: 9, letterSpacing: "0.22em", color: C.sandDim }}>BY LESSI PATRICK</div>
             </div>
           </button>
 

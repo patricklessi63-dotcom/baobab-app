@@ -46,15 +46,22 @@ describe("useTheme — synchronisation multi-onglets via l'event storage", () =>
   });
 
   it("un localStorage.clear() (key === null) resynchronise sur la valeur par défaut", () => {
-    localStorage.setItem(STORAGE_KEY, "dark");
+    localStorage.setItem(STORAGE_KEY, "light");
     const { result } = renderHook(() => useTheme());
-    expect(result.current[0]).toBe("dark");
+    expect(result.current[0]).toBe("light");
 
     act(() => {
       localStorage.clear();
       window.dispatchEvent(new StorageEvent("storage", { key: null }));
     });
 
-    expect(result.current[0]).toBe("light");
+    // Défaut = sombre (identité Baobab Horizon).
+    expect(result.current[0]).toBe("dark");
+  });
+
+  it("sans préférence enregistrée, le thème par défaut est sombre (Baobab Horizon)", () => {
+    const { result } = renderHook(() => useTheme());
+    expect(result.current[0]).toBe("dark");
+    expect(document.documentElement.getAttribute("data-theme")).toBe("dark");
   });
 });

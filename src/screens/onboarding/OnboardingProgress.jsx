@@ -9,7 +9,7 @@ export default function OnboardingProgress({ step }) {
         <span className="text-xs font-semibold" style={{ color: "rgba(var(--bb-ink-rgb-static),0.55)" }}>
           Étape {step} sur {ONBOARDING_STEP_COUNT}
         </span>
-        <span className="text-xs font-bold" style={{ color: C.indigo }}>{pct}%</span>
+        <span className="text-xs font-bold" style={{ color: C.primary }}>{pct}%</span>
       </div>
       <div
         role="progressbar"

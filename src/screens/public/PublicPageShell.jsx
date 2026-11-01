@@ -45,7 +45,7 @@ export default function PublicPageShell({ title, navigate, children }) {
 
         <div className="rounded-[24px] p-6 sm:p-8" style={{ background: C.dusk3, border: "1px solid rgba(242,233,220,0.12)" }}>
           {title && (
-            <h1 className="mb-5" style={{ fontFamily: "Fraunces, serif", fontStyle: "italic", fontWeight: 600, fontSize: 26, color: C.sand }}>
+            <h1 className="mb-5" style={{ fontFamily: "var(--bb-font-display)", fontWeight: 600, fontSize: 26, color: C.sand }}>
               {title}
             </h1>
           )}

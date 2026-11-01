@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef, Suspense, lazy } from "react";
 import { Home, Heart, X, MessageCircle, UserRound, Search, Bell, Globe2, Compass } from "lucide-react";
-import logoIcon from "../assets/logo-baobab-icon.png";
+import HorizonBackdrop from "./horizon/HorizonBackdrop";
+import { HorizonMark } from "./horizon/HorizonBrand";
 import { supabase } from "../supabaseClient";
 import { matchKey, formatBadgeCount } from "../utils/format";
 import { useClickOutside } from "../hooks/useClickOutside";
@@ -2297,7 +2298,7 @@ export default function SocialShell({
   }, [deepLink, currentUser?.id]);
 
   return (
-    <div className="bb-app min-h-screen relative" style={{ color: body, fontFamily: "'Manrope',system-ui,sans-serif" }}>
+    <div className="bb-app min-h-screen relative" style={{ color: body, fontFamily: "var(--bb-font-body)" }}>
       <style>{`
         @keyframes bbAppDrift { from { transform: scale(1.02) translate3d(0,0,0); } to { transform: scale(1.07) translate3d(-1.2%, -1%, 0); } }
         @keyframes bbContentIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
@@ -2306,7 +2307,7 @@ export default function SocialShell({
         .bb-glass { background: rgba(var(--bb-surface-rgb),.78) !important; backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); }
         @media (prefers-reduced-motion: reduce) { .bb-app * { animation: none !important; transition: none !important; } }
       `}</style>
-      <div aria-hidden="true" className="fixed inset-0 z-0 pointer-events-none" style={{ background: bg }} />
+      <HorizonBackdrop />
       <header className="sticky top-0 z-40 border-b bb-glass" style={{ borderColor: `rgba(${primaryRgb},.08)`, paddingTop: "env(safe-area-inset-top)", paddingLeft: "env(safe-area-inset-left)", paddingRight: "env(safe-area-inset-right)" }}>
         <div className="max-w-7xl mx-auto px-4 lg:px-8 h-[74px] flex items-center gap-4">
           {/* Bug corrigé à l'audit accessibilité clavier/lecteur d'écran : le
@@ -2319,12 +2320,12 @@ export default function SocialShell({
               "bouton"). aria-label explicite, indépendant de ce qui est
               visible à l'écran. */}
           <button onClick={() => goTab("feed")} aria-label="Baobab — retour au fil" className="flex items-center gap-3 shrink-0">
-            <div className="h-11 w-11 rounded-[15px] overflow-hidden flex items-center justify-center shadow-lg" style={{ background: "#000" }}>
-              <img src={logoIcon} alt="" className="h-full w-full object-cover" />
+            <div className="h-11 w-11 rounded-[15px] overflow-hidden flex items-center justify-center bb-brand-chip" style={{ background: "#060B09" }}>
+              <HorizonMark size={30} />
             </div>
             <div className="hidden sm:block text-left">
-              <div className="text-xl font-black tracking-tight" style={{ color: primary }}>baobab</div>
-              <div className="text-[9px] uppercase tracking-[.24em] font-bold" style={{ color: muted }}>connecter · s'intégrer · aimer</div>
+              <div className="bb-display text-base" style={{ color: primary, fontWeight: 800, letterSpacing: ".18em" }}>BAOBAB</div>
+              <div className="bb-mono text-[9px] uppercase tracking-[.2em]" style={{ color: muted }}>connecter · s'intégrer · aimer</div>
             </div>
           </button>
 
@@ -2690,16 +2691,17 @@ export default function SocialShell({
             const badgeCount = getBadge ? getBadge() : 0;
             const active = tab === key;
             return (
-              <button key={key} onClick={() => goTab(key)} aria-label={badgeCount > 0 ? `${label} (${badgeCount} non lus)` : label} aria-current={active ? "page" : undefined} className="py-3 flex flex-col items-center gap-1.5 rounded-2xl" style={{ minHeight: 48 }}>
+              <button key={key} onClick={() => goTab(key)} aria-label={badgeCount > 0 ? `${label} (${badgeCount} non lus)` : label} aria-current={active ? "page" : undefined} className="relative py-3 flex flex-col items-center gap-1.5 rounded-2xl" style={{ minHeight: 48 }}>
                 <div className="h-7 w-9 flex items-center justify-center rounded-xl relative motion-safe:transition-colors motion-safe:duration-200">
-                  <Icon size={19} color={active ? "var(--bb-gold-1)" : muted} fill={active && key === "discover" ? "var(--bb-gold-1)" : "none"} className="motion-safe:transition-colors motion-safe:duration-200" />
+                  <Icon size={19} color={active ? "var(--bb-accent)" : muted} fill={active && key === "discover" ? "var(--bb-accent)" : "none"} className="motion-safe:transition-colors motion-safe:duration-200" />
                   {badgeCount > 0 && (
                     <span className="absolute -top-0.5 -right-0.5 h-4 min-w-4 px-1 rounded-full text-[9px] font-black text-white flex items-center justify-center" style={{ background: coral }}>
                       {formatBadgeCount(badgeCount)}
                     </span>
                   )}
                 </div>
-                <span className="text-[8px] font-black text-center leading-tight w-full whitespace-nowrap overflow-hidden text-ellipsis px-0.5" style={{ color: active ? "var(--bb-gold-1)" : muted }}>{label}</span>
+                <span className="text-[8px] font-black text-center leading-tight w-full whitespace-nowrap overflow-hidden text-ellipsis px-0.5" style={{ color: active ? "var(--bb-accent)" : muted }}>{label}</span>
+                {active && <span aria-hidden="true" className="bb-nav-pip" />}
               </button>
             );
           })}

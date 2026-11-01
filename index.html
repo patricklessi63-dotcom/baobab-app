@@ -56,177 +56,176 @@
   attributs media sur theme-color, pas besoin de JS) — la barre d'état du
   PWA/onglet suit désormais la palette or/noir en mode sombre système,
   au lieu de rester figée sur le vert du mode clair. -->
-  <meta name="theme-color" content="#14432A" media="(prefers-color-scheme: light)" />
-  <meta name="theme-color" content="#14120D" media="(prefers-color-scheme: dark)" />
+  <meta name="theme-color" content="#F3EEE4" media="(prefers-color-scheme: light)" />
+  <meta name="theme-color" content="#060B09" media="(prefers-color-scheme: dark)" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,500;0,600;1,500&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
   <style>
+    /* ======================================================================
+    Identité « Baobab Horizon » (nuit verte, horizon de savane au coucher du
+    soleil) appliquée à TOUTE l'app : mêmes jetons --hz-* que la page d'accueil
+    (src/styles/horizon-tokens.css), exposés ici sous les noms --bb-* que
+    l'ensemble des écrans utilise déjà. Le thème sombre est l'identité de
+    référence (Horizon) ; le thème clair en est la version « ivoire » : mêmes
+    verts, mêmes accents braise/corail. Contrastes WCAG vérifiés (voir les
+    commentaires de chaque jeton) : texte >= 4.5:1 sur bg, surface, surface-2.
+    ====================================================================== */
     :root {
       --bb-indigo: #14432A;
       --bb-indigo-deep: #0D2E1C;
-      /* (Ancien --bb-clay / --bb-clay-deep #C1613D retirés : l'orange terracotta
-      a été remplacé partout par --bb-leaf pour l'action et --bb-coral-text
-      pour l'alerte — direction 4.0 validée.) */
-      --bb-ochre: #D9A441;
-      --bb-sand: #F8F5EF;
-      --bb-ink: #211B17;
-      --bb-border: rgba(33,27,23,0.10);
-      --bb-shadow-sm: 0 1px 2px rgba(13,46,28,0.06);
-      --bb-shadow-md: 0 6px 20px rgba(13,46,28,0.08);
-      --bb-shadow-lg: 0 16px 40px rgba(13,46,28,0.16);
+      --bb-ochre: #F2A33A;
+      --bb-sand: #F3EEE4;
+      --bb-ink: #0F2B21;
       --bb-radius-lg: 22px;
       --bb-radius-md: 14px;
       --bb-radius-sm: 11px;
       --bb-ease: cubic-bezier(.4,0,.2,1);
+      --bb-ease-out: cubic-bezier(.2,.8,.2,1);
 
-      /* --- Jetons de thème (clair/sombre) — source unique pour src/constants.js
-      et pour les classes .bb-* ci-dessous. "text"/"text-rgb" = couleur de
-      titre/texte principal (auparavant C.primary, figé en marine) ;
-      "surface" = fond des cartes/modales/menus (auparavant bg-white en dur) ;
-      les couleurs de marque (indigo/clay/ochre/coral/green/gold...)
-      restent volontairement identiques dans les deux thèmes. */
-      --bb-bg: #FAF7F2;
-      --bb-surface: #FFFFFF;
-      --bb-surface-rgb: 255,255,255;
-      --bb-text: #14432A;
-      --bb-text-rgb: 20,67,42;
-      --bb-body-text: #1C3A2A;
-      --bb-muted: rgba(43,36,32,0.72);
-      /* Second famille de texte (brun chaud) utilisée par l'onboarding,
-      Réglages et l'édition de profil (C.ink) — palette volontairement
-      distincte de "text" (marine) par zone de l'app, voir constants.js.
-      Réactive au thème : Réglages et les modales de la coquille sociale
-      ont un fond lui-même réactif, donc le texte doit suivre. */
-      --bb-ink-rgb: 43,36,32;
-      /* Variante FIXE (jamais redéfinie dans les blocs sombre ci-dessous) —
-      pour les écrans "chrome applicatif" à fond volontairement toujours
-      clair (onboarding, édition de profil, écran banni/suspendu) : leur
-      fond ne réagit jamais au thème, donc leur texte ne doit pas non plus
-      réagir — sinon le texte devient presque invisible en mode sombre
-      (texte clair sur fond clair fixe). Même valeur que --bb-ink-rgb, mais
-      qui ne bouge jamais. */
-      --bb-ink-rgb-static: 43,36,32;
-      /* Repli clair pour les nouveaux jetons de la refonte or/noir (surface
-      secondaire des en-têtes/nav, dégradé or, texte estompé) — redéfinis
-      uniquement en mode sombre ci-dessous ; le mode clair garde des valeurs
-      cohérentes avec sa propre palette existante plutôt que de rester
-      indéfinis. */
-      --bb-surface-2: #F2EEE4;
-      --bb-gold-1: var(--bb-ochre);
-      /* Ambré foncé (et non l'ancien #C1613D orange terracotta, retiré de
-      l'interface — voir --bb-leaf) : le 2ᵉ arrêt des dégradés or reste dans
-      la famille or/miel, jamais orange. */
-      --bb-gold-2: #C98A2E;
-      /* Contraste : 0.5 donnait ~3.1:1 sur --bb-bg/--bb-surface (échec AA
-      texte normal) ; 0.66 remonte à ~4.9:1 tout en restant nettement plus
-      pâle que --bb-muted (hiérarchie faint < muted < text préservée). */
-      --bb-text-faint: rgba(43,36,32,0.66);
-      /* Corail utilisé comme COULEUR DE TEXTE (messages d'erreur role="alert",
-      libellés de badges, item Déconnexion, highlightText...). Le corail
-      d'identité #E56B5D ne donne que 2.98:1 sur --bb-bg et 3.19:1 sur
-      --bb-surface en thème clair (échec AA texte normal, cible 4.5:1).
-      #C0392B (rouge chaud assombri, teinte corail conservée) atteint 5.09:1
-      sur --bb-bg, 5.44:1 sur --bb-surface et 4.69:1 sur --bb-surface-2.
-      Les usages APLAT/DÉGRADÉ/BORDURE/ICÔNE du corail gardent #E56B5D
-      (C.coral) : ils ne sont pas concernés par le contraste texte. */
-      --bb-coral-text: #C0392B;
-      /* Or utilisé comme COULEUR DE TEXTE (badges "Liste d'attente"/
-      "Intéressé(e)", bannières favoris, libellés IA...). Le jeton "gold"
-      d'identité #F2B84B ne donne que ~1.5-1.8:1 sur --bb-bg/--bb-surface/
-      --bb-surface-2 en thème clair (échec massif AA texte normal, cible
-      4.5:1, et même échec du seuil 3:1 réservé aux icônes). #8A5E0A (même
-      teinte or, assombrie) atteint 4.9:1 sur --bb-surface-2, 5.3:1 sur
-      --bb-bg et 5.7:1 sur --bb-surface. Les usages APLAT/DÉGRADÉ/BORDURE/
-      ICÔNE-sans-texte du or gardent "gold" ci-dessus (non concernés). */
-      --bb-gold-text: #8A5E0A;
-      /* "leaf" : vert d'action réservé aux boutons d'ENVOI de la messagerie
-      (.bb-btn-leaf ci-dessous), à ne PAS confondre avec les CTA or
-      (bb-btn-gold) ni les alertes corail. Couleur de marque : mêmes valeurs
-      dans les trois blocs de thème. Assombri pour le contraste texte blanc :
-      #1F7A5A = ~5.3:1 sur blanc (AA texte normal OK) ; le turquoise C.green
-      échouerait. --bb-leaf-deep (#185C43, ~7.9:1 sur blanc) = état survol. */
+      /* Polices : Syne (titres, très large -> graisse 700 maximum, tailles
+      modérées), Manrope (texte), IBM Plex Mono (étiquettes). Replis système
+      robustes si Google Fonts est injoignable. */
+      --bb-font-display: "Syne", "Arial Black", system-ui, -apple-system, "Segoe UI", sans-serif;
+      --bb-font-body: "Manrope", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      --bb-font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+
+      /* Couleurs de marque Horizon, identiques dans les deux thèmes. */
+      --bb-seve: #1F7A5A;
+      --bb-braise: #F2A33A;
+      --bb-corail: #EA5F4B;
+      --bb-signal: #62F0BA;
       --bb-leaf: #1F7A5A;
       --bb-leaf-deep: #185C43;
-      /* "leaf-light" : vert clair DÉCORATIF (pastille « en ligne » qui pulse,
-      points « écrit… », halos et fonds teintés). Contraste insuffisant pour du
-      texte ou une icône fine — à n'utiliser que pour de l'ornement. */
+      /* Texte posé sur un aplat braise/corail (CTA) : 9.1:1 sur braise, 5.7:1 sur corail. */
+      --bb-on-sun: #1A0D06;
+
+      /* --- Thème CLAIR (« ivoire ») : ivoire chaud, texte canopée. --- */
+      --bb-bg: #F3EEE4;
+      --bb-surface: #FFFDF8;
+      --bb-surface-rgb: 255,253,248;
+      --bb-surface-2: #F2EEE4;
+      --bb-text: #0F2B21;
+      --bb-text-rgb: 15,43,33;
+      --bb-body-text: #17362B;
+      --bb-muted: rgba(15,43,33,0.74);
+      --bb-text-faint: rgba(15,43,33,0.66);
+      --bb-border: rgba(15,43,33,0.13);
+      --bb-ink-rgb: 15,43,33;
+      /* Ancienne variante « FIXE » pour les écrans à fond toujours clair
+      (onboarding, édition de profil...). Ces écrans suivent désormais le thème
+      comme le reste de l'app : la valeur est donc redéfinie en sombre. */
+      --bb-ink-rgb-static: 15,43,33;
+      /* Accent d'interface (focus, puces actives, liens vifs) : vert profond
+      lisible sur ivoire (7.9:1 sur blanc) ; remplacé par le « signal » en sombre. */
+      --bb-accent: #185C43;
+      --bb-accent-rgb: 24,92,67;
+      --bb-gold-1: #F2A33A;
+      --bb-gold-2: #EA5F4B;
+      --bb-coral-text: #C0392B;
+      --bb-gold-text: #8A5E0A;
       --bb-leaf-light: #3FB37E;
+      --bb-shadow-sm: 0 1px 2px rgba(15,43,33,0.07);
+      --bb-shadow-md: 0 8px 24px -8px rgba(15,43,33,0.14);
+      --bb-shadow-lg: 0 18px 44px -12px rgba(15,43,33,0.24);
+      /* Halos d'ambiance du fond (voir .bb-horizon-bg) — doux en clair. */
+      --bb-glow-a: rgba(31,122,90,0.10);
+      --bb-glow-b: rgba(242,163,58,0.12);
     }
-    /* Identité or/noir (Baobab 3.0, refonte visuelle août 2026) — mode
-    sombre uniquement, à partir des maquettes fournies par l'utilisateur
-    (screen-fil-accueil / screen-profil / screen-messages / screen-rencontres).
-    Le mode clair n'a pas de maquette équivalente : laissé inchangé
-    (vert/argile/ocre ci-dessus) plutôt que d'inventer une palette claire
-    non demandée. */
+    /* --- Thème SOMBRE (Horizon) : nuit verte, ivoire, signal. Mêmes valeurs
+    pour le réglage « Système » (media query) et le choix manuel. --- */
     @media (prefers-color-scheme: dark) {
       :root:not([data-theme="light"]) {
-        --bb-bg: #14120D;
-        --bb-surface: #1C1912;
-        --bb-surface-rgb: 28,25,18;
-        --bb-surface-2: #211D15;
-        --bb-text: #F2EDE0;
-        --bb-text-rgb: 242,237,224;
-        --bb-body-text: #F2EDE0;
-        /* Contraste (thème sombre) : l'ancien rgba(168,154,124,0.85) tombait
-        à ~4.8:1 sur --bb-surface-2 (limite AA, re-signalé par l'audit) ;
-        rgba(186,172,142,0.9) remonte à ~6.3:1 sans changer la teinte tan. */
-        --bb-muted: rgba(186,172,142,0.9);
-        --bb-border: #2B271F;
-        --bb-ink-rgb: 242,237,224;
-        --bb-gold-1: #F6D271;
-        --bb-gold-2: #C9962F;
-        /* Contraste : #6E6450 ne donnait que ~3:1 sur les surfaces sombres
-        (échec AA) ; #948A6E atteint ~4.9:1, en restant sous --bb-muted. */
-        --bb-text-faint: #948A6E;
-        /* En thème sombre, le corail vif #E56B5D passe déjà (5.5-5.9:1 sur
-        les surfaces sombres) : on garde la teinte d'identité pour le texte. */
-        --bb-coral-text: #E56B5D;
-        /* En thème sombre, l'or vif #F2B84B passe déjà largement (9-10:1 sur
-        les surfaces sombres) : on garde la teinte d'identité pour le texte,
-        comme --bb-coral-text ci-dessus. */
-        --bb-gold-text: #F2B84B;
-        /* Couleur de marque : mêmes valeurs qu'en clair (voir bloc :root). */
-        --bb-leaf: #1F7A5A;
-        --bb-leaf-deep: #185C43;
-        /* Voir bloc :root — variante décorative, plus lumineuse en sombre. */
-        --bb-leaf-light: #6FD6A6;
+        --bb-bg: #060B09;
+        --bb-surface: #0B1511;
+        --bb-surface-rgb: 11,21,17;
+        --bb-surface-2: #0F2219;
+        --bb-text: #F3EEE4;
+        --bb-text-rgb: 243,238,228;
+        --bb-body-text: #F3EEE4;
+        /* Ivoire .68 = 7.3:1 à 8:1 ; .56 = 5.4:1 à 5.7:1 (>= 4.5:1 partout). */
+        --bb-muted: rgba(243,238,228,0.68);
+        --bb-text-faint: rgba(243,238,228,0.56);
+        --bb-border: rgba(243,238,228,0.14);
+        --bb-ink-rgb: 243,238,228;
+        --bb-ink-rgb-static: 243,238,228;
+        --bb-accent: #62F0BA;
+        --bb-accent-rgb: 98,240,186;
+        --bb-coral-text: #EF7565;
+        --bb-gold-text: #F2A33A;
+        --bb-leaf-light: #62F0BA;
+        --bb-shadow-sm: 0 1px 2px rgba(0,0,0,0.5);
+        --bb-shadow-md: 0 12px 32px -12px rgba(0,0,0,0.7);
+        --bb-shadow-lg: 0 24px 56px -16px rgba(0,0,0,0.8);
+        --bb-glow-a: rgba(31,122,90,0.22);
+        --bb-glow-b: rgba(242,163,58,0.09);
       }
     }
     :root[data-theme="dark"] {
-      --bb-bg: #14120D;
-      --bb-surface: #1C1912;
-      --bb-surface-rgb: 28,25,18;
-      --bb-surface-2: #211D15;
-      --bb-text: #F2EDE0;
-      --bb-text-rgb: 242,237,224;
-      --bb-body-text: #F2EDE0;
-      /* Voir la note du bloc @media (prefers-color-scheme: dark) ci-dessus —
-      mêmes valeurs, dupliquées pour le toggle manuel data-theme="dark". */
-      --bb-muted: rgba(186,172,142,0.9);
-      --bb-border: #2B271F;
-      --bb-ink-rgb: 242,237,224;
-      --bb-gold-1: #F6D271;
-      --bb-gold-2: #C9962F;
-      --bb-text-faint: #948A6E;
-      /* Voir la note du bloc @media (prefers-color-scheme: dark) ci-dessus. */
-      --bb-coral-text: #E56B5D;
-      /* Voir la note du bloc @media (prefers-color-scheme: dark) ci-dessus. */
-      --bb-gold-text: #F2B84B;
-      /* Couleur de marque : mêmes valeurs qu'en clair (voir bloc :root). */
-      --bb-leaf: #1F7A5A;
-      --bb-leaf-deep: #185C43;
-      /* Voir bloc :root — variante décorative, plus lumineuse en sombre. */
-      --bb-leaf-light: #6FD6A6;
+      --bb-bg: #060B09;
+      --bb-surface: #0B1511;
+      --bb-surface-rgb: 11,21,17;
+      --bb-surface-2: #0F2219;
+      --bb-text: #F3EEE4;
+      --bb-text-rgb: 243,238,228;
+      --bb-body-text: #F3EEE4;
+      --bb-muted: rgba(243,238,228,0.68);
+      --bb-text-faint: rgba(243,238,228,0.56);
+      --bb-border: rgba(243,238,228,0.14);
+      --bb-ink-rgb: 243,238,228;
+      --bb-ink-rgb-static: 243,238,228;
+      --bb-accent: #62F0BA;
+      --bb-accent-rgb: 98,240,186;
+      --bb-coral-text: #EF7565;
+      --bb-gold-text: #F2A33A;
+      --bb-leaf-light: #62F0BA;
+      --bb-shadow-sm: 0 1px 2px rgba(0,0,0,0.5);
+      --bb-shadow-md: 0 12px 32px -12px rgba(0,0,0,0.7);
+      --bb-shadow-lg: 0 24px 56px -16px rgba(0,0,0,0.8);
+      --bb-glow-a: rgba(31,122,90,0.22);
+      --bb-glow-b: rgba(242,163,58,0.09);
     }
     * { box-sizing: border-box; }
     html { -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
-    body { margin: 0; background: var(--bb-bg); color: var(--bb-text); }
+    body { margin: 0; background: var(--bb-bg); color: var(--bb-text); font-family: var(--bb-font-body); }
+    h1, h2, h3, .bb-display { font-family: var(--bb-font-display); }
+    /* Titres Syne : graisse 700 au plus (la 800 est trop étirée) ; césure
+    équilibrée pour éviter les lignes démesurées. */
+    h1, h2, h3, .bb-display { font-weight: 700; letter-spacing: -0.01em; text-wrap: balance; overflow-wrap: break-word; }
+    .bb-mono { font-family: var(--bb-font-mono); letter-spacing: 0.06em; }
+    .bb-eyebrow { font-family: var(--bb-font-mono); font-size: 0.72rem; letter-spacing: 0.16em; text-transform: uppercase; color: var(--bb-accent); }
+    :focus-visible { outline: 2px solid var(--bb-accent); outline-offset: 2px; }
+
+    /* Fond « horizon » de l'app connectée : deux halos (sève en haut à droite,
+    braise à gauche) qui respirent lentement, plus un balayage lumineux très
+    discret. Calque FIXE derrière le contenu (z-index négatif), purement CSS :
+    aucun coût JavaScript. Animations coupées par « Réduire les animations ». */
+    .bb-horizon-bg { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; background: var(--bb-bg); }
+    .bb-horizon-bg::before, .bb-horizon-bg::after { content: ""; position: absolute; border-radius: 50%; filter: blur(40px); }
+    .bb-horizon-bg::before { right: -20%; top: -18%; width: 70vmax; height: 70vmax; background: radial-gradient(circle, var(--bb-glow-a), transparent 68%); animation: bbBreathe 9s ease-in-out infinite; }
+    .bb-horizon-bg::after { left: -25%; top: 38%; width: 60vmax; height: 60vmax; background: radial-gradient(circle, var(--bb-glow-b), transparent 70%); animation: bbBreathe 12s ease-in-out -4s infinite; }
+    .bb-horizon-bg > i { position: absolute; left: 0; right: 0; top: -40%; height: 40%; background: linear-gradient(180deg, transparent, rgba(var(--bb-accent-rgb), .045) 70%, transparent); animation: bbScan 14s linear infinite; }
+    @keyframes bbBreathe { 50% { transform: scale(1.1); opacity: .78; } }
+    @keyframes bbScan { to { transform: translateY(350%); } }
+    /* Entrée en douceur (contenu visible par défaut : l'animation part de l'état final). */
+    .bb-rise { animation: bbRise .7s var(--bb-ease-out) backwards; }
+    @keyframes bbRise { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: none; } }
+    /* Soleil qui défile dans un texte (mot-clé de titre, chiffre clé). */
+    .bb-sun-text { background: linear-gradient(100deg, var(--bb-braise), var(--bb-corail) 45%, var(--bb-braise) 90%); background-size: 200% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; animation: bbSun 7s linear infinite; }
+    @keyframes bbSun { to { background-position: 200% 0; } }
+    /* Préférence « Réduire les animations » (réglage de l'app, voir useReduceMotion) :
+    s'ajoute à prefers-reduced-motion, ne le contredit jamais. */
+    :root[data-motion="reduce"] *, :root[data-motion="reduce"] *::before, :root[data-motion="reduce"] *::after { animation: none !important; transition: none !important; }
 
     .bb-card {
       background: var(--bb-surface);
       border: 1px solid var(--bb-border);
       border-radius: var(--bb-radius-lg);
       box-shadow: var(--bb-shadow-md);
+      transition: border-color .25s var(--bb-ease), box-shadow .25s var(--bb-ease), transform .25s var(--bb-ease);
+    }
+    @media (hover: hover) {
+      .bb-card:hover { border-color: rgba(var(--bb-accent-rgb), .38); }
     }
 
     .bb-input {
@@ -242,16 +241,16 @@
     .bb-input::placeholder { color: var(--bb-muted); }
     .bb-input:focus {
       outline: none;
-      border-color: var(--bb-leaf);
-      box-shadow: 0 0 0 3px rgba(31,122,90,0.14);
+      border-color: var(--bb-accent);
+      box-shadow: 0 0 0 3px rgba(var(--bb-accent-rgb), 0.18);
     }
 
     .bb-btn { transition: transform .12s var(--bb-ease), box-shadow .18s var(--bb-ease), background .15s var(--bb-ease), opacity .15s var(--bb-ease); }
     .bb-btn:active { transform: scale(0.96); }
     .bb-btn:disabled { opacity: .55; cursor: not-allowed; }
 
-    .bb-btn-primary { background: var(--bb-indigo); color: var(--bb-sand); box-shadow: var(--bb-shadow-sm); }
-    .bb-btn-primary:hover:not(:disabled) { background: var(--bb-indigo-deep); box-shadow: var(--bb-shadow-md); }
+    .bb-btn-primary { background: var(--bb-leaf-deep); color: #fff; box-shadow: var(--bb-shadow-sm); }
+    .bb-btn-primary:hover:not(:disabled) { background: var(--bb-leaf); box-shadow: var(--bb-shadow-md); }
 
     .bb-btn-heart { background: var(--bb-leaf); color: #fff; box-shadow: 0 8px 20px rgba(31,122,90,0.35); }
     .bb-btn-heart:hover:not(:disabled) { background: var(--bb-leaf-deep); box-shadow: 0 10px 24px rgba(31,122,90,0.45); transform: translateY(-1px); }
@@ -259,8 +258,8 @@
     /* Refonte or/noir — bouton d'action principal (Se rencontrer, Publier,
     Envoyer...), dégradé à deux arrêts au lieu d'un aplat. Texte toujours
     très sombre dessus (contraste), peu importe le thème. */
-    .bb-btn-gold { background: linear-gradient(180deg, var(--bb-gold-1), var(--bb-gold-2)); color: #1C1608; box-shadow: 0 8px 20px rgba(201,150,47,0.3); }
-    .bb-btn-gold:hover:not(:disabled) { box-shadow: 0 10px 24px rgba(201,150,47,0.4); transform: translateY(-1px); }
+    .bb-btn-gold { background: linear-gradient(100deg, var(--bb-gold-1), var(--bb-gold-2)); color: var(--bb-on-sun); box-shadow: 0 10px 28px -10px rgba(234,95,75,0.7); }
+    .bb-btn-gold:hover:not(:disabled) { box-shadow: 0 14px 34px -10px rgba(234,95,75,0.85); transform: translateY(-2px); }
 
     /* Bouton d'ENVOI de la messagerie — vert "leaf", volontairement distinct
     des CTA or (bb-btn-gold) et des alertes corail (bb-btn-danger). Aplat
@@ -314,15 +313,17 @@
     .bb-btn-danger:focus-visible { outline: 2px solid var(--bb-text); outline-offset: 2px; }
 
     .bb-btn-pass { background: var(--bb-surface); border: 1px solid var(--bb-border); color: var(--bb-text); }
-    .bb-btn-pass:hover:not(:disabled) { border-color: rgba(33,27,23,0.28); background: rgba(33,27,23,0.03); }
+    .bb-btn-pass:hover:not(:disabled) { border-color: rgba(var(--bb-ink-rgb), 0.32); background: rgba(var(--bb-ink-rgb), 0.05); }
 
     .bb-pill {
       border: 1px solid var(--bb-border);
       color: var(--bb-text);
       transition: all .15s var(--bb-ease);
     }
-    .bb-pill:hover { border-color: rgba(33,27,23,0.32); }
-    .bb-pill-active { background: var(--bb-ochre); color: var(--bb-indigo-deep); border-color: transparent; box-shadow: var(--bb-shadow-sm); }
+    .bb-pill:hover { border-color: rgba(var(--bb-accent-rgb), 0.55); }
+    /* Puce active : même langage que les zones de la page d'accueil (bordure et
+    voile d'accent), lisible dans les deux thèmes. */
+    .bb-pill-active { background: rgba(var(--bb-accent-rgb), 0.14); color: var(--bb-text); border-color: var(--bb-accent); box-shadow: 0 0 0 1px rgba(var(--bb-accent-rgb), .25); }
 
     .bb-badge {
       background: var(--bb-bg);
@@ -375,7 +376,7 @@
       position: absolute;
       inset: -8px;
       border-radius: inherit;
-      background: radial-gradient(circle, rgba(225,107,93,.28), transparent 72%);
+      background: radial-gradient(circle, rgba(var(--bb-accent-rgb), .26), transparent 72%);
       z-index: -1;
       animation: bbTabGlow .35s var(--bb-ease) both;
     }
@@ -398,17 +399,24 @@
     .bb-img-fade.bb-loaded { opacity: 1; }
 
     .bb-icon-btn { transition: background .15s var(--bb-ease), transform .12s var(--bb-ease); }
-    .bb-icon-btn:hover { background: rgba(20,29,56,0.65) !important; }
+    .bb-icon-btn:hover { background: rgba(var(--bb-ink-rgb), 0.14) !important; }
     .bb-icon-btn:active { transform: scale(0.94); }
 
     .bb-nav-btn { transition: background .15s var(--bb-ease), color .15s var(--bb-ease), transform .12s var(--bb-ease); }
-    .bb-nav-btn:hover { background: rgba(33,27,23,0.05) !important; }
+    .bb-nav-btn:hover { background: rgba(var(--bb-ink-rgb), 0.07) !important; }
     .bb-nav-btn:active { transform: scale(0.95); }
+
+    /* Repère lumineux de l'onglet actif (barre du bas) et pastille de marque de
+    l'en-tête — mêmes accents « signal » que la page d'accueil Horizon. */
+    .bb-nav-pip { position: absolute; top: 0; left: 50%; width: 28px; height: 3px; margin-left: -14px; border-radius: 0 0 4px 4px; background: var(--bb-accent); box-shadow: 0 6px 18px 2px rgba(var(--bb-accent-rgb), .5); animation: bbPip .35s var(--bb-ease-out) both; }
+    @keyframes bbPip { from { transform: scaleX(.2); opacity: 0; } to { transform: none; opacity: 1; } }
+    .bb-brand-chip { border: 1px solid rgba(98,240,186,.35); box-shadow: 0 0 22px -6px rgba(98,240,186,.45); }
+    header.bb-glass { box-shadow: 0 12px 32px -20px rgba(var(--bb-accent-rgb), .5); }
 
     .bb-scroll-x { overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
     .bb-scroll-x::-webkit-scrollbar { display: none; }
 
-    ::selection { background: rgba(217,164,65,0.35); }
+    ::selection { background: rgba(var(--bb-accent-rgb), 0.3); }
 
     /* Onglet en arrière-plan : on gèle toutes les animations CSS. Le contenu
     n'est pas visible de toute façon, et les animations de fond en boucle
@@ -440,14 +448,17 @@
   vercel.json avec la nouvelle valeur. -->
   <script>
     // Applique le thème AVANT le premier rendu (évite le flash). Par défaut
-    // (aucune préférence enregistrée) : clair, même si le système est en
-    // mode sombre — "Système" reste un choix explicite dans les réglages,
-    // auquel cas aucun attribut n'est posé et la media query
-    // @media (prefers-color-scheme: dark) ci-dessus prend le relais.
+    // (aucune préférence enregistrée) : sombre, l'identité Baobab Horizon
+    // (même rendu que la page d'accueil) — "Clair" et "Système" restent des
+    // choix explicites dans les réglages ; avec "Système" aucun attribut
+    // n'est posé et la media query @media (prefers-color-scheme: dark)
+    // ci-dessus prend le relais. Pose aussi data-motion="reduce" si
+    // l'utilisateur a choisi "Réduire les animations".
     try {
       var t = localStorage.getItem("bb-theme");
       if (t === "dark" || t === "light") document.documentElement.setAttribute("data-theme", t);
-      else if (t !== "system") document.documentElement.setAttribute("data-theme", "light");
+      else if (t !== "system") document.documentElement.setAttribute("data-theme", "dark");
+      if (localStorage.getItem("bb-reduce-motion") === "1") document.documentElement.setAttribute("data-motion", "reduce");
     } catch (e) {}
   </script>
   <script>

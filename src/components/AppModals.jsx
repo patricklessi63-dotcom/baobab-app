@@ -14,6 +14,7 @@ import ConfirmModal from "./social/ConfirmModal";
 import { useEscapeKey } from "../hooks/useEscapeKey";
 import { useFocusTrap } from "../hooks/useFocusTrap";
 import { useTheme } from "../hooks/useTheme";
+import { useReduceMotion } from "./horizon/useReduceMotion";
 import { useLanguage } from "../hooks/useLanguage";
 
 // Les textes légaux (~20 ko) ne servent qu'à l'ouverture de ces deux modales : chargés à la
@@ -70,6 +71,7 @@ export default function AppModals({
   const [locationOpen, setLocationOpen] = React.useState(false);
   const [deleteAccountOpen, setDeleteAccountOpen] = React.useState(false);
   const [theme, setTheme] = useTheme();
+  const { manual: motionReduced, system: motionSystemReduced, toggle: toggleMotion } = useReduceMotion();
   const [language, setLanguage] = useLanguage();
   const [updateCheck, setUpdateCheck] = useState({ status: "idle" }); // idle | checking | up-to-date | available
   const runManualUpdateCheck = async () => {
@@ -148,7 +150,7 @@ export default function AppModals({
       {settingsOpen && (
         <div className="bb-fade-in fixed inset-0 flex items-end md:items-center justify-center z-[70] p-0 md:p-5" style={{ background: "rgba(8,20,14,0.55)", backdropFilter: "blur(3px)" }} onClick={() => setSettingsOpen(false)} role="dialog" aria-modal="true" aria-label="Paramètres">
           <div ref={settingsDialogRef} tabIndex={-1} className="bb-card p-6 w-full max-w-md rounded-t-[20px] md:rounded-[20px]" style={{ maxHeight: "85vh", overflowY: "auto", paddingBottom: "max(1.5rem, env(safe-area-inset-bottom))" }} onClick={(e) => e.stopPropagation()}>
-            <div style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 20, color: "var(--bb-text)" }} className="mb-4">
+            <div style={{ fontFamily: "var(--bb-font-display)", fontSize: 20, color: "var(--bb-text)" }} className="mb-4">
               Paramètres
             </div>
 
@@ -192,14 +194,36 @@ export default function AppModals({
                     onClick={() => setTheme(value)}
                     className="bb-hit flex-1 text-xs font-bold py-2 focus-visible:outline focus-visible:outline-2"
                     style={{
-                      background: theme === value ? C.indigo : "transparent",
-                      color: theme === value ? "#fff" : "var(--bb-text)",
+                      background: theme === value ? "rgba(var(--bb-accent-rgb),0.18)" : "transparent",
+                      color: "var(--bb-text)",
+                      boxShadow: theme === value ? "inset 0 0 0 1px var(--bb-accent)" : "none",
                     }}
                   >
                     {label}
                   </button>
                 ))}
               </div>
+            </div>
+            <div className="py-2.5" style={{ borderTop: "1px solid var(--bb-border)" }}>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={motionReduced || motionSystemReduced}
+                aria-disabled={motionSystemReduced || undefined}
+                onClick={motionSystemReduced ? undefined : toggleMotion}
+                className="bb-hit w-full flex items-center justify-between gap-3 text-left focus-visible:outline focus-visible:outline-2"
+                style={{ minHeight: 44 }}
+              >
+                <span className="text-sm">
+                  Réduire les animations
+                  <span className="block text-xs mt-0.5" style={{ color: "var(--bb-muted)" }}>
+                    {motionSystemReduced ? "Imposé par les réglages de ton appareil." : "Arrête l'arbre animé et les effets de mouvement."}
+                  </span>
+                </span>
+                <span aria-hidden="true" className="relative flex-none rounded-full" style={{ width: 46, height: 26, background: motionReduced || motionSystemReduced ? "var(--bb-leaf)" : "rgba(var(--bb-ink-rgb),0.22)", transition: "background .25s" }}>
+                  <span className="absolute rounded-full" style={{ top: 3, left: 3, width: 20, height: 20, background: "#fff", transform: motionReduced || motionSystemReduced ? "translateX(20px)" : "none", transition: "transform .25s" }} />
+                </span>
+              </button>
             </div>
             <div className="py-2.5" style={{ borderTop: "1px solid var(--bb-border)" }}>
               <div className="flex items-center gap-2 text-sm mb-2"><Languages size={14} color="var(--bb-text)" /> Langue</div>
@@ -213,8 +237,9 @@ export default function AppModals({
                     onClick={() => setLanguage(value)}
                     className="bb-hit flex-1 text-xs font-bold py-2 focus-visible:outline focus-visible:outline-2"
                     style={{
-                      background: language === value ? C.indigo : "transparent",
-                      color: language === value ? "#fff" : "var(--bb-text)",
+                      background: language === value ? "rgba(var(--bb-accent-rgb),0.18)" : "transparent",
+                      color: "var(--bb-text)",
+                      boxShadow: language === value ? "inset 0 0 0 1px var(--bb-accent)" : "none",
                     }}
                   >
                     {label}
@@ -343,7 +368,7 @@ export default function AppModals({
           <div ref={blockedDialogRef} tabIndex={-1} className="bb-card p-6 w-full max-w-md rounded-t-[20px] md:rounded-[20px]" style={{ maxHeight: "80vh", overflowY: "auto", paddingBottom: "max(1.5rem, env(safe-area-inset-bottom))" }} onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center gap-2 mb-1">
               <button onClick={() => { setBlockedOpen(false); setSettingsOpen(true); }} aria-label="Retour aux réglages" className="bb-hit focus-visible:outline focus-visible:outline-2" style={{ color: "var(--bb-text)" }}><ArrowLeft size={16} /></button>
-              <div style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 20, color: "var(--bb-text)" }}>Comptes bloqués</div>
+              <div style={{ fontFamily: "var(--bb-font-display)", fontSize: 20, color: "var(--bb-text)" }}>Comptes bloqués</div>
             </div>
             <p className="text-sm mb-3" style={{ color: "rgba(var(--bb-ink-rgb),0.6)" }}>
               Ces profils ne peuvent plus te contacter ni apparaître dans ta liste de découverte.
@@ -389,7 +414,7 @@ export default function AppModals({
       {privacyOpen && (
         <div className="bb-fade-in fixed inset-0 flex items-end md:items-center justify-center z-[70] p-0 md:p-5" style={{ background: "rgba(8,20,14,0.55)", backdropFilter: "blur(3px)" }} onClick={() => setPrivacyOpen(false)} role="dialog" aria-modal="true" aria-label="Politique de confidentialité">
           <div ref={privacyDialogRef} tabIndex={-1} className="p-6 w-full max-w-md rounded-t-[20px] md:rounded-[20px]" style={{ background: C.dusk3, border: "1px solid rgba(242,233,220,0.12)", boxShadow: "var(--bb-shadow-lg)", maxHeight: "80vh", overflowY: "auto", paddingBottom: "max(1.5rem, env(safe-area-inset-bottom))" }} onClick={(e) => e.stopPropagation()}>
-            <div style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 20, color: C.sand }} className="mb-3">
+            <div style={{ fontFamily: "var(--bb-font-display)", fontSize: 20, color: C.sand }} className="mb-3">
               Politique de confidentialité
             </div>
             <div className="text-sm" style={{ color: C.sandDim }}>
@@ -408,7 +433,7 @@ export default function AppModals({
       {termsOpen && (
         <div className="bb-fade-in fixed inset-0 flex items-end md:items-center justify-center z-[70] p-0 md:p-5" style={{ background: "rgba(8,20,14,0.55)", backdropFilter: "blur(3px)" }} onClick={() => setTermsOpen(false)} role="dialog" aria-modal="true" aria-label="Conditions d'utilisation">
           <div ref={termsDialogRef} tabIndex={-1} className="p-6 w-full max-w-md rounded-t-[20px] md:rounded-[20px]" style={{ background: C.dusk3, border: "1px solid rgba(242,233,220,0.12)", boxShadow: "var(--bb-shadow-lg)", maxHeight: "80vh", overflowY: "auto", paddingBottom: "max(1.5rem, env(safe-area-inset-bottom))" }} onClick={(e) => e.stopPropagation()}>
-            <div style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 20, color: C.sand }} className="mb-3">
+            <div style={{ fontFamily: "var(--bb-font-display)", fontSize: 20, color: C.sand }} className="mb-3">
               Conditions d'utilisation
             </div>
             <div className="text-sm" style={{ color: C.sandDim }}>
@@ -433,7 +458,7 @@ export default function AppModals({
       {aboutOpen && (
         <div className="bb-fade-in fixed inset-0 flex items-end md:items-center justify-center z-[70] p-0 md:p-5" style={{ background: "rgba(8,20,14,0.55)", backdropFilter: "blur(3px)" }} onClick={() => setAboutOpen(false)} role="dialog" aria-modal="true" aria-label="À propos">
           <div ref={aboutDialogRef} tabIndex={-1} className="bb-card p-6 w-full max-w-md text-center rounded-t-[20px] md:rounded-[20px]" style={{ paddingBottom: "max(1.5rem, env(safe-area-inset-bottom))", maxHeight: "80vh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
-            <div style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontWeight: 600, fontSize: 24, color: "var(--bb-text)" }} className="mb-1">
+            <div style={{ fontFamily: "var(--bb-font-display)", fontWeight: 600, fontSize: 24, color: "var(--bb-text)" }} className="mb-1">
               Baobab
             </div>
             <p className="text-sm mb-4" style={{ color: "rgba(var(--bb-ink-rgb),0.6)" }}>

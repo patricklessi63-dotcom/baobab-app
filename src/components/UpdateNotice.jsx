@@ -21,7 +21,7 @@ export default function UpdateNotice({ mandatory, recommended, info, onReload, o
   if (mandatory) {
     return (
       <div className="fixed inset-0 z-[100] flex items-center justify-center p-5" style={{ background: "rgba(13,25,20,0.82)", backdropFilter: "blur(4px)" }} role="alertdialog" aria-modal="true" aria-label="Mise à jour nécessaire">
-        <div ref={panelRef} tabIndex={-1} className="w-full max-w-sm rounded-[24px] p-6 text-center" style={{ background: C.sand }}>
+        <div ref={panelRef} tabIndex={-1} className="w-full max-w-sm rounded-[24px] p-6 text-center" style={{ background: "var(--bb-surface)", border: "1px solid var(--bb-border)" }}>
           <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full" style={{ background: "rgba(192,57,43,0.12)" }}>
             <AlertTriangle size={26} color={C.coralTextStatic} />
           </div>
@@ -35,7 +35,7 @@ export default function UpdateNotice({ mandatory, recommended, info, onReload, o
           raison la variante FIXE --bb-ink-rgb-static ; on revient ici à
           C.indigo (fixe), cohérent avec l'onboarding/EditProfileForm qui
           suivent la même convention sur fond clair fixe. */}
-          <h2 className="text-lg font-black" style={{ color: C.indigo }}>Mise à jour nécessaire</h2>
+          <h2 className="text-lg font-black" style={{ color: C.primary }}>Mise à jour nécessaire</h2>
           <p className="text-sm mt-3" style={{ color: "rgba(var(--bb-ink-rgb-static),0.7)" }}>
             Cette version de Baobab n'est plus compatible avec les services actuels. Installe la dernière version pour continuer.
           </p>

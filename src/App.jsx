@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef, Suspense, lazy } from "react";
-import { Loader2 } from "lucide-react";
+import HorizonLoader from "./components/horizon/HorizonLoader";
+import HorizonBackdrop from "./components/horizon/HorizonBackdrop";
 import { supabase } from "./supabaseClient";
 import ChunkErrorBoundary from "./components/ChunkErrorBoundary";
 import { C, EDUCATION_LEVELS, HAS_CHILDREN_OPTIONS, MAX_PHOTOS } from "./constants";
@@ -75,8 +76,8 @@ const DeleteAccountPage = lazy(() => import("./screens/public/DeleteAccountPage"
 
 function FullScreenFallback() {
   return (
-    <div className="min-h-screen flex items-center justify-center" style={{ background: C.sand }}>
-      <Loader2 className="animate-spin" color={C.indigo} size={32} />
+    <div className="min-h-screen flex items-center justify-center" style={{ background: "var(--bb-bg)" }}>
+      <HorizonLoader />
     </div>
   );
 }
@@ -3476,10 +3477,10 @@ export default function App() {
 
   if (view === "loading" || view === "checking-profile" || session === undefined) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: C.sand }}>
+      <div className="min-h-screen flex items-center justify-center" style={{ background: "var(--bb-bg)" }}>
         {/* Bandeau hors ligne aussi pendant le chargement initial : sans lui, un lancement sans réseau montrait un simple spinner muet. */}
         <div className="fixed top-0 inset-x-0 z-[95] bb-banner-stack"><ConnectivityBanner /></div>
-        <Loader2 className="animate-spin" color={C.indigo} size={32} />
+        <HorizonLoader />
       </div>
     );
   }
@@ -3489,7 +3490,7 @@ export default function App() {
   // n'envoie jamais ce cas vers l'onboarding.
   if (view === "profile-load-error") {
     return (
-      <div className="min-h-screen flex items-center justify-center p-6" style={{ background: C.sand }}>
+      <div className="min-h-screen flex items-center justify-center p-6" style={{ background: "var(--bb-bg)" }}>
         <div className="fixed top-0 inset-x-0 z-[95] bb-banner-stack"><ConnectivityBanner /></div>
         <div className="bb-card p-8 max-w-sm w-full text-center">
           <div className="text-4xl mb-3">⚠️</div>
@@ -3544,7 +3545,7 @@ export default function App() {
     const reason = isBanned ? currentUser?.ban_reason : currentUser?.suspend_reason;
     const until = currentUser?.suspended_until ? new Date(currentUser.suspended_until) : null;
     return (
-      <div className="min-h-screen flex items-center justify-center p-6" style={{ background: C.sand }}>
+      <div className="min-h-screen flex items-center justify-center p-6" style={{ background: "var(--bb-bg)" }}>
         <div className="bb-card p-8 max-w-sm w-full text-center">
           <div className="text-4xl mb-3">{isBanned ? "🚫" : "⏸️"}</div>
           <h1 className="text-lg font-black" style={{ color: "var(--bb-text)" }}>
@@ -3705,7 +3706,7 @@ export default function App() {
   }
 
   return (
-    <div className="bb-app min-h-screen flex flex-col relative" style={{ fontFamily: "'Manrope', system-ui, sans-serif", color: C.ink }}>
+    <div className="bb-app min-h-screen flex flex-col relative" style={{ fontFamily: "var(--bb-font-body)", color: "var(--bb-text)" }}>
       <div className="sticky top-0 z-[95] flex flex-col bb-banner-stack">
         <ConnectivityBanner />
         <AccountDeletionBanner currentUser={currentUser} onCancelled={handleCancelAccountDeletion} />
@@ -3714,14 +3715,14 @@ export default function App() {
       <style>{`
         @keyframes bbGenericDrift { from { transform: scale(1.02); } to { transform: scale(1.06) translate3d(-1%, -1%, 0); } }
         .bb-generic-bg { animation: bbGenericDrift 26s ease-in-out alternate infinite; }
-        .bb-generic-glass { background: rgba(255,255,255,.82) !important; backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); }
+        .bb-generic-glass { background: rgba(var(--bb-surface-rgb),.78) !important; backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); }
         @media (prefers-reduced-motion: reduce) { .bb-app * { animation: none !important; transition: none !important; } }
       `}</style>
-      <div aria-hidden="true" className="fixed inset-0 z-0 pointer-events-none" style={{ background: C.sand }} />
+      <HorizonBackdrop />
       {/* Header */}
       <div className="relative z-20 flex items-center justify-between px-5 py-4 bb-generic-glass" style={{ borderBottom: `1px solid rgba(var(--bb-ink-rgb-static),0.08)`, boxShadow: "0 1px 0 rgba(8,20,14,0.06)", position: "sticky", top: 0, zIndex: 10, paddingTop: "calc(1rem + env(safe-area-inset-top, 0px))" }}>
         <div className="flex items-center gap-2">
-          <span style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontWeight: 600, fontSize: 20, color: C.indigo }}>
+          <span style={{ fontFamily: "var(--bb-font-display)", fontWeight: 600, fontSize: 20, color: C.primary }}>
             Baobab
           </span>
           <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: C.ochre, color: C.indigoDeep, fontWeight: 700 }}>

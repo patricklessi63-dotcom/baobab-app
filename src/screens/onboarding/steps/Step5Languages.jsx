@@ -23,7 +23,7 @@ export default function Step5Languages({ draft, update }) {
 
   return (
     <div className="flex flex-col gap-3">
-      <h2 style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 22, color: C.indigo }}>
+      <h2 style={{ fontFamily: "var(--bb-font-display)", fontSize: 22, color: C.primary }}>
         🗣️ Tes langues
       </h2>
       <p className="text-sm" style={{ color: "rgba(var(--bb-ink-rgb-static),0.6)" }}>
@@ -56,7 +56,7 @@ export default function Step5Languages({ draft, update }) {
                 value={level}
                 onChange={(e) => setLevel(language, e.target.value)}
                 className="text-xs rounded-full px-2.5 py-1.5"
-                style={{ border: "1px solid rgba(var(--bb-ink-rgb-static),0.16)", background: "#fff", color: C.indigo }}
+                style={{ border: "1px solid rgba(var(--bb-ink-rgb-static),0.16)", background: "var(--bb-surface)", color: C.primary }}
               >
                 {LANGUAGE_LEVELS.map((lv) => (
                   <option key={lv} value={lv}>{lv}</option>

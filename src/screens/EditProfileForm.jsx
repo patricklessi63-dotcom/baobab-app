@@ -97,10 +97,10 @@ export default function EditProfileForm({
 
   return (
     <div className="p-6 max-w-md mx-auto w-full">
-      <button onClick={() => setView("feed")} className="bb-hit flex items-center gap-1 text-sm mb-4" style={{ color: C.indigo }}>
+      <button onClick={() => setView("feed")} className="bb-hit flex items-center gap-1 text-sm mb-4" style={{ color: C.primary }}>
         <ArrowLeft size={16} /> Retour
       </button>
-      <h2 style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 24, color: C.indigo }} className="mb-4">
+      <h2 style={{ fontFamily: "var(--bb-font-display)", fontSize: 24, color: C.primary }} className="mb-4">
         Modifier mon profil
       </h2>
 
@@ -196,7 +196,7 @@ export default function EditProfileForm({
                   // une photo qui n'est plus en position 0, voire déjà supprimée).
                   <button type="button" onClick={() => setPrimaryPhoto(photo.id)} aria-label="Définir comme photo principale"
                     disabled={savingProfile}
-                    style={{ position: "absolute", top: -6, left: -6, width: 20, height: 20, borderRadius: "50%", background: "#fff", border: `1px solid rgba(var(--bb-ink-rgb-static),0.15)`, color: C.indigo, display: "flex", alignItems: "center", justifyContent: "center", opacity: savingProfile ? 0.4 : 1, cursor: savingProfile ? "not-allowed" : "pointer" }}>
+                    style={{ position: "absolute", top: -6, left: -6, width: 20, height: 20, borderRadius: "50%", background: "var(--bb-surface)", border: `1px solid rgba(var(--bb-ink-rgb-static),0.15)`, color: C.primary, display: "flex", alignItems: "center", justifyContent: "center", opacity: savingProfile ? 0.4 : 1, cursor: savingProfile ? "not-allowed" : "pointer" }}>
                     <Star size={11} />
                   </button>
                 )}
@@ -204,14 +204,14 @@ export default function EditProfileForm({
                   {i > 0 && (
                     <button type="button" onClick={() => moveExistingPhoto(photo.id, "up")} aria-label="Déplacer la photo vers la gauche"
                       disabled={savingProfile}
-                      style={{ width: 20, height: 20, borderRadius: "50%", background: "#fff", border: `1px solid rgba(var(--bb-ink-rgb-static),0.15)`, color: C.indigo, display: "flex", alignItems: "center", justifyContent: "center", opacity: savingProfile ? 0.4 : 1, cursor: savingProfile ? "not-allowed" : "pointer" }}>
+                      style={{ width: 20, height: 20, borderRadius: "50%", background: "var(--bb-surface)", border: `1px solid rgba(var(--bb-ink-rgb-static),0.15)`, color: C.primary, display: "flex", alignItems: "center", justifyContent: "center", opacity: savingProfile ? 0.4 : 1, cursor: savingProfile ? "not-allowed" : "pointer" }}>
                       <ChevronLeft size={12} />
                     </button>
                   )}
                   {i < existingPhotos.length - 1 && (
                     <button type="button" onClick={() => moveExistingPhoto(photo.id, "down")} aria-label="Déplacer la photo vers la droite"
                       disabled={savingProfile}
-                      style={{ width: 20, height: 20, borderRadius: "50%", background: "#fff", border: `1px solid rgba(var(--bb-ink-rgb-static),0.15)`, color: C.indigo, display: "flex", alignItems: "center", justifyContent: "center", opacity: savingProfile ? 0.4 : 1, cursor: savingProfile ? "not-allowed" : "pointer" }}>
+                      style={{ width: 20, height: 20, borderRadius: "50%", background: "var(--bb-surface)", border: `1px solid rgba(var(--bb-ink-rgb-static),0.15)`, color: C.primary, display: "flex", alignItems: "center", justifyContent: "center", opacity: savingProfile ? 0.4 : 1, cursor: savingProfile ? "not-allowed" : "pointer" }}>
                       <ChevronRight size={12} />
                     </button>
                   )}
@@ -330,7 +330,7 @@ export default function EditProfileForm({
               <div key={language} className="flex items-center justify-between gap-2 p-2.5 rounded-xl" style={{ background: "rgba(var(--bb-ink-rgb-static),0.03)" }}>
                 <span className="text-sm font-semibold">{language}</span>
                 <select value={level} onChange={(e) => setLanguageLevel(language, e.target.value)}
-                  className="text-xs rounded-full px-2.5 py-1.5" style={{ border: "1px solid rgba(var(--bb-ink-rgb-static),0.16)", background: "#fff", color: C.indigo }}>
+                  className="text-xs rounded-full px-2.5 py-1.5" style={{ border: "1px solid rgba(var(--bb-ink-rgb-static),0.16)", background: "var(--bb-surface)", color: C.primary }}>
                   {LANGUAGE_LEVELS.map((lv) => <option key={lv} value={lv}>{lv}</option>)}
                 </select>
               </div>
