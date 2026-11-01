@@ -63,7 +63,7 @@ export default function LocationSettingsModal({ open, onClose, onBack, location,
             </p>
             <div className="flex flex-col gap-2 mt-5">
               <button onClick={handleAllow} className="w-full rounded-xl py-3 font-bold text-white" style={{ background: C.indigo }}>Autoriser</button>
-              <button onClick={() => setView("idle")} className="w-full rounded-xl py-3 font-semibold" style={{ color: "rgba(var(--bb-ink-rgb),0.6)" }}>Pas maintenant</button>
+              <button onClick={() => setView("idle")} className="w-full rounded-xl py-3 font-semibold" style={{ color: "var(--bb-text-faint)" }}>Pas maintenant</button>
             </div>
           </div>
         )}
@@ -85,7 +85,7 @@ export default function LocationSettingsModal({ open, onClose, onBack, location,
 
         {view === "idle" && (
           <>
-            <p className="text-sm mb-3" style={{ color: "rgba(var(--bb-ink-rgb),0.6)" }}>
+            <p className="text-sm mb-3" style={{ color: "var(--bb-text-faint)" }}>
               Ta localisation reste privée par défaut. Elle n'est utilisée que pour les
               fonctionnalités que tu actives ci-dessous, et jamais partagée sous forme de
               coordonnées exactes avec les autres membres.

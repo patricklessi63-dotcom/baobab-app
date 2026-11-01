@@ -462,7 +462,7 @@ export default function OnboardingWizard({
           onClick={goNext}
           disabled={saving}
           className="w-full mt-2 py-2.5 text-sm font-semibold"
-          style={{ color: "rgba(var(--bb-ink-rgb-static),0.5)" }}
+          style={{ color: "var(--bb-text-faint)" }}
         >
           Passer cette étape
         </button>
@@ -472,7 +472,7 @@ export default function OnboardingWizard({
           onClick={finishLater}
           disabled={saving}
           className="w-full mt-2 py-2.5 text-sm font-semibold"
-          style={{ color: "rgba(var(--bb-ink-rgb-static),0.5)" }}
+          style={{ color: "var(--bb-text-faint)" }}
         >
           Terminer plus tard — accéder à Baobab maintenant
         </button>

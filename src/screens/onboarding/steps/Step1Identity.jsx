@@ -78,11 +78,11 @@ export default function Step1Identity({ draft, update }) {
       <h2 style={{ fontFamily: "var(--bb-font-title)", fontWeight: 800, fontSize: 22, color: C.primary }}>
         Qui es-tu ?
       </h2>
-      <p className="text-sm" style={{ color: "rgba(var(--bb-ink-rgb-static),0.6)" }}>
+      <p className="text-sm" style={{ color: "var(--bb-text-faint)" }}>
         Commençons par les bases.
       </p>
 
-      <label className="text-xs font-semibold" style={{ color: "rgba(var(--bb-ink-rgb-static),0.55)" }}>Prénom</label>
+      <label className="text-xs font-semibold" style={{ color: "var(--bb-text-faint)" }}>Prénom</label>
       <input
         value={draft.name}
         onChange={(e) => update({ name: e.target.value })}
@@ -91,7 +91,7 @@ export default function Step1Identity({ draft, update }) {
         className="bb-input w-full text-sm"
       />
 
-      <label className="text-xs font-semibold mt-1" style={{ color: "rgba(var(--bb-ink-rgb-static),0.55)" }}>Nom <span style={{ fontWeight: 400 }}>(facultatif)</span></label>
+      <label className="text-xs font-semibold mt-1" style={{ color: "var(--bb-text-faint)" }}>Nom <span style={{ fontWeight: 400 }}>(facultatif)</span></label>
       <input
         value={draft.lastName}
         onChange={(e) => update({ lastName: e.target.value })}
@@ -100,7 +100,7 @@ export default function Step1Identity({ draft, update }) {
         className="bb-input w-full text-sm"
       />
 
-      <label className="text-xs font-semibold mt-1" style={{ color: "rgba(var(--bb-ink-rgb-static),0.55)" }}>Date de naissance</label>
+      <label className="text-xs font-semibold mt-1" style={{ color: "var(--bb-text-faint)" }}>Date de naissance</label>
       <div className="grid grid-cols-3 gap-2">
         <select
           value={selYear || ""}
@@ -133,7 +133,7 @@ export default function Step1Identity({ draft, update }) {
         </select>
       </div>
 
-      <label className="text-xs font-semibold mt-1" style={{ color: "rgba(var(--bb-ink-rgb-static),0.55)" }}>
+      <label className="text-xs font-semibold mt-1" style={{ color: "var(--bb-text-faint)" }}>
         Ou entre directement ton âge
       </label>
       <input
@@ -157,7 +157,7 @@ export default function Step1Identity({ draft, update }) {
         <p className="text-xs" style={{ color: C.coralTextStatic }}>Vérifie ta date de naissance.</p>
       )}
       {draft.birthDate && age !== null && age >= 18 && age <= 100 && (
-        <p className="text-xs" style={{ color: "rgba(var(--bb-ink-rgb-static),0.5)" }}>Âge affiché sur ton profil : {age} ans. Ta date de naissance complète n'est jamais visible publiquement.</p>
+        <p className="text-xs" style={{ color: "var(--bb-text-faint)" }}>Âge affiché sur ton profil : {age} ans. Ta date de naissance complète n'est jamais visible publiquement.</p>
       )}
     </div>
   );

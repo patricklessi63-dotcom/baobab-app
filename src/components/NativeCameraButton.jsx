@@ -85,8 +85,8 @@ export default function NativeCameraButton({ onFile, disabled = false, size = 84
           className="cursor-pointer flex flex-col items-center justify-center gap-1 transition-colors hover:bg-black/[0.02] disabled:cursor-not-allowed"
           style={{ width: size, height: size, borderRadius: "var(--bb-radius-sm)", border: "1.5px dashed rgba(var(--bb-ink-rgb-static),0.28)", opacity: disabled || busy ? 0.5 : 1, background: "transparent" }}
         >
-          <Camera size={18} aria-hidden="true" style={{ color: "rgba(var(--bb-ink-rgb-static),0.55)" }} />
-          <span className="text-[11px] text-center px-1 leading-tight" style={{ color: "rgba(var(--bb-ink-rgb-static),0.55)" }}>{busy ? "Ouverture…" : "Photo"}</span>
+          <Camera size={18} aria-hidden="true" style={{ color: "var(--bb-text-faint)" }} />
+          <span className="text-[11px] text-center px-1 leading-tight" style={{ color: "var(--bb-text-faint)" }}>{busy ? "Ouverture…" : "Photo"}</span>
         </button>
       )}
       {phase === "explain" && (

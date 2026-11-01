@@ -19,7 +19,7 @@ export default function Step2Photo({ photoPreviews, handlePhotosSelected, remove
       <h2 style={{ fontFamily: "var(--bb-font-title)", fontWeight: 800, fontSize: 22, color: C.primary }}>
         Ajoute une photo
       </h2>
-      <p className="text-sm" style={{ color: "rgba(var(--bb-ink-rgb-static),0.6)" }}>
+      <p className="text-sm" style={{ color: "var(--bb-text-faint)" }}>
         Utilise une photo claire où l'on peut facilement te reconnaître.
       </p>
 
@@ -52,7 +52,7 @@ export default function Step2Photo({ photoPreviews, handlePhotosSelected, remove
         ))}
         {photoPreviews.length < MAX_PHOTOS && (
           <label className="cursor-pointer flex items-center justify-center transition-colors hover:bg-black/[0.02]" style={{ width: 84, height: 84, borderRadius: "var(--bb-radius-sm)", border: "1.5px dashed rgba(var(--bb-ink-rgb-static),0.28)", opacity: photosPreparing ? 0.5 : 1 }}>
-            <span className="text-xs text-center px-1" role={photosPreparing ? "status" : undefined} style={{ color: "rgba(var(--bb-ink-rgb-static),0.5)" }}>{photosPreparing ? "Préparation…" : "+ Ajouter"}</span>
+            <span className="text-xs text-center px-1" role={photosPreparing ? "status" : undefined} style={{ color: "var(--bb-text-faint)" }}>{photosPreparing ? "Préparation…" : "+ Ajouter"}</span>
             <input type="file" accept="image/*" multiple disabled={photosPreparing} onChange={handlePhotosSelected} className="hidden" />
           </label>
         )}
@@ -62,7 +62,7 @@ export default function Step2Photo({ photoPreviews, handlePhotosSelected, remove
           <NativeCameraButton size={84} disabled={photosPreparing} onFile={(file) => handlePhotosSelected(fileListEvent([file]))} />
         )}
       </div>
-      <p className="text-xs" style={{ color: "rgba(var(--bb-ink-rgb-static),0.5)" }}>
+      <p className="text-xs" style={{ color: "var(--bb-text-faint)" }}>
         Jusqu'à {MAX_PHOTOS} photos. La première est ta photo principale.
       </p>
     </div>

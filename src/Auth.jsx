@@ -741,13 +741,13 @@ export default function Auth({ justVerified = false, onAcknowledgeVerified = () 
           )}
 
           <div className="mt-7 border-t pt-5 text-center text-[10px]"
-            style={{ borderColor: "rgba(242,233,220,0.10)", color: "rgba(242,233,220,0.42)" }}>
+            style={{ borderColor: "rgba(242,233,220,0.10)", color: "rgba(243,238,228,0.62)" }}>
             <div className="flex justify-center flex-wrap gap-x-4 gap-y-2">
               <button type="button" onClick={() => setLegalView("privacy")} className="bb-tap underline decoration-dotted underline-offset-2">Confidentialité</button>
               <span>•</span>
               <button type="button" onClick={() => setLegalView("terms")} className="bb-tap underline decoration-dotted underline-offset-2">Conditions</button>
             </div>
-            <div className="mt-3" style={{ fontFamily: "'JetBrains Mono', monospace", letterSpacing: "0.08em" }}>BAOBAB — BY LESSI PATRICK</div>
+            <div className="mt-3" style={{ fontFamily: "var(--bb-font-mono)", letterSpacing: "0.08em" }}>BAOBAB — BY LESSI PATRICK</div>
           </div>
         </div>
       </section>

@@ -24,7 +24,7 @@ export default function LocationRequiredGate({ onRetry, retrying, error, onSignO
         <button onClick={onRetry} disabled={retrying} className="w-full mt-6 py-3 rounded-full text-sm font-bold text-white disabled:opacity-60" style={{ background: C.navy }}>
           {retrying ? "Vérification..." : "J'ai réactivé la localisation"}
         </button>
-        <button onClick={onSignOut} className="w-full mt-3 py-3 rounded-full text-sm font-semibold" style={{ color: "rgba(var(--bb-text-rgb),0.6)" }}>
+        <button onClick={onSignOut} className="w-full mt-3 py-3 rounded-full text-sm font-semibold" style={{ color: "var(--bb-text-faint)" }}>
           Se déconnecter
         </button>
       </div>

@@ -112,7 +112,7 @@ export default function StoryComposerModal({
                     </div>
                   )}
                   {storyMediaError && <p className="text-xs mt-2" style={{ color: coralText }}>{storyMediaError}</p>}
-                  {!storyMediaError && storyMediaWarning && <p className="text-xs mt-2" style={{ color: "#A5761F" }}>⚠️ {storyMediaWarning}</p>}
+                  {!storyMediaError && storyMediaWarning && <p className="text-xs mt-2" style={{ color: "var(--bb-gold-text)" }}>⚠️ {storyMediaWarning}</p>}
                   <div className="grid grid-cols-2 gap-2 mt-4">
                     <button onClick={() => pickStoryMedia("photo")} className="rounded-xl py-3 font-bold" style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)", color: coralText }}><ImageIcon size={17} className="inline mr-1" />Photo</button>
                     <button onClick={() => pickStoryMedia("video")} className="rounded-xl py-3 font-bold" style={{ background: "var(--bb-surface-2)", border: "1px solid var(--bb-border)", color: green }}><Camera size={17} className="inline mr-1" />Vidéo</button>
@@ -164,7 +164,7 @@ export default function StoryComposerModal({
                   </div>
                 </div>
                 {storyMediaError && <p className="text-xs px-6" style={{ color: coralText }}>{storyMediaError}</p>}
-                {!storyMediaError && storyMediaWarning && <p className="text-xs px-6" style={{ color: "#A5761F" }}>⚠️ {storyMediaWarning}</p>}
+                {!storyMediaError && storyMediaWarning && <p className="text-xs px-6" style={{ color: "var(--bb-gold-text)" }}>⚠️ {storyMediaWarning}</p>}
                 <div className="p-6 pt-2 shrink-0 flex flex-col gap-2">
                   <button onClick={addStory} disabled={storyUploading} className="bb-btn-gold w-full rounded-xl py-3 font-bold disabled:opacity-40">
                     {storyUploading ? (storyMediaKind && storyUploadProgress > 0 ? `Envoi... ${storyUploadProgress}%` : "Publication...") : "Publier"}

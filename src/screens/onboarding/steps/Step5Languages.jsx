@@ -26,7 +26,7 @@ export default function Step5Languages({ draft, update }) {
       <h2 style={{ fontFamily: "var(--bb-font-title)", fontWeight: 800, fontSize: 22, color: C.primary }}>
         🗣️ Tes langues
       </h2>
-      <p className="text-sm" style={{ color: "rgba(var(--bb-ink-rgb-static),0.6)" }}>
+      <p className="text-sm" style={{ color: "var(--bb-text-faint)" }}>
         Sélectionne les langues que tu parles.
       </p>
 
