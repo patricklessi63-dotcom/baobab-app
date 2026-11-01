@@ -92,7 +92,7 @@ Tous les critères du bloc S (sécurité) et du bloc P (parcours) sont **élimin
 - L1 Adresse de contact et nom d'exploitant visibles sur confidentialité, conditions, suppression de compte, à-propos. L2 Texte confidentialité mis à jour : fournisseurs, IA, Québec/Loi 25 (rédaction du brouillon par l'assistant ; **validation par un juriste = décision du propriétaire**, non remplaçable par l'assistant). L3 Durée de conservation des sauvegardes notée (décision 11). L4 Âge minimal 18 ans : contrôle côté serveur actif (S6).
 
 **Bloc O — exploitation**
-- O1 Sauvegarde/PITR confirmée et **restauration comprise** (durée, point de retour). O2 Plan de retour arrière répété une fois (section 6). O3 Quelqu'un surveille les 3 premiers jours (qui, quand, quoi regarder : `LANCEMENT.md` §13). O4 Seuils d'alerte écrits : e-mails non confirmés > 30 %, `en_retard` > 0, une tâche planifiée en échec 2 jours de suite, un même message d'erreur > 20 fois/jour.
+- O1 Sauvegarde/PITR confirmée et **restauration comprise** (durée, point de retour). **NON REMPLI au 1er novembre 2026** : `supabase backups list` renvoie `pitr_enabled=false` et aucune sauvegarde (constat d'une autre session du propriétaire, non revérifié par l'assistant de l'audit) ; décision à prendre avant tout SQL de production (`LANCEMENT.md` §9.4). O2 Plan de retour arrière répété une fois (section 6). O3 Quelqu'un surveille les 3 premiers jours (qui, quand, quoi regarder : `LANCEMENT.md` §13). O4 Seuils d'alerte écrits : e-mails non confirmés > 30 %, `en_retard` > 0, une tâche planifiée en échec 2 jours de suite, un même message d'erreur > 20 fois/jour.
 
 ## 5. Les apps natives : pourquoi pas le 15 novembre
 

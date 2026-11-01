@@ -109,7 +109,8 @@ Classées par urgence (pas forcément dans l'ordre d'exécution : celui-ci est a
 | Site web | En ligne : `https://baobab-app-zeta.vercel.app` répond 200 ; `/.well-known/assetlinks.json` répond 200 (mais contient encore un texte à remplacer) | sondes du 8 oct. |
 | Domaine `baobab-app.ca` | Ajouté à Vercel le 22 août, **DNS non configuré** : « Could not resolve host » ; Vercel affiche « domain is not configured properly » | `vercel domains inspect baobab-app.ca`, résolution DNS du 8 oct. |
 | Intégration continue GitHub (`ci.yml`) | Vert d'après `MOBILE.md` (commit `ae0ec5f`) ; les builds natifs (`android-build.yml`, `ios-build.yml`) n'ont **jamais été lancés** | `MOBILE.md` ; non revérifié le 8 oct. (je ne touche pas aux identifiants GitHub) |
-| Réglages du tableau de bord Supabase (Auth, SMTP, Max rows, sauvegardes…) | **Inconnus** : non lisibles par la CLI | §9 : à vérifier à la main |
+| **Sauvegarde / PITR** | **AUCUNE sauvegarde restaurable constatée le 1er novembre 2026** : `supabase backups list` renvoie `pitr_enabled=false` et `backups=[]` (aucune sauvegarde quotidienne listée). **Critère GO « sauvegarde/PITR confirmée » (O1) NON rempli.** Aucun SQL de production ne doit être joué tant que le propriétaire n'a pas décidé (§9.4). | Constat d'une autre session de travail du propriétaire, en lecture seule, le 1er nov. ; **non revérifié par l'assistant de l'audit** |
+| Réglages du tableau de bord Supabase (Auth, SMTP, Max rows…) | **Inconnus** : non lisibles par la CLI | §9 : à vérifier à la main |
 | Appareil réel (Android/iOS) | Rien n'a été testé sur un vrai téléphone | `MOBILE.md` §(G) |
 
 ---
@@ -980,6 +981,13 @@ Ces réglages vivent dans les tableaux de bord : la CLI ne peut pas les lire. **
 ### 9.4 Supabase > Database > Backups (région, sauvegardes, PITR)
 - [ ] Noter la **région** du projet, la fréquence et la **durée de conservation** des sauvegardes de ton offre, et si le *PITR* (retour à n'importe quel
       instant) est disponible/activé. Prends une sauvegarde/un point de contrôle **juste avant** SQL-1 à SQL-15. Cette durée alimente la décision 11.
+- [ ] **Constat du 1er novembre 2026 (à traiter en priorité).** La commande `supabase backups list` renvoie `pitr_enabled=false` et aucune sauvegarde : le projet
+      n'a, à ce jour, **aucun point de retour restaurable**. Les instantanés de définitions (fonctions, politiques, contraintes) pris hors dépôt servent au retour
+      arrière des fichiers SQL, mais **ne restaurent pas les données**. Décision du propriétaire, avant tout SQL de production :
+      (a) **activer le PITR** ou une offre avec sauvegardes quotidiennes (c'est un réglage payant du tableau de bord : je ne le change pas) ;
+      (b) à défaut, **exporter les données** (dump complet de la base, `supabase db dump --data-only`, plus les fichiers du Storage) et les garder hors dépôt ;
+      (c) ou, sachant qu'il n'y a aujourd'hui que quelques comptes de test (5 profils au 1er nov.), accepter le risque par écrit et réduire l'exposition en jouant
+      les SQL un par un avec les « Annuler » de §5. Tant que ce choix n'est pas fait, le critère O1 du plan reste **NON rempli**.
 
 ### 9.5 Vercel et le dépôt (site web)
 - [ ] **Variables d'environnement de production** (Vercel > Project > Settings > Environment Variables) : `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`,
