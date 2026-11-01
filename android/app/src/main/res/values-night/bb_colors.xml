@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Thème sombre Horizon de l'app (index.html : variable bb-bg #060B09). Le fond du splash reste lié aux images de démarrage de l'ancienne identité (voir values/bb_colors.xml). -->
-    <color name="bb_splash_background">#14120D</color>
+    <!-- Thème sombre Horizon (index.html : bb-bg #060B09). Le splash est nuit, comme l'image drawable-night/splash.png (assets/logo : baobab-mark). -->
+    <color name="bb_splash_background">#060B09</color>
     <color name="bb_window_background">#060B09</color>
 </resources>

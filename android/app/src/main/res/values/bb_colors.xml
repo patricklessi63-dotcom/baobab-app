@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Jetons de marque Baobab Horizon (index.html : variable bb-bg ivoire #F3EEE4 en thème clair, nuit verte #060B09 en sombre). -->
-    <!-- Fond du splash Android 12+ : reste #14432A tant que les images de démarrage (drawable/splash.png, icônes) n'ont pas été régénérées à l'identité Horizon, sinon une bande de l'ancien vert apparaîtrait autour. -->
-    <color name="bb_splash_background">#14432A</color>
+    <!-- Jetons de marque Baobab Horizon (index.html : bb-bg ivoire #F3EEE4 en thème clair, nuit #060B09 en sombre). -->
+    <!-- Fond du splash Android 12+ : ivoire en clair (comme assets/splash.png et la couleur de l'icône adaptative sur nuit). -->
+    <color name="bb_splash_background">#F3EEE4</color>
     <color name="bb_window_background">#F3EEE4</color>
     <!-- Couleur d'accent des notifications push (vert Horizon leaf-deep, index.html : bb-leaf-deep). -->
     <color name="bb_notification_color">#185C43</color>
