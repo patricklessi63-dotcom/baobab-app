@@ -1134,6 +1134,18 @@ Chaque décision : le contexte, ma recommandation (une recommandation, pas une d
 
 ---
 
+### Drapeaux de lancement (Premium, IA, compteur public)
+
+Depuis le 1er novembre 2026, l’application **masque par défaut** ce qui n’est pas prêt (code : `src/lib/featureFlags.js`) :
+
+| Réglage Vercel (variable d’environnement) | Effet quand absent | Pour activer |
+|---|---|---|
+| `VITE_FEATURE_PREMIUM` | Pas d’onglet « Abonnement », pas de « Qui m’a aimé », pas de paywall des filtres avancés (un compte déjà abonné garde l’onglet pour gérer son abonnement) | `true`, **après** le déploiement de `stripe-webhook`, `create-checkout-session` et `create-portal-session` et la pose des secrets Stripe |
+| `VITE_FEATURE_AI` | Aucun bouton « Améliorer avec l’IA » ni suggestions de conversation | `true`, **après** la pose de `ANTHROPIC_API_KEY` et le déploiement de `ai-assist` |
+| (aucun) compteur public | Le compteur « N membres déjà sur Baobab » n’apparaît qu’à partir de 50 membres (`MEMBER_COUNT_PUBLIC_MIN`) | Modifier la constante |
+
+Les variables `VITE_*` sont figées à la compilation : après les avoir définies dans Vercel, **redéployer**.
+
 ## 13. Contrôles de santé après le lancement
 
 Toutes les requêtes sont en lecture seule (SQL Editor, rôle propriétaire). Garde-les dans un onglet.

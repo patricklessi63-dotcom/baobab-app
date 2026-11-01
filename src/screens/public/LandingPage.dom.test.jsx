@@ -85,10 +85,18 @@ describe("LandingPage Horizon : contenu et actions", () => {
     expect(rpc).toHaveBeenCalledWith("public_user_count");
   });
 
-  it("singulier pour un membre", async () => {
-    rpc.mockResolvedValue({ data: 1, error: null });
+  it("affiche le compteur dès le seuil public (50 membres)", async () => {
+    rpc.mockResolvedValue({ data: 50, error: null });
     setup();
-    expect(await screen.findByText(/1 membre déjà sur Baobab/)).toBeInTheDocument();
+    expect(await screen.findByText(/50 membres déjà sur Baobab/)).toBeInTheDocument();
+  });
+
+  it("masque un compteur sous le seuil public (« 4 membres » dessert plus qu’il ne rassure)", async () => {
+    rpc.mockResolvedValue({ data: 4, error: null });
+    setup();
+    await waitFor(() => expect(rpc).toHaveBeenCalled());
+    await Promise.resolve();
+    expect(screen.queryByText(/déjà sur Baobab/)).not.toBeInTheDocument();
   });
 
   it.each([

@@ -46,6 +46,9 @@ export default defineConfig({
       "supabase/functions/_shared/*.test.ts",
     ],
     setupFiles: ["src/test/setup.js"],
+    // Les drapeaux de lancement (src/lib/featureFlags.js) sont désactivés par défaut en
+    // production ; les tests existants couvrent Premium et l’IA, ils les activent donc.
+    env: { VITE_FEATURE_PREMIUM: "true", VITE_FEATURE_AI: "true" },
   },
   build: {
     rollupOptions: {
