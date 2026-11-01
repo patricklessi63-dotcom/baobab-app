@@ -142,7 +142,7 @@ async function androidExtras() {
   // l'affiche dans 72 dp (retrait de 16,7 %) : on le régénère à la taille exacte (72 dp x densité).
   const fgPx = { mdpi: 72, hdpi: 108, xhdpi: 144, xxhdpi: 216, xxxhdpi: 288 };
   for (const [d, px] of Object.entries(fgPx)) {
-    write(`android/app/src/main/res/mipmap-${d}/ic_launcher_foreground.png`, await sharp(Buffer.from(iconSvgCircle({ size: px, circle: 0.44, background: false })), { density: 72 }).png({ compressionLevel: 9 }).toBuffer());
+    write(`android/app/src/main/res/mipmap-${d}/ic_launcher_foreground.png`, await sharp(Buffer.from(iconSvgCircle({ size: px, circle: 0.32, background: false })), { density: 72 }).png({ compressionLevel: 9 }).toBuffer());
   }
   console.log("ic_launcher_foreground: 5 densités à la taille exacte (72 dp)");
   // Déclaration de la couche monochrome dans les icônes adaptatives (capacitor-assets réécrit ces fichiers).
@@ -209,9 +209,9 @@ await png("public/og-baobab.png", ogSvg(), { opaque: true });
 // 3. Sources natives (@capacitor/assets)
 // ---------------------------------------------------------------------------
 await png("assets/icon-only.png", iconSvg({ size: 1024, fill: 0.7 }), { opaque: true });
-// Couche adaptative : la marque tient dans le cercle sûr (66 dp / 108 dp), compte tenu du retrait de 16,7 %
-// déjà appliqué par ic_launcher.xml : cercle de rayon 44 % de l'image (limite : 45,8 %).
-await png("assets/icon-foreground.png", iconSvgCircle({ size: 1024, circle: 0.44, background: false }));
+// Couche adaptative : la marque tient dans un cercle de rayon 32 % de l'image (diamètre 64 %, sous la limite de 66 %
+// demandée pour la zone sûre ; ic_launcher.xml affiche l'image dans 72 dp, donc la marge réelle est encore plus grande).
+await png("assets/icon-foreground.png", iconSvgCircle({ size: 1024, circle: 0.32, background: false }));
 await png(
   "assets/icon-background.png",
   svgDoc(1024, 1024, `<defs>${defs.icon}</defs><rect width="1024" height="1024" fill="url(#bgi)"/>`),
