@@ -130,3 +130,24 @@ describe("séparateurs de jour", () => {
     }
   });
 });
+
+import { findMatchRanges } from "./searchQuery";
+describe("findMatchRanges — surlignage de la recherche", () => {
+  it("ignore casse et accents mais renvoie les indices du texte d'origine", () => {
+    expect(findMatchRanges("Un Café très chaud", "cafe")).toEqual([{ start: 3, end: 7 }]);
+    expect(findMatchRanges("CAFÉ café", "café")).toEqual([{ start: 0, end: 4 }, { start: 5, end: 9 }]);
+  });
+  it("reste exact quand la normalisation change la longueur (œ → oe, é décomposé)", () => {
+    const t = "cœur de e\u0301té";
+    const r = findMatchRanges(t, "ete");
+    expect(t.slice(r[0].start, r[0].end)).toBe("été");
+    expect(findMatchRanges("cœur", "coeur")).toEqual([{ start: 0, end: 4 }]);
+  });
+  it("requête vide ou absente : aucune plage ; occurrences successives", () => {
+    expect(findMatchRanges("abc", "")).toEqual([]);
+    expect(findMatchRanges("abc", "   ")).toEqual([]);
+    expect(findMatchRanges("aaaa", "aa")).toEqual([{ start: 0, end: 2 }, { start: 2, end: 4 }]);
+    expect(findMatchRanges("ab", "abc")).toEqual([]);
+    expect(findMatchRanges(null, "a")).toEqual([]);
+  });
+});

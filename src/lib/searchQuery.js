@@ -57,3 +57,38 @@ export function normalizeForSearch(text) {
     .replace(/œ/g, "oe")
     .replace(/æ/g, "ae");
 }
+
+// Plages (indices dans le texte ORIGINAL) où `query` apparaît, en ignorant
+// casse et accents comme normalizeForSearch — sert à surligner les résultats
+// de la recherche dans une conversation. Normaliser le texte entier puis
+// réutiliser les indices serait faux : la normalisation peut changer la
+// longueur (« œ » → « oe », lettre accentuée décomposée) et décaler tout le
+// surlignage ; on normalise donc caractère par caractère en gardant la
+// correspondance avec l'index d'origine.
+export function findMatchRanges(text, query) {
+  const needle = normalizeForSearch(String(query || "").trim());
+  if (!needle) return [];
+  const source = String(text || "");
+  let hay = "";
+  const origin = []; // origin[i] = [début, fin] dans `source` du caractère normalisé i
+  let pos = 0;
+  for (const ch of source) {
+    const norm = normalizeForSearch(ch);
+    for (let k = 0; k < norm.length; k += 1) origin.push([pos, pos + ch.length]);
+    hay += norm;
+    pos += ch.length;
+  }
+  const ranges = [];
+  let from = 0;
+  for (;;) {
+    const at = hay.indexOf(needle, from);
+    if (at === -1) break;
+    const start = origin[at][0];
+    const end = origin[at + needle.length - 1][1];
+    const last = ranges[ranges.length - 1];
+    if (last && start < last.end) last.end = Math.max(last.end, end);
+    else ranges.push({ start, end });
+    from = at + Math.max(1, needle.length);
+  }
+  return ranges;
+}

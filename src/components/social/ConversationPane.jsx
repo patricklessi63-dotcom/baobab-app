@@ -11,7 +11,7 @@ import { detectMoneyRequest } from "../../lib/moneyGuard";
 import { detectPersonalCoordinates } from "../../lib/coordinatesGuard";
 import { checkRateLimit } from "../../lib/messageRateLimit";
 import { detectKindFromFile } from "../../lib/mediaValidation";
-import { normalizeForSearch } from "../../lib/searchQuery";
+import { normalizeForSearch, findMatchRanges } from "../../lib/searchQuery";
 import { isUserOnline } from "../../lib/presence";
 import { getMessageCheckState } from "../../lib/messageDeliveryState";
 import { useClickOutside } from "../../hooks/useClickOutside";
@@ -32,18 +32,41 @@ import { primary, coral, coralText, bg, muted, offline, leafLight, body, primary
 import { isImeComposing } from "../../utils/keyboard";
 import { isPremiumEnabled, isAiEnabled } from "../../lib/featureFlags";
 
-function MessageText({ text }) {
+// Découpe `str` (qui commence à l'index `offset` du texte complet) selon les plages
+// surlignées par la recherche : [{text, hit}].
+function splitByRanges(str, ranges, offset) {
+  const parts = [];
+  let cursor = 0;
+  for (const r of ranges) {
+    const a = Math.max(0, r.start - offset);
+    const b = Math.min(str.length, r.end - offset);
+    if (b <= a || a >= str.length) continue;
+    if (a > cursor) parts.push({ text: str.slice(cursor, a), hit: false });
+    parts.push({ text: str.slice(a, b), hit: true });
+    cursor = b;
+  }
+  if (cursor < str.length) parts.push({ text: str.slice(cursor), hit: false });
+  return parts.length ? parts : [{ text: str, hit: false }];
+}
+
+function MessageText({ text, highlight = "" }) {
+  const ranges = highlight ? findMatchRanges(text, highlight) : [];
+  let offset = 0;
   return (
     <>
-      {linkify(text).map((seg, i) =>
-        seg.type === "link" ? (
+      {linkify(text).map((seg, i) => {
+        const start = offset;
+        offset += seg.text.length;
+        const parts = ranges.length ? splitByRanges(seg.text, ranges, start) : [{ text: seg.text, hit: false }];
+        const inner = parts.map((part, j) => (part.hit ? <mark key={j} style={{ background: "var(--bb-gold, #E5B93C)", color: "#1C1608", borderRadius: 3, padding: "0 1px" }}>{part.text}</mark> : <React.Fragment key={j}>{part.text}</React.Fragment>));
+        return seg.type === "link" ? (
           <a key={i} href={seg.href} target="_blank" rel="noopener noreferrer" className="underline break-all">
-            {seg.text}
+            {inner}
           </a>
         ) : (
-          <span key={i}>{seg.text}</span>
-        )
-      )}
+          <span key={i}>{inner}</span>
+        );
+      })}
     </>
   );
 }
@@ -744,7 +767,7 @@ export default function ConversationPane({
                       {m.media_meta?.forwarded === true && (
                         <span className="text-[10px] italic flex items-center gap-1 mb-0.5" style={{ opacity: 0.75 }}><Forward size={10} aria-hidden="true" /> Transféré</span>
                       )}
-                      <MessageText text={m.text} />
+                      <MessageText text={m.text} highlight={searchOpen ? searchQuery : ""} />
                     </span>
                   )}
                   {!isSticker && !isDeleted && (

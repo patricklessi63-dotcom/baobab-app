@@ -33,9 +33,9 @@ Aucun compte A/B créé (production interdite, pas d'environnement de test). Uti
 | Suppression (pour moi / pour tous) | Fonctionnelle | Inchangé. |
 | Sélection multiple | **Nouveau, vérifié (tests DOM)** | Copier / transférer / supprimer pour moi. |
 | Appui long mobile | **Nouveau, vérifié (tests DOM)** | 450 ms ; annulé si le doigt bouge. Pas testé sur vrai écran tactile. |
-| Recherche dans la conversation | Partiellement fonctionnelle | Filtre côté client sur les messages chargés ; pas de surlignage ni de précédent / suivant. |
+| Recherche dans la conversation | **Améliorée, vérifiée (tests DOM)** | Filtre côté client sur les messages chargés + surlignage des occurrences (insensible à la casse et aux accents). Pas de précédent / suivant ni de recherche dans l'historique non chargé. |
 | Chargement de l'historique | **Amélioré** | Chargement automatique en remontant (+ bouton conservé). |
-| Très longues conversations | Partiellement fonctionnelle | Pagination 30 messages ; pas de virtualisation (rendu de tout le chargé). Harnais de 600 messages disponible, mesure de performances non faite. |
+| Très longues conversations | Fonctionnelle (mesurée) | Pagination 30 messages + chargement auto en remontant. Mesure sur 610 messages chargés (navigateur intégré, mode développement) : ~7 500 nœuds DOM, défilement + recalcul de mise en page ≈ 4 ms, reflow complet ≈ 11 ms : pas de virtualisation nécessaire à cette échelle. Non mesuré sur mobile réel bas de gamme. |
 | Partage de fichiers | Fonctionnelle | Inchangé. |
 | Aperçu de liens | Non fonctionnelle (absent) | Nécessite une Edge Function (récupération d'URL côté serveur, protection SSRF) : hors périmètre sans accès Supabase de test. Les liens sont cliquables. |
 | Barre de saisie (texte / vocal / photo / vidéo / fichier / emoji) | Fonctionnelle | Vérifiée mobile et desktop. |
@@ -87,7 +87,7 @@ Créés : `src/components/social/ForwardModal.jsx`, `src/lib/{photoLayout,voiceW
 - Les anciens clients (apps natives Capacitor embarquant leur code, PWA non rechargée) ignorent `state` du canal « typing » (traité comme frappe) et affichent un vocal sans forme d'onde (forme neutre).
 - Clavier virtuel iOS / Android non testé sur appareil.
 - Lecture audio Safari / iOS non testée sur appareil.
-- Pas de virtualisation de liste, pas d'aperçu de liens, pas de surlignage dans la recherche.
+- Pas de virtualisation de liste (non nécessaire aux volumes mesurés), pas d'aperçu de liens, pas de navigation précédent / suivant dans la recherche.
 - Les réactions multiples déjà en base (avant correctif) restent affichées ; elles sont nettoyées au prochain changement de réaction de la personne.
 
 ## 9. Améliorations de la messagerie (acquis)

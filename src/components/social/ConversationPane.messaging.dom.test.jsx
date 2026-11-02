@@ -233,3 +233,24 @@ describe("ConversationPane — historique", () => {
     expect(props.onLoadOlder).not.toHaveBeenCalled();
   });
 });
+
+describe("ConversationPane — recherche : surlignage", () => {
+  it("surligne les occurrences (sans tenir compte des accents) et ne garde que les messages correspondants", () => {
+    renderPane({ messages: [text(1, "m1", "Un bon Café ce matin"), text(2, "u1", "Rien à voir", "2026-10-29T10:01:00.000Z")] });
+    fireEvent.click(screen.getByRole("button", { name: "Rechercher dans la conversation" }));
+    fireEvent.change(screen.getByLabelText("Rechercher dans cette conversation"), { target: { value: "cafe" } });
+    const marks = document.querySelectorAll("mark");
+    expect(marks).toHaveLength(1);
+    expect(marks[0].textContent).toBe("Café");
+    expect(screen.queryByText("Rien à voir")).toBeNull();
+    expect(screen.getByText("1 résultat")).toBeInTheDocument();
+  });
+  it("ne surligne plus rien une fois la recherche fermée", () => {
+    renderPane({ messages: [text(1, "m1", "Un bon Café")] });
+    fireEvent.click(screen.getByRole("button", { name: "Rechercher dans la conversation" }));
+    fireEvent.change(screen.getByLabelText("Rechercher dans cette conversation"), { target: { value: "bon" } });
+    expect(document.querySelectorAll("mark")).toHaveLength(1);
+    fireEvent.click(screen.getAllByRole("button", { name: "Fermer la recherche" })[0]);
+    expect(document.querySelectorAll("mark")).toHaveLength(0);
+  });
+});
