@@ -915,7 +915,9 @@ export default function SocialShell({
         (payload) => {
           const mk = payload.new.match_key;
           if (!keys.has(mk)) return;
-          if (payload.new.read_at && !payload.old?.read_at) {
+          // Seulement les messages REÇUS : quand l'autre personne lit MES messages
+          // (accusé de lecture), mon badge de messages non lus ne doit pas baisser.
+          if (payload.new.read_at && !payload.old?.read_at && payload.new.from_id !== currentUser.id) {
             setUnreadByKey((prev) => ({ ...prev, [mk]: Math.max(0, (prev[mk] || 0) - 1) }));
           }
           setLastByKey((prev) => (prev[mk]?.id === payload.new.id ? { ...prev, [mk]: payload.new } : prev));
