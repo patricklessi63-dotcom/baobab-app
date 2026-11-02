@@ -493,10 +493,19 @@ export default function ConversationPane({
   useEffect(() => () => clearTimeout(longPressTimerRef.current), []);
 
   // Le menu d'un message ouvert tout en bas du fil dépassait de la zone
-  // visible : on le fait défiler dans la vue.
+  // visible : on le fait défiler dans la vue. Bug corrigé : on faisait défiler
+  // l'enveloppe (<div ref={actionsMenuRef}>), qui n'a AUCUNE hauteur puisque le
+  // menu qu'elle contient est en position absolue (sous le message, top: 100%) ;
+  // « nearest » la jugeait déjà visible et ne bougeait pas. Pour une photo ou une
+  // vidéo en bas de la conversation, les trois points semblaient donc sans effet :
+  // le menu s'ouvrait bel et bien, mais hors de l'écran. On vise le menu lui-même.
   useEffect(() => {
     if (!openActionsFor) return;
-    const id = requestAnimationFrame(() => actionsMenuRef.current?.scrollIntoView?.({ block: "nearest" }));
+    const id = requestAnimationFrame(() => {
+      const wrapper = actionsMenuRef.current;
+      const menu = wrapper?.querySelector?.('[role="menu"]') || wrapper;
+      menu?.scrollIntoView?.({ block: "nearest" });
+    });
     return () => cancelAnimationFrame(id);
   }, [openActionsFor]);
 

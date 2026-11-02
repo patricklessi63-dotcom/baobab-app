@@ -105,6 +105,20 @@ describe("ConversationPane — réponses", () => {
   });
 });
 
+describe("ConversationPane — menu d'un message tout en bas", () => {
+  // Régression : le menu (position absolue sous le message) dépassait de la zone
+  // visible et rien ne le faisait défiler, car on visait son enveloppe sans hauteur.
+  it("ouvrir « Options du message » fait défiler le MENU dans la vue (pas son enveloppe vide)", async () => {
+    renderPane({ messages: [text(1, "m1", "Dernier message")] });
+    fireEvent.click(screen.getByRole("button", { name: "Options du message" }));
+    expect(screen.getByRole("menu")).toBeInTheDocument();
+    await vi.waitFor(() => {
+      const targets = Element.prototype.scrollIntoView.mock.contexts;
+      expect(targets.some((el) => el?.getAttribute?.("role") === "menu")).toBe(true);
+    });
+  });
+});
+
 describe("ConversationPane — réactions", () => {
   it("les pastilles sont étiquetées (emoji, nombre, la mienne) et regroupent les identiques", () => {
     const msg = text(1, "m1", "Salut");
