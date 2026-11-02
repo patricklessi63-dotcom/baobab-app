@@ -95,7 +95,7 @@ export default function CommunityDetailView({
       </button>
 
       <div className={`${card} overflow-hidden`}>
-        <div className="h-36 relative" style={{ background: community.cover_url ? `url(${community.cover_url}) center/cover` : `linear-gradient(150deg,${gold},var(--bb-leaf))` }} />
+        <div className="h-36 relative" style={{ background: community.cover_url ? `url(${community.cover_url}) center/cover` : `var(--bb-cover-default)` }} />
         <div className="p-5">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
