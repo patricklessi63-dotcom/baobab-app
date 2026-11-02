@@ -123,6 +123,7 @@ export default function ConversationPane({
   toggleReaction = () => {},
   deleteMessageForMe = () => {},
   deleteMessageForEveryone = () => {},
+  keyboardOpen = false,
   forwardTargets = [],
   forwardMessages = async () => ({ sent: 0, failed: 0 }),
   showSuccessNotice = () => {},
@@ -154,6 +155,12 @@ export default function ConversationPane({
   const flashTimerRef = useRef(null);
   useEffect(() => () => clearTimeout(flashTimerRef.current), []);
   const longPressTimerRef = useRef(null);
+  // Le clavier s'ouvre / se ferme : si on lisait le bas du fil, on y reste (le
+  // dernier message ne doit pas passer sous la barre de saisie).
+  useEffect(() => {
+    if (nearBottomRef.current) scrollListToBottom("auto");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [keyboardOpen]);
   // Bouton flottant « ↓ nouveaux messages » : affiché quand un message
   // arrive alors que l'utilisateur a fait défiler vers le haut pour relire
   // l'historique — on ne force alors jamais le défilement.
