@@ -171,6 +171,8 @@ export default function SocialShell({
   toggleReaction = () => {},
   deleteMessageForMe = () => {},
   deleteMessageForEveryone = () => {},
+  forwardMessages = async () => ({ sent: 0, failed: 0 }),
+  showSuccessNotice = () => {},
   initialTab = null,
   justSubscribed = false,
   onJustSubscribedHandled = () => {},
@@ -2553,6 +2555,8 @@ export default function SocialShell({
             toggleReaction={toggleReaction}
             deleteMessageForMe={deleteMessageForMe}
             deleteMessageForEveryone={deleteMessageForEveryone}
+            forwardMessages={forwardMessages}
+            showSuccessNotice={showSuccessNotice}
             onRefreshConversations={refreshConversations}
           />
         )}

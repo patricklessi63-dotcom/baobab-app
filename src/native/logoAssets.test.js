@@ -126,6 +126,7 @@ describe("icônes web générées", () => {
         }
       }
     expect(marks).toBeGreaterThan(5000);
+    expect(maxR / info.width).toBeLessThanOrEqual(0.4);
     expect(maxR).toBeLessThanOrEqual(limit);
   });
 });
@@ -205,8 +206,9 @@ describe("sources natives (@capacitor/assets) et iOS", () => {
           maxR = Math.max(maxR, Math.hypot(x - 512, y - 512));
         }
     expect(n).toBeGreaterThan(20000);
-    // ic_launcher.xml affiche l'image dans 72 dp (retrait de 16,7 %) ; le cercle sûr fait 66 dp : 45,8 % de l'image.
-    expect(maxR).toBeLessThanOrEqual(0.458 * 1024);
+    // Zone sûre exigée : cercle de diamètre 66 % du canevas, soit un rayon <= 0,33 x la taille (marge prise
+    // volontairement sans compter le retrait de 16,7 % d'ic_launcher.xml). Sans correctif : 0,44.
+    expect(maxR).toBeLessThanOrEqual(0.33 * 1024);
   });
   it("splash clair = ivoire, splash sombre = nuit (bords), comme les fonds natifs", async () => {
     const px = async (rel) => {
@@ -272,6 +274,23 @@ describe("ressources Android de lancement et de notification", () => {
     }
     const dims = { mdpi: 108, hdpi: 162, xhdpi: 216, xxhdpi: 324, xxxhdpi: 432 };
     for (const [d, px] of Object.entries(dims)) expect(pngHeader(`android/app/src/main/res/mipmap-${d}/ic_launcher_monochrome.png`)).toMatchObject({ w: px, h: px });
+  });
+  it("avant-plan adaptatif et couche monochrome : rayon max des pixels visibles <= 0,33 x taille (icône du splash Android 12+ comprise)", async () => {
+    const radius = async (rel) => {
+      const { data, info } = await sharp(R(rel)).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+      let m = 0;
+      for (let y = 0; y < info.height; y++)
+        for (let x = 0; x < info.width; x++)
+          if (data[(y * info.width + x) * 4 + 3] > 8) m = Math.max(m, Math.hypot(x + 0.5 - info.width / 2, y + 0.5 - info.height / 2));
+      return m / info.width;
+    };
+    for (const d of ["mdpi", "hdpi", "xhdpi", "xxhdpi", "xxxhdpi"]) {
+      const fg = `android/app/src/main/res/mipmap-${d}/ic_launcher_foreground.png`;
+      const mono = `android/app/src/main/res/mipmap-${d}/ic_launcher_monochrome.png`;
+      // + 1/taille : tolérance d'un pixel d'anticrénelage aux petites densités.
+      expect(await radius(fg), fg).toBeLessThanOrEqual(0.33 + 1 / pngHeader(fg).w);
+      expect(await radius(mono), mono).toBeLessThanOrEqual(0.33);
+    }
   });
   it("avant-plan adaptatif à la taille exacte de 72 dp par densité", () => {
     const dims = { mdpi: 72, hdpi: 108, xhdpi: 144, xxhdpi: 216, xxxhdpi: 288 };

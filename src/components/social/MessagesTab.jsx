@@ -45,6 +45,8 @@ export default function MessagesTab({
   toggleReaction,
   deleteMessageForMe,
   deleteMessageForEveryone,
+  forwardMessages,
+  showSuccessNotice,
   onRefreshConversations,
 }) {
   // Recherche/filtre de la liste de conversations + menu "⋮" par ligne
@@ -266,6 +268,9 @@ export default function MessagesTab({
         toggleReaction={toggleReaction}
         deleteMessageForMe={deleteMessageForMe}
         deleteMessageForEveryone={deleteMessageForEveryone}
+        forwardTargets={matches}
+        forwardMessages={forwardMessages}
+        showSuccessNotice={showSuccessNotice}
       />
     </div>
   ) : (

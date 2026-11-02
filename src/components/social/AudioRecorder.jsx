@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { Mic, Send, Square, Trash2, Play, Pause } from "lucide-react";
 import { AUDIO_MAX_DURATION_MS, extFromMime } from "../../lib/mediaConstants";
 import { notifyAudioPlaying, notifyAudioStopped } from "../../lib/audioPlaybackRegistry";
+import { downsamplePeaks, rmsLevel, MIN_VOICE_DURATION_MS } from "../../lib/voiceWaveform";
 import MicPermissionModal from "./MicPermissionModal";
 import { primary, navy, coral, coralText, muted, bg } from "./theme";
 
@@ -44,7 +45,7 @@ async function queryMicPermission() {
   }
 }
 
-export default function AudioRecorder({ hasDraft, onSendText, onSendAudio, onActiveChange }) {
+export default function AudioRecorder({ hasDraft, onSendText, onSendAudio, onActiveChange, onRecordingChange }) {
   const [state, setState] = useState("idle"); // idle | recording | preview | error
   const [elapsed, setElapsed] = useState(0);
   const [errorMsg, setErrorMsg] = useState("");
@@ -70,6 +71,12 @@ export default function AudioRecorder({ hasDraft, onSendText, onSendAudio, onAct
   const timerRef = useRef(null);
   const errorTimerRef = useRef(null);
   const blobRef = useRef(null);
+  // Niveaux sonores échantillonnés pendant l'enregistrement (forme d'onde) et
+  // durée réelle mesurée : envoyés avec le vocal dans media_meta.
+  const levelsRef = useRef([]);
+  const levelTimerRef = useRef(null);
+  const audioCtxRef = useRef(null);
+  const durationMsRef = useRef(0);
   const audioElRef = useRef(null);
   const audioUrlRef = useRef(null);
   // Verrou synchrone (pas un state React, dispo immédiatement sans attendre
@@ -100,12 +107,50 @@ export default function AudioRecorder({ hasDraft, onSendText, onSendAudio, onAct
     onActiveChange?.(state === "recording" || state === "preview" || permissionOpen);
   }, [state, permissionOpen]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Signale « enregistre un message vocal… » à l'autre participant (voir
+  // broadcastTyping dans App.jsx) tant que l'enregistrement est en cours.
+  useEffect(() => {
+    onRecordingChange?.(state === "recording");
+  }, [state]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const stopTracks = () => {
     streamRef.current?.getTracks()?.forEach((t) => t.stop());
     streamRef.current = null;
   };
 
+  const stopLevelMeter = () => {
+    clearInterval(levelTimerRef.current);
+    levelTimerRef.current = null;
+    const ctx = audioCtxRef.current;
+    audioCtxRef.current = null;
+    if (ctx && ctx.state !== "closed") { try { ctx.close(); } catch { /* déjà fermé */ } }
+  };
+
+  // Échantillonne le niveau du micro (AnalyserNode) toutes les 100 ms. Meilleur
+  // effort : si l'API n'existe pas ou échoue (très vieux navigateur), le vocal
+  // part simplement sans forme d'onde — jamais une erreur d'enregistrement.
+  const startLevelMeter = (stream) => {
+    levelsRef.current = [];
+    try {
+      const Ctx = window.AudioContext || window.webkitAudioContext;
+      if (!Ctx) return;
+      const ctx = new Ctx();
+      audioCtxRef.current = ctx;
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 512;
+      ctx.createMediaStreamSource(stream).connect(analyser);
+      const buf = new Uint8Array(analyser.fftSize);
+      levelTimerRef.current = setInterval(() => {
+        analyser.getByteTimeDomainData(buf);
+        levelsRef.current.push(rmsLevel(buf));
+      }, 100);
+    } catch {
+      stopLevelMeter();
+    }
+  };
+
   const cleanup = () => {
+    stopLevelMeter();
     clearInterval(timerRef.current);
     if (errorTimerRef.current) { clearTimeout(errorTimerRef.current); errorTimerRef.current = null; }
     stopTracks();
@@ -171,11 +216,22 @@ export default function AudioRecorder({ hasDraft, onSendText, onSendAudio, onAct
     chunksRef.current = [];
     recorder.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
     recorder.onstop = () => {
+      stopLevelMeter();
+      durationMsRef.current = Math.min(AUDIO_MAX_DURATION_MS, Date.now() - startRef.current);
       // recorder.mimeType inclut souvent le codec (ex: "audio/webm;codecs=opus"),
       // qui ne correspond exactement à aucune entrée de MEDIA_LIMITS.audio.mimes
       // ni de l'allowlist du bucket Storage — on ne garde que le type de base.
       const baseMime = (recorder.mimeType || "audio/webm").split(";")[0].trim();
-      blobRef.current = new Blob(chunksRef.current, { type: baseMime });
+      const blob = new Blob(chunksRef.current, { type: baseMime });
+      // Jamais de vocal vide ou accidentel : un conteneur sans donnée (appui
+      // involontaire, arrêt immédiat, micro muet) donnerait un fichier illisible
+      // chez le destinataire.
+      if (blob.size === 0 || durationMsRef.current < MIN_VOICE_DURATION_MS) {
+        cleanup();
+        showInlineError(blob.size === 0 ? "L'enregistrement est vide, réessaie." : "Message vocal trop court : maintiens l'enregistrement un peu plus longtemps.");
+        return;
+      }
+      blobRef.current = blob;
       audioUrlRef.current = URL.createObjectURL(blobRef.current);
       stopTracks();
       setState("preview");
@@ -192,6 +248,7 @@ export default function AudioRecorder({ hasDraft, onSendText, onSendAudio, onAct
     recorderRef.current = recorder;
     recorder.start();
     startRef.current = Date.now();
+    startLevelMeter(stream);
     setElapsed(0);
     setState("recording");
     timerRef.current = setInterval(() => {
@@ -346,7 +403,10 @@ export default function AudioRecorder({ hasDraft, onSendText, onSendAudio, onAct
     if (!blobRef.current) return;
     // Extension cohérente avec le contenu réel (m4a sur iPhone/Safari, webm sinon).
     const file = new File([blobRef.current], `voice-${Date.now()}.${extFromMime(blobRef.current.type)}`, { type: blobRef.current.type });
-    onSendAudio(file);
+    // Durée et forme d'onde voyagent dans media_meta (jsonb libre côté base) :
+    // le destinataire affiche la durée avant même de charger le fichier.
+    const meta = { duration: Math.round(durationMsRef.current / 100) / 10, waveform: downsamplePeaks(levelsRef.current) };
+    onSendAudio(file, meta);
     cleanup();
     setState("idle");
     triggerSendPop();

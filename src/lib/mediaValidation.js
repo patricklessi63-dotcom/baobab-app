@@ -35,6 +35,16 @@ async function sniffMagicBytes(file, declaredMime) {
     const webp = head[8] === 0x57 && head[9] === 0x45 && head[10] === 0x42 && head[11] === 0x50;
     return riff && webp;
   }
+  // Messages vocaux webm/ogg (sortie de MediaRecorder sur Chrome/Firefox) : leurs
+  // en-têtes sont fixes (EBML 1A 45 DF A3 / "OggS") — un fichier qui prétend en
+  // être un sans cet en-tête est tronqué ou corrompu, et ne serait lisible chez
+  // personne. audio/mp4 est volontairement exclu (boîte d'en-tête variable).
+  if (declaredMime === "audio/webm" || declaredMime === "audio/ogg") {
+    const head = new Uint8Array(await file.slice(0, 4).arrayBuffer());
+    return declaredMime === "audio/webm"
+      ? matchesSignature(head, [0x1a, 0x45, 0xdf, 0xa3])
+      : matchesSignature(head, [0x4f, 0x67, 0x67, 0x53]);
+  }
   const signatures = SIGNATURES[declaredMime];
   if (!signatures) return true; // pas de signature connue pour ce type — on ne peut pas sniffer, on ne bloque pas
   const head = new Uint8Array(await file.slice(0, 12).arrayBuffer());

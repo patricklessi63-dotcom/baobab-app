@@ -7,6 +7,8 @@ import { formatFileSize } from "../../lib/mediaConstants";
 import { STICKER_GRADIENTS } from "../../lib/stickerData";
 import { formatEventWhen } from "../../utils/format";
 import { useImageLightbox } from "../../lib/ImageLightboxContext";
+import { photoDisplaySize } from "../../lib/photoLayout";
+import { normalizeWaveform, pseudoWaveform, normalizeDuration } from "../../lib/voiceWaveform";
 import { primary, bg, body, gold, primaryRgb } from "./theme";
 
 function useLocalOrSignedUrl(m) {
@@ -27,16 +29,28 @@ function UploadProgress({ progress }) {
   );
 }
 
-function AudioPlayer({ src, onSourceError }) {
+const PLAYBACK_RATES = [1, 1.5, 2];
+
+// Lecteur de message vocal : bouton lecture/pause, forme d'onde cliquable (la
+// progression colore les barres déjà écoutées), durée, vitesse 1×/1,5×/2×.
+// - La forme d'onde vient de media_meta.waveform (calculée à l'enregistrement,
+//   voir lib/voiceWaveform.js) ; sans elle (anciens vocaux) on dessine une forme
+//   neutre stable : on ne décode jamais l'audio pour la dessiner.
+// - media_meta.duration affiche la durée AVANT le chargement des métadonnées
+//   (et même quand le navigateur n'en trouve pas : webm/opus de Chrome).
+function AudioPlayer({ src, meta, seed, onSourceError }) {
   const audioRef = useRef(null);
   const [playing, setPlaying] = useState(false);
   const [current, setCurrent] = useState(0);
-  const [duration, setDuration] = useState(0);
+  const metaDuration = normalizeDuration(meta?.duration) || 0;
+  const [duration, setDuration] = useState(metaDuration);
+  const [rate, setRate] = useState(1);
   // Un message vocal enregistré en webm/opus (avant le correctif de format
   // côté enregistrement) reste illisible sur Safari, qui ne décode pas ce
   // format — sans ceci, cliquer "Écouter" ne faisait simplement rien, sans
   // aucune indication de ce qui se passe.
   const [playbackError, setPlaybackError] = useState(false);
+  const bars = useMemo(() => normalizeWaveform(meta?.waveform) || pseudoWaveform(seed), [meta?.waveform, seed]);
 
   // Un seul message vocal doit jouer à la fois dans toute l'app (comme
   // WhatsApp) — bug corrigé à l'audit : sans ce nettoyage, un message vocal
@@ -48,12 +62,37 @@ function AudioPlayer({ src, onSourceError }) {
   const toggle = () => {
     if (!audioRef.current) return;
     if (playing) audioRef.current.pause();
-    else audioRef.current.play().catch(() => setPlaybackError(true));
+    else {
+      audioRef.current.playbackRate = rate;
+      audioRef.current.play().catch(() => setPlaybackError(true));
+    }
   };
 
-  const seek = (e) => {
-    if (!audioRef.current) return;
-    audioRef.current.currentTime = Number(e.target.value);
+  const cycleRate = () => {
+    const next = PLAYBACK_RATES[(PLAYBACK_RATES.indexOf(rate) + 1) % PLAYBACK_RATES.length];
+    setRate(next);
+    if (audioRef.current) audioRef.current.playbackRate = next;
+  };
+
+  const seekTo = (seconds) => {
+    if (!audioRef.current || !duration) return;
+    const t = Math.min(duration, Math.max(0, seconds));
+    audioRef.current.currentTime = t;
+    setCurrent(t);
+  };
+
+  const seekFromPointer = (e) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    if (!rect.width) return;
+    const ratio = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
+    seekTo(ratio * duration);
+  };
+
+  const onSliderKey = (e) => {
+    if (e.key === "ArrowRight" || e.key === "ArrowUp") { e.preventDefault(); seekTo(current + 5); }
+    else if (e.key === "ArrowLeft" || e.key === "ArrowDown") { e.preventDefault(); seekTo(current - 5); }
+    else if (e.key === "Home") { e.preventDefault(); seekTo(0); }
+    else if (e.key === "End") { e.preventDefault(); seekTo(duration); }
   };
 
   // Garde-fou : un blob webm produit par MediaRecorder (voir AudioRecorder.jsx,
@@ -68,14 +107,14 @@ function AudioPlayer({ src, onSourceError }) {
 
   // Bug Chromium connu : la durée d'un blob webm/opus issu de MediaRecorder
   // reste Infinity au chargement des métadonnées (aucune durée écrite dans le
-  // conteneur pendant l'enregistrement) — le minuteur et le curseur de
-  // progression ("Infinity:NaN", max="Infinity") restaient cassés jusqu'à ce
-  // que le fichier soit lu jusqu'au bout au moins une fois. Contournement
-  // standard : se positionner très loin force le navigateur à recalculer la
-  // vraie durée (déclenche "durationchange"), puis on revient au début.
+  // conteneur pendant l'enregistrement). Contournement standard : se
+  // positionner très loin force le navigateur à recalculer la vraie durée
+  // (déclenche "durationchange"), puis on revient au début. Si
+  // media_meta.duration est connue on s'épargne ce saut.
   const handleLoadedMetadata = (e) => {
     const el = e.currentTarget;
     if (!Number.isFinite(el.duration)) {
+      if (metaDuration) return;
       const onDurationChange = () => {
         el.removeEventListener("durationchange", onDurationChange);
         setDuration(Number.isFinite(el.duration) ? el.duration : 0);
@@ -84,18 +123,22 @@ function AudioPlayer({ src, onSourceError }) {
       el.addEventListener("durationchange", onDurationChange);
       el.currentTime = 1e101;
     } else {
-      setDuration(el.duration || 0);
+      setDuration(el.duration || metaDuration || 0);
     }
   };
 
+  const progress = duration ? Math.min(1, current / duration) : 0;
+  const playedBars = Math.round(progress * bars.length);
+
   return (
-    <div className="flex items-center gap-2.5 min-w-[200px]">
+    <div className="flex items-center gap-2.5" style={{ minWidth: 0, width: 230, maxWidth: "100%" }}>
       <audio
         ref={audioRef}
         src={src || undefined}
+        preload="metadata"
         onPlay={() => { setPlaying(true); notifyAudioPlaying(audioRef.current); }}
         onPause={() => { setPlaying(false); notifyAudioStopped(audioRef.current); }}
-        onEnded={() => { setPlaying(false); notifyAudioStopped(audioRef.current); }}
+        onEnded={() => { setPlaying(false); setCurrent(0); notifyAudioStopped(audioRef.current); }}
         onError={() => {
           // Une URL signée expirée se manifeste aussi par une erreur de
           // chargement : on en redemande une avant de conclure que ce
@@ -114,24 +157,53 @@ function AudioPlayer({ src, onSourceError }) {
           <button type="button" onClick={toggle} disabled={!src} aria-label={playing ? "Pause" : "Écouter"} className="bb-hit h-9 w-9 rounded-full flex items-center justify-center flex-shrink-0 disabled:opacity-50" style={{ background: "rgba(255,255,255,.18)" }}>
             {playing ? <Pause size={14} /> : <Play size={14} />}
           </button>
-          <input
-            type="range"
-            min={0}
-            max={duration || 0}
-            value={current}
-            onChange={seek}
-            aria-label="Progression audio"
-            className="flex-1"
-            style={{ accentColor: "#fff" }}
-          />
-          <span className="text-[10px] flex-shrink-0" style={{ opacity: 0.8 }}>{fmt(duration ? duration - current : 0)}</span>
+          <div className="flex-1 min-w-0">
+            <div
+              role="slider"
+              tabIndex={0}
+              aria-label="Progression audio"
+              aria-valuemin={0}
+              aria-valuemax={Math.round(duration)}
+              aria-valuenow={Math.round(current)}
+              aria-valuetext={`${fmt(current)} sur ${fmt(duration)}`}
+              onClick={seekFromPointer}
+              onKeyDown={onSliderKey}
+              className="flex items-center cursor-pointer focus-visible:outline focus-visible:outline-2 rounded"
+              style={{ gap: 1, height: 28, touchAction: "pan-y" }}
+              dir="ltr"
+            >
+              {bars.map((h, i) => (
+                <span
+                  key={i}
+                  aria-hidden="true"
+                  className="flex-1 rounded-full"
+                  style={{ height: `${Math.max(12, h)}%`, minWidth: 1, background: "currentColor", opacity: i < playedBars ? 1 : 0.38, transition: "opacity .12s linear" }}
+                />
+              ))}
+            </div>
+            <div className="text-[10px] leading-none mt-0.5 flex items-center justify-between gap-2" style={{ opacity: 0.85 }}>
+              <span>
+                {playing || current > 0 ? fmt(current) : fmt(duration)}
+                {duration > 0 && (playing || current > 0) ? ` / ${fmt(duration)}` : ""}
+              </span>
+              <button
+                type="button"
+                onClick={cycleRate}
+                aria-label={`Vitesse de lecture ${rate} fois, changer`}
+                className="bb-hit font-bold rounded-full px-1.5"
+                style={{ background: "rgba(127,127,127,.28)", lineHeight: "16px" }}
+              >
+                {rate === 1 ? "1×" : rate === 1.5 ? "1,5×" : "2×"}
+              </button>
+            </div>
+          </div>
         </>
       )}
     </div>
   );
 }
 
-export default function MessageBubbleMedia({ m, isMine }) {
+export default function MessageBubbleMedia({ m, isMine, onOpenImage }) {
   const { openLightbox } = useImageLightbox();
   const [fileUrl, setFileUrl] = useState(null);
   const [resolvingFile, setResolvingFile] = useState(false);
@@ -191,10 +263,22 @@ export default function MessageBubbleMedia({ m, isMine }) {
   }
 
   if (m.kind === "image") {
+    // Boîte au rapport largeur/hauteur réel (portrait, paysage, carré) : la
+    // photo n'est plus rognée et le fil ne « saute » pas au chargement. Sans
+    // dimensions connues (anciens messages), repli sur la taille naturelle.
+    const box = photoDisplaySize(m.media_meta?.width, m.media_meta?.height);
+    const open = () => {
+      if (uploading) return;
+      if (onOpenImage) onOpenImage(m, url);
+      else openLightbox([{ url, alt: m.media_meta?.original_name }]);
+    };
     return (
-      <div className="relative rounded-xl overflow-hidden" style={{ maxWidth: 240 }}>
+      <div
+        className="relative rounded-xl overflow-hidden"
+        style={box ? { width: box.width, maxWidth: "100%", aspectRatio: `${box.width} / ${box.height}` } : { maxWidth: 240 }}
+      >
         {mediaBroken ? (
-          <div role="img" aria-label="Photo indisponible" className="flex flex-col items-center justify-center gap-1 text-[11px]" style={{ width: 200, height: 120, background: bg, color: body }}>
+          <div role="img" aria-label="Photo indisponible" className="flex flex-col items-center justify-center gap-1 text-[11px]" style={{ width: box ? "100%" : 200, height: box ? "100%" : 120, background: bg, color: body }}>
             <ImageOff size={20} aria-hidden="true" />
             <span>Photo indisponible</span>
           </div>
@@ -202,19 +286,19 @@ export default function MessageBubbleMedia({ m, isMine }) {
           <img
             src={url}
             alt={m.media_meta?.original_name || "Photo"}
-            onClick={() => !uploading && openLightbox([{ url, alt: m.media_meta?.original_name }])}
-            onKeyDown={(e) => { if (!uploading && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); openLightbox([{ url, alt: m.media_meta?.original_name }]); } }}
+            onClick={open}
+            onKeyDown={(e) => { if (!uploading && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); open(); } }}
             tabIndex={uploading ? undefined : 0}
             role={uploading ? undefined : "button"}
             aria-label="Agrandir la photo"
-            className="block w-full object-cover cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
-            style={{ maxHeight: 260, aspectRatio: m.media_meta?.width > 0 && m.media_meta?.height > 0 ? `${m.media_meta.width} / ${m.media_meta.height}` : undefined }}
+            className={`block w-full cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2${box ? " h-full object-cover" : ""}`}
+            style={box ? undefined : { maxHeight: 320, objectFit: "contain" }}
             loading="lazy"
             decoding="async"
             onError={handleMediaError}
           />
         ) : (
-          <div className="flex items-center justify-center" style={{ width: 200, height: 150, background: bg }} />
+          <div className="flex items-center justify-center" style={{ width: box ? "100%" : 200, height: box ? "100%" : 150, background: bg }} />
         )}
         <UploadProgress progress={progress} />
       </div>
@@ -238,7 +322,7 @@ export default function MessageBubbleMedia({ m, isMine }) {
   if (m.kind === "audio") {
     return (
       <div className="relative" style={{ color: isMine ? bg : body }}>
-        <AudioPlayer src={url} onSourceError={(giveUp) => refresh(giveUp)} />
+        <AudioPlayer src={url} meta={m.media_meta} seed={m.id} onSourceError={(giveUp) => refresh(giveUp)} />
         <UploadProgress progress={progress} />
       </div>
     );

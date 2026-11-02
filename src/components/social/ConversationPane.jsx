@@ -1,9 +1,11 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { ArrowLeft, ArrowDown, MoreVertical, MoreHorizontal, Reply, X, Flag, Ban, Check, CheckCheck, Circle, ShieldAlert, ShieldCheck, RotateCcw, HeartCrack, Search, MapPin, Languages, Loader2, UserRound } from "lucide-react";
+import { ArrowLeft, ArrowDown, MoreVertical, MoreHorizontal, Reply, X, Flag, Ban, Check, CheckCheck, Circle, ShieldAlert, ShieldCheck, RotateCcw, HeartCrack, Search, MapPin, Languages, Loader2, UserRound, Copy, Forward, Trash2 } from "lucide-react";
 import Avatar from "../Avatar";
 import StatusBadge from "../StatusBadge";
 import ConversationStarters from "./ConversationStarters";
-import { formatLastSeen, formatMessageTime, formatDayLabel, truncateUnicodeSafe } from "../../utils/format";
+import { formatLastSeen, formatMessageTime, formatDayLabel, dayKey, messagePreviewLabel, truncateUnicodeSafe } from "../../utils/format";
+import { getSignedUrl } from "../../lib/signedUrlCache";
+import { useOptionalImageLightbox } from "../../lib/ImageLightboxContext";
 import { linkify } from "../../utils/linkify";
 import { detectMoneyRequest } from "../../lib/moneyGuard";
 import { detectPersonalCoordinates } from "../../lib/coordinatesGuard";
@@ -25,6 +27,7 @@ import MessageBubbleMedia from "./MessageBubbleMedia";
 import ChatDropZone from "./ChatDropZone";
 import MessageActionsMenu from "./MessageActionsMenu";
 import ConfirmModal from "./ConfirmModal";
+import ForwardModal from "./ForwardModal";
 import { primary, coral, coralText, bg, muted, offline, leafLight, body, primaryRgb } from "./theme";
 import { isImeComposing } from "../../utils/keyboard";
 import { isPremiumEnabled, isAiEnabled } from "../../lib/featureFlags";
@@ -49,7 +52,7 @@ function MessageText({ text }) {
 // respirent en décalé. Points en vert clair décoratif (--bb-leaf-light) ;
 // le libellé garde la couleur héritée du conteneur parent.
 // La règle globale prefers-reduced-motion (index.html) fige l'animation.
-function TypingIndicator() {
+function TypingIndicator({ label = "en train d'écrire" }) {
   const dot = {
     width: 4,
     height: 4,
@@ -60,7 +63,7 @@ function TypingIndicator() {
   return (
     <span className="inline-flex items-center">
       <style>{`@keyframes bbTypingDot { 0%, 80%, 100% { opacity: .25; transform: translateY(0); } 40% { opacity: 1; transform: translateY(-2px); } }`}</style>
-      en train d'écrire
+      {label}
       <span className="inline-flex items-center gap-[3px] ml-1">
         <span style={{ ...dot, animation: "bbTypingDot 1.2s ease-in-out 0s infinite" }} />
         <span style={{ ...dot, animation: "bbTypingDot 1.2s ease-in-out .2s infinite" }} />
@@ -97,11 +100,37 @@ export default function ConversationPane({
   toggleReaction = () => {},
   deleteMessageForMe = () => {},
   deleteMessageForEveryone = () => {},
+  forwardTargets = [],
+  forwardMessages = async () => ({ sent: 0, failed: 0 }),
+  showSuccessNotice = () => {},
 }) {
+  const openLightbox = useOptionalImageLightbox()?.openLightbox || (() => {});
   const [menuOpen, setMenuOpen] = useState(false);
   const [rateLimited, setRateLimited] = useState(false);
   const [recorderActive, setRecorderActive] = useState(false);
+  // « enregistre un message vocal… » côté destinataire : on ré-émet toutes les
+  // 2 s tant que l'enregistrement dure (l'indicateur expire au bout de 3 s),
+  // puis un « idle » explicite à l'arrêt.
+  const [recordingNow, setRecordingNow] = useState(false);
+  useEffect(() => {
+    if (!recordingNow) return undefined;
+    broadcastTyping("recording");
+    const id = setInterval(() => broadcastTyping("recording"), 2000);
+    return () => { clearInterval(id); broadcastTyping("idle"); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [recordingNow]);
   const [openActionsFor, setOpenActionsFor] = useState(null);
+  // Mode sélection multiple : null = désactivé, sinon Set d'ids de messages.
+  const [selectedIds, setSelectedIds] = useState(null);
+  const selecting = selectedIds !== null;
+  // Messages en attente de transfert (modale de choix de la conversation).
+  const [forwardPending, setForwardPending] = useState(null);
+  const [pendingDeleteSelection, setPendingDeleteSelection] = useState(false);
+  // Message mis en évidence après un saut vers le message cité.
+  const [flashId, setFlashId] = useState(null);
+  const flashTimerRef = useRef(null);
+  useEffect(() => () => clearTimeout(flashTimerRef.current), []);
+  const longPressTimerRef = useRef(null);
   // Bouton flottant « ↓ nouveaux messages » : affiché quand un message
   // arrive alors que l'utilisateur a fait défiler vers le haut pour relire
   // l'historique — on ne force alors jamais le défilement.
@@ -146,6 +175,11 @@ export default function ConversationPane({
   const handleListScroll = () => {
     nearBottomRef.current = isNearBottom();
     if (nearBottomRef.current) setShowJumpButton(false);
+    // Historique chargé automatiquement en remontant (comme WhatsApp) : plus
+    // besoin de viser le bouton « Charger les messages précédents ». La
+    // position de lecture est conservée par le useLayoutEffect de prepend.
+    const el = listRef.current;
+    if (el && hasMoreHistory && !loadingOlder && el.scrollTop < 120 && el.scrollHeight > el.clientHeight) onLoadOlder();
   };
 
   // Fondu d'apparition (bb-fade-in) réservé au DERNIER message quand la liste
@@ -377,6 +411,87 @@ export default function ConversationPane({
     .filter((m) => !(m.deleted_for || []).includes(currentUser.id))
     .filter((m) => !q || normalizeForSearch(m.text).includes(q));
 
+  // Galerie : toutes les photos de la conversation affichée, navigables dans la
+  // visionneuse plein écran (flèches, balayage). On résout les URL signées de
+  // celles qui entourent la photo touchée (par lots, 20 de chaque côté) : le
+  // cache d'URL signées (signedUrlCache) évite tout aller-retour pour celles
+  // déjà affichées dans le fil.
+  const openImageGallery = async (msg, ownUrl) => {
+    const photos = visibleMessages.filter((x) => x.kind === "image" && !x.deleted_at && x.media_path);
+    const at = photos.findIndex((x) => x.id === msg.id);
+    if (at === -1) { openLightbox([{ url: ownUrl, alt: msg.media_meta?.original_name }]); return; }
+    const from = Math.max(0, at - 20);
+    const slice = photos.slice(from, at + 21);
+    const urls = await Promise.all(slice.map((x) => (x.id === msg.id && ownUrl ? Promise.resolve(ownUrl) : getSignedUrl(x.media_path))));
+    const items = slice.map((x, i) => ({ url: urls[i], alt: x.media_meta?.original_name })).filter((it) => it.url);
+    if (!mountedRef.current) return;
+    const index = items.findIndex((it) => it.url === ownUrl);
+    openLightbox(items.length ? items : [{ url: ownUrl, alt: msg.media_meta?.original_name }], Math.max(0, index));
+  };
+
+  // Saut vers le message cité (clic sur l'aperçu de réponse).
+  const jumpToMessage = (id) => {
+    const el = Array.from(listRef.current?.querySelectorAll("[data-message-id]") || []).find((node) => node.getAttribute("data-message-id") === String(id));
+    if (!el) return;
+    el.scrollIntoView({ block: "center", behavior: "smooth" });
+    clearTimeout(flashTimerRef.current);
+    setFlashId(id);
+    flashTimerRef.current = setTimeout(() => setFlashId(null), 1600);
+  };
+
+  const startSelection = (m) => { setOpenActionsFor(null); setSelectedIds(new Set(m ? [m.id] : [])); };
+  const toggleSelected = (id) => setSelectedIds((prev) => {
+    const next = new Set(prev || []);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next.size === 0 ? null : next;
+  });
+  const selectedMessages = selecting ? visibleMessages.filter((x) => selectedIds.has(x.id)) : [];
+  const exitSelection = () => setSelectedIds(null);
+  useEscapeKey(selecting && !forwardPending && !pendingDeleteSelection, exitSelection);
+
+  const copyText = (text) => { try { navigator.clipboard?.writeText(text); } catch { /* presse-papiers indisponible */ } };
+  const copySelection = () => {
+    const texts = selectedMessages.filter((x) => x.kind === "text" && !x.deleted_at).map((x) => x.text);
+    if (texts.length) copyText(texts.join("\n"));
+    exitSelection();
+  };
+
+  // Appui long (tactile) = ouvre le menu du message, comme WhatsApp. Annulé dès
+  // que le doigt bouge (défilement) ou se relève avant le délai.
+  const longPress = (m) => ({
+    onTouchStart: () => {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = setTimeout(() => setOpenActionsFor(m.id), 450);
+    },
+    onTouchMove: () => clearTimeout(longPressTimerRef.current),
+    onTouchEnd: () => clearTimeout(longPressTimerRef.current),
+    onTouchCancel: () => clearTimeout(longPressTimerRef.current),
+  });
+  useEffect(() => () => clearTimeout(longPressTimerRef.current), []);
+
+  // Le menu d'un message ouvert tout en bas du fil dépassait de la zone
+  // visible : on le fait défiler dans la vue.
+  useEffect(() => {
+    if (!openActionsFor) return;
+    const id = requestAnimationFrame(() => actionsMenuRef.current?.scrollIntoView?.({ block: "nearest" }));
+    return () => cancelAnimationFrame(id);
+  }, [openActionsFor]);
+
+  const runForward = async (target) => {
+    const list = forwardPending || [];
+    const { sent, failed } = await forwardMessages(target, list);
+    if (sent > 0) {
+      showSuccessNotice(
+        failed > 0
+          ? `${sent} message${sent > 1 ? "s" : ""} transféré${sent > 1 ? "s" : ""} à ${target.name}, ${failed} en échec.`
+          : sent > 1 ? `${sent} messages transférés à ${target.name}.` : `Message transféré à ${target.name}.`,
+        4000
+      );
+      setForwardPending(null);
+      exitSelection();
+    }
+  };
+
   return (
     <div className="flex flex-col h-full w-full min-w-0">
       <div className="flex items-center gap-3 p-4 shrink-0" style={{ borderBottom: `1px solid rgba(${primaryRgb},.08)`, position: "relative" }}>
@@ -410,7 +525,7 @@ export default function ConversationPane({
               {otherUnavailable
                 ? "Ce compte n'est plus disponible"
                 : otherTyping && currentUser.show_read_receipts !== false
-                ? <TypingIndicator />
+                ? <TypingIndicator label={otherTyping === "recording" ? "enregistre un message vocal" : "en train d'écrire"} />
                 : otherOnline
                 ? "En ligne"
                 : activeMatch.show_online_status === false
@@ -457,6 +572,18 @@ export default function ConversationPane({
         )}
         </div>
       </div>
+
+      {selecting && (
+        <div className="flex items-center gap-2 px-4 py-2 shrink-0" style={{ borderBottom: `1px solid rgba(${primaryRgb},.08)`, background: bg }}>
+          <button onClick={exitSelection} aria-label="Annuler la sélection" className="bb-hit h-9 w-9 flex items-center justify-center rounded-full"><X size={18} color={primary} /></button>
+          <span className="text-sm font-bold flex-1" style={{ color: primary }} aria-live="polite">
+            {selectedMessages.length} sélectionné{selectedMessages.length > 1 ? "s" : ""}
+          </span>
+          <button onClick={copySelection} disabled={!selectedMessages.some((x) => x.kind === "text")} aria-label="Copier les messages sélectionnés" className="bb-hit h-9 w-9 flex items-center justify-center rounded-full disabled:opacity-30"><Copy size={17} color={primary} /></button>
+          <button onClick={() => setForwardPending(selectedMessages.slice(0, 10))} disabled={selectedMessages.length === 0} aria-label="Transférer les messages sélectionnés" className="bb-hit h-9 w-9 flex items-center justify-center rounded-full disabled:opacity-30"><Forward size={17} color={primary} /></button>
+          <button onClick={() => setPendingDeleteSelection(true)} disabled={selectedMessages.length === 0} aria-label="Supprimer pour moi les messages sélectionnés" className="bb-hit h-9 w-9 flex items-center justify-center rounded-full disabled:opacity-30"><Trash2 size={17} color={coralText} /></button>
+        </div>
+      )}
 
       {searchOpen && (
         <div className="flex items-center gap-2 px-4 py-2.5 shrink-0" style={{ borderBottom: `1px solid rgba(${primaryRgb},.08)`, background: bg }}>
@@ -510,7 +637,7 @@ export default function ConversationPane({
 
         {visibleMessages.map((m, i) => {
           const prev = visibleMessages[i - 1];
-          const showDaySeparator = !prev || formatDayLabel(prev.created_at) !== formatDayLabel(m.created_at);
+          const showDaySeparator = !prev || dayKey(prev.created_at) !== dayKey(m.created_at);
           const isMine = m.from_id === currentUser.id;
           const groupedWithPrev = prev && !showDaySeparator && prev.from_id === m.from_id;
           const isDeleted = Boolean(m.deleted_at);
@@ -550,20 +677,42 @@ export default function ConversationPane({
                   </span>
                 </div>
               )}
-              <div className={`relative max-w-[75%]${animateLast && i === visibleMessages.length - 1 ? " bb-fade-in" : ""}`} style={{ alignSelf: isMine ? "flex-end" : "flex-start", marginTop: groupedWithPrev ? 2 : 10 }}>
+              <div
+                data-message-id={m.id}
+                className={`relative ${m.kind === "audio" ? "max-w-[88%]" : "max-w-[75%]"}${animateLast && i === visibleMessages.length - 1 ? " bb-fade-in" : ""}${selecting ? " cursor-pointer" : ""}`}
+                style={{
+                  alignSelf: isMine ? "flex-end" : "flex-start",
+                  marginTop: groupedWithPrev ? 2 : 10,
+                  borderRadius: 18,
+                  outline: selecting && selectedIds.has(m.id) ? `2px solid var(--bb-leaf)` : flashId === m.id ? `2px solid ${coral}` : "none",
+                  outlineOffset: 2,
+                  transition: "outline-color .3s",
+                }}
+                onClick={selecting && typeof m.id !== "string" && !isDeleted ? () => toggleSelected(m.id) : undefined}
+                {...(!selecting && !isDeleted && typeof m.id !== "string" ? longPress(m) : {})}
+              >
                 {repliedMessage && !isDeleted && (
-                  <div className="text-xs px-3 py-1.5 rounded-xl mb-1 truncate" style={{ background: `rgba(${primaryRgb},.05)`, color: muted, maxWidth: "100%" }}>
+                  <div
+                    role={repliedMessageDeleted ? undefined : "button"}
+                    tabIndex={repliedMessageDeleted ? undefined : 0}
+                    aria-label={repliedMessageDeleted ? undefined : "Aller au message cité"}
+                    onClick={repliedMessageDeleted || selecting ? undefined : () => jumpToMessage(repliedMessage.id)}
+                    onKeyDown={repliedMessageDeleted ? undefined : (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); jumpToMessage(repliedMessage.id); } }}
+                    className={`text-xs px-3 py-1.5 rounded-xl mb-1 truncate${repliedMessageDeleted ? "" : " cursor-pointer focus-visible:outline focus-visible:outline-2"}`}
+                    style={{ background: `rgba(${primaryRgb},.05)`, color: muted, maxWidth: "100%", borderLeft: `3px solid ${isMine ? "var(--bb-leaf)" : coral}` }}
+                  >
                     {/* Le message cité peut avoir été supprimé (pour tout le
                         monde, deleted_at) OU pour moi seul (deleted_for) après
                         coup : ne jamais réafficher son contenu d'origine dans
                         les deux cas, sinon l'une ou l'autre suppression est
                         contournée via l'aperçu de réponse. */}
-                    ↳ {repliedMessageDeleted ? "Message supprimé" : repliedMessage.kind === "text" ? repliedMessage.text : "Média"}
+                    ↳ {repliedMessageDeleted ? "Message supprimé" : messagePreviewLabel(repliedMessage)}
                   </div>
                 )}
                 <div
-                  className="motion-safe:transition-opacity text-sm flex items-end gap-1.5"
+                  className={`motion-safe:transition-opacity text-sm${isCompactMedia ? " relative" : " flex items-end gap-1.5"}`}
                   style={{
+                    pointerEvents: selecting ? "none" : undefined,
                     ...(isSticker || isDeleted
                       ? {}
                       : {
@@ -584,12 +733,30 @@ export default function ConversationPane({
                   {isDeleted ? (
                     <span className="italic text-xs" style={{ color: muted }}>Message supprimé</span>
                   ) : isMediaKind ? (
-                    <MessageBubbleMedia m={m} isMine={isMine} />
+                    <div className="min-w-0">
+                      {m.media_meta?.forwarded === true && (
+                        <div className="text-[10px] italic flex items-center gap-1 mb-0.5" style={{ opacity: 0.75 }}><Forward size={10} aria-hidden="true" /> Transféré</div>
+                      )}
+                      <MessageBubbleMedia m={m} isMine={isMine} onOpenImage={openImageGallery} />
+                    </div>
                   ) : (
-                    <span dir="auto" className="whitespace-pre-wrap break-words"><MessageText text={m.text} /></span>
+                    <span dir="auto" className="whitespace-pre-wrap break-words min-w-0">
+                      {m.media_meta?.forwarded === true && (
+                        <span className="text-[10px] italic flex items-center gap-1 mb-0.5" style={{ opacity: 0.75 }}><Forward size={10} aria-hidden="true" /> Transféré</span>
+                      )}
+                      <MessageText text={m.text} />
+                    </span>
                   )}
                   {!isSticker && !isDeleted && (
-                    <span className="text-[10px] flex-shrink-0 flex items-center gap-0.5" style={{ opacity: 0.7, whiteSpace: "nowrap" }}>
+                    <span
+                      className="text-[10px] flex-shrink-0 flex items-center gap-0.5"
+                      // Photo/vidéo : l'heure se superpose à l'image (pastille sombre,
+                      // comme WhatsApp) au lieu de partager la ligne avec elle — sur un
+                      // écran de 375 px elle faisait rétrécir la photo à ~170 px.
+                      style={isCompactMedia
+                        ? { position: "absolute", right: 10, bottom: 10, background: "rgba(0,0,0,.5)", color: "#fff", padding: "1px 6px", borderRadius: 999, whiteSpace: "nowrap", pointerEvents: "none" }
+                        : { opacity: 0.7, whiteSpace: "nowrap" }}
+                    >
                       {formatMessageTime(m.created_at)}
                       {isMine && m._status !== "failed" && (() => {
                         // Couleur de « lu » : bleu #7FC7FF conservé (convention
@@ -626,20 +793,22 @@ export default function ConversationPane({
                       })()}
                     </span>
                   )}
-                  {!isDeleted && typeof m.id !== "string" && (
+                  {!isDeleted && !selecting && typeof m.id !== "string" && (
                     <button
                       onClick={() => setOpenActionsFor(openActionsFor === m.id ? null : m.id)}
                       aria-label="Options du message"
                       aria-haspopup="menu"
                       className="bb-hit flex-shrink-0 self-start rounded-full focus-visible:outline focus-visible:outline-2"
-                      style={{ opacity: 0.6, marginLeft: 2 }}
+                      style={isCompactMedia
+                        ? { position: "absolute", top: 8, right: 8, opacity: 1, background: "rgba(0,0,0,.45)", width: 24, height: 24, display: "flex", alignItems: "center", justifyContent: "center" }
+                        : { opacity: 0.6, marginLeft: 2 }}
                     >
-                      <MoreHorizontal size={14} color={isMine ? bg : muted} />
+                      <MoreHorizontal size={14} color={isCompactMedia ? "#fff" : isMine ? bg : muted} />
                     </button>
                   )}
                 </div>
                 {groupedReactions.length > 0 && (
-                  <div className="flex flex-wrap gap-1 mt-1" style={{ justifyContent: isMine ? "flex-end" : "flex-start" }}>
+                  <div className="flex flex-wrap gap-1" style={{ justifyContent: isMine ? "flex-end" : "flex-start", marginTop: -6, marginBottom: 2, paddingInline: 8, position: "relative", zIndex: 1 }}>
                     {groupedReactions.map((r) => {
                       const isNewReaction =
                         seenReactionKeysRef.current &&
@@ -648,10 +817,13 @@ export default function ConversationPane({
                         <button
                           key={r.emoji}
                           onClick={() => toggleReaction(m, r.emoji)}
-                          className={`bb-hit text-xs px-1.5 py-0.5 rounded-full flex items-center gap-1${isNewReaction ? " bb-reaction-pop" : ""}`}
-                          style={{ background: r.mine ? `rgba(${primaryRgb},.12)` : bg, border: r.mine ? `1px solid ${primary}` : "none" }}
+                          aria-label={`Réaction ${r.emoji}${r.count > 1 ? ` ×${r.count}` : ""}${r.mine ? ", la tienne : toucher pour la retirer" : ""}`}
+                          aria-pressed={r.mine}
+                          disabled={selecting}
+                          className={`bb-hit text-[13px] px-2 py-0.5 rounded-full flex items-center gap-1${isNewReaction ? " bb-reaction-pop" : ""}`}
+                          style={{ background: r.mine ? "var(--bb-surface)" : bg, border: `1px solid ${r.mine ? primary : "var(--bb-border)"}`, boxShadow: "0 1px 3px rgba(0,0,0,.12)", minHeight: 24 }}
                         >
-                          {r.emoji} {r.count > 1 && <span style={{ color: muted }}>{r.count}</span>}
+                          {r.emoji} {r.count > 1 && <span className="text-[11px] font-bold" style={{ color: muted }}>{r.count}</span>}
                         </button>
                       );
                     })}
@@ -698,6 +870,8 @@ export default function ConversationPane({
                       // l'autre participant — donc une réaction aboutit réellement).
                       onReply={otherUnavailable ? undefined : () => setReplyingTo(m)}
                       onCopy={() => navigator.clipboard?.writeText(m.text || "")}
+                      onForward={() => setForwardPending([m])}
+                      onSelect={() => startSelection(m)}
                       onReport={onOpenReport ? () => onOpenReport(activeMatch) : undefined}
                       onDeleteForMe={() => deleteMessageForMe(m)}
                       onDeleteForEveryone={() => handleDeleteForEveryone(m)}
@@ -820,7 +994,7 @@ export default function ConversationPane({
             <div className="px-4 pt-2 flex items-center justify-between gap-2 shrink-0 bg-[var(--bb-surface)]" style={{ borderTop: `1px solid rgba(${primaryRgb},.08)` }}>
               <div className="min-w-0 flex items-center gap-1.5 text-xs" style={{ color: muted }}>
                 <Reply size={12} className="flex-shrink-0" />
-                <span className="truncate">Réponse à : {replyingTo.kind === "text" ? replyingTo.text : "Média"}</span>
+                <span className="truncate">Réponse à : {messagePreviewLabel(replyingTo)}</span>
               </div>
               <button onClick={() => setReplyingTo(null)} aria-label="Annuler la réponse" className="bb-hit flex-shrink-0">
                 <X size={14} color={muted} />
@@ -893,13 +1067,34 @@ export default function ConversationPane({
             <AudioRecorder
               hasDraft={Boolean(messageDraft.trim())}
               onSendText={handleSend}
-              onSendAudio={(file) => guardedSend(sendMediaMessage)(file, "audio")}
+              onSendAudio={(file, meta) => guardedSend(sendMediaMessage)(file, "audio", undefined, meta)}
               onActiveChange={setRecorderActive}
+              onRecordingChange={setRecordingNow}
             />
           </div>
         </>
       )}
 
+      <ForwardModal
+        open={Boolean(forwardPending)}
+        matches={forwardTargets}
+        excludeId={activeMatch.id}
+        count={forwardPending?.length || 1}
+        onClose={() => setForwardPending(null)}
+        onPick={runForward}
+      />
+      <ConfirmModal
+        open={pendingDeleteSelection}
+        title={`Supprimer ${selectedMessages.length} message${selectedMessages.length > 1 ? "s" : ""} pour toi ?`}
+        message="Ils disparaîtront de ta conversation uniquement. L'autre personne les verra toujours."
+        confirmLabel="Supprimer"
+        onCancel={() => setPendingDeleteSelection(false)}
+        onConfirm={() => {
+          selectedMessages.forEach((x) => deleteMessageForMe(x));
+          setPendingDeleteSelection(false);
+          exitSelection();
+        }}
+      />
       <ConfirmModal
         open={Boolean(pendingDeleteForEveryone)}
         title="Supprimer ce message pour tout le monde ?"
