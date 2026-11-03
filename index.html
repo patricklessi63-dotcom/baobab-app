@@ -218,11 +218,16 @@
     discret. Calque FIXE derrière le contenu (z-index négatif), purement CSS :
     aucun coût JavaScript. Animations coupées par « Réduire les animations ». */
     .bb-horizon-bg { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; background: var(--bb-bg); }
-    .bb-horizon-bg::before, .bb-horizon-bg::after { content: ""; position: absolute; border-radius: 50%; filter: blur(40px); }
+    .bb-horizon-bg::before, .bb-horizon-bg::after { content: ""; position: absolute; border-radius: 50%; }
     .bb-horizon-bg::before { right: -20%; top: -18%; width: 70vmax; height: 70vmax; background: radial-gradient(circle, var(--bb-glow-a), transparent 68%); animation: bbBreathe 9s ease-in-out infinite; }
     .bb-horizon-bg::after { left: -25%; top: 38%; width: 60vmax; height: 60vmax; background: radial-gradient(circle, var(--bb-glow-b), transparent 70%); animation: bbBreathe 12s ease-in-out -4s infinite; }
     .bb-horizon-bg > i { position: absolute; left: 0; right: 0; top: -40%; height: 40%; background: linear-gradient(180deg, transparent, rgba(var(--bb-accent-rgb), .045) 70%, transparent); animation: bbScan 14s linear infinite; }
     @keyframes bbBreathe { 50% { transform: scale(1.1); opacity: .78; } }
+    /* Appareil modeste (data-perf="lite", voir src/lib/devicePerf.js) : fond figé et verre sans flou.
+    Le flou de verre (backdrop-filter) sous l'en-tête et la barre du bas se recalcule à chaque image
+    tant que le fond bouge ; sur 4 cœurs ou moins, cela coûte des images par seconde et de la batterie. */
+    :root[data-perf="lite"] .bb-horizon-bg::before, :root[data-perf="lite"] .bb-horizon-bg::after, :root[data-perf="lite"] .bb-horizon-bg > i { animation: none !important; }
+    :root[data-perf="lite"] .bb-glass { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; background: rgba(var(--bb-surface-rgb), .96) !important; }
     @keyframes bbScan { to { transform: translateY(350%); } }
     /* Entrée en douceur (contenu visible par défaut : l'animation part de l'état final). */
     .bb-rise { animation: bbRise .7s var(--bb-ease-out) backwards; }
