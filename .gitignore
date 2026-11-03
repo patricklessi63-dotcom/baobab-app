@@ -43,3 +43,6 @@ GoogleService-Info.plist
 *.ipa
 *.dSYM.zip
 ExportOptions.plist
+
+# Export de structure de la production, utilisé pour la répétition (voir scripts/staging-export-schema.sql)
+schema-prod.sql
