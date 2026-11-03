@@ -150,3 +150,51 @@ describe("reminderStaleness", () => {
     expect(groupNotificationRows(rows)).toEqual(rows);
   });
 });
+
+import { notificationCategory, notificationPrefKey, formatNotifAge } from "./notificationLabels.js";
+
+describe("notificationCategory", () => {
+  it("classe chaque type dans la même catégorie que SocialShell", () => {
+    expect(notificationCategory({ type: "new_like" })).toBe("dating");
+    expect(notificationCategory({ type: "new_match" })).toBe("dating");
+    expect(notificationCategory({ type: "new_message" })).toBe("messages");
+    expect(notificationCategory({ type: "new_follower" })).toBe("follows");
+    expect(notificationCategory({ type: "post_liked" })).toBe("posts");
+    expect(notificationCategory({ type: "post_commented" })).toBe("posts");
+    expect(notificationCategory({ type: "event_updated", target_type: "event" })).toBe("events");
+    expect(notificationCategory({ type: "join_request_accepted" })).toBe("communities");
+    expect(notificationCategory({ type: "premium_activated" })).toBe("communities");
+    expect(notificationCategory(null)).toBe("communities");
+  });
+});
+
+describe("notificationPrefKey", () => {
+  it("renvoie la clé de notification_preferences qui gouverne la notification", () => {
+    expect(notificationPrefKey({ type: "new_like" })).toBe("likes");
+    expect(notificationPrefKey({ type: "new_match" })).toBe("match");
+    expect(notificationPrefKey({ type: "new_message" })).toBe("messages");
+    expect(notificationPrefKey({ type: "new_follower" })).toBe("follows");
+    expect(notificationPrefKey({ type: "post_liked" })).toBe("communities");
+    expect(notificationPrefKey({ type: "event_cancelled", target_type: "event" })).toBe("events");
+    expect(notificationPrefKey({ type: "invite_received" })).toBe("communities");
+  });
+});
+
+describe("formatNotifAge", () => {
+  const now = new Date("2026-11-03T12:00:00Z").getTime();
+  const ago = (ms) => new Date(now - ms).toISOString();
+  it("exprime l'âge en français", () => {
+    expect(formatNotifAge(ago(10_000), now)).toBe("à l'instant");
+    expect(formatNotifAge(ago(5 * 60_000), now)).toBe("il y a 5 min");
+    expect(formatNotifAge(ago(3 * 3_600_000), now)).toBe("il y a 3 h");
+    expect(formatNotifAge(ago(2 * 86_400_000), now)).toBe("il y a 2 j");
+  });
+  it("au-delà d'une semaine : date courte ; entrée invalide : vide", () => {
+    expect(formatNotifAge(ago(20 * 86_400_000), now)).toMatch(/\d/);
+    expect(formatNotifAge("", now)).toBe("");
+    expect(formatNotifAge("pas une date", now)).toBe("");
+  });
+  it("une date dans le futur ne donne pas de valeur négative", () => {
+    expect(formatNotifAge(new Date(now + 60_000).toISOString(), now)).toBe("à l'instant");
+  });
+});

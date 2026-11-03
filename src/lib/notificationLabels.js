@@ -98,3 +98,49 @@ export function groupNotificationRows(rows) {
   }
   return result.sort((a, b) => new Date(b.n.created_at) - new Date(a.n.created_at));
 }
+
+// Catégorie d'affichage d'une notification d'après son type (même partition que celle de
+// SocialShell : événements d'abord par target_type, puis like/match, message, abonné,
+// publications du fil, le reste -> communautés/abonnement). Sert à classer aussi les
+// notifications DÉJÀ LUES de l'historique, qui n'ont pas été partitionnées par SocialShell.
+export function notificationCategory(n) {
+  if (!n) return "communities";
+  if (n.target_type === "event") return "events";
+  if (n.type === "new_like" || n.type === "new_match") return "dating";
+  if (n.type === "new_message") return "messages";
+  if (n.type === "new_follower") return "follows";
+  if (n.type === "post_liked" || n.type === "post_commented") return "posts";
+  return "communities";
+}
+
+// Clé de préférence (notification_preferences) qui gouverne une notification : permet de
+// ne pas afficher dans l'historique une catégorie que la personne a désactivée.
+export function notificationPrefKey(n) {
+  if (n?.type === "new_like") return "likes";
+  if (n?.type === "new_match") return "match";
+  const category = notificationCategory(n);
+  if (category === "dating") return "likes";
+  if (category === "posts") return "communities";
+  return category; // messages, follows, events, communities
+}
+
+// Âge lisible d'une notification : « à l'instant », « il y a 5 min », « il y a 3 h »,
+// « il y a 2 j », puis la date courte au-delà d'une semaine. `now` injectable pour les tests.
+export function formatNotifAge(iso, now = Date.now()) {
+  if (!iso) return "";
+  const t = new Date(iso).getTime();
+  if (!Number.isFinite(t)) return "";
+  const diff = Math.max(0, now - t);
+  const min = Math.floor(diff / 60_000);
+  if (min < 1) return "à l'instant";
+  if (min < 60) return `il y a ${min} min`;
+  const h = Math.floor(min / 60);
+  if (h < 24) return `il y a ${h} h`;
+  const d = Math.floor(h / 24);
+  if (d < 7) return `il y a ${d} j`;
+  try {
+    return new Date(t).toLocaleDateString("fr-CA", { day: "numeric", month: "short" });
+  } catch {
+    return "";
+  }
+}

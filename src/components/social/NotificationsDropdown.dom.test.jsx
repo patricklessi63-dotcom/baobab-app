@@ -177,3 +177,68 @@ describe("NotificationsDropdown", () => {
     expect(props.setNotifLimit).toHaveBeenCalledTimes(1);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Cahier des charges « centre de notifications » : photo de profil, repère lu / non lu,
+// âge, historique des notifications déjà lues, redirection au clic.
+// ---------------------------------------------------------------------------
+describe("NotificationsDropdown — photo, lu / non lu, historique", () => {
+  const now = Date.now();
+  const mk = (over) => ({ id: "n1", type: "new_like", target_id: "p1", actor_id: "p1", read_at: null, created_at: new Date(now - 5 * 60_000).toISOString(), actor: { name: "Awa", avatar_url: "https://img.test/awa.jpg" }, ...over });
+
+  it("affiche la photo de profil de la personne à l'origine, son nom, l'âge et un repère « non lue »", () => {
+    const n = mk();
+    setup({ unreadDatingNotifications: [n], visibleCommunityNotifications: [n], unreadCommunityCount: 1 });
+    expect(screen.getByRole("img", { name: "Awa" })).toHaveAttribute("src", "https://img.test/awa.jpg");
+    expect(screen.getByText(/Awa — /)).toBeInTheDocument();
+    expect(screen.getByText("il y a 5 min")).toBeInTheDocument();
+    expect(screen.getByText("non lue")).toBeInTheDocument();
+  });
+
+  it("une notification déjà marquée lue (read_at) n'a plus le repère « non lue »", () => {
+    const n = mk({ read_at: new Date(now).toISOString() });
+    setup({ unreadDatingNotifications: [n], visibleCommunityNotifications: [n], unreadCommunityCount: 0 });
+    expect(screen.getByText(/Awa — /)).toBeInTheDocument();
+    expect(screen.queryByText("non lue")).toBeNull();
+  });
+
+  it("sans auteur (rappel, Premium...), une pastille à émoji remplace la photo", () => {
+    const n = mk({ id: "n2", type: "premium_activated", actor_id: null, actor: null, target_id: null });
+    setup({ unreadCommunityNotifications: [n], visibleCommunityNotifications: [n], unreadCommunityCount: 1 });
+    expect(screen.queryByRole("img")).toBeNull();
+    expect(screen.getByText("Ton abonnement Premium est actif")).toBeInTheDocument();
+    expect(screen.getByText("💎")).toBeInTheDocument();
+  });
+
+  it("liste l'historique « Déjà lues » sous les non lues, sans repère « non lue »", () => {
+    const unread = mk({ id: "u1", actor: { name: "Binta", avatar_url: null }, actor_id: "p2", target_id: "p2" });
+    const old = mk({ id: "r1", type: "new_follower", actor: { name: "Cheikh", avatar_url: null }, actor_id: "p3", target_id: "p3", read_at: new Date(now - 3_600_000).toISOString(), created_at: new Date(now - 2 * 3_600_000).toISOString() });
+    setup({ unreadDatingNotifications: [unread], visibleCommunityNotifications: [unread], unreadCommunityCount: 1, readHistory: [old] });
+    expect(screen.getByText("Déjà lues")).toBeInTheDocument();
+    expect(screen.getByText("Cheikh a commencé à te suivre")).toBeInTheDocument();
+    expect(screen.getAllByText("non lue")).toHaveLength(1); // seulement Binta
+  });
+
+  it("l'historique respecte la catégorie choisie", () => {
+    const old = mk({ id: "r1", type: "new_follower", read_at: new Date(now).toISOString() });
+    setup({ notifCategory: "messages", readHistory: [old], visibleCommunityNotifications: [], unreadCommunityCount: 0 });
+    expect(screen.queryByText("Déjà lues")).toBeNull();
+  });
+
+  it("cliquer une notification déjà lue ouvre sa destination sans la re-marquer lue", async () => {
+    const user = userEvent.setup();
+    const old = mk({ id: "r1", type: "new_follower", actor: { name: "Cheikh", avatar_url: null }, actor_id: "p3", target_id: "p3", read_at: new Date(now).toISOString() });
+    const { props } = setup({ readHistory: [old] });
+    await user.click(screen.getByText("Cheikh a commencé à te suivre"));
+    expect(props.setViewedProfileId).toHaveBeenCalledWith("p3");
+    expect(props.markOneNotificationRead).not.toHaveBeenCalled();
+    expect(props.setNotificationsOpen).toHaveBeenCalledWith(false);
+  });
+
+  it("un seul historique sans non lue : « Tu es à jour » n'est pas affiché à la place de la liste vide globale", () => {
+    const old = mk({ id: "r1", type: "new_message", target_id: "p9", actor: { name: "Dara", avatar_url: null }, read_at: new Date(now).toISOString() });
+    setup({ readHistory: [old], visibleCommunityNotifications: [], unreadCommunityCount: 0 });
+    expect(screen.getByText("Tu es à jour.")).toBeInTheDocument();
+    expect(screen.getByText("Nouveau message de Dara")).toBeInTheDocument();
+  });
+});
