@@ -374,7 +374,7 @@ export default function StoryViewerModal({
                 // après la fermeture du visualiseur de statut, sans qu'aucune limite
                 // n'ait prévenu l'utilisateur pendant la saisie.
                 maxLength={4000}
-                className="flex-1 rounded-full px-4 py-2.5 text-sm text-white bg-white/15 backdrop-blur border border-white/25 outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--bb-leaf)] placeholder-white/60"
+                className="flex-1 rounded-full px-4 py-2.5 text-sm text-white bg-white/15 backdrop-blur border border-white/25 outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--hz-signal)] placeholder-white/60"
               />
               {/* disabled={!storyReply.trim()} : sendStoryReply() refusait déjà
                   silencieusement un texte vide/espaces (voir SocialShell.jsx),

@@ -1724,7 +1724,7 @@ export default function CommunitiesTab({ aiEnabled = false, currentUser, onError
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Que recherches-tu ?"
             aria-label="Rechercher une communauté"
-            className="flex-1 bg-transparent text-sm outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--bb-leaf)] min-w-0"
+            className="flex-1 bg-transparent text-sm outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--bb-accent)] min-w-0"
           />
           {search && (
             <button className="bb-hit" onClick={() => setSearch("")} aria-label="Effacer la recherche">

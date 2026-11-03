@@ -1418,7 +1418,7 @@ export default function EventsTab({ currentUser, onError, onBack = () => {}, ini
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Rechercher un événement..."
             aria-label="Rechercher un événement"
-            className="flex-1 bg-transparent text-sm outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--bb-leaf)] min-w-0"
+            className="flex-1 bg-transparent text-sm outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--bb-accent)] min-w-0"
           />
           {search && <button className="bb-hit" onClick={() => setSearch("")} aria-label="Effacer la recherche"><X size={14} color={muted} /></button>}
         </div>

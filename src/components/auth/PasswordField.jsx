@@ -51,7 +51,7 @@ export default function PasswordField({
           spellCheck={false}
           aria-invalid={invalid ? "true" : undefined}
           aria-describedby={describedBy || undefined}
-          className="min-w-0 flex-1 bg-transparent py-4 text-sm outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--bb-leaf)]"
+          className="min-w-0 flex-1 bg-transparent py-4 text-sm outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--hz-signal)]"
           style={{ color: C.sand, fontSize: 16 }}
         />
         <button

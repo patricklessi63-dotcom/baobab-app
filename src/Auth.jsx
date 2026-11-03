@@ -451,7 +451,7 @@ export default function Auth({ justVerified = false, onAcknowledgeVerified = () 
           style={{ background: "rgba(11,21,17,0.82)", border: "1px solid rgba(243,238,228,0.16)",
             boxShadow: "0 30px 90px rgba(0,0,0,0.6), 0 0 0 1px rgba(98,240,186,0.04)", backdropFilter: "blur(22px)", WebkitBackdropFilter: "blur(22px)" }}>
 
-          <button type="button" onClick={onGoHome} className="flex items-center gap-3 mb-6 text-left">
+          <button type="button" onClick={onGoHome} aria-label="Baobab : retour à l'accueil" className="flex items-center gap-3 mb-6 text-left">
             <div className="bb-brand-icon h-12 w-12 rounded-2xl overflow-hidden flex items-center justify-center"
               style={{ background: "#060B09", border: "1px solid rgba(98,240,186,0.35)" }}>
               <HorizonMark size={32} />
@@ -571,7 +571,7 @@ export default function Auth({ justVerified = false, onAcknowledgeVerified = () 
                   value={otpCode}
                   onChange={(e) => setOtpCode(e.target.value.replace(/\s+/g, ""))}
                   maxLength={8}
-                  className="bb-field rounded-2xl px-4 py-4 text-center text-lg tracking-[0.3em] outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--bb-leaf)]"
+                  className="bb-field rounded-2xl px-4 py-4 text-center text-lg tracking-[0.3em] outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--hz-signal)]"
                   style={{ background: "rgba(26,54,38,0.78)", border: "1px solid rgba(242,233,220,0.11)", color: C.sand }}
                 />
                 <button type="submit" disabled={verifyLoading || !otpCode.trim()} className="bb-tap py-3.5 rounded-2xl text-sm font-bold text-white disabled:opacity-60 outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2" style={{ background: "var(--bb-leaf)" }}>
@@ -607,7 +607,7 @@ export default function Auth({ justVerified = false, onAcknowledgeVerified = () 
                   value={otpCode}
                   onChange={(e) => setOtpCode(e.target.value.replace(/\s+/g, ""))}
                   maxLength={8}
-                  className="bb-field rounded-2xl px-4 py-4 text-center text-lg tracking-[0.3em] outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--bb-leaf)]"
+                  className="bb-field rounded-2xl px-4 py-4 text-center text-lg tracking-[0.3em] outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--hz-signal)]"
                   style={{ background: "rgba(26,54,38,0.78)", border: "1px solid rgba(242,233,220,0.11)", color: C.sand }}
                 />
                 <button type="submit" disabled={verifyLoading || !otpCode.trim()} className="bb-tap py-3.5 rounded-2xl text-sm font-bold text-white disabled:opacity-60 outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2" style={{ background: "var(--bb-leaf)" }}>
@@ -637,7 +637,7 @@ export default function Auth({ justVerified = false, onAcknowledgeVerified = () 
                     onChange={(e) => setEmail(e.target.value)} required autoComplete="email" inputMode="email"
                     autoCapitalize="none" autoCorrect="off" spellCheck={false}
                     aria-describedby={error ? "auth-error" : undefined}
-                    className="min-w-0 flex-1 bg-transparent py-4 text-sm outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--bb-leaf)]" style={{ color: C.sand }} />
+                    className="min-w-0 flex-1 bg-transparent py-4 text-sm outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--hz-signal)]" style={{ color: C.sand }} />
                 </div>
               </div>
 

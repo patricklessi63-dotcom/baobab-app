@@ -91,7 +91,7 @@ export default function EmojiPicker({ onPick, currentUserId }) {
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Rechercher un emoji..."
                 aria-label="Rechercher un emoji"
-                className="flex-1 bg-transparent text-sm outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--bb-leaf)] min-w-0"
+                className="flex-1 bg-transparent text-sm outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--bb-accent)] min-w-0"
               />
               {query && (
                 <button className="bb-hit" type="button" onClick={() => setQuery("")} aria-label="Effacer la recherche">
