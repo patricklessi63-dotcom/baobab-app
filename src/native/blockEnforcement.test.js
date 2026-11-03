@@ -74,6 +74,17 @@ const BASE = `
   create policy reactions_insert on public.message_reactions for insert
     with check (auth.uid() = (select user_id from public.profiles where id = message_reactions.profile_id));
 
+  create table public.likes (id bigint generated always as identity primary key, from_id uuid not null, to_id uuid not null);
+  create table public.follows (id bigint generated always as identity primary key, from_id uuid not null, to_id uuid not null);
+  create table public.favorites (id bigint generated always as identity primary key, from_id uuid not null, to_id uuid not null);
+  create table public.event_invitations (id bigint generated always as identity primary key, invited_by uuid not null, invited_profile_id uuid not null);
+  alter table public.likes enable row level security; alter table public.follows enable row level security;
+  alter table public.favorites enable row level security; alter table public.event_invitations enable row level security;
+  create policy likes_ins on public.likes for insert with check (auth.uid() = (select user_id from public.profiles where id = likes.from_id));
+  create policy follows_ins on public.follows for insert with check (auth.uid() = (select user_id from public.profiles where id = follows.from_id));
+  create policy favorites_ins on public.favorites for insert with check (auth.uid() = (select user_id from public.profiles where id = favorites.from_id));
+  create policy invitations_ins on public.event_invitations for insert with check (auth.uid() = (select user_id from public.profiles where id = event_invitations.invited_by));
+
   create schema storage;
   create table storage.objects (id bigint generated always as identity primary key, bucket_id text, name text);
   alter table storage.objects enable row level security;
@@ -145,6 +156,14 @@ describe("blocage — APRÈS supabase-block-enforcement-messages-fix.sql", () =>
     expect((await up(2, "chat-media", `${KEY}/photo.png`)).ok).toBe(false);
     expect((await up(2, "post-media", `${KEY}/photo.png`)).ok).toBe(true);
     expect((await up(1, "chat-media", `${[P(1), P(3)].sort().join("__")}/photo.png`)).ok).toBe(true);
+  });
+
+  it("likes / follows / favorites / invitations : la personne bloquée ne peut plus créer de lien vers celle qui l'a bloquée", async () => {
+    for (const [table, cols] of [["likes", ["from_id", "to_id"]], ["follows", ["from_id", "to_id"]], ["favorites", ["from_id", "to_id"]], ["event_invitations", ["invited_by", "invited_profile_id"]]]) {
+      const sql = `insert into public.${table} (${cols[0]}, ${cols[1]}) values ($1, $2)`;
+      expect((await attempt(U(2), sql, [P(2), P(1)])).ok, `${table} B→A`).toBe(false); // B est bloqué par A
+      expect((await attempt(U(2), sql, [P(2), P(3)])).ok, `${table} B→C`).toBe(true); // autre personne : inchangé
+    }
   });
 
   it("déblocage : B peut de nouveau écrire", async () => {

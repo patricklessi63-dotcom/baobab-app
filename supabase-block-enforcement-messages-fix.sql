@@ -18,10 +18,12 @@
 --   2. policy RESTRICTIVE sur messages (INSERT) : s'ajoute (ET logique) à la policy existante ;
 --   3. policy RESTRICTIVE sur storage.objects (INSERT, bucket chat-media) : pas de téléversement non
 --      plus dans le dossier d'une conversation bloquée ;
---   4. policy RESTRICTIVE sur message_reactions (INSERT).
+--   4. policy RESTRICTIVE sur message_reactions (INSERT) ;
+--   5. policies RESTRICTIVES INSERT sur likes, follows, favorites et event_invitations (même faiblesse,
+--      constatée en réel le 3 novembre : une personne bloquée pouvait encore liker / suivre / mettre en
+--      favori / inviter celle qui l'a bloquée).
 -- Les lectures (SELECT) ne changent pas : la personne qui a bloqué garde son historique ; la personne
--- bloquée ne peut plus rien ENVOYER. Les tables likes / follows / favorites / event_invitations ont la
--- même faiblesse de conception : à traiter par la même méthode dans un second temps (voir LANCEMENT.md).
+-- bloquée ne peut plus rien ENVOYER ni créer vers elle.
 --
 -- CONTRÔLES (à lancer avant / après, sur la répétition d'abord) :
 --   -- avant : A bloque B, B insère -> accepté ; après : refusé par la RLS (42501).
@@ -32,6 +34,10 @@
 --   drop policy if exists "messages_block_enforcement_insert" on public.messages;
 --   drop policy if exists "message_reactions_block_enforcement_insert" on public.message_reactions;
 --   drop policy if exists "chat-media: blocage entre participants" on storage.objects;
+--   drop policy if exists "likes_block_enforcement_insert" on public.likes;
+--   drop policy if exists "follows_block_enforcement_insert" on public.follows;
+--   drop policy if exists "favorites_block_enforcement_insert" on public.favorites;
+--   drop policy if exists "event_invitations_block_enforcement_insert" on public.event_invitations;
 --   drop function if exists public.is_blocked_pair(uuid, uuid);
 --
 -- Validé sur schéma factice PGlite (src/native/blockEnforcement.test.js) ET sur le projet de répétition
@@ -109,3 +115,24 @@ with check (
     (string_to_array((storage.foldername(name))[1], '__'))[2]::uuid
   )
 );
+
+-- likes / follows / favorites : (from_id -> to_id) ; event_invitations : (invited_by -> invited_profile_id).
+drop policy if exists "likes_block_enforcement_insert" on public.likes;
+create policy "likes_block_enforcement_insert" on public.likes
+  as restrictive for insert to authenticated
+  with check (not public.is_blocked_pair(from_id, to_id));
+
+drop policy if exists "follows_block_enforcement_insert" on public.follows;
+create policy "follows_block_enforcement_insert" on public.follows
+  as restrictive for insert to authenticated
+  with check (not public.is_blocked_pair(from_id, to_id));
+
+drop policy if exists "favorites_block_enforcement_insert" on public.favorites;
+create policy "favorites_block_enforcement_insert" on public.favorites
+  as restrictive for insert to authenticated
+  with check (not public.is_blocked_pair(from_id, to_id));
+
+drop policy if exists "event_invitations_block_enforcement_insert" on public.event_invitations;
+create policy "event_invitations_block_enforcement_insert" on public.event_invitations
+  as restrictive for insert to authenticated
+  with check (not public.is_blocked_pair(invited_by, invited_profile_id));
