@@ -60,7 +60,7 @@ export default function ProfileCard({
         ? { borderColor: gold, borderWidth: 2, boxShadow: `0 0 0 1px ${gold}` }
         : { borderColor: `rgba(${primaryRgb},.08)` }}
     >
-      <div className="h-28 relative overflow-hidden" style={{ background: `linear-gradient(150deg,${gold},var(--bb-leaf))` }}>
+      <div className="h-28 relative overflow-hidden" style={{ background: `var(--bb-cover-default)` }}>
         {profile.avatar_url && !imgError ? (
           <img
             src={profile.avatar_url}

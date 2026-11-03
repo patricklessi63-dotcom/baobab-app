@@ -363,7 +363,7 @@ export default function DiscoverTab({
                 )}
                 {filteredPeople[1] && (
                   <div className="absolute inset-0 bg-[var(--bb-surface)] rounded-[34px] border border-[var(--bb-border)] overflow-hidden" style={{ transform: "scale(0.96) translateY(11px)", opacity: 0.8 }}>
-                    <div className="h-full" style={{ background: `linear-gradient(145deg,${navy},${green},${gold})`, opacity: 0.5 }} />
+                    <div className="h-full" style={{ background: `var(--bb-cover-default)`, opacity: 0.5 }} />
                   </div>
                 )}
 
@@ -398,7 +398,7 @@ export default function DiscoverTab({
                       onPointerCancel={onSwipeEnd}
                       onPointerLeave={() => swiping && onSwipeEnd()}
                     >
-                      <div className="h-[500px] relative overflow-hidden" style={!photo ? { background: `linear-gradient(145deg,${navy},${green},${gold})` } : undefined}>
+                      <div className="h-[500px] relative overflow-hidden" style={!photo ? { background: `var(--bb-cover-default)` } : undefined}>
                         {photo && (
                           <div
                             key={photo}

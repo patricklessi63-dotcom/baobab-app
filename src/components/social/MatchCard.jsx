@@ -53,7 +53,7 @@ export default function MatchCard({
         {profile.avatar_url && !imgError ? (
           <img src={profile.avatar_url} alt={profile.name ? `Photo de ${profile.name}` : "Photo de profil"} loading="lazy" decoding="async" onError={() => setImgError(true)} className="absolute inset-0 w-full h-full object-cover" />
         ) : (
-          <div className="absolute inset-0 flex items-center justify-center" style={{ background: `linear-gradient(150deg,${gold},var(--bb-leaf))` }}>
+          <div className="absolute inset-0 flex items-center justify-center" style={{ background: `var(--bb-cover-default)` }}>
             <Avatar name={profile.name} url={null} size={72} />
           </div>
         )}
