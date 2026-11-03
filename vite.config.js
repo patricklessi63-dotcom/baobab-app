@@ -46,6 +46,10 @@ export default defineConfig({
       "supabase/functions/_shared/*.test.ts",
     ],
     setupFiles: ["src/test/setup.js"],
+    // Délais généreux : sous charge (suite complète en parallèle, machine occupée) les
+    // 5 s par défaut faisaient échouer au hasard des tests qui passent seuls.
+    testTimeout: 20000,
+    hookTimeout: 20000,
     // Les drapeaux de lancement (src/lib/featureFlags.js) sont désactivés par défaut en
     // production ; les tests existants couvrent Premium et l’IA, ils les activent donc.
     env: { VITE_FEATURE_PREMIUM: "true", VITE_FEATURE_AI: "true" },
