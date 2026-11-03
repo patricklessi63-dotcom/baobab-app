@@ -31,7 +31,7 @@ export default function AiConversationSuggestions({ currentUser, match, onPick }
   useClickOutside(ref, open, () => setOpen(false));
   useEscapeKey(open, () => setOpen(false));
   useFocusReturn(open);
-  useEffect(() => () => { mountedRef.current = false; }, []);
+  useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []); // true au montage : sous StrictMode (dev) le démontage simulé laissait la référence à false
 
   const generate = async () => {
     setLoading(true);

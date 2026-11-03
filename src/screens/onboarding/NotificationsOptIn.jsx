@@ -43,7 +43,7 @@ export default function NotificationsOptIn({ onDone }) {
   const inFlightRef = useRef(false);
   const doneRef = useRef(false);
   const mountedRef = useRef(true);
-  useEffect(() => () => { mountedRef.current = false; }, []);
+  useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []); // true au montage : sous StrictMode (dev) le démontage simulé laissait la référence à false
 
   function finish() {
     if (doneRef.current) return;

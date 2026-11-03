@@ -76,7 +76,7 @@ export default function EventEditForm({ event, onSaved, onCancel, onError, onDir
   // vol au moment du clic appelait quand même onSaved() après coup et
   // écrasait silencieusement les données affichées.
   const mountedRef = useRef(true);
-  useEffect(() => () => { mountedRef.current = false; }, []);
+  useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []); // true au montage : sous StrictMode (dev) le démontage simulé laissait la référence à false
 
   const onPickCover = async (e) => {
     const file = e.target.files?.[0];
