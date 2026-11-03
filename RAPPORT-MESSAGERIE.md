@@ -3,7 +3,9 @@
 Périmètre : `src/components/social/` (ConversationPane, MessagesTab, MessageBubbleMedia, AudioRecorder…), `src/App.jsx` (envoi, Realtime, réactions), libs associées.
 Méthode : lecture du code, tests automatisés (vitest + jsdom), harnais visuel local (navigateur intégré, desktop 800 px et mobile 375 × 812) avec données générées localement.
 
-> **Limite majeure.** Aucun environnement Supabase de test n'existe (projet de répétition de `LANCEMENT.md` §9.7 non créé) et la production ne doit pas recevoir de comptes de test. **Aucun test bout en bout avec deux vrais comptes n'a donc été fait** : ni Realtime réel, ni RLS/Storage réels, ni vrai micro, ni iOS/Safari réel. Tout ce qui touche ces points est vérifié par tests simulés uniquement, et marqué comme tel ci-dessous.
+> **Mise à jour du 3 novembre 2026.** Un projet Supabase de répétition (`baobab-staging`, séparé de la production) a été créé et reconstruit ; deux comptes de test (A et B) y ont servi à un essai réel de bout en bout en émulation desktop (Chrome) + mobile (navigateur intégré, 375 px). Résultats détaillés au §11. Le paragraphe suivant décrit l'état AVANT cet essai ; ce qui n'a toujours pas pu être testé est listé au §11.3.
+>
+> **Limite majeure (état avant l'essai du 3 nov.).** Aucun environnement Supabase de test n'existe (projet de répétition de `LANCEMENT.md` §9.7 non créé) et la production ne doit pas recevoir de comptes de test. **Aucun test bout en bout avec deux vrais comptes n'a donc été fait** : ni Realtime réel, ni RLS/Storage réels, ni vrai micro, ni iOS/Safari réel. Tout ce qui touche ces points est vérifié par tests simulés uniquement, et marqué comme tel ci-dessous.
 
 ## 1. Comptes de test
 Aucun compte A/B créé (production interdite, pas d'environnement de test). Utilisés : comptes simulés dans les tests (`u1`, `m1`…) et un harnais local sans réseau (`.claude/harness/`, non versionné). Aucun mot de passe saisi ni exposé.
@@ -101,3 +103,37 @@ Forme d'onde et vitesse de lecture des vocaux, durée immédiate, garde anti-fic
 - Desktop (800 × 600) : bulles, photos 4 formats, vocaux, réactions, réponse citée, lien cliquable : conformes.
 - Mobile (375 × 812) : défauts trouvés (chevauchement vocal, photos réduites) **corrigés et revus à l'écran**. Photos pleines largeur, vocaux sans chevauchement, composeur lisible.
 - Non vérifié sur appareils réels (iOS Safari, Android Chrome, apps Capacitor).
+
+## 11. Essai réel sur le projet de répétition (3 novembre 2026)
+
+### 11.1 Environnement et comptes (aucun mot de passe dans ce rapport)
+- Projet Supabase **baobab-staging** (Ohio, plan Free), distinct de la production. Aucun compte de test n'a été créé en production ; la seule action en production a été une lecture seule des catalogues Postgres (structure des tables, aucune donnée), exécutée avec l'accord explicite du propriétaire, pour reconstruire la répétition.
+- Reconstruction : structure exportée de la production (`scripts/staging-export-schema.sql`) puis rejeu de 124 des 132 fichiers `supabase-*.sql` (buckets Storage, politiques RLS, fonctions, déclencheurs, publication Realtime). **8 fichiers n'ont pas pu être rejoués** (objets déjà présents dans l'export : `supabase-schema`, `-stories`, `-stories-media`, `-events`, `-age-check-server-side` ; `-premium-badge` (données d'amorçage) ; `-storage-account-quota` (propriété de `storage.objects`) ; `-close-read-leaks` (SQL-22)). La répétition **approche** la production sans lui être identique (l'export ne contenait pas les colonnes d'identité : ajoutées à la main sur les `id`).
+- Comptes : **TesteurA** et **TesteurB** (inscription réelle par l'interface ; profil de B complété directement en base), **TesteurC** (créé en base, sans connexion, comme destinataire de transfert). Photos générées localement. Géolocalisation simulée à Toronto (porte d'accès bêta) par une configuration Vite locale non versionnée.
+
+### 11.2 Ce qui a été vérifié en réel (A sur mobile 375 px, B dans Chrome desktop)
+| Fonctionnalité | Résultat |
+|---|---|
+| Inscription / connexion, assistant d'inscription (10 étapes), accès bêta (localisation) | Fonctionnelle (un défaut de la répétition corrigé : identités d'`id` manquantes) |
+| Message texte A→B puis B→A, **sans rechargement** (Realtime) | **Fonctionnelle** : arrivée immédiate, badge « 1 non lus » chez le destinataire |
+| « En train d'écrire » (Realtime broadcast) | **Fonctionnelle** : visible chez A pendant la frappe de B, effacé à l'envoi |
+| Accusé de lecture | **Fonctionnelle** : « Lu » chez A dès que B ouvre la conversation |
+| Message vocal (MediaRecorder réel, micro simulé par un oscillateur) | **Fonctionnelle** : enregistrement, aperçu, envoi en audio/mp4 (.m4a), 12,7 s, forme d'onde 40 barres, 205 Ko dans Storage (politiques RLS Storage réelles) |
+| Vocal reçu et lu chez B (Chrome) | **Fonctionnelle** : métadonnées chargées, lecture, progression 0:02 / 0:12 |
+| Photos portrait / paysage / carré envoyées par B | **Fonctionnelle** : dimensions enregistrées, affichage conforme sur mobile |
+| Visionneuse de photos avec navigation | **Fonctionnelle** : 2 / 3 avec flèches. **Bug trouvé et corrigé** : sous React.StrictMode (développement) elle ne s'ouvrait pas ; la production n'était pas concernée. Test de non-régression vérifié par mutation |
+| Réactions | **Fonctionnelle** : une seule par personne (👍 remplace 😂), synchronisation en direct vers l'autre compte, base cohérente |
+| Transfert de photo vers TesteurC | **Fonctionnelle** : `storage.copy` **autorisé** par les politiques Storage réelles, message inséré avec « transféré », fichier dans le dossier du destinataire (lève le risque signalé au §8) |
+| Notifications | **Fonctionnelle** : nouveau match, « t'a aimé(e) », nouveau message créés par les déclencheurs et affichés |
+| Publication sur le fil | **Fonctionnelle** : publiée et affichée |
+| Onglets Découverte, Rencontres, Intégration, Profil | S'affichent avec de vraies données, aucune erreur de console (hors défaut de la répétition corrigé) |
+| Écran « microphone bloqué » (permission refusée du navigateur) | **Fonctionnelle** : bascule vers l'aide, nouvel essai possible |
+
+Défaut visuel trouvé : le champ de saisie à 375 px affichait « Écris un message… » sur deux lignes avec barre de défilement ; placeholder raccourci en « Message » (corrigé).
+
+### 11.3 Toujours NON testé
+- Vrai microphone, vrai clavier virtuel, iOS Safari / Android Chrome / apps Capacitor (émulation de largeur seulement).
+- Vidéos, fichiers joints, aperçu de liens (absent), notifications push, réception hors ligne puis reconnexion, suppression « pour tout le monde » en direct, recherche dans la conversation en direct, mode sélection sur appareil tactile, appui long sur écran tactile réel.
+- Réinitialisation de mot de passe par email, modification de profil, découverte (aucun profil à parcourir), paramètres, administration, paiement/Premium.
+- Les 8 fichiers SQL non rejoués : tout comportement qui en dépend (SQL-22, quota de stockage…) n'a pas été éprouvé.
+- Comportement sous charge / grands volumes de données réelles.
