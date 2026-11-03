@@ -62,7 +62,7 @@ describe("index.html — identité Horizon pour toute l'app", () => {
   });
 
   it("charge Syne, Manrope et IBM Plex Mono (plus Fraunces) et autorise leur origine", () => {
-    expect(html).toContain("family=Syne:wght@600;700;800");
+    expect(html).toContain("family=Syne:wght@700;800");
     expect(html).toContain("family=IBM+Plex+Mono");
     expect(html).not.toContain("Fraunces");
   });
