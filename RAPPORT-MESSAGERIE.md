@@ -39,8 +39,9 @@ Aucun compte A/B créé (production interdite, pas d'environnement de test). Uti
 | Partage de fichiers | Fonctionnelle | Inchangé. |
 | Aperçu de liens | Non fonctionnelle (absent) | Nécessite une Edge Function (récupération d'URL côté serveur, protection SSRF) : hors périmètre sans accès Supabase de test. Les liens sont cliquables. |
 | Barre de saisie (texte / vocal / photo / vidéo / fichier / emoji) | Fonctionnelle | Vérifiée mobile et desktop. |
-| Clavier virtuel mobile | **Non testée** | Pas d'appareil réel ; `dvh` déjà utilisé. Piste : `interactive-widget=resizes-content` (Android), non appliquée. |
-| Auth, profil, découverte, publications, notifications, paramètres | **Non testés** (hors messagerie) | Seules les suites existantes ont été relancées : voir §7. |
+| Clavier virtuel mobile (web) | **Corrigée — vérifiée en simulation uniquement** | Le clavier ne redimensionne pas la fenêtre sur Safari iOS / Chrome Android : la barre de saisie pouvait être recouverte. Nouveau suivi du `visualViewport` (`lib/keyboardViewport.js`) : quand il est > 120 px plus court que la fenêtre (hors zoom pincé), la conversation passe en position fixe sur la zone visible (en-tête, messages, saisie) et reste calée en bas. Vérifié : tests jsdom (visualViewport simulé, bureau et liste ignorés, écouteurs nettoyés) + rendu à 375 px avec un faux `visualViewport`. **Jamais vu avec un vrai clavier** (iOS / Android). Inerte dans l'app native Capacitor (`Keyboard.resize: native` rétrécit déjà la WebView ; `innerHeight` suit, aucun écart détecté). `interactive-widget` non utilisé (effets sur les autres écrans non vérifiables). |
+| Auth : connexion, validation, réseau coupé, « mot de passe oublié » (formulaire) | Fonctionnelle (testé en émulation mobile, backend injoignable) | Validation des champs, message « Connexion instable » propre, bouton réactivé, aucun exception JS. Envoi réel du lien et page de réinitialisation : non testés (backend requis ; suites existantes vertes). |
+| Profil, découverte, publications, notifications, paramètres | **Non testés en émulation** (backend requis) | Audit de code : tous les canaux Realtime (12) sont désabonnés au démontage ; suites unitaires existantes (≈ 270 fichiers) vertes. Un bug réel trouvé et corrigé dans la liste des conversations (voir §3 bis). |
 | RLS / Realtime / Storage / sessions | Non testés en réel | Lecture du code et des SQL uniquement (voir §4). |
 
 ## 3. Bugs trouvés
@@ -53,6 +54,9 @@ Aucun compte A/B créé (production interdite, pas d'environnement de test). Uti
 7. Séparateurs de jour : deux jours distincts de même jour et mois d'années différentes fusionnaient.
 8. Aperçu de réponse : « Média » pour toute pièce jointe.
 9. `Avatar.jsx` : clé `fontWeight` en double (avertissement de compilation).
+
+## 3 bis. Autre anomalie trouvée à l'audit hors conversation
+10. **Badge de messages non lus** (`SocialShell`, canal `conversations-preview`) : l'UPDATE `read_at` d'un message décrémentait le compteur même quand l'autre personne lisait MES messages (accusé de lecture) — mon badge baissait à tort. Corrigé (seuls les messages reçus comptent), test de non-régression vérifié par mutation (échoue sans le correctif). Limite connue restante : sans `REPLICA IDENTITY FULL` sur `messages` (SQL, non fait), un UPDATE de `deleted_for` sur un message reçu déjà lu peut encore décrémenter à tort : cas rare, à traiter avec une migration autorisée.
 
 ## 4. Causes techniques
 - 1–2 : `broadcastTyping()` appelé à chaque `onChange`, jamais de reset à l'arrivée d'un message (`App.jsx`).
@@ -85,7 +89,7 @@ Créés : `src/components/social/ForwardModal.jsx`, `src/lib/{photoLayout,voiceW
 - Aucun test bout en bout avec deux comptes (pas d'environnement de test) : Realtime, RLS, Storage, sessions non validés en réel.
 - **Transfert de médias** : suppose que `storage.copy` est autorisé par les policies Storage existantes (lecture du dossier source + insertion dans le dossier destination — le code SQL le laisse supposer). À valider sur l'environnement de répétition avant de s'y fier ; en cas de refus l'utilisateur voit une erreur et rien n'est créé.
 - Les anciens clients (apps natives Capacitor embarquant leur code, PWA non rechargée) ignorent `state` du canal « typing » (traité comme frappe) et affichent un vocal sans forme d'onde (forme neutre).
-- Clavier virtuel iOS / Android non testé sur appareil.
+- Clavier virtuel iOS / Android : correctif vérifié en simulation seulement, pas sur appareil.
 - Lecture audio Safari / iOS non testée sur appareil.
 - Pas de virtualisation de liste (non nécessaire aux volumes mesurés), pas d'aperçu de liens, pas de navigation précédent / suivant dans la recherche.
 - Les réactions multiples déjà en base (avant correctif) restent affichées ; elles sont nettoyées au prochain changement de réaction de la personne.

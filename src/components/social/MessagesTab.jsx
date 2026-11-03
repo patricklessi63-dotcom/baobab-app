@@ -11,6 +11,7 @@ import { usePullToRefresh } from "../../hooks/usePullToRefresh";
 import PullToRefreshIndicator from "../PullToRefreshIndicator";
 import { matchKey, formatMessageTime, messagePreviewLabel, formatBadgeCount } from "../../utils/format";
 import { normalizeForSearch } from "../../lib/searchQuery";
+import { useKeyboardViewport } from "../../lib/keyboardViewport";
 import { isUserOnline } from "../../lib/presence";
 import { primary, navy, green, coral, coralText, bg, muted, card, buttonBase, leafLight, offline, body, primaryRgb } from "./theme";
 
@@ -238,11 +239,20 @@ export default function MessagesTab({
     </div>
   );
 
+  // Clavier virtuel ouvert (mobile web) : la conversation occupe exactement la
+  // zone visible au-dessus du clavier (en-tête + messages + barre de saisie),
+  // voir lib/keyboardViewport.js.
+  const keyboardArea = useKeyboardViewport(Boolean(activeMatch));
   const Pane = activeMatch ? (
-    <div className={`${card} overflow-hidden bb-msg-h ${activeMatch ? "flex" : "hidden md:flex"}`}>
+    <div
+      className={`${card} overflow-hidden bb-msg-h ${activeMatch ? "flex" : "hidden md:flex"}`}
+      data-keyboard-open={keyboardArea ? "true" : undefined}
+      style={keyboardArea ? { position: "fixed", left: 0, right: 0, top: keyboardArea.top, height: keyboardArea.height, zIndex: 60, borderRadius: 0, maxWidth: "none" } : undefined}
+    >
       <ConversationPane
         key={activeMatch.id}
         activeMatch={activeMatch}
+        keyboardOpen={Boolean(keyboardArea)}
         currentUser={currentUser}
         goTab={goTab}
         otherTyping={otherTyping}
