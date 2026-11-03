@@ -1476,3 +1476,7 @@ signalement de l'application et **n'affichent aucune adresse**. Renseigner une a
 
 `supabase-age-check-server-side.sql` (priorité haute, contrainte 18 ans côté serveur) ; `supabase-community-orphan-account-deletion-fix.sql` et
 `supabase-event-orphan-account-deletion-fix.sql` (transfert de propriété à la suppression d'un compte) ; `supabase-admin-resolve-report-race-fix.sql`.
+
+### 12f. SQL — `supabase-block-enforcement-messages-fix.sql` (SQL-25) — ⬜ LIVRÉ LE 3 NOVEMBRE 2026, NON EXÉCUTÉ
+
+Une personne **bloquée** pouvait encore écrire à celle qui l'a bloquée (constaté en réel sur le projet de répétition) : les policies lisent `blocks` avec les droits de l'appelant, or chacun ne voit que ses propres blocages. Le fichier ajoute `is_blocked_pair()` (SECURITY DEFINER) et des policies **restrictives** INSERT sur `messages`, `message_reactions` et `storage.objects` (chat-media). Additif, rejouable, sans effet sur l'historique. **Quand :** dès que possible (sécurité des personnes), après essai sur la répétition. **Comment :** SQL Editor → coller → Run (autorisation explicite requise). **Vérification :** A bloque B → B n'arrive plus à envoyer (erreur RLS) ; détails et retour arrière en tête du fichier.

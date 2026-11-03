@@ -46,3 +46,5 @@ ExportOptions.plist
 
 # Export de structure de la production, utilisé pour la répétition (voir scripts/staging-export-schema.sql)
 schema-prod.sql
+
+.staging-e2e-result.json
