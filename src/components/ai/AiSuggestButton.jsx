@@ -14,7 +14,7 @@ export default function AiSuggestButton({ action, buildPayload, onApply, label =
   const [error, setError] = useState("");
   const [suggestion, setSuggestion] = useState("");
   const mountedRef = useRef(true);
-  useEffect(() => () => { mountedRef.current = false; }, []);
+  useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []); // true au montage : sous StrictMode (dev) le démontage simulé laissait la référence à false
 
   const handleClick = async () => {
     setLoading(true);

@@ -64,7 +64,7 @@ export default function EventCreateForm({ currentUser, initialCommunityId = null
   // renavigait de force vers l'événement que l'utilisateur venait
   // d'annuler.
   const mountedRef = useRef(true);
-  useEffect(() => () => { mountedRef.current = false; }, []);
+  useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []); // true au montage : sous StrictMode (dev) le démontage simulé laissait la référence à false
 
   useEffect(() => {
     if (!currentUser) return;

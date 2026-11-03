@@ -64,7 +64,7 @@ export default function CommunityCreateForm({ aiEnabled = false, currentUser, on
   // onCreated() après coup (avertissement React, voire renavigation forcée
   // vers la communauté que l'utilisateur venait d'annuler).
   const mountedRef = useRef(true);
-  useEffect(() => () => { mountedRef.current = false; }, []);
+  useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []); // true au montage : sous StrictMode (dev) le démontage simulé laissait la référence à false
 
   // Suggestion IA (item 20) — résultat à 3 champs (nom/description/
   // catégorie), donc géré ici plutôt que par le AiSuggestButton générique
