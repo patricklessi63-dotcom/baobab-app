@@ -17,6 +17,10 @@ vi.mock("../../lib/signedUrlCache", () => ({
 }));
 
 import ConversationPane from "./ConversationPane";
+
+// Rendu lourd : sous charge (suite complète + build en parallèle) le délai par défaut de 5 s est
+// dépassé par intermittence. Les attentes passent par findBy* plutôt que par un rendu synchrone.
+vi.setConfig({ testTimeout: 30000 });
 import { ImageLightboxProvider } from "../../lib/ImageLightboxContext";
 
 const me = { id: "u1", name: "Moi" };
@@ -148,12 +152,12 @@ describe("ConversationPane — appui long (tactile)", () => {
 
 describe("ConversationPane — sélection multiple", () => {
   async function openMenu(index) {
-    fireEvent.click(screen.getAllByRole("button", { name: "Options du message" })[index]);
+    fireEvent.click((await screen.findAllByRole("button", { name: "Options du message" }))[index]);
   }
   it("Sélectionner → barre « N sélectionnés », bascule au toucher, suppression pour moi après confirmation", async () => {
     const { props } = renderPane({ messages: [text(1, "m1", "Un"), text(2, "u1", "Deux", "2026-10-29T10:01:00.000Z"), text(3, "m1", "Trois", "2026-10-29T10:02:00.000Z")] });
     await openMenu(0);
-    fireEvent.click(screen.getByRole("menuitem", { name: /Sélectionner/ }));
+    fireEvent.click(await screen.findByRole("menuitem", { name: /Sélectionner/ }));
     expect(screen.getByText("1 sélectionné")).toBeInTheDocument();
     fireEvent.click(document.querySelector('[data-message-id="2"]'));
     expect(screen.getByText("2 sélectionnés")).toBeInTheDocument();
@@ -170,7 +174,7 @@ describe("ConversationPane — sélection multiple", () => {
   it("désélectionner le dernier message quitte le mode ; Annuler aussi", async () => {
     renderPane({ messages: [text(1, "m1", "Un")] });
     await openMenu(0);
-    fireEvent.click(screen.getByRole("menuitem", { name: /Sélectionner/ }));
+    fireEvent.click(await screen.findByRole("menuitem", { name: /Sélectionner/ }));
     fireEvent.click(document.querySelector('[data-message-id="1"]'));
     expect(screen.queryByText(/sélectionné/)).toBeNull();
   });
@@ -179,7 +183,7 @@ describe("ConversationPane — sélection multiple", () => {
     Object.assign(navigator, { clipboard: { writeText } });
     renderPane({ messages: [text(1, "m1", "Un"), text(2, "u1", "Deux", "2026-10-29T10:01:00.000Z")] });
     await openMenu(0);
-    fireEvent.click(screen.getByRole("menuitem", { name: /Sélectionner/ }));
+    fireEvent.click(await screen.findByRole("menuitem", { name: /Sélectionner/ }));
     fireEvent.click(document.querySelector('[data-message-id="2"]'));
     fireEvent.click(screen.getByRole("button", { name: "Copier les messages sélectionnés" }));
     expect(writeText).toHaveBeenCalledWith("Un\nDeux");
@@ -191,7 +195,7 @@ describe("ConversationPane — transfert", () => {
     const msg = text(1, "m1", "À transférer");
     const { props } = renderPane({ messages: [msg] });
     fireEvent.click(screen.getByRole("button", { name: "Options du message" }));
-    fireEvent.click(screen.getByRole("menuitem", { name: /Transférer/ }));
+    fireEvent.click(await screen.findByRole("menuitem", { name: /Transférer/ }));
     const dialog = screen.getByRole("dialog", { name: /Transférer le message/ });
     expect(within(dialog).getByRole("listitem", { name: "Transférer à Binta" })).toBeInTheDocument();
     expect(within(dialog).queryByText("Awa")).toBeNull(); // conversation actuelle exclue
@@ -204,7 +208,7 @@ describe("ConversationPane — transfert", () => {
   it("un transfert entièrement échoué laisse la modale ouverte pour réessayer", async () => {
     const { props } = renderPane({ messages: [text(1, "m1", "x")], forwardMessages: vi.fn(async () => ({ sent: 0, failed: 1 })) });
     fireEvent.click(screen.getByRole("button", { name: "Options du message" }));
-    fireEvent.click(screen.getByRole("menuitem", { name: /Transférer/ }));
+    fireEvent.click(await screen.findByRole("menuitem", { name: /Transférer/ }));
     await act(async () => { fireEvent.click(screen.getByRole("listitem", { name: "Transférer à Binta" })); });
     expect(props.showSuccessNotice).not.toHaveBeenCalled();
     expect(screen.getByRole("dialog", { name: /Transférer/ })).toBeInTheDocument();
