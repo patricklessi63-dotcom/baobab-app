@@ -323,7 +323,10 @@ export default function ConversationPane({
   // démonté quand invokeAI résout. Sans cette garde, setTranslations()
   // s'exécutait quand même (avertissement React, état perdu dans le vide).
   const mountedRef = useRef(true);
-  useEffect(() => () => { mountedRef.current = false; }, []);
+  // mountedRef.current = true dans le corps de l'effet : sous React.StrictMode (dev) l'effet est
+  // exécuté, nettoyé puis ré-exécuté — sans cette remise à true, la référence restait à false pour
+  // toujours (la galerie de photos et la traduction se terminaient alors sans effet).
+  useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []);
 
   // « Pop » d'apparition d'une réaction (Messages 4.0) : animé uniquement
   // pour les réactions APPARUES depuis le montage — jamais tout le lot au
@@ -1088,7 +1091,7 @@ export default function ConversationPane({
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && !e.shiftKey && !isImeComposing(e)) { e.preventDefault(); handleSend(); }
                 }}
-                placeholder="Écris un message..."
+                placeholder="Message"
                 aria-label="Écrire un message"
                 rows={1}
                 maxLength={4000}

@@ -56,7 +56,9 @@ function renderPane(overrides = {}) {
     showSuccessNotice: vi.fn(),
     ...overrides,
   };
-  const utils = render(<ImageLightboxProvider><ConversationPane {...props} /></ImageLightboxProvider>);
+  const Wrapper = overrides.__strict ? React.StrictMode : React.Fragment;
+  delete props.__strict;
+  const utils = render(<Wrapper><ImageLightboxProvider><ConversationPane {...props} /></ImageLightboxProvider></Wrapper>);
   return { ...utils, props };
 }
 
@@ -270,5 +272,15 @@ describe("ConversationPane — recherche : surlignage", () => {
     expect(document.querySelectorAll("mark")).toHaveLength(1);
     fireEvent.click(screen.getAllByRole("button", { name: "Fermer la recherche" })[0]);
     expect(document.querySelectorAll("mark")).toHaveLength(0);
+  });
+});
+
+describe("ConversationPane — sous React.StrictMode (développement)", () => {
+  it("la galerie de photos s'ouvre aussi quand les effets sont exécutés deux fois (mountedRef remis à true)", async () => {
+    const photo = (id, iso) => ({ ...base, id, from_id: "m1", kind: "image", media_path: `k/p${id}.jpg`, media_meta: { width: 800, height: 600, original_name: `p${id}.jpg` }, created_at: iso });
+    renderPane({ __strict: true, messages: [photo(1, "2026-10-29T10:00:00.000Z"), photo(2, "2026-10-29T10:01:00.000Z")] });
+    await act(async () => { fireEvent.click(screen.getAllByRole("button", { name: "Agrandir la photo" })[1]); });
+    const viewer = await screen.findByRole("dialog", { name: /p2.jpg/ });
+    expect(within(viewer).getByText("2 / 2")).toBeInTheDocument();
   });
 });
