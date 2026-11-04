@@ -30,6 +30,7 @@ import { disablePushNotifications } from "./lib/pushNotifications";
 import { isLikelyInCanada, TRAVEL_GRACE_PERIOD_MS } from "./lib/canadaGate";
 import { friendlyDbError, dbErrorCode } from "./lib/friendlyDbError";
 import { screenText, isModerationRefusal, MODERATION_REFUSAL } from "./lib/contentGate";
+import { loadMessageDeleteWindow } from "./lib/messageDeletion";
 import { isNetworkFailure, networkFailureMessage } from "./lib/networkError";
 import { insertMessageWithRecovery, maxRealMessageId, dropGhostTemps, mergeRefreshedMessages, planRefresh, refreshHasMore } from "./lib/messageGhost";
 import { usePathname } from "./hooks/usePathname";
@@ -935,6 +936,14 @@ export default function App() {
       setView((v) => (v === "update-password" ? v : "checking-profile"));
     });
   }, [session, loadAll]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Délai de « Supprimer pour tout le monde » (app_config.message_delete_window_minutes, SQL-27) :
+  // lu une fois par session pour n'afficher l'option que pendant le délai. Ne lève jamais ; le défaut
+  // de 15 minutes s'applique tant que la colonne n'existe pas. Le serveur reste l'autorité.
+  useEffect(() => {
+    if (!currentUser?.id) return;
+    loadMessageDeleteWindow(supabase);
+  }, [currentUser?.id]);
 
   // La demande de localisation ne se fait plus qu'une fois, pendant
   // l'inscription (voir Auth.jsx) — plus de popup à chaque lancement (item 2
@@ -3511,10 +3520,20 @@ export default function App() {
         .update({ deleted_at: new Date().toISOString(), deleted_by: currentUser.id })
         .eq("id", message.id);
       if (delError) throw delError;
+      // Le serveur a remplacé le contenu (SQL-27) : le fichier d'une pièce jointe, lui, reste dans le
+      // bucket privé (SQL ne peut pas supprimer un objet Storage). L'expéditeur y a droit : on le retire
+      // au mieux, sans jamais faire échouer la suppression si ça rate.
+      if (message.media_path && ["image", "video", "audio", "file"].includes(message.kind)) {
+        try {
+          Promise.resolve(supabase.storage.from("chat-media").remove([message.media_path])).catch(() => {});
+        } catch { /* meilleur effort */ }
+      }
     } catch (e) {
       console.error(e);
       setMessages((m) => m.map((x) => (x.id === message.id ? { ...x, deleted_at: prevDeletedAt, deleted_by: prevDeletedBy } : x)));
-      setError("Impossible de supprimer ce message.");
+      // Délai de suppression dépassé (vérifié par le serveur avec sa propre horloge) : message exact.
+      const friendly = friendlyDbError(e);
+      setError(friendly && /délai/i.test(friendly) ? friendly : "Impossible de supprimer ce message.");
     }
   }
 

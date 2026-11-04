@@ -10,6 +10,7 @@ import { linkify } from "../../utils/linkify";
 import { detectMoneyRequest } from "../../lib/moneyGuard";
 import { detectPersonalCoordinates } from "../../lib/coordinatesGuard";
 import { detectMeetingIntent, MEETING_TIP_MESSAGE } from "../../lib/meetingTips";
+import { canDeleteForEveryone } from "../../lib/messageDeletion";
 import { checkRateLimit } from "../../lib/messageRateLimit";
 import { detectKindFromFile } from "../../lib/mediaValidation";
 import { normalizeForSearch, findMatchRanges } from "../../lib/searchQuery";
@@ -781,7 +782,7 @@ export default function ConversationPane({
                   }}
                 >
                   {isDeleted ? (
-                    <span className="italic text-xs" style={{ color: muted }}>Message supprimé</span>
+                    <span className="italic text-xs" style={{ color: muted }}>Ce message a été supprimé.</span>
                   ) : isMediaKind ? (
                     <div className="min-w-0">
                       {m.media_meta?.forwarded === true && (
@@ -909,6 +910,7 @@ export default function ConversationPane({
                     <MessageActionsMenu
                       message={m}
                       isMine={isMine}
+                      canDeleteForEveryone={canDeleteForEveryone(m, { isMine })}
                       align={isMine ? "right" : "left"}
                       onReact={(emoji) => toggleReaction(m, emoji)}
                       // otherUnavailable : onReply omis volontairement (pas onReact, voir
@@ -1156,7 +1158,7 @@ export default function ConversationPane({
       <ConfirmModal
         open={Boolean(pendingDeleteForEveryone)}
         title="Supprimer ce message pour tout le monde ?"
-        message="Cette action est irréversible pour les deux personnes."
+        message="Voulez-vous vraiment supprimer ce message pour tous les participants ? Cette action est irréversible."
         confirmLabel="Supprimer"
         onCancel={() => setPendingDeleteForEveryone(null)}
         onConfirm={() => {
