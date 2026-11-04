@@ -558,7 +558,7 @@ export default function SocialShell({
           ? (prev.some((p) => p.id === profile.id) ? prev : [profile, ...prev])
           : prev.filter((p) => p.id !== profile.id)
       );
-      onError("Impossible de mettre à jour tes favoris.");
+      onError(friendlyDbError(e) || "Impossible de mettre à jour tes favoris.");
     } finally {
       favoriteInFlightRef.current.delete(profile.id);
     }
