@@ -304,11 +304,11 @@ export default function ProfileTab({
                 </div>
 
                 <div className="flex gap-3 mt-4">
-                  <button onClick={onOpenFavorites} className="flex-1 flex items-center justify-between rounded-2xl p-4 focus-visible:outline focus-visible:outline-2" style={{ background: bg }}>
+                  <button onClick={onOpenFavorites} className="flex-1 min-w-0 flex items-center justify-between gap-1 rounded-2xl p-4 focus-visible:outline focus-visible:outline-2" style={{ background: bg }}>
                     <span className="flex items-center gap-2 text-sm font-bold" style={{ color: primary }}><Star size={16} color={gold} /> Mes favoris {favoritesCount > 0 && `(${favoritesCount})`}</span>
                     <ChevronRight size={16} color={muted} />
                   </button>
-                  <button onClick={onOpenPreferences} className="flex-1 flex items-center justify-between rounded-2xl p-4 focus-visible:outline focus-visible:outline-2" style={{ background: bg }}>
+                  <button onClick={onOpenPreferences} className="flex-1 min-w-0 flex items-center justify-between gap-1 rounded-2xl p-4 focus-visible:outline focus-visible:outline-2" style={{ background: bg }}>
                     <span className="flex items-center gap-2 text-sm font-bold" style={{ color: primary }}><Target size={16} color={coral} /> Préférences</span>
                     <ChevronRight size={16} color={muted} />
                   </button>
