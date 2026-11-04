@@ -48,3 +48,4 @@ ExportOptions.plist
 schema-prod.sql
 
 .staging-e2e-result.json
+.staging-security-result.json
