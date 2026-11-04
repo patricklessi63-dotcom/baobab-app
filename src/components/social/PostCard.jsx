@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { Heart, MessageCircle, Flag, Ban, Trash2, Pencil, Check, X, ImageOff } from "lucide-react";
+import React, { useRef, useState } from "react";
+import { Heart, MessageCircle, Flag, Ban, Trash2, Pencil, Check, X, ImageOff, SmilePlus } from "lucide-react";
 import Avatar from "../Avatar";
 import StatusBadge from "../StatusBadge";
 import ClickableImage from "../ClickableImage";
@@ -9,6 +9,10 @@ import { useImageLightbox } from "../../lib/ImageLightboxContext";
 import { formatMessageTime, formatDayLabel, truncateUnicodeSafe } from "../../utils/format";
 import { primary, coral, coralText, muted, bg, primaryRgb } from "./theme";
 import { isImeComposing } from "../../utils/keyboard";
+import { useClickOutside } from "../../hooks/useClickOutside";
+import { useEscapeKey } from "../../hooks/useEscapeKey";
+import { useFocusReturn } from "../../hooks/useFocusReturn";
+import { HEART, POST_REACTIONS, POST_REACTION_LABEL, topReactions } from "../../lib/postReactions";
 
 const MAX_LENGTH = 4000;
 
@@ -24,6 +28,9 @@ export default function PostCard({
   comments = [],
   commentsLoaded,
   onToggleLike,
+  myReaction = null,
+  reactionCounts = {},
+  onReact,
   onLoadComments,
   onSubmitComment,
   onReport,
@@ -37,6 +44,12 @@ export default function PostCard({
   onBlockAuthor,
 }) {
   const [commentsOpen, setCommentsOpen] = useState(false);
+  // Sélecteur des six réactions (SQL-28) : ferme au clic extérieur et à Échap, comme les autres menus.
+  const [reactionsOpen, setReactionsOpen] = useState(false);
+  const reactionsRef = useRef(null);
+  useClickOutside(reactionsRef, reactionsOpen, () => setReactionsOpen(false));
+  useEscapeKey(reactionsOpen, () => setReactionsOpen(false));
+  useFocusReturn(reactionsOpen);
   const [commentDraft, setCommentDraft] = useState("");
   const [editing, setEditing] = useState(false);
   const [editDraft, setEditDraft] = useState(post.body);
@@ -153,9 +166,51 @@ export default function PostCard({
 
           {!editing && (
             <div className="flex items-center gap-4 mt-2.5">
-              <button onClick={() => onToggleLike(post)} aria-label={liked ? "Retirer le like" : "Aimer"} aria-pressed={liked} className="bb-hit flex items-center gap-1.5 text-xs font-semibold focus-visible:outline focus-visible:outline-2" style={{ color: liked ? coralText : muted }}>
-                <Heart size={15} fill={liked ? coral : "none"} /> {likeCount > 0 ? likeCount : ""}
-              </button>
+              <div ref={reactionsRef} className="flex items-center gap-1" style={{ position: "relative" }}>
+                <button
+                  onClick={() => onToggleLike(post)}
+                  aria-label={myReaction && myReaction !== HEART ? `Retirer ma réaction ${myReaction}` : liked ? "Retirer le like" : "Aimer"}
+                  aria-pressed={liked}
+                  className="bb-hit flex items-center gap-1.5 text-xs font-semibold focus-visible:outline focus-visible:outline-2"
+                  style={{ color: liked ? coralText : muted }}
+                >
+                  {myReaction && myReaction !== HEART
+                    ? <span aria-hidden="true" style={{ fontSize: 15, lineHeight: 1 }}>{myReaction}</span>
+                    : <Heart size={15} fill={liked ? coral : "none"} />}
+                  {onReact && likeCount > 0 && <span aria-hidden="true" style={{ fontSize: 12, letterSpacing: 1 }}>{topReactions(reactionCounts).join("")}</span>}
+                  {likeCount > 0 ? likeCount : ""}
+                </button>
+                {onReact && (
+                  <button
+                    onClick={() => setReactionsOpen((v) => !v)}
+                    aria-label="Choisir une réaction"
+                    aria-haspopup="menu"
+                    aria-expanded={reactionsOpen}
+                    className="bb-hit flex items-center text-xs font-semibold focus-visible:outline focus-visible:outline-2"
+                    style={{ color: muted }}
+                  >
+                    <SmilePlus size={15} />
+                  </button>
+                )}
+                {onReact && reactionsOpen && (
+                  <div role="menu" className="flex items-center px-1 rounded-full bg-[var(--bb-surface)] shadow-xl" style={{ position: "absolute", top: "100%", left: 0, marginTop: 4, border: `1px solid rgba(${primaryRgb},.08)`, zIndex: 5 }}>
+                    {POST_REACTIONS.map((emoji) => (
+                      <button
+                        key={emoji}
+                        type="button"
+                        role="menuitemradio"
+                        aria-checked={myReaction === emoji}
+                        onClick={() => { onReact(post, emoji); setReactionsOpen(false); }}
+                        className="text-lg min-w-[40px] min-h-[44px] flex items-center justify-center hover:scale-125 motion-safe:transition-transform focus-visible:outline focus-visible:outline-2"
+                        style={{ opacity: myReaction && myReaction !== emoji ? 0.55 : 1 }}
+                        aria-label={`${POST_REACTION_LABEL[emoji]} ${emoji}`}
+                      >
+                        {emoji}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
               <button onClick={toggleComments} aria-label="Afficher les commentaires" className="bb-hit flex items-center gap-1.5 text-xs font-semibold focus-visible:outline focus-visible:outline-2" style={{ color: muted }}>
                 <MessageCircle size={15} /> {(commentsLoaded ? comments.length : commentCount) > 0 ? (commentsLoaded ? comments.length : commentCount) : "Commenter"}
               </button>

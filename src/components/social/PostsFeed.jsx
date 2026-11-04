@@ -16,6 +16,7 @@ import { POST_MEDIA_BUCKET, extFromMime, looksLikeImage } from "../../lib/mediaC
 import { friendlyDbError } from "../../lib/friendlyDbError";
 import { screenText, isModerationRefusal, MODERATION_REFUSAL } from "../../lib/contentGate";
 import ReportMediaDialog from "../ReportMediaDialog";
+import { HEART, tallyReactions, totalOf, planReaction, applyReactionChange, isMissingEmojiColumn } from "../../lib/postReactions";
 import { fetchHiddenMedia } from "../../lib/moderationApi";
 import { selectAllPages } from "../../lib/inChunks";
 import { useOnlineStatus } from "../../hooks/useOnlineStatus";
@@ -57,8 +58,9 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
   // simple numéro de page passé à .range().
   const [cursor, setCursor] = useState(null);
   const [hasMore, setHasMore] = useState(false);
-  const [likedPostIds, setLikedPostIds] = useState(new Set());
-  const [postLikeCounts, setPostLikeCounts] = useState({});
+  // Réactions (SQL-28) : MA réaction par publication et les compteurs par emoji. Sans SQL-28, tout est cœur.
+  const [myReactions, setMyReactions] = useState({});
+  const [reactionCounts, setReactionCounts] = useState({});
   const [postCommentCounts, setPostCommentCounts] = useState({});
   const [commentsByPost, setCommentsByPost] = useState({});
   // Suppression (vue grille) en attente de confirmation — remplace l'ancien
@@ -159,7 +161,7 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
 
   const loadCounts = async (ids, replace) => {
     if (ids.length === 0) {
-      if (replace) { setPostLikeCounts({}); setLikedPostIds(new Set()); setPostCommentCounts({}); }
+      if (replace) { setReactionCounts({}); setMyReactions({}); setPostCommentCounts({}); }
       return;
     }
     // Plafond PostgREST (max_rows = 1000, troncature SILENCIEUSE) : 20 posts
@@ -167,18 +169,18 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
     // "j'ai déjà liké" perdu (on retentait un like -> doublon 23505). Pagination
     // .order("id").range() (id unique : pages stables).
     const [likesRes, commentsRes] = await Promise.all([
-      selectAllPages((from, to) => supabase.from("post_likes").select("post_id, profile_id").in("post_id", ids).order("id").range(from, to)),
+      // Colonne emoji (SQL-28) ; si elle n'existe pas encore, on relit sans elle : tout est un cœur.
+      selectAllPages((from, to) => supabase.from("post_likes").select("post_id, profile_id, emoji").in("post_id", ids).order("id").range(from, to))
+        .then((res) => (res.error && isMissingEmojiColumn(res.error)
+          ? selectAllPages((from, to) => supabase.from("post_likes").select("post_id, profile_id").in("post_id", ids).order("id").range(from, to))
+          : res)),
       selectAllPages((from, to) => supabase.from("post_comments").select("post_id").in("post_id", ids).order("id").range(from, to)),
     ]);
-    const likeCounts = {}; const liked = new Set();
-    (likesRes.data || []).forEach((l) => {
-      likeCounts[l.post_id] = (likeCounts[l.post_id] || 0) + 1;
-      if (l.profile_id === currentUser.id) liked.add(l.post_id);
-    });
+    const { counts: reactionTally, mine } = tallyReactions(likesRes.data || [], currentUser.id);
     const commentCounts = {};
     (commentsRes.data || []).forEach((c) => { commentCounts[c.post_id] = (commentCounts[c.post_id] || 0) + 1; });
-    setPostLikeCounts((prev) => (replace ? likeCounts : { ...prev, ...likeCounts }));
-    setLikedPostIds((prev) => (replace ? liked : new Set([...prev, ...liked])));
+    setReactionCounts((prev) => (replace ? reactionTally : { ...prev, ...reactionTally }));
+    setMyReactions((prev) => (replace ? mine : { ...prev, ...mine }));
     setPostCommentCounts((prev) => (replace ? commentCounts : { ...prev, ...commentCounts }));
   };
 
@@ -812,34 +814,54 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
     }
   };
 
-  const toggleLike = async (post) => {
+  // Réagir (ou retirer sa réaction) : une seule réaction active par personne. Même réaction = la retirer.
+  // Optimiste, avec retour arrière si la base refuse. Sans SQL-28 (colonne emoji absente), seul le cœur
+  // fonctionne, comme avant ; les autres réactions annoncent qu'elles arrivent.
+  const reactToPost = async (post, emoji) => {
     if (!currentUser || likeInFlightRef.current.has(post.id)) return;
+    const previous = myReactions[post.id] || null;
+    const plan = planReaction(previous, emoji);
+    if (plan.op === "none") return;
     likeInFlightRef.current.add(post.id);
-    const wasLiked = likedPostIds.has(post.id);
-    setLikedPostIds((s) => { const n = new Set(s); wasLiked ? n.delete(post.id) : n.add(post.id); return n; });
-    setPostLikeCounts((c) => ({ ...c, [post.id]: Math.max(0, (c[post.id] || 0) + (wasLiked ? -1 : 1)) }));
+    const before = reactionCounts[post.id] || {};
+    setMyReactions((m) => { const n = { ...m }; if (plan.next) n[post.id] = plan.next; else delete n[post.id]; return n; });
+    setReactionCounts((c) => ({ ...c, [post.id]: applyReactionChange(before, previous, plan.next) }));
+    const rollback = () => {
+      setMyReactions((m) => { const n = { ...m }; if (previous) n[post.id] = previous; else delete n[post.id]; return n; });
+      setReactionCounts((c) => ({ ...c, [post.id]: before }));
+    };
     try {
-      if (wasLiked) {
+      if (plan.op === "delete") {
         const { error } = await supabase.from("post_likes").delete().eq("post_id", post.id).eq("profile_id", currentUser.id);
         if (error) throw error;
+      } else if (plan.op === "update") {
+        const { error } = await supabase.from("post_likes").update({ emoji: plan.next }).eq("post_id", post.id).eq("profile_id", currentUser.id);
+        if (error) throw error;
       } else {
-        const { error } = await supabase.from("post_likes").insert({ post_id: post.id, profile_id: currentUser.id });
-        // Même motif que toggleFavorite/toggleFollow (SocialShell.jsx) et
-        // handlePass/handleLike (App.jsx) : contrainte unique(post_id,
-        // profile_id) sur "post_likes". Un conflit (23505) — déjà liké depuis
-        // un autre onglet/appareil, ou double-tap — ne doit pas annuler la
-        // mise à jour optimiste ci-dessus : ce like est déjà réel en base.
-        if (error && error.code !== "23505") throw error;
+        let { error } = await supabase.from("post_likes").insert({ post_id: post.id, profile_id: currentUser.id, emoji: plan.next });
+        // Colonne emoji absente (SQL-28 pas encore exécuté) : un cœur reste un simple like, comme avant.
+        if (error && isMissingEmojiColumn(error) && plan.next === HEART) {
+          ({ error } = await supabase.from("post_likes").insert({ post_id: post.id, profile_id: currentUser.id }));
+        }
+        // Contrainte unique(post_id, profile_id) : un conflit (23505) — déjà réagi depuis un autre onglet
+        // ou double-tap — ne doit pas annuler la mise à jour optimiste : une réaction existe déjà en base.
+        if (error && error.code === "23505") {
+          const upd = await supabase.from("post_likes").update({ emoji: plan.next }).eq("post_id", post.id).eq("profile_id", currentUser.id);
+          error = upd.error && !isMissingEmojiColumn(upd.error) ? upd.error : null;
+        }
+        if (error) throw error;
       }
     } catch (e) {
       console.error(e);
-      setLikedPostIds((s) => { const n = new Set(s); wasLiked ? n.add(post.id) : n.delete(post.id); return n; });
-      setPostLikeCounts((c) => ({ ...c, [post.id]: Math.max(0, (c[post.id] || 0) + (wasLiked ? 1 : -1)) }));
-      onError("Impossible de mettre à jour ce like.");
+      rollback();
+      if (isMissingEmojiColumn(e)) onError("Les réactions multiples ne sont pas encore disponibles.");
+      else onError(friendlyDbError(e) || "Impossible de mettre à jour ce like.");
     } finally {
       likeInFlightRef.current.delete(post.id);
     }
   };
+  // Touche cœur (ancien « like ») : pose ou retire le cœur ; remplace toute autre réaction par un retrait.
+  const toggleLike = (post) => reactToPost(post, myReactions[post.id] || HEART);
 
   const loadComments = async (postId) => {
     try {
@@ -1077,8 +1099,11 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
                 key={post.id}
                 post={post}
                 currentUserId={currentUser?.id}
-                liked={likedPostIds.has(post.id)}
-                likeCount={postLikeCounts[post.id] || 0}
+                liked={Boolean(myReactions[post.id])}
+                likeCount={totalOf(reactionCounts[post.id])}
+                myReaction={myReactions[post.id] || null}
+                reactionCounts={reactionCounts[post.id] || {}}
+                onReact={reactToPost}
                 commentCount={postCommentCounts[post.id] || 0}
                 comments={(commentsByPost[post.id]?.items || []).filter((c) => !blockedIds.has(c.author_id))}
                 commentsLoaded={Boolean(commentsByPost[post.id])}
