@@ -6,6 +6,7 @@ import { supabase } from "../../supabaseClient";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { escapeLikePattern } from "../../lib/searchQuery";
+import { friendlyDbError } from "../../lib/friendlyDbError";
 import { primary, coralText, muted, card, primaryRgb } from "./theme";
 
 // Recherche par nom dans profiles (déjà en lecture publique pour la
@@ -108,7 +109,9 @@ export default function CommunityInviteModal({ community, currentUser, memberIds
       // message (sous-entendant "déjà invité·e") s'affichait aussi pour
       // n'importe quelle autre erreur (RLS, réseau...), induisant l'utilisateur
       // en erreur sur la vraie cause.
-      onError?.(e.code === "23505" ? "Cette personne est déjà invitée." : "Impossible d'envoyer cette invitation.");
+      // friendlyDbError : message de limite de débit (P0001) ou refus de permission (42501, p. ex. blocage
+      // entre les deux personnes — sans jamais dire QUI a bloqué) au lieu d'un message générique.
+      onError?.(e.code === "23505" ? "Cette personne est déjà invitée." : friendlyDbError(e) || "Impossible d'envoyer cette invitation.");
     } finally {
       setSendingId(null);
     }
