@@ -17,6 +17,10 @@ if (typeof window !== "undefined") {
   const { afterEach } = await import("vitest");
   afterEach(() => cleanup());
 
+  // findBy*/waitFor : 1 s par défaut, trop court sous charge ; ne ralentit pas un test qui réussit.
+  const { configure } = await import("@testing-library/react");
+  configure({ asyncUtilTimeout: 4000 });
+
   // jsdom n'implémente aucune méthode de layout/scroll (scrollIntoView,
   // scrollTo…) — plusieurs composants (FeedTab.jsx, ProfileTab.jsx,
   // SocialShell.jsx) l'appellent sur un ref à chaque changement de
