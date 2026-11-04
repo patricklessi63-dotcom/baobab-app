@@ -1034,6 +1034,7 @@ Ces réglages vivent dans les tableaux de bord : la CLI ne peut pas les lire. **
 - [ ] **CORS** : rien à régler. Les edge functions répondent `Access-Control-Allow-Origin: *` (`supabase/functions/_shared/cors.ts`) ; l'API Supabase est ouverte par conception (la sécurité repose sur la RLS).
 
 ### 9.4 Supabase > Database > Backups (région, sauvegardes, PITR)
+- [ ] **Procédure gratuite de sauvegarde et de restauration : `SAUVEGARDE.md`** (4 nov. 2026) — données critiques, commandes `pg_dump` chiffrées depuis ton ordinateur, copie des fichiers du Storage, restauration sur un projet de répétition, vérification d'intégrité (`scripts/backup-verify.sql`). **Non exécutée à ce jour** : le critère O1 reste non rempli tant qu'une sauvegarde n'a pas été faite et une restauration essayée une fois.
 - [ ] Noter la **région** du projet, la fréquence et la **durée de conservation** des sauvegardes de ton offre, et si le *PITR* (retour à n'importe quel
       instant) est disponible/activé. Prends une sauvegarde/un point de contrôle **juste avant** SQL-1 à SQL-15. Cette durée alimente la décision 11.
 - [ ] **Constat du 1er novembre 2026 (à traiter en priorité).** La commande `supabase backups list` renvoie `pitr_enabled=false` et aucune sauvegarde : le projet

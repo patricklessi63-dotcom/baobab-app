@@ -53,6 +53,7 @@ import { isNative } from "./lib/platform";
 import { onAppStateChange } from "./lib/nativeApp";
 import { createFieldWriteQueue } from "./lib/fieldWriteQueue";
 import { chunk } from "./lib/chunk";
+import { loadDraft, saveDraft, clearDraft, clearAllDrafts } from "./lib/messageDrafts";
 import { fetchExportData } from "./lib/exportData";
 import { fetchSocialGraph as fetchSocialGraphWith, fetchInitialData, createOwnProfilePrefetch } from "./lib/initialLoad";
 
@@ -1348,6 +1349,7 @@ export default function App() {
   }
 
   async function handleSignOut() {
+    clearAllDrafts(); // appareil partagé : les brouillons du compte ne restent pas après une déconnexion volontaire
     // Bug corrigé : sur un appareil partagé (ordinateur familial/public), le
     // navigateur reste abonné aux notifications push de CE compte après la
     // déconnexion — rien ne désabonnait jamais push_subscriptions au moment
@@ -2462,6 +2464,9 @@ export default function App() {
     setActiveMatch(match);
     setView("matches");
     setReplyingTo(null);
+    // Brouillon propre à cette conversation (localStorage, voir lib/messageDrafts.js) : restauré à
+    // la réouverture, et ne fuit plus d'une conversation à l'autre.
+    setMessageDraft(currentUser ? loadDraft(currentUser.id, match.id) : "");
     await refreshMessages(match);
   }
 
@@ -2473,6 +2478,7 @@ export default function App() {
     chatLoadTokenRef.current++;
     setActiveMatch(null);
     setReplyingTo(null);
+    setMessageDraft("");
   }
 
   async function markConversationRead(match) {
@@ -2721,6 +2727,14 @@ export default function App() {
     );
   }
 
+  // Saisie utilisateur (frappe, emoji, suggestion IA) : met à jour la zone de saisie ET enregistre le
+  // brouillon de la conversation ouverte. Passe par activeMatchRef pour viser la bonne conversation.
+  function changeMessageDraft(value) {
+    const next = typeof value === "function" ? value(messageDraft) : value; // le sélecteur d'emoji passe une fonction
+    setMessageDraft(next);
+    if (currentUser && activeMatchRef.current) saveDraft(currentUser.id, activeMatchRef.current.id, next);
+  }
+
   function sendMessage() {
     if (!messageDraft.trim() || !currentUser || !activeMatch) return;
     const text = messageDraft.trim();
@@ -2740,6 +2754,7 @@ export default function App() {
       _status: "sending",
     }]);
     setMessageDraft("");
+    clearDraft(currentUser.id, activeMatch.id);
     setReplyingTo(null);
     sendMessageText(text, tempId, replyToId);
   }
@@ -3719,7 +3734,7 @@ export default function App() {
           loadingOlder={loadingOlder}
           onLoadOlder={loadOlderMessages}
           messageDraft={messageDraft}
-          setMessageDraft={setMessageDraft}
+          setMessageDraft={changeMessageDraft}
           broadcastTyping={broadcastTyping}
           sendMessage={sendMessage}
           sendMessageTo={sendMessageTo}
