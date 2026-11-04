@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import { displayArrivedSince } from "../../lib/arrivedSince";
 import { Send, CheckCheck, Star, Target, ChevronRight, Users2, MapPin, PartyPopper, Heart } from "lucide-react";
 import Avatar from "../Avatar";
 import StatusBadge from "../StatusBadge";
@@ -157,7 +158,7 @@ export default function ProfileTab({
             ["Pays d'origine", currentUser?.country, "🌍"],
             ["Province", currentUser?.province, "🗺️"],
             ["Ville au Canada", currentUser?.city, "📍"],
-            ["Au Canada depuis", currentUser?.arrived_since, "✈️"],
+            ["Au Canada depuis", displayArrivedSince(currentUser?.arrived_since), "✈️"],
             ["Statut", currentUser?.immigration_status, "🇨🇦"],
             ["Recherche", currentUser?.looking_for, "♡"],
             ["Intentions", currentUser?.relationship_values, "❤️"],

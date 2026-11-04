@@ -12,6 +12,7 @@ import { useResumeTick } from "../hooks/useResumeTick";
 import { hasUsableSession } from "../lib/sessionGuard";
 import { primary, navy, coral, bg, muted, buttonBase, body, primaryRgb } from "./social/theme";
 import { NOTIF_CATEGORIES } from "../lib/notificationLabels";
+import { storyDurationFor } from "../lib/storyTiming";
 import { selectInChunks } from "../lib/inChunks";
 import { fetchFollowing, fetchFollowers } from "../lib/followLists";
 import Skeleton from "./Skeleton";
@@ -217,6 +218,9 @@ export default function SocialShell({
   const [viewedStories, setViewedStories] = useState({});
   const [storyReply, setStoryReply] = useState("");
   const [storyDurationMs, setStoryDurationMs] = useState(5000);
+  // Pause « maintenir pour lire / réagir » : vrai tant que la personne a le doigt ou la souris sur
+  // la visionneuse (voir StoryViewerModal) — sinon 5 s ne laissaient pas le temps de réagir.
+  const [storyPaused, setStoryPaused] = useState(false);
   const [storyViewers, setStoryViewers] = useState([]);
   const [storyViewersLoading, setStoryViewersLoading] = useState(false);
   const [storyViewersOpen, setStoryViewersOpen] = useState(false);
@@ -2081,7 +2085,8 @@ export default function SocialShell({
     // affiché sur la mauvaise personne après un blocage.
     if (s?.profile_id) setViewedStories((prev) => ({ ...prev, [s.profile_id]: true }));
     setStoryReply("");
-    setStoryDurationMs(5000);
+    setStoryPaused(false);
+    setStoryDurationMs(storyDurationFor(s));
     onStoryShown(s);
   };
 
@@ -2101,7 +2106,8 @@ export default function SocialShell({
       const nextProfileId = visibleStories[next].profile_id;
       if (nextProfileId) setViewedStories((prev) => ({ ...prev, [nextProfileId]: true }));
       setStoryReply("");
-      setStoryDurationMs(5000);
+      setStoryPaused(false);
+      setStoryDurationMs(storyDurationFor(visibleStories[next]));
       onStoryShown(visibleStories[next]);
       return next;
     });
@@ -2114,7 +2120,8 @@ export default function SocialShell({
       while (prev >= 0 && visibleStories[prev].own) prev--;
       if (prev < 0) return i;
       setStoryReply("");
-      setStoryDurationMs(5000);
+      setStoryPaused(false);
+      setStoryDurationMs(storyDurationFor(visibleStories[prev]));
       onStoryShown(visibleStories[prev]);
       return prev;
     });
@@ -2192,10 +2199,10 @@ export default function SocialShell({
   // panneau des vues se refermait brusquement sous les yeux de l'utilisateur.
   useEffect(() => {
     if (storyViewerIndex === null) return;
-    if (storyReply.trim() || storyViewersOpen) return;
+    if (storyReply.trim() || storyViewersOpen || storyPaused) return;
     const t = setTimeout(() => nextStory(), storyDurationMs);
     return () => clearTimeout(t);
-  }, [storyViewerIndex, storyDurationMs, storyReply, storyViewersOpen]);
+  }, [storyViewerIndex, storyDurationMs, storyReply, storyViewersOpen, storyPaused]);
 
   // Navigation à 5 onglets (refonte visuelle août 2026, maquettes fournies) —
   // remplace l'ancienne barre à 6 onglets. Communautés et Événements ne sont
@@ -2734,6 +2741,8 @@ export default function SocialShell({
         sendStoryReply={sendStoryReply}
         onVideoDuration={setStoryDurationMs}
         durationMs={storyDurationMs}
+        paused={storyPaused}
+        setPaused={setStoryPaused}
         storyViewCount={storyViewCount}
         storyViewers={storyViewers}
         storyViewersLoading={storyViewersLoading}

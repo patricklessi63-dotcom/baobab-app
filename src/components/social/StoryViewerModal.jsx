@@ -41,6 +41,8 @@ export default function StoryViewerModal({
   closeStoryViewers,
   myStoryReaction,
   sendStoryReaction,
+  paused = false,
+  setPaused,
   onOpenProfile,
   onReport,
   onBlock,
@@ -58,6 +60,10 @@ export default function StoryViewerModal({
   // photo des publications), qui gèrent tous deux ce cas depuis longtemps.
   const [imgError, setImgError] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  // Clé de la barre de progression : change à chaque reprise après une pause, pour que la barre
+  // reparte de zéro en même temps que le minuteur de SocialShell (qui, lui, repart de zéro).
+  const [barKey, setBarKey] = useState(0);
+  useEffect(() => { if (!paused) setBarKey((k) => k + 1); }, [paused]);
   const touchStart = useRef(null);
   // Toujours à jour à chaque rendu (mêmes garanties que onCloseRef dans
   // useEscapeKey.js) — nextStory/prevStory sont redéfinies à chaque rendu de
@@ -187,10 +193,17 @@ export default function StoryViewerModal({
       style={{ background: "#000" }}
       onTouchStart={onTouchStart}
       onTouchEnd={onTouchEnd}
+      // Maintenir pour lire / réagir : le doigt ou la souris posé sur la visionneuse met la
+      // lecture en pause (minuteur dans SocialShell, barre ci-dessous) ; on relâche, elle reprend.
+      onPointerDown={() => setPaused?.(true)}
+      onPointerUp={() => setPaused?.(false)}
+      onPointerCancel={() => setPaused?.(false)}
+      onPointerLeave={() => setPaused?.(false)}
     >
       <style>{`
         @keyframes bbStoryBar { from { width: 0%; } to { width: 100%; } }
         .bb-story-bar-fill { animation: bbStoryBar ${durationMs}ms linear forwards; }
+        .bb-story-paused .bb-story-bar-fill { animation-play-state: paused; }
       `}</style>
       <div ref={dialogRef} tabIndex={-1} className="relative w-full h-full max-w-md mx-auto" style={{ background: story.media_url ? "#000" : `linear-gradient(160deg,${story.bg_color || story.color},${navy})` }}>
         <div className="absolute inset-0 flex items-center justify-center text-8xl opacity-15">🌍</div>
@@ -201,7 +214,7 @@ export default function StoryViewerModal({
             !s.own && (
               <div key={i} className="h-[3px] flex-1 rounded-full bg-white/25 overflow-hidden">
                 {i < storyViewerIndex && <div className="h-full w-full bg-white" />}
-                {i === storyViewerIndex && <div className="h-full bg-white bb-story-bar-fill" />}
+                {i === storyViewerIndex && <div key={barKey} className={`h-full bg-white bb-story-bar-fill${paused ? " bb-story-paused" : ""}`} style={paused ? { animationPlayState: "paused" } : undefined} />}
               </div>
             )
           ))}
@@ -314,7 +327,7 @@ export default function StoryViewerModal({
         </div>
 
         {!story.own && !storyViewersOpen && (
-          <div className="absolute left-0 right-0 flex items-center justify-center gap-2 z-10" style={{ bottom: "calc(76px + env(safe-area-inset-bottom, 0px))" }}>
+          <div className="absolute left-0 right-0 flex items-center justify-center gap-2 z-10" onPointerEnter={() => setPaused?.(true)} onPointerLeave={() => setPaused?.(false)} style={{ bottom: "calc(76px + env(safe-area-inset-bottom, 0px))" }}>
             {REACTIONS.map((emoji) => (
               <button
                 key={emoji}

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef, Suspense, lazy } from "react";
+import { toEditableArrivedSince, resolveArrivedSinceForSave } from "./lib/arrivedSince";
 import HorizonLoader from "./components/horizon/HorizonLoader";
 import HorizonBackdrop from "./components/horizon/HorizonBackdrop";
 import { supabase } from "./supabaseClient";
@@ -1863,7 +1864,7 @@ export default function App() {
       languages: currentUser.languages || "",
       languagesDetail: Array.isArray(currentUser.languages_detail) ? currentUser.languages_detail : [],
       city: currentUser.city || "",
-      arrivedSince: currentUser.arrived_since || "",
+      arrivedSince: toEditableArrivedSince(currentUser.arrived_since),
       immigrationStatus: currentUser.immigration_status || "",
       arrivalCity: currentUser.arrival_city || "",
       lookingFor: (currentUser.looking_for || "").split(",").map((s) => s.trim()).filter(Boolean),
@@ -2170,7 +2171,7 @@ export default function App() {
         languages: editForm.languagesDetail?.length ? editForm.languagesDetail.map((l) => l.language).join(", ") : editForm.languages,
         languages_detail: editForm.languagesDetail || [],
         city: editForm.city?.trim() || "",
-        arrived_since: editForm.arrivedSince,
+        arrived_since: resolveArrivedSinceForSave(editForm.arrivedSince, currentUser.arrived_since),
         immigration_status: editForm.immigrationStatus,
         arrival_city: editForm.arrivalCity?.trim() || "",
         looking_for: (editForm.lookingFor || []).join(", "),

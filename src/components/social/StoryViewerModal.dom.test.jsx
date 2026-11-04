@@ -171,3 +171,34 @@ describe("StoryViewerModal — statut photo dont le média devient indisponible"
     expect(document.querySelector('img[src="https://example.test/story.jpg"]')).toBeTruthy();
   });
 });
+
+// Régression « impossible de réagir aux statuts » : la visionneuse se refermait après 5 s sans
+// jamais se mettre en pause. Poser le doigt/la souris ou survoler les réactions met en pause.
+describe("StoryViewerModal — pause pour lire et réagir", () => {
+  it("poser le pointeur sur la visionneuse met en pause, le relâcher reprend", () => {
+    const setPaused = vi.fn();
+    setup({ setPaused, paused: false });
+    const dialog = screen.getByRole("dialog", { name: /Statut de Awa/ });
+    fireEvent.pointerDown(dialog);
+    expect(setPaused).toHaveBeenLastCalledWith(true);
+    fireEvent.pointerUp(dialog);
+    expect(setPaused).toHaveBeenLastCalledWith(false);
+  });
+
+  it("survoler la barre de réactions met en pause jusqu'à la quitter", () => {
+    const setPaused = vi.fn();
+    setup({ setPaused });
+    const reaction = screen.getByRole("button", { name: "😂" });
+    fireEvent.pointerEnter(reaction.parentElement);
+    expect(setPaused).toHaveBeenLastCalledWith(true);
+    fireEvent.pointerLeave(reaction.parentElement);
+    expect(setPaused).toHaveBeenLastCalledWith(false);
+  });
+
+  it("cliquer une réaction l'envoie ; en pause, la barre de progression est figée", () => {
+    const { sendStoryReaction } = setup({ paused: true, setPaused: vi.fn() });
+    fireEvent.click(screen.getByRole("button", { name: "😍" }));
+    expect(sendStoryReaction).toHaveBeenCalledWith("😍");
+    expect(document.querySelector(".bb-story-bar-fill").style.animationPlayState).toBe("paused");
+  });
+});

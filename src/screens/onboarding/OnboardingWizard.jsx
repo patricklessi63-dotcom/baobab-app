@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import { toEditableArrivedSince, resolveArrivedSinceForSave } from "../../lib/arrivedSince";
 import { ArrowLeft } from "lucide-react";
 import { supabase } from "../../supabaseClient";
 import { updateOwnProfile, insertOwnProfile } from "../../lib/ownProfile";
@@ -32,7 +33,7 @@ function draftFromUser(user) {
     country: user?.country || "",
     province: user?.province || "",
     city: user?.city || "",
-    arrivedSince: user?.arrived_since || "",
+    arrivedSince: toEditableArrivedSince(user?.arrived_since),
     immigrationStatus: user?.immigration_status || "",
     occupation: user?.occupation || "",
     educationLevel: user?.education_level || EDUCATION_LEVELS[0],
@@ -272,7 +273,7 @@ export default function OnboardingWizard({
         payload = { country: draft.country.trim(), province: draft.province.trim(), city: draft.city.trim(), onboarding_step: 4 };
       } else if (step === 5) {
         payload = {
-          arrived_since: draft.arrivedSince.trim(),
+          arrived_since: resolveArrivedSinceForSave(draft.arrivedSince, user?.arrived_since),
           immigration_status: draft.immigrationStatus,
           occupation: draft.occupation.trim(),
           education_level: draft.educationLevel,

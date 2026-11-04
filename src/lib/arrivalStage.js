@@ -3,13 +3,14 @@
 // filtre "Étape d'installation" de DiscoverTab et la section "Nouveaux au
 // Canada" de FeedTab (via SocialShell) utilisent la même définition d'une
 // arrivée "récente" — voir bug corrigé dans SocialShell.jsx (newArrivals).
+import { monthsSinceArrival } from "./arrivedSince";
+
 export const ARRIVAL_STAGE_OPTIONS = ["🌱 Vient d'arriver (< 1 an)", "1 à 3 ans", "3 à 5 ans", "5 ans et plus"];
 
+// Durée en mois, CALCULÉE à partir du mois d'arrivée (« 2025-03 ») ou d'une ancienne saisie
+// figée (« 8 mois ») : voir src/lib/arrivedSince.js (la durée vieillit désormais toute seule).
 export function arrivedMonths(str) {
-  const m = String(str || "").trim().match(/^(\d+)\s*(mois|ans?|ann[ée]es?)$/i);
-  if (!m) return null;
-  const n = Number(m[1]);
-  return /an/i.test(m[2]) ? n * 12 : n;
+  return monthsSinceArrival(str);
 }
 
 export function matchesArrivalStage(p, stage) {

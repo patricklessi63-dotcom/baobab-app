@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { displayArrivedSince } from "../../lib/arrivedSince";
 import { Heart, X, MessageCircle } from "lucide-react";
 import StatusBadge from "../StatusBadge";
 import { visibleAge } from "../../utils/format";
@@ -41,7 +42,7 @@ export default function ProfileCard({
   // "Afficher mon parcours Canada", contrairement à PublicProfileModal.
   const highlightText =
     highlight === "arrived_since" && profile.show_canada_journey !== false && profile.arrived_since
-      ? `🇨🇦 Au Canada depuis ${profile.arrived_since}`
+      ? `🇨🇦 Au Canada depuis ${displayArrivedSince(profile.arrived_since)}`
       : highlight === "looking_for" && profile.looking_for
       ? `❤️ ${profile.looking_for}`
       : null;

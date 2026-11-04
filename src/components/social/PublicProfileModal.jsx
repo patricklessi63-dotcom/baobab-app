@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import { displayArrivedSince } from "../../lib/arrivedSince";
 import { X, ChevronLeft, ChevronRight, Heart, MessageCircle, UserPlus, UserCheck, Star, Flag, Ban } from "lucide-react";
 import Avatar from "../Avatar";
 import ClickableImage from "../ClickableImage";
@@ -168,7 +169,7 @@ export default function PublicProfileModal({
           <div className="mt-2">
             {showCanadaJourney && (profile.arrived_since || profile.immigration_status) && (
               <Row icon="🇨🇦" label="Parcours Canada">
-                {[profile.arrived_since, profile.immigration_status, profile.arrival_city].filter(Boolean).join(" · ")}
+                {[displayArrivedSince(profile.arrived_since), profile.immigration_status, profile.arrival_city].filter(Boolean).join(" · ")}
               </Row>
             )}
             {profile.looking_for && (

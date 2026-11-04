@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useEffect } from "react";
+import { displayArrivedSince } from "../../lib/arrivedSince";
 import { Heart, X, Info, Flame, Sparkles, Flag, Ban } from "lucide-react";
 import StatusBadge from "../StatusBadge";
 import { visibleAge } from "../../utils/format";
@@ -488,7 +489,7 @@ export default function DiscoverTab({
                           {p.bio && <p dir="auto" className="text-sm text-white/80 mt-3 leading-6 max-w-lg">{p.bio}</p>}
                           <div className="flex flex-wrap gap-2 mt-4">
                             {p.languages && <span className="px-2.5 py-1 rounded-full bg-white/12 text-xs">🗣 {p.languages}</span>}
-                            {showCanadaJourney && p.arrived_since && <span className="px-2.5 py-1 rounded-full bg-white/12 text-xs">✈️ Au Canada depuis {p.arrived_since}</span>}
+                            {showCanadaJourney && p.arrived_since && <span className="px-2.5 py-1 rounded-full bg-white/12 text-xs">✈️ Au Canada depuis {displayArrivedSince(p.arrived_since)}</span>}
                             {p.looking_for && <span className="px-2.5 py-1 rounded-full bg-white/12 text-xs">♡ {p.looking_for}</span>}
                           </div>
                         </div>
