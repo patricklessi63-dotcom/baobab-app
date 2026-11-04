@@ -15,8 +15,8 @@
 -- Ce que fait le script (idempotent, rejouable) :
 --   1. supprime TOUTE contrainte CHECK de `story_reactions` qui porte sur la colonne
 --      `emoji` (quel que soit son nom) ;
---   2. recrée `story_reactions_emoji_check` avec les six émojis du client, chacun
---      accepté AVEC ou SANS le sélecteur de variante U+FE0F (certains claviers / copier-coller
+--   2. recrée `story_reactions_emoji_check` avec les six émojis du client (écrits par
+--      code Unicode, donc insensibles à l'encodage de l'éditeur), chacun accepté AVEC ou SANS le sélecteur de variante U+FE0F (certains claviers / copier-coller
 --      retirent ce caractère invisible) ;
 --   3. ne touche ni aux données, ni aux policies, ni à la contrainte d'unicité.
 --
@@ -45,9 +45,18 @@ begin
   end loop;
 end $$;
 
+-- Les émojis sont désignés par leur code Unicode (chr) et non écrits en clair : un éditeur SQL
+-- ou un copier-coller qui abîme les émojis (« ? », sélecteur de variante perdu) rendrait sinon
+-- la contrainte impossible à satisfaire — hypothèse retenue pour la contrainte d'origine.
+--   chr(10084)=❤  chr(128514)=😂  chr(128525)=😍  chr(128558)=😮  chr(128079)=👏  chr(128293)=🔥
+--   chr(65039)=sélecteur de variante U+FE0F, retiré avant comparaison.
 alter table public.story_reactions
   add constraint story_reactions_emoji_check
-  check (replace(emoji, chr(65039), '') in ('❤', '😂', '😍', '😮', '👏', '🔥'));
+  check (replace(emoji, chr(65039), '') in (chr(10084), chr(128514), chr(128525), chr(128558), chr(128079), chr(128293)));
+
+-- Contrôle immédiat (doit renvoyer true, true) :
+--   select replace(chr(10084) || chr(65039), chr(65039), '') = chr(10084) as coeur_ok,
+--          length(chr(128293)) = 1 as flamme_ok;
 
 -- Si une ligne existante était déjà hors liste, l'ALTER ci-dessus échoue sans rien modifier :
 -- voir alors `select distinct emoji from story_reactions;` avant de décider quoi faire.
