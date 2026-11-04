@@ -31,6 +31,7 @@ drop trigger if exists trg_moderation_profiles_bio on profiles;
 -- drop function if exists admin_moderation_violations(text, int);
 -- drop function if exists admin_moderation_sanctions(boolean, int);
 -- drop function if exists admin_media_queue(int);
+-- drop function if exists admin_media_info(text, uuid);
 -- drop function if exists moderation_resolve_flag(uuid, boolean, text);
 -- drop function if exists moderation_revoke_sanction(uuid, text);
 -- drop function if exists moderation_appeal(uuid, text);

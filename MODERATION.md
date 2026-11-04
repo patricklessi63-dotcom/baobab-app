@@ -133,8 +133,19 @@ ce service et son interrupteur (`image_provider`). Rien de cela n'est actif aujo
 5. Création d'un faux compte par un utilisateur banni : aucune protection sans collecte de données
    supplémentaires (téléphone, appareil) : décision produit et juridique.
 
-## 8. Interface
+## 8. Interface (livrée)
 
-Les fonctions de modération (files, décisions, appels, réglages) sont prêtes côté base. L'écran
-dédié du tableau de bord et le bouton « Signaler cette image » dans l'application ne sont **pas
-encore faits** : ils font l'objet de l'étape suivante.
+- **Tableau de bord → onglet « Modération »** (`src/components/admin/ModerationPanel.jsx`) : textes à relire
+  (approuver / confirmer l'infraction), sanctions (annuler), appels (accepter / refuser), images masquées ou
+  suspectes (voir l'image, rétablir / masquer / retirer), et pour les administrateurs : interrupteur général,
+  bannissement automatique, liste de termes (ajouter, désactiver, retirer). Recherche dans chaque liste, motif
+  facultatif conservé dans le journal des décisions (vidé après chaque décision). Tant que SQL-27 n'est pas exécuté,
+  l'écran affiche « pas encore installée sur le serveur ».
+- **Signaler une image** : menu ⋮ d'un statut photo ou vidéo (« Signaler cette image ») et bouton « Signaler l'image »
+  sous une publication du fil qui en contient (`ReportMediaDialog.jsx`). Motifs : sexuel, violence, haine,
+  harcèlement, mineur, autre. Après 3 signalements indépendants, l'image est **masquée à l'affichage** pour les
+  autres membres (« Image masquée en attendant l'examen d'un modérateur ») ; son auteur la voit toujours.
+- **Pas encore branché** : le signalement d'image sur les publications de communauté, les photos d'événement,
+  les photos de profil et les pièces jointes de messages (les fonctions serveur acceptent déjà ces types) ;
+  l'écran de contestation côté personne sanctionnée (la fonction `moderation_appeal` existe, l'écran du compte
+  suspendu ne la propose pas encore).

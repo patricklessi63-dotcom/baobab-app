@@ -15,6 +15,8 @@ import { uploadWithProgress } from "../../lib/uploadWithProgress";
 import { POST_MEDIA_BUCKET, extFromMime, looksLikeImage } from "../../lib/mediaConstants";
 import { friendlyDbError } from "../../lib/friendlyDbError";
 import { screenText, isModerationRefusal, MODERATION_REFUSAL } from "../../lib/contentGate";
+import ReportMediaDialog from "../ReportMediaDialog";
+import { fetchHiddenMedia } from "../../lib/moderationApi";
 import { selectAllPages } from "../../lib/inChunks";
 import { useOnlineStatus } from "../../hooks/useOnlineStatus";
 import { useResumeTick } from "../../hooks/useResumeTick";
@@ -961,6 +963,16 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
   // dans loadPosts() : un blocage effectué pendant que ce fil reste monté
   // doit faire disparaître ses publications immédiatement, sans recharger.
   const visiblePosts = posts.filter((p) => !blockedIds.has(p.author_id));
+  // Images masquées en attendant un modérateur (signalements indépendants) : par publication.
+  const [hiddenPostMedia, setHiddenPostMedia] = useState(() => new Set());
+  const [mediaReport, setMediaReport] = useState(null);
+  const mediaPostIdsKey = posts.filter((p) => p.media_url || (p.post_media && p.post_media.length > 0)).map((p) => p.id).join(",");
+  useEffect(() => {
+    if (!mediaPostIdsKey) return undefined;
+    let cancelled = false;
+    fetchHiddenMedia("post", mediaPostIdsKey.split(",")).then((set) => { if (!cancelled) setHiddenPostMedia(set); });
+    return () => { cancelled = true; };
+  }, [mediaPostIdsKey]);
 
   if (layout === "grid") {
     return (
@@ -1075,6 +1087,8 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
                 onSubmitComment={submitComment}
                 onReport={openReport}
                 onReportComment={openReportComment}
+                onReportMedia={setMediaReport}
+                mediaHidden={hiddenPostMedia.has(post.id)}
                 onDelete={deletePost}
                 onEdit={editPost}
                 onViewProfile={onViewProfile}
@@ -1112,6 +1126,7 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
         categories={POST_REPORT_CATEGORIES}
         targetLabel={reportTarget?.name}
       />
+      <ReportMediaDialog open={Boolean(mediaReport)} kind={mediaReport?.kind} targetId={mediaReport?.id} onClose={() => setMediaReport(null)} onError={onError} />
     </div>
   );
 }

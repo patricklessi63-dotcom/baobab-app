@@ -4,12 +4,13 @@ import Avatar from "../Avatar";
 import EmptyState from "../home/EmptyState";
 import Skeleton, { SkeletonCard } from "../Skeleton";
 import * as adminApi from "../../lib/adminApi";
+import ModerationPanel from "./ModerationPanel";
 import { formatLongDate, truncateUnicodeSafe } from "../../utils/format";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { primary, coral, coralText, green, gold, goldText, muted, bg, card, primaryRgb, navy } from "../social/theme";
 
-const SUB_TABS = [["dashboard", "Tableau de bord"], ["users", "Utilisateurs"], ["reports", "Signalements"], ["feedback", "Retours"]];
+const SUB_TABS = [["dashboard", "Tableau de bord"], ["users", "Utilisateurs"], ["reports", "Signalements"], ["moderation", "Modération"], ["feedback", "Retours"]];
 
 const FEEDBACK_STATUS_LABEL = {
   nouveau: "Nouveau", analyse_en_cours: "Analyse en cours", probleme_identifie: "Problème identifié",
@@ -387,6 +388,10 @@ export default function AdminDashboard({ onBack, onError, myPlatformRole, myProf
             ))}
           </div>
         )
+      )}
+
+      {subTab === "moderation" && (
+        <ModerationPanel onError={onError} isAdmin={myPlatformRole === "admin" || myPlatformRole === "super_admin"} />
       )}
 
       {subTab === "feedback" && (

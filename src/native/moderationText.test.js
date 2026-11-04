@@ -26,7 +26,7 @@ beforeAll(async () => {
     create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('test.uid', true), '')::uuid $$;
     create table profiles (
       id uuid primary key, user_id uuid, name text, bio text, created_at timestamptz default now(),
-      suspended_until timestamptz, suspend_reason text, banned_at timestamptz, ban_reason text
+      suspended_until timestamptz, suspend_reason text, banned_at timestamptz, ban_reason text, avatar_url text
     );
     create table platform_roles (profile_id uuid primary key, role text);
     create function current_profile_id() returns uuid language sql stable as $$ select id from profiles where user_id = auth.uid() $$;
@@ -34,12 +34,14 @@ beforeAll(async () => {
     create function is_moderator_or_above() returns boolean language sql stable as $$ select platform_role(current_profile_id()) in ('moderator','admin','super_admin') $$;
     create function is_admin_or_above() returns boolean language sql stable as $$ select platform_role(current_profile_id()) in ('admin','super_admin') $$;
     create table messages (id serial primary key, from_id uuid, kind text default 'text', text text);
-    create table posts (id serial primary key, author_id uuid, body text);
+    create table posts (id uuid primary key default gen_random_uuid(), author_id uuid, body text);
+    create table post_media (id uuid primary key default gen_random_uuid(), post_id uuid references posts(id), url text, created_at timestamptz default now());
+    create table profile_photos (id uuid primary key default gen_random_uuid(), profile_id uuid, url text, created_at timestamptz default now());
     create table post_comments (id serial primary key, body text);
-    create table community_posts (id serial primary key, body text);
+    create table community_posts (id uuid primary key default gen_random_uuid(), body text, media_url text, author_id uuid, created_at timestamptz default now());
     create table community_comments (id serial primary key, body text);
     create table event_comments (id serial primary key, body text);
-    create table stories (id serial primary key, profile_id uuid, text text);
+    create table stories (id uuid primary key default gen_random_uuid(), profile_id uuid, text text, media_url text, created_at timestamptz default now());
   `);
   // 1 = utilisateur, 2 = modérateur, 3 = administrateur, 4..6 = comptes pour signaler, 7 = très récent
   for (let n = 1; n <= 6; n++) {
@@ -372,5 +374,30 @@ describe("signalements d'images", () => {
     await as(4);
     expect(await fails(() => db.query("select report_media('nimportequoi', $1, 'sexuel')", ['44444444-4444-4444-4444-444444444444']))).toBeTruthy();
     expect(await fails(() => db.query("select report_media('story', $1, 'motif-inventé')", ['44444444-4444-4444-4444-444444444444']))).toBeTruthy();
+  });
+});
+
+describe("admin_media_info : l'adresse de l'image pour le modérateur", () => {
+  it("retrouve l'image et son auteur pour chaque type connu ; refusé à un simple utilisateur", async () => {
+    await as(0);
+    const [st] = await q("insert into stories (profile_id, text, media_url) values ($1, null, 'https://x/story.jpg') returning id", [U(1)]);
+    const [po] = await q("insert into posts (author_id, body) values ($1, 'photo') returning id", [U(1)]);
+    const [pm] = await q("insert into post_media (post_id, url) values ($1, 'https://x/post.jpg') returning id", [po.id]);
+    const [cp] = await q("insert into community_posts (body, media_url, author_id) values ('c', 'https://x/comm.jpg', $1) returning id", [U(1)]);
+    const [ph] = await q("insert into profile_photos (profile_id, url) values ($1, 'https://x/photo.jpg') returning id", [U(1)]);
+    await db.exec(`update profiles set avatar_url = 'https://x/avatar.jpg' where id = '${U(1)}'`);
+
+    await as(1);
+    expect(await fails(() => db.query("select * from admin_media_info('story', $1)", [st.id]))).toContain("Non autorise");
+
+    await as(2);
+    const cases = [["story", st.id, "story.jpg"], ["post_media", pm.id, "post.jpg"], ["community_post", cp.id, "comm.jpg"], ["profile_photo", ph.id, "photo.jpg"], ["avatar", U(1), "avatar.jpg"]];
+    for (const [kind, id, file] of cases) {
+      const [r] = await q("select * from admin_media_info($1, $2)", [kind, id]);
+      expect(r.url, kind).toContain(file);
+      expect(r.owner_id, kind).toBe(U(1));
+      expect(r.owner_name, kind).toBe("P1");
+    }
+    expect(await q("select * from admin_media_info('message_media', $1)", [st.id])).toEqual([]);
   });
 });

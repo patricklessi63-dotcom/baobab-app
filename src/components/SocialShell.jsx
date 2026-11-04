@@ -31,6 +31,8 @@ import { uploadWithProgress } from "../lib/uploadWithProgress";
 import { trackBetaEvent } from "../lib/trackBetaEvent";
 import { friendlyDbError } from "../lib/friendlyDbError";
 import { screenText } from "../lib/contentGate";
+import ReportMediaDialog from "./ReportMediaDialog";
+import { fetchHiddenMedia } from "../lib/moderationApi";
 import { resolveLiveMatch } from "../lib/activeMatchPresence";
 import ChunkErrorBoundary from "./ChunkErrorBoundary";
 import { useHiddenRecommendations } from "../lib/useHiddenRecommendations";
@@ -1582,8 +1584,19 @@ export default function SocialShell({
   // undefined, voir useState(stories) plus haut) qui doit rester affichée
   // indéfiniment pour proposer d'en créer un.
   const STORY_LIFETIME_MS = 24 * 60 * 60 * 1000;
+  const [hiddenStoryIds, setHiddenStoryIds] = useState(() => new Set());
+  const [mediaReport, setMediaReport] = useState(null);
+  const storyIdsKey = stories.filter((s) => s.id && s.media_url && !s.own).map((s) => s.id).join(",");
+  useEffect(() => {
+    if (!storyIdsKey) return undefined;
+    let cancelled = false;
+    fetchHiddenMedia("story", storyIdsKey.split(",")).then((set) => { if (!cancelled) setHiddenStoryIds(set); });
+    return () => { cancelled = true; };
+  }, [storyIdsKey]);
   const visibleStories = stories.filter((s) => {
     if (s.id && s.created_at && Date.now() - new Date(s.created_at).getTime() >= STORY_LIFETIME_MS) return false;
+    // Image masquée en attendant un modérateur (3 signalements indépendants) : invisible pour les autres.
+    if (!s.own && s.id && hiddenStoryIds.has(s.id)) return false;
     return s.own || !s.profile_id || !blockedIds.has(s.profile_id);
   });
   // Ferme le visualiseur si le statut affiché disparaît de visibleStories
@@ -2758,9 +2771,11 @@ export default function SocialShell({
         sendStoryReaction={sendStoryReaction}
         onOpenProfile={(id) => setViewedProfileId(id)}
         onReport={setReportTarget}
+        onReportMedia={setMediaReport}
         onBlock={handleBlock}
       />
       )}
+      <ReportMediaDialog open={Boolean(mediaReport)} kind={mediaReport?.kind} targetId={mediaReport?.id} onClose={() => setMediaReport(null)} onError={onError} />
 
       {storyComposer && (
       <StoryComposerModal

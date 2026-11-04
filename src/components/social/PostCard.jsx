@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Heart, MessageCircle, Flag, Ban, Trash2, Pencil, Check, X } from "lucide-react";
+import { Heart, MessageCircle, Flag, Ban, Trash2, Pencil, Check, X, ImageOff } from "lucide-react";
 import Avatar from "../Avatar";
 import StatusBadge from "../StatusBadge";
 import ClickableImage from "../ClickableImage";
@@ -28,6 +28,8 @@ export default function PostCard({
   onSubmitComment,
   onReport,
   onReportComment,
+  onReportMedia,
+  mediaHidden = false,
   onDelete,
   onEdit,
   canModerate = false,
@@ -126,14 +128,17 @@ export default function PostCard({
             <p dir="auto" className="text-sm mt-1 whitespace-pre-wrap break-words">{post.body}</p>
           )}
 
-          {!editing && mediaList.length === 1 && (
+          {!editing && mediaHidden && mediaList.length > 0 && (
+            <p role="status" className="text-xs mt-2.5 p-3 rounded-xl" style={{ background: "var(--bb-surface-2)", color: muted }}>Image masquée en attendant l'examen d'un modérateur.</p>
+          )}
+          {!editing && !mediaHidden && mediaList.length === 1 && (
             mediaList[0].kind === "video" ? (
               <video src={mediaList[0].url} controls playsInline preload="metadata" className="w-full max-h-96 rounded-xl mt-2.5 object-cover" />
             ) : (
               <ClickableImage src={mediaList[0].url} alt="" gallery={[{ url: mediaList[0].url, alt: "" }]} className="w-full max-h-96 rounded-xl mt-2.5 object-cover" />
             )
           )}
-          {!editing && mediaList.length > 1 && (
+          {!editing && !mediaHidden && mediaList.length > 1 && (
             <PostMediaGrid
               items={mediaList}
               className="mt-2.5 rounded-xl overflow-hidden"
@@ -157,6 +162,11 @@ export default function PostCard({
               {!isMine && (
                 <button onClick={() => onReport(post)} aria-label="Signaler la publication" className="bb-hit flex items-center gap-1.5 text-xs font-semibold focus-visible:outline focus-visible:outline-2" style={{ color: muted }}>
                   <Flag size={13} />
+                </button>
+              )}
+              {!isMine && mediaList.length > 0 && onReportMedia && (
+                <button onClick={() => onReportMedia({ kind: "post", id: post.id })} aria-label="Signaler l'image" className="bb-hit flex items-center gap-1.5 text-xs font-semibold focus-visible:outline focus-visible:outline-2" style={{ color: muted }}>
+                  <ImageOff size={13} />
                 </button>
               )}
               {!isMine && onBlockAuthor && (

@@ -681,6 +681,29 @@ begin
 end;
 $$;
 
+-- Adresse de l'image signalée et auteur, pour que le modérateur VOIE ce qu'il décide (la lecture directe
+-- n'est pas garantie pour lui : la RLS de ces tables suit la visibilité d'un membre ordinaire).
+-- Types résolus : story, post_media, community_post, profile_photo, avatar. Les médias privés
+-- (messages, événements : chemin de stockage non public) renvoient une adresse nulle.
+create or replace function admin_media_info(p_kind text, p_id uuid)
+returns table (url text, owner_id uuid, owner_name text, created_at timestamptz)
+language plpgsql stable security definer set search_path = public as $$
+begin
+  perform moderation_require_moderator();
+  if p_kind = 'story' then
+    return query select st.media_url, st.profile_id, p.name, st.created_at from stories st join profiles p on p.id = st.profile_id where st.id = p_id;
+  elsif p_kind = 'post_media' then
+    return query select pm.url, po.author_id, p.name, pm.created_at from post_media pm join posts po on po.id = pm.post_id join profiles p on p.id = po.author_id where pm.id = p_id;
+  elsif p_kind = 'community_post' then
+    return query select cp.media_url, cp.author_id, p.name, cp.created_at from community_posts cp join profiles p on p.id = cp.author_id where cp.id = p_id;
+  elsif p_kind = 'profile_photo' then
+    return query select pp.url, pp.profile_id, p.name, pp.created_at from profile_photos pp join profiles p on p.id = pp.profile_id where pp.id = p_id;
+  elsif p_kind = 'avatar' then
+    return query select p.avatar_url, p.id, p.name, p.created_at from profiles p where p.id = p_id;
+  end if;
+end;
+$$;
+
 -- Administration de la liste et des réglages (administrateurs).
 create or replace function admin_upsert_moderation_term(p_term text, p_category text, p_severity text default 'block', p_active boolean default true)
 returns void language plpgsql security definer set search_path = public as $$
@@ -742,13 +765,13 @@ revoke all on function moderation_normalize(text), moderation_normalize_term(tex
   moderation_apply_ladder(uuid, uuid), moderation_record_flag(uuid, text, text, text, text, text),
   moderation_guard_text(), moderation_require_moderator(), moderation_terms_set_norm() from public, anon, authenticated;
 revoke all on function moderation_screen(text, text), report_media(text, uuid, text, text),
-  admin_moderation_violations(text, int), admin_moderation_sanctions(boolean, int), admin_media_queue(int),
+  admin_moderation_violations(text, int), admin_moderation_sanctions(boolean, int), admin_media_queue(int), admin_media_info(text, uuid),
   moderation_resolve_flag(uuid, boolean, text), moderation_revoke_sanction(uuid, text),
   moderation_appeal(uuid, text), moderation_decide_appeal(uuid, boolean, text), moderate_media(text, uuid, text, text),
   admin_upsert_moderation_term(text, text, text, boolean), admin_delete_moderation_term(bigint),
   admin_upsert_moderation_exception(text, boolean), admin_update_moderation_settings(jsonb) from public, anon;
 grant execute on function moderation_screen(text, text), report_media(text, uuid, text, text),
-  admin_moderation_violations(text, int), admin_moderation_sanctions(boolean, int), admin_media_queue(int),
+  admin_moderation_violations(text, int), admin_moderation_sanctions(boolean, int), admin_media_queue(int), admin_media_info(text, uuid),
   moderation_resolve_flag(uuid, boolean, text), moderation_revoke_sanction(uuid, text),
   moderation_appeal(uuid, text), moderation_decide_appeal(uuid, boolean, text), moderate_media(text, uuid, text, text),
   admin_upsert_moderation_term(text, text, text, boolean), admin_delete_moderation_term(bigint),
