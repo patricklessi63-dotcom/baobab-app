@@ -9,6 +9,7 @@ import { useOptionalImageLightbox } from "../../lib/ImageLightboxContext";
 import { linkify } from "../../utils/linkify";
 import { detectMoneyRequest } from "../../lib/moneyGuard";
 import { detectPersonalCoordinates } from "../../lib/coordinatesGuard";
+import { detectMeetingIntent, MEETING_TIP_MESSAGE } from "../../lib/meetingTips";
 import { checkRateLimit } from "../../lib/messageRateLimit";
 import { detectKindFromFile } from "../../lib/mediaValidation";
 import { normalizeForSearch, findMatchRanges } from "../../lib/searchQuery";
@@ -292,6 +293,13 @@ export default function ConversationPane({
   const [coordsNudgeDismissed, setCoordsNudgeDismissed] = useState(false);
   useEffect(() => { setCoordsNudgeDismissed(false); }, [activeMatch?.id]);
   const showCoordsNudge = !coordsNudgeDismissed && detectPersonalCoordinates(messageDraft);
+
+  // Conseils avant une première rencontre (prompt 05, point 4) : même principe que le rappel
+  // ci-dessus (détection locale sur le brouillon, aucun blocage, masquable pour cette
+  // conversation). Un seul rappel à la fois : celui des coordonnées parle déjà de lieu public.
+  const [meetingTipDismissed, setMeetingTipDismissed] = useState(false);
+  useEffect(() => { setMeetingTipDismissed(false); }, [activeMatch?.id]);
+  const showMeetingTip = !meetingTipDismissed && !showCoordsNudge && detectMeetingIntent(messageDraft);
 
   // Bug corrigé : banned_at/suspended_until ne sont vérifiés que pour SON
   // PROPRE compte (App.jsx, vue "banned"/"suspended") — jamais pour l'autre
@@ -1029,6 +1037,14 @@ export default function ConversationPane({
               <MapPin size={13} className="flex-shrink-0 mt-0.5" color={coral} />
               <span className="text-xs flex-1" style={{ color: coralText }}>Sur le point de partager tes coordonnées ? Pour une première rencontre, privilégie un lieu public.</span>
               <button onClick={() => setCoordsNudgeDismissed(true)} aria-label="Ignorer ce rappel" className="bb-hit flex-shrink-0"><X size={13} color={muted} /></button>
+            </div>
+          )}
+
+          {showMeetingTip && (
+            <div role="note" className="px-4 pt-2 flex items-start gap-2 shrink-0 bg-[var(--bb-surface)]" style={{ borderTop: `1px solid rgba(${primaryRgb},.08)` }}>
+              <ShieldCheck size={13} className="flex-shrink-0 mt-0.5" color={coral} />
+              <span className="text-xs flex-1" style={{ color: coralText }}>{MEETING_TIP_MESSAGE}</span>
+              <button onClick={() => setMeetingTipDismissed(true)} aria-label="Ignorer ce conseil de sécurité" className="bb-hit flex-shrink-0"><X size={13} color={muted} /></button>
             </div>
           )}
 
