@@ -5,7 +5,7 @@ import path from "node:path";
 import { PGlite } from "@electric-sql/pglite";
 import { normalizeForModeration, checkText } from "../lib/contentModeration.js";
 
-// Validation de supabase-moderation-text.sql (SQL-27) sur un SCHÉMA FACTICE : PGlite = PostgreSQL en
+// Validation de supabase-moderation-text.sql (SQL-31) sur un SCHÉMA FACTICE : PGlite = PostgreSQL en
 // WebAssembly. Honnêteté : ce n'est pas la base Supabase (pas de RLS réelle ici : un seul rôle) ; ce test
 // prouve la syntaxe, l'équivalence SQL/JS de la normalisation, les déclencheurs, l'échelle de sanctions,
 // les annulations et les signalements d'images. La RLS et les droits d'exécution se vérifient sur la répétition.
@@ -135,12 +135,19 @@ describe("déclencheurs « filet » côté serveur", () => {
     await as(5);
     expect(await fails(() => db.exec(`update profiles set name = 'Cinq' where id = '${U(5)}'`))).toBeNull();
   });
-  it("mot ambigu : accepté et placé en file de relecture, une seule fois par texte", async () => {
+  it("mot ambigu dans un commentaire : accepté et placé en file de relecture, une seule fois par texte", async () => {
     await as(1);
-    await db.query("insert into messages (from_id, text) values ($1, 'quel con')", [U(1)]);
-    await db.query("insert into messages (from_id, text) values ($1, 'quel con')", [U(1)]);
+    await db.query("insert into post_comments (body) values ('quel con')");
+    await db.query("insert into post_comments (body) values ('quel con')");
     const rows = await q("select status, source, term from moderation_violations where profile_id = $1 and status = 'flagged'", [U(1)]);
-    expect(rows).toEqual([{ status: "flagged", source: "message", term: "con" }]);
+    expect(rows).toEqual([{ status: "flagged", source: "comment", term: "con" }]);
+  });
+  it("VIE PRIVÉE : un message privé ambigu n'entre jamais dans la file de relecture", async () => {
+    await as(1);
+    await db.query("insert into messages (from_id, text) values ($1, 'quel con vraiment')", [U(1)]);
+    expect((await q("select count(*)::int as n from moderation_violations where source = 'message' and status = 'flagged'"))[0].n).toBe(0);
+    expect((await q("select moderation_screen('message', 'quel con vraiment') as r"))[0].r).toMatchObject({ allowed: true, flagged: true });
+    expect((await q("select count(*)::int as n from moderation_violations where source = 'message' and status = 'flagged'"))[0].n).toBe(0);
   });
   it("insertion système (sans utilisateur connecté) : jamais bloquée", async () => {
     await as(0);
@@ -270,8 +277,8 @@ describe("annulation, appel et décisions humaines", () => {
     await as(0);
     await db.exec("delete from moderation_sanctions; delete from moderation_violations");
     await as(1);
-    await db.query("insert into messages (from_id, text) values ($1, 'quel con')", [U(1)]);
-    await db.query("insert into messages (from_id, text) values ($1, 'quel idiot')", [U(1)]);
+    await db.query("insert into post_comments (body) values ('quel con')");
+    await db.query("insert into post_comments (body) values ('quel idiot')");
     await as(2);
     const flagged = await q("select id, term from admin_moderation_violations('flagged') order by term");
     expect(flagged.map((f) => f.term)).toEqual(["con", "idiot"]);
@@ -399,5 +406,47 @@ describe("admin_media_info : l'adresse de l'image pour le modérateur", () => {
       expect(r.owner_name, kind).toBe("P1");
     }
     expect(await q("select * from admin_media_info('message_media', $1)", [st.id])).toEqual([]);
+  });
+});
+
+describe("vie privée et conservation", () => {
+  it("un message privé refusé enregistre le terme et l'empreinte, JAMAIS le texte (ni extrait)", async () => {
+    await as(0);
+    await db.exec(`delete from moderation_sanctions where profile_id = '${U(6)}'; delete from moderation_violations where profile_id = '${U(6)}'`);
+    await as(6);
+    await q("select moderation_screen('message', 'phrase privée avec un connard dedans') as r");
+    await q("select moderation_screen('post', 'publication publique avec un connard dedans') as r");
+    await as(0);
+    const rows = await q("select source, term, excerpt is null as sans_extrait, length(text_hash) as h from moderation_violations where profile_id = $1 order by source", [U(6)]);
+    expect(rows).toEqual([
+      { source: "message", term: "connard", sans_extrait: true, h: 32 },
+      { source: "post", term: "connard", sans_extrait: false, h: 32 },
+    ]);
+  });
+
+  it("l'extrait d'une publication est limité à 200 caractères", async () => {
+    await as(5);
+    await q("select moderation_screen('post', $1) as r", ["sale connard " + "x".repeat(500)]);
+    await as(0);
+    const [{ n }] = await q("select max(length(excerpt))::int as n from moderation_violations where profile_id = $1", [U(5)]);
+    expect(n).toBeLessThanOrEqual(200);
+  });
+
+  it("purge : réservée aux administrateurs, durée minimale 30 jours, supprime les anciennes infractions et GARDE les sanctions", async () => {
+    await as(0);
+    await db.exec(`delete from moderation_sanctions; delete from moderation_violations`);
+    await db.exec(`insert into moderation_violations (profile_id, source, term, text_hash, status, created_at)
+      values ('${U(1)}', 'post', 'a', 'h1', 'counted', now() - interval '400 days'), ('${U(1)}', 'post', 'b', 'h2', 'counted', now() - interval '10 days')`);
+    await db.exec(`insert into moderation_sanctions (profile_id, violation_id, kind) select '${U(1)}', id, 'warning' from moderation_violations where term = 'a'`);
+
+    await as(2);
+    expect(await fails(() => db.query("select moderation_purge_old(365)"))).toContain("Non autorise");
+    await as(3);
+    expect(await fails(() => db.query("select moderation_purge_old(7)"))).toContain("Duree minimale");
+    expect((await q("select moderation_purge_old(365) as n"))[0].n).toBe(1);
+    expect((await q("select term from moderation_violations"))).toEqual([{ term: "b" }]);
+    const sanctions = await q("select kind, violation_id from moderation_sanctions");
+    expect(sanctions).toEqual([{ kind: "warning", violation_id: null }]);
+    expect((await q("select count(*)::int as n from moderation_decisions where action = 'violations_purged'"))[0].n).toBe(1);
   });
 });

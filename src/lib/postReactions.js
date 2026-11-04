@@ -15,7 +15,7 @@ export const normalizeReaction = (e) => POST_REACTIONS.find((r) => base(r) === b
 export function tallyReactions(rows, myId) {
   const counts = {}; const mine = {};
   for (const r of rows || []) {
-    const emoji = normalizeReaction(r.emoji) || HEART; // ligne sans emoji (avant SQL-28) = cœur
+    const emoji = normalizeReaction(r.emoji) || HEART; // ligne sans emoji (avant SQL-32) = cœur
     const byPost = (counts[r.post_id] ||= {});
     byPost[emoji] = (byPost[emoji] || 0) + 1;
     if (r.profile_id === myId) mine[r.post_id] = emoji;
@@ -50,6 +50,6 @@ export function applyReactionChange(counts, previous, next) {
   return out;
 }
 
-// PostgREST répond 400 / PGRST204 / 42703 quand la colonne emoji n'existe pas encore (SQL-28 non exécuté).
+// PostgREST répond 400 / PGRST204 / 42703 quand la colonne emoji n'existe pas encore (SQL-32 non exécuté).
 export const isMissingEmojiColumn = (error) =>
   Boolean(error) && (error.code === "PGRST204" || error.code === "42703" || /emoji/i.test(String(error.message || "")) && /column|schema cache/i.test(String(error.message || "")));

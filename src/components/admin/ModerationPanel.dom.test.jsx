@@ -104,7 +104,7 @@ describe("ModerationPanel", () => {
     await waitFor(() => expect(api.upsertTerm).toHaveBeenCalledWith("zorglub", "insulte", "block"));
   });
 
-  it("SQL-27 pas encore exécuté : message clair au lieu d'une erreur", async () => {
+  it("SQL-31 pas encore exécuté : message clair au lieu d'une erreur", async () => {
     api.listViolations.mockRejectedValue({ code: "42883", message: "function does not exist" });
     render(<ModerationPanel onError={onError} />);
     expect(await screen.findByText(/pas encore installée sur le serveur/)).toBeInTheDocument();

@@ -45,7 +45,7 @@ describe("réactions des publications", () => {
     expect(applyReactionChange({}, "😂", null)).toEqual({});
     expect(applyReactionChange(undefined, null, "🤝")).toEqual({ "🤝": 1 });
   });
-  it("détecte l'absence de la colonne emoji (SQL-28 pas encore exécuté)", () => {
+  it("détecte l'absence de la colonne emoji (SQL-32 pas encore exécuté)", () => {
     expect(isMissingEmojiColumn({ code: "PGRST204", message: "Could not find the 'emoji' column of 'post_likes' in the schema cache" })).toBe(true);
     expect(isMissingEmojiColumn({ code: "42703", message: "column post_likes.emoji does not exist" })).toBe(true);
     expect(isMissingEmojiColumn({ code: "23505", message: "duplicate key" })).toBe(false);

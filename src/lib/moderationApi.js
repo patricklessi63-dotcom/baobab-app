@@ -1,8 +1,8 @@
 import { supabase } from "../supabaseClient";
 
-// Enveloppes minces autour des fonctions SQL de supabase-moderation-text.sql (SQL-27). Toute la
+// Enveloppes minces autour des fonctions SQL de supabase-moderation-text.sql (SQL-31). Toute la
 // protection réelle vit dans la base (chaque fonction vérifie le rôle de l'appelant) : rien ici ne
-// donne un droit. Tant que SQL-27 n'est pas exécuté, les appels échouent avec « function ... does not
+// donne un droit. Tant que SQL-31 n'est pas exécuté, les appels échouent avec « function ... does not
 // exist » : isModerationMissing() permet à l'écran d'afficher « pas encore installé » plutôt qu'une erreur.
 
 export const isModerationMissing = (error) => {

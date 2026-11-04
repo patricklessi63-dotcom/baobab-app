@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Image as ImageIcon } from "lucide-react";
 import { supabase } from "../../supabaseClient";
 import PostCard from "./PostCard";
@@ -16,6 +16,7 @@ import { POST_MEDIA_BUCKET, extFromMime, looksLikeImage } from "../../lib/mediaC
 import { friendlyDbError } from "../../lib/friendlyDbError";
 import { screenText, isModerationRefusal, MODERATION_REFUSAL } from "../../lib/contentGate";
 import ReportMediaDialog from "../ReportMediaDialog";
+import { prunedMentions, escapeLike, isMissingColumnError } from "../../lib/mentions";
 import { HEART, tallyReactions, totalOf, planReaction, applyReactionChange, isMissingEmojiColumn } from "../../lib/postReactions";
 import { fetchHiddenMedia } from "../../lib/moderationApi";
 import { selectAllPages } from "../../lib/inChunks";
@@ -58,7 +59,7 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
   // simple numéro de page passé à .range().
   const [cursor, setCursor] = useState(null);
   const [hasMore, setHasMore] = useState(false);
-  // Réactions (SQL-28) : MA réaction par publication et les compteurs par emoji. Sans SQL-28, tout est cœur.
+  // Réactions (SQL-32) : MA réaction par publication et les compteurs par emoji. Sans SQL-32, tout est cœur.
   const [myReactions, setMyReactions] = useState({});
   const [reactionCounts, setReactionCounts] = useState({});
   const [postCommentCounts, setPostCommentCounts] = useState({});
@@ -70,6 +71,8 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
 
   const [composer, setComposer] = useState(false);
   const [draft, setDraft] = useState("");
+  // Mentions choisies dans la liste (SQL-33) ; élaguées à l'envoi si le texte ne contient plus « @Nom ».
+  const [postMentions, setPostMentions] = useState([]);
   // Items sélectionnés mais pas encore envoyés — aperçu local uniquement
   // (URL.createObjectURL), jamais uploadés tant que l'utilisateur n'a pas
   // cliqué "Publier" (item 20 du cahier des charges : l'upload démarre au
@@ -169,7 +172,7 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
     // "j'ai déjà liké" perdu (on retentait un like -> doublon 23505). Pagination
     // .order("id").range() (id unique : pages stables).
     const [likesRes, commentsRes] = await Promise.all([
-      // Colonne emoji (SQL-28) ; si elle n'existe pas encore, on relit sans elle : tout est un cœur.
+      // Colonne emoji (SQL-32) ; si elle n'existe pas encore, on relit sans elle : tout est un cœur.
       selectAllPages((from, to) => supabase.from("post_likes").select("post_id, profile_id, emoji").in("post_id", ids).order("id").range(from, to))
         .then((res) => (res.error && isMissingEmojiColumn(res.error)
           ? selectAllPages((from, to) => supabase.from("post_likes").select("post_id, profile_id").in("post_id", ids).order("id").range(from, to))
@@ -692,10 +695,19 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
       if (draft.trim()) await screenText(supabase, "post", draft);
       const body = draft.trim() || PLACEHOLDER_BODY;
       const postSelect = "*, profiles(name, avatar_url, is_founder, is_premium, email_verified, phone_verified)";
+      const keptMentions = prunedMentions(draft, postMentions);
+      // Sans SQL-33 (colonne mentions absente) : la publication part sans la liste, le texte garde son « @Nom ».
+      const insertPost = async () => {
+        const run = (row) => supabase.from("posts").insert(row).select(postSelect).single();
+        const withMentions = keptMentions.length ? { author_id: currentUser.id, body, mentions: keptMentions } : { author_id: currentUser.id, body };
+        let res = await run(withMentions);
+        if (res.error && keptMentions.length && isMissingColumnError(res.error, "mentions")) res = await run({ author_id: currentUser.id, body });
+        return res;
+      };
       const outcome = await insertWithRecovery({
         client: supabase,
         table: "posts",
-        attempt: () => supabase.from("posts").insert({ author_id: currentUser.id, body }).select(postSelect).single(),
+        attempt: insertPost,
         filters: { author_id: currentUser.id, body },
         select: postSelect,
         knownIds: new Set(postsRef.current.map((p) => p.id)),
@@ -815,7 +827,7 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
   };
 
   // Réagir (ou retirer sa réaction) : une seule réaction active par personne. Même réaction = la retirer.
-  // Optimiste, avec retour arrière si la base refuse. Sans SQL-28 (colonne emoji absente), seul le cœur
+  // Optimiste, avec retour arrière si la base refuse. Sans SQL-32 (colonne emoji absente), seul le cœur
   // fonctionne, comme avant ; les autres réactions annoncent qu'elles arrivent.
   const reactToPost = async (post, emoji) => {
     if (!currentUser || likeInFlightRef.current.has(post.id)) return;
@@ -839,7 +851,7 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
         if (error) throw error;
       } else {
         let { error } = await supabase.from("post_likes").insert({ post_id: post.id, profile_id: currentUser.id, emoji: plan.next });
-        // Colonne emoji absente (SQL-28 pas encore exécuté) : un cœur reste un simple like, comme avant.
+        // Colonne emoji absente (SQL-32 pas encore exécuté) : un cœur reste un simple like, comme avant.
         if (error && isMissingEmojiColumn(error) && plan.next === HEART) {
           ({ error } = await supabase.from("post_likes").insert({ post_id: post.id, profile_id: currentUser.id }));
         }
@@ -877,7 +889,17 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
     }
   };
 
-  const submitComment = async (postId, text) => {
+  // Recherche de personnes à mentionner (début de nom). Identité stable : sans elle, le champ de saisie
+  // relancerait la recherche à chaque rendu. Les personnes bloquées n'apparaissent pas.
+  const searchMentionCandidates = useCallback(async (query) => {
+    const q = String(query || "").trim();
+    if (!q || !currentUser?.id) return [];
+    const { data, error } = await supabase.from("profiles").select("id, name, avatar_url").ilike("name", `${escapeLike(q)}%`).neq("id", currentUser.id).limit(8);
+    if (error) return [];
+    return (data || []).filter((p) => !blockedIdsRef.current.has(p.id)).slice(0, 6);
+  }, [currentUser?.id]);
+
+  const submitComment = async (postId, text, opts = {}) => {
     if (!currentUser) return false;
     if (commentSubmittingRef.current.has(postId)) return false;
     commentSubmittingRef.current.add(postId);
@@ -888,7 +910,17 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
       const outcome = await insertWithRecovery({
         client: supabase,
         table: "post_comments",
-        attempt: () => supabase.from("post_comments").insert({ post_id: postId, author_id: currentUser.id, body: text }).select(commentSelect).single(),
+        attempt: async () => {
+          // Réponses et mentions (SQL-33). Sans lui, le commentaire part à plat, avec son « @Nom » dans le texte.
+          const base = { post_id: postId, author_id: currentUser.id, body: text };
+          const extra = {};
+          if (opts.parentId) extra.parent_id = opts.parentId;
+          if (opts.mentions?.length) extra.mentions = opts.mentions;
+          const run = (row) => supabase.from("post_comments").insert(row).select(commentSelect).single();
+          let res = await run({ ...base, ...extra });
+          if (res.error && Object.keys(extra).length && isMissingColumnError(res.error, "parent_id", "mentions")) res = await run(base);
+          return res;
+        },
         filters: { post_id: postId, author_id: currentUser.id, body: text },
         select: commentSelect,
         knownIds: new Set((commentsByPost[postId]?.items || []).map((c) => c.id)),
@@ -903,7 +935,7 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
       return true;
     } catch (e) {
       console.error(e);
-      onError(isModerationRefusal(e) ? MODERATION_REFUSAL : isNetworkFailure(e) ? `${networkFailureMessage()} Impossible d'envoyer ce commentaire.` : "Impossible d'envoyer ce commentaire.");
+      onError(isModerationRefusal(e) ? MODERATION_REFUSAL : friendlyDbError(e) || (isNetworkFailure(e) ? `${networkFailureMessage()} Impossible d'envoyer ce commentaire.` : "Impossible d'envoyer ce commentaire."));
       return false;
     } finally {
       commentSubmittingRef.current.delete(postId);
@@ -959,6 +991,9 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
     currentUser,
     draft,
     setDraft,
+    mentions: postMentions,
+    setMentions: setPostMentions,
+    onSearchMentions: searchMentionCandidates,
     mediaItems,
     uploadStates,
     publishing,
@@ -1113,6 +1148,8 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
                 onReport={openReport}
                 onReportComment={openReportComment}
                 onReportMedia={setMediaReport}
+                onSearchMentions={searchMentionCandidates}
+                onViewProfile={onViewProfile}
                 mediaHidden={hiddenPostMedia.has(post.id)}
                 onDelete={deletePost}
                 onEdit={editPost}

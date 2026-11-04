@@ -1,5 +1,5 @@
 -- ============================================================================
--- Retour arrière de supabase-moderation-text.sql (SQL-27)
+-- Retour arrière de supabase-moderation-text.sql (SQL-31)
 --
 -- A. COUPURE DOUCE (recommandée, sans perte) : arrête tous les refus et toutes les sanctions
 --    automatiques en une ligne, en gardant les tables et l'historique :
@@ -37,6 +37,7 @@ drop trigger if exists trg_moderation_profiles_bio on profiles;
 -- drop function if exists moderation_appeal(uuid, text);
 -- drop function if exists moderation_decide_appeal(uuid, boolean, text);
 -- drop function if exists moderate_media(text, uuid, text, text);
+-- drop function if exists moderation_purge_old(int);
 -- drop function if exists admin_upsert_moderation_term(text, text, text, boolean);
 -- drop function if exists admin_delete_moderation_term(bigint);
 -- drop function if exists admin_upsert_moderation_exception(text, boolean);

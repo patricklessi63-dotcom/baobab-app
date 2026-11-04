@@ -4,11 +4,12 @@ import Avatar from "../Avatar";
 import StatusBadge from "../StatusBadge";
 import ClickableImage from "../ClickableImage";
 import PostMediaGrid from "./PostMediaGrid";
+import PostComments from "./PostComments";
+import MentionText from "./MentionText";
 import ConfirmModal from "./ConfirmModal";
 import { useImageLightbox } from "../../lib/ImageLightboxContext";
-import { formatMessageTime, formatDayLabel, truncateUnicodeSafe } from "../../utils/format";
+import { formatMessageTime, formatDayLabel } from "../../utils/format";
 import { primary, coral, coralText, muted, bg, primaryRgb } from "./theme";
-import { isImeComposing } from "../../utils/keyboard";
 import { useClickOutside } from "../../hooks/useClickOutside";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
 import { useFocusReturn } from "../../hooks/useFocusReturn";
@@ -41,16 +42,16 @@ export default function PostCard({
   onEdit,
   canModerate = false,
   onViewProfile,
+  onSearchMentions,
   onBlockAuthor,
 }) {
   const [commentsOpen, setCommentsOpen] = useState(false);
-  // Sélecteur des six réactions (SQL-28) : ferme au clic extérieur et à Échap, comme les autres menus.
+  // Sélecteur des six réactions (SQL-32) : ferme au clic extérieur et à Échap, comme les autres menus.
   const [reactionsOpen, setReactionsOpen] = useState(false);
   const reactionsRef = useRef(null);
   useClickOutside(reactionsRef, reactionsOpen, () => setReactionsOpen(false));
   useEscapeKey(reactionsOpen, () => setReactionsOpen(false));
   useFocusReturn(reactionsOpen);
-  const [commentDraft, setCommentDraft] = useState("");
   const [editing, setEditing] = useState(false);
   const [editDraft, setEditDraft] = useState(post.body);
   // Suppression en attente de confirmation — remplace l'ancien
@@ -71,16 +72,6 @@ export default function PostCard({
     const next = !commentsOpen;
     setCommentsOpen(next);
     if (next && !commentsLoaded) onLoadComments(post.id);
-  };
-
-  const submitComment = async () => {
-    const text = commentDraft.trim();
-    if (!text) return;
-    setCommentDraft("");
-    const ok = await onSubmitComment(post.id, text);
-    // Échec (réseau coupé...) : le texte tapé était effacé sans retour possible ;
-    // on le remet dans le champ, sauf si une nouvelle saisie a déjà commencé.
-    if (ok === false) setCommentDraft((d) => d || text);
   };
 
   const startEdit = () => { setEditDraft(post.body); setEditing(true); };
@@ -138,7 +129,7 @@ export default function PostCard({
               </div>
             </div>
           ) : (
-            <p dir="auto" className="text-sm mt-1 whitespace-pre-wrap break-words">{post.body}</p>
+            <p dir="auto" className="text-sm mt-1 whitespace-pre-wrap break-words"><MentionText body={post.body} mentions={post.mentions} onOpenProfile={onViewProfile} /></p>
           )}
 
           {!editing && mediaHidden && mediaList.length > 0 && (
@@ -254,60 +245,15 @@ export default function PostCard({
           )}
 
           {commentsOpen && (
-            <div className="mt-3 flex flex-col gap-2.5">
-              {comments.map((c) => (
-                <div key={c.id} className="flex items-start gap-2">
-                  <Avatar name={c.profiles?.name} url={c.profiles?.avatar_url} size={26} />
-                  <div className="rounded-xl px-3 py-2 flex-1" style={{ background: bg }}>
-                    <span className="text-xs font-bold" style={{ color: primary }}>{c.profiles?.name || "Membre"}</span>
-                    <p className="text-xs mt-0.5 whitespace-pre-wrap break-words">{c.body}</p>
-                  </div>
-                  {/* Bug corrigé : post_reports.target_type autorise déjà
-                      ('post','comment') côté base (supabase-feed-posts.sql) et
-                      submitReport() de PostsFeed.jsx est générique (target_type:
-                      reportTarget.type) — mais aucun bouton n'exposait jamais
-                      "comment", rendant les commentaires de publication
-                      totalement impossibles à signaler individuellement (il
-                      fallait signaler toute la publication pour un commentaire
-                      isolé, ou ne rien pouvoir faire du tout). */}
-                  {onReportComment && c.author_id !== currentUserId && (
-                    <button
-                      onClick={() => onReportComment(c)}
-                      aria-label="Signaler ce commentaire"
-                      className="bb-hit-v px-1.5 shrink-0 mt-1 focus-visible:outline focus-visible:outline-2"
-                      style={{ color: muted }}
-                    >
-                      <Flag size={12} />
-                    </button>
-                  )}
-                  {onBlockAuthor && c.author_id && c.author_id !== currentUserId && (
-                    <button
-                      onClick={() => onBlockAuthor({ id: c.author_id, name: c.profiles?.name || "cet auteur" })}
-                      aria-label="Bloquer l'auteur de ce commentaire"
-                      className="bb-hit-v px-1.5 shrink-0 mt-1 focus-visible:outline focus-visible:outline-2"
-                      style={{ color: muted }}
-                    >
-                      <Ban size={12} />
-                    </button>
-                  )}
-                </div>
-              ))}
-              <div className="flex items-center gap-2 mt-1">
-                <input
-                  dir="auto"
-                  value={commentDraft}
-                  onChange={(e) => setCommentDraft(truncateUnicodeSafe(e.target.value, 1000))}
-                  onKeyDown={(e) => { if (e.key === "Enter" && !isImeComposing(e)) submitComment(); }}
-                  placeholder="Écrire un commentaire..."
-                  aria-label="Écrire un commentaire"
-                  className="flex-1 text-xs rounded-full px-3.5 py-2 outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--bb-accent)]"
-                  style={{ background: bg }}
-                />
-                <button onClick={submitComment} disabled={!commentDraft.trim()} className="bb-hit text-xs font-bold px-3 py-2 rounded-full disabled:opacity-40" style={{ color: coralText }}>
-                  Envoyer
-                </button>
-              </div>
-            </div>
+            <PostComments
+              comments={comments}
+              currentUserId={currentUserId}
+              onSubmit={(text, opts) => (opts ? onSubmitComment(post.id, text, opts) : onSubmitComment(post.id, text))}
+              onReportComment={onReportComment}
+              onBlockAuthor={onBlockAuthor}
+              onSearchMentions={onSearchMentions}
+              onOpenProfile={onViewProfile}
+            />
           )}
         </div>
       </div>

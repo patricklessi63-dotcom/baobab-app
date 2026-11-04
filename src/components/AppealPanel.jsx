@@ -21,7 +21,7 @@ export default function AppealPanel() {
         const active = rows.find((s) => s.kind !== "warning");
         if (!cancelled) setSanction(active || null);
       } catch (_) {
-        /* SQL-27 pas encore exécuté, ou lecture refusée : on n'affiche rien */
+        /* SQL-31 pas encore exécuté, ou lecture refusée : on n'affiche rien */
       }
     })();
     return () => { cancelled = true; };

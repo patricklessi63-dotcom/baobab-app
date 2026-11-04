@@ -1,5 +1,5 @@
 -- ============================================================================
--- SQL-27 — Modération de texte, sanctions progressives, signalements d'images (100 % gratuit)
+-- SQL-31 — Modération de texte, sanctions progressives, signalements d'images (100 % gratuit)
 --
 -- LIVRÉ, NON EXÉCUTÉ. À jouer d'abord sur le PROJET DE RÉPÉTITION (LANCEMENT.md §9.7), jamais
 -- collé depuis une page web ni depuis un éditeur qui abîme les émojis : ce fichier ne contient
@@ -328,6 +328,8 @@ create or replace function moderation_record_flag(p_profile uuid, p_source text,
 returns void language plpgsql security definer set search_path = public as $$
 declare v_hash text := md5(moderation_normalize(p_text));
 begin
+  -- VIE PRIVEE : un message prive n'entre jamais dans la file de relecture humaine (ni texte ni extrait).
+  if p_source = 'message' then return; end if;
   -- même texte déjà relevé depuis moins de 24 h : pas de doublon dans la file
   if exists (select 1 from moderation_violations where profile_id = p_profile and text_hash = v_hash and created_at > now() - interval '1 day') then return; end if;
   insert into moderation_violations (profile_id, source, category, term, severity, excerpt, text_hash, status)
@@ -368,7 +370,8 @@ begin
     return jsonb_build_object('allowed', false, 'duplicate', true);
   end if;
   insert into moderation_violations (profile_id, source, category, term, severity, excerpt, text_hash, status)
-  values (v_profile, p_source, r.category, r.term, 'block', left(v_text, 200), v_hash, 'counted')
+  values (v_profile, p_source, r.category, r.term, 'block',
+          case when p_source = 'message' then null else left(v_text, 200) end, v_hash, 'counted')
   returning id into v_id;
   return jsonb_build_object('allowed', false) || moderation_apply_ladder(v_profile, v_id);
 end;
@@ -704,6 +707,22 @@ begin
 end;
 $$;
 
+-- Durée de conservation : supprime les infractions plus anciennes que p_days jours (365 par défaut) et retourne
+-- leur nombre. L'historique des SANCTIONS est conservé (la liaison à l'infraction est simplement effacée).
+-- À lancer à la main (ou par pg_cron, voir MODERATION.md), réservé aux administrateurs.
+create or replace function moderation_purge_old(p_days int default 365)
+returns int language plpgsql security definer set search_path = public as $$
+declare v_count int;
+begin
+  if not coalesce(is_admin_or_above(), false) then raise exception 'Non autorise'; end if;
+  if p_days < 30 then raise exception 'Duree minimale : 30 jours'; end if;
+  delete from moderation_violations where created_at < now() - make_interval(days => p_days);
+  get diagnostics v_count = row_count;
+  insert into moderation_decisions (actor_id, action, reason) values (current_profile_id(), 'violations_purged', v_count::text || ' infractions de plus de ' || p_days::text || ' jours');
+  return v_count;
+end;
+$$;
+
 -- Administration de la liste et des réglages (administrateurs).
 create or replace function admin_upsert_moderation_term(p_term text, p_category text, p_severity text default 'block', p_active boolean default true)
 returns void language plpgsql security definer set search_path = public as $$
@@ -769,13 +788,13 @@ revoke all on function moderation_screen(text, text), report_media(text, uuid, t
   moderation_resolve_flag(uuid, boolean, text), moderation_revoke_sanction(uuid, text),
   moderation_appeal(uuid, text), moderation_decide_appeal(uuid, boolean, text), moderate_media(text, uuid, text, text),
   admin_upsert_moderation_term(text, text, text, boolean), admin_delete_moderation_term(bigint),
-  admin_upsert_moderation_exception(text, boolean), admin_update_moderation_settings(jsonb) from public, anon;
+  admin_upsert_moderation_exception(text, boolean), admin_update_moderation_settings(jsonb), moderation_purge_old(int) from public, anon;
 grant execute on function moderation_screen(text, text), report_media(text, uuid, text, text),
   admin_moderation_violations(text, int), admin_moderation_sanctions(boolean, int), admin_media_queue(int), admin_media_info(text, uuid),
   moderation_resolve_flag(uuid, boolean, text), moderation_revoke_sanction(uuid, text),
   moderation_appeal(uuid, text), moderation_decide_appeal(uuid, boolean, text), moderate_media(text, uuid, text, text),
   admin_upsert_moderation_term(text, text, text, boolean), admin_delete_moderation_term(bigint),
-  admin_upsert_moderation_exception(text, boolean), admin_update_moderation_settings(jsonb) to authenticated;
+  admin_upsert_moderation_exception(text, boolean), admin_update_moderation_settings(jsonb), moderation_purge_old(int) to authenticated;
 
 -- ----------------------------------------------------------------------------
 -- Liste de départ (générée depuis src/config/moderationTerms.seed.json par

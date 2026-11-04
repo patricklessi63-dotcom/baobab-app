@@ -11,7 +11,7 @@ const suspension = { id: "s1", kind: "suspension", until_at: "2026-11-05T10:00:0
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
 
 describe("AppealPanel", () => {
-  it("rien n'est affiché sans sanction automatique (suspension décidée à la main, ou SQL-27 absent)", async () => {
+  it("rien n'est affiché sans sanction automatique (suspension décidée à la main, ou SQL-31 absent)", async () => {
     api.fetchMySanctions.mockResolvedValue([]);
     const { container } = render(<AppealPanel />);
     await waitFor(() => expect(api.fetchMySanctions).toHaveBeenCalled());

@@ -5,7 +5,7 @@ import Skeleton from "../Skeleton";
 import * as modApi from "../../lib/moderationApi";
 import { primary, coralText, green, muted, bg, card, navy } from "../social/theme";
 
-// Écran des modérateurs (SQL-27, supabase-moderation-text.sql) : textes à relire, sanctions, appels,
+// Écran des modérateurs (SQL-31, supabase-moderation-text.sql) : textes à relire, sanctions, appels,
 // images signalées, et — pour les administrateurs — liste de termes et réglages. Toute la protection
 // est côté base : chaque action y vérifie le rôle de l'appelant. Ici, rien n'est décidé seul.
 
@@ -95,7 +95,7 @@ export default function ModerationPanel({ onError, isAdmin = false }) {
       </div>
 
       {missing && (
-        <EmptyState icon={ShieldAlert} title="La modération n'est pas encore installée sur le serveur." subtitle="Exécutez supabase-moderation-text.sql (SQL-27) : voir MODERATION.md." />
+        <EmptyState icon={ShieldAlert} title="La modération n'est pas encore installée sur le serveur." subtitle="Exécutez supabase-moderation-text.sql (SQL-31) : voir MODERATION.md." />
       )}
 
       {!missing && section !== "settings" && (

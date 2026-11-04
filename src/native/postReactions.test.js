@@ -4,7 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { PGlite } from "@electric-sql/pglite";
 
-// Validation de supabase-post-reactions.sql (SQL-28) sur un SCHÉMA FACTICE (PGlite = PostgreSQL en
+// Validation de supabase-post-reactions.sql (SQL-32) sur un SCHÉMA FACTICE (PGlite = PostgreSQL en
 // WebAssembly), avec la RLS réellement appliquée (rôle non super-utilisateur). Honnêteté : ce n'est pas la
 // base Supabase ; les policies d'insertion / lecture ci-dessous sont des substituts simples.
 
@@ -53,7 +53,7 @@ beforeAll(async () => {
 }, 120000);
 afterAll(async () => { await db.close(); });
 
-describe("SQL-28 : réactions multiples sur post_likes", () => {
+describe("SQL-32 : réactions multiples sur post_likes", () => {
   it("se rejoue sans erreur ; les likes existants deviennent des cœurs", async () => {
     await db.exec(SQL);
     const rows = await q("select emoji from post_likes where profile_id = $1", [U(2)]);

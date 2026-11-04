@@ -1,5 +1,6 @@
 import React, { useRef } from "react";
 import { createPortal } from "react-dom";
+import MentionInput from "./MentionInput";
 import { X, Image as ImageIcon, Camera, ChevronUp, ChevronDown, RotateCcw, Loader2, Check } from "lucide-react";
 import Avatar from "../Avatar";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
@@ -18,6 +19,9 @@ export default function PostComposerModal({
   currentUser,
   draft,
   setDraft,
+  mentions = [],
+  setMentions,
+  onSearchMentions,
   mediaItems,
   uploadStates,
   publishing,
@@ -140,11 +144,15 @@ export default function PostComposerModal({
                     <div className="flex gap-3">
                       <Avatar name={currentUser?.name || "Toi"} url={currentUser?.avatar_url} size={40} />
                       <div className="flex-1">
-                        <textarea
-                          ref={textareaRef}
+                        <MentionInput
+                          as="textarea"
+                          inputRef={textareaRef}
                           dir="auto"
                           value={draft}
-                          onChange={(e) => setDraft(truncateUnicodeSafe(e.target.value, 4000))}
+                          onChange={(v) => setDraft(truncateUnicodeSafe(v, 4000))}
+                          mentions={mentions}
+                          onMentionsChange={setMentions}
+                          search={onSearchMentions}
                           disabled={Boolean(publishedPostId)}
                           className="w-full min-h-32 rounded-2xl p-4 outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--bb-accent)] resize-none disabled:opacity-70"
                           style={{ background: bg }}

@@ -2,7 +2,7 @@ import React from "react";
 import { Bell } from "lucide-react";
 import { navy, coralText, goldText, leaf, bg, muted } from "./theme";
 import Avatar from "../Avatar";
-import { NOTIFICATION_LABELS, NOTIF_CATEGORIES, groupNotificationRows, formatNotifAge, notificationCategory } from "../../lib/notificationLabels";
+import { NOTIFICATION_LABELS, NOTIF_CATEGORIES, groupNotificationRows, formatNotifAge, notificationCategory, postNotificationRow } from "../../lib/notificationLabels";
 
 // Dropdown de la cloche du header de SocialShell.jsx (liste des notifications
 // récentes groupées par catégorie). À ne pas confondre avec
@@ -87,8 +87,7 @@ export default function NotificationsDropdown({
       case "posts":
         // Publications du fil général : pas de vue « publication unique », retour au Fil.
         return {
-          ...base, icon: n.type === "post_commented" ? "💬" : "❤️",
-          label: n.actor?.name ? `${n.actor.name} ${n.type === "post_commented" ? "a commenté ta publication" : "a aimé ta publication"}` : (NOTIFICATION_LABELS[n.type] || "Nouvelle activité"),
+          ...base, ...postNotificationRow(n),
           onClick: () => { mark(n.id); goTab("feed"); },
         };
       default:

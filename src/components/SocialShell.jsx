@@ -11,7 +11,7 @@ import { useOnlineStatus } from "../hooks/useOnlineStatus";
 import { useResumeTick } from "../hooks/useResumeTick";
 import { hasUsableSession } from "../lib/sessionGuard";
 import { primary, navy, coral, bg, muted, buttonBase, body, primaryRgb } from "./social/theme";
-import { NOTIF_CATEGORIES } from "../lib/notificationLabels";
+import { NOTIF_CATEGORIES, isPostNotification } from "../lib/notificationLabels";
 import { storyDurationFor } from "../lib/storyTiming";
 import { selectInChunks } from "../lib/inChunks";
 import { fetchFollowing, fetchFollowers } from "../lib/followLists";
@@ -1272,12 +1272,10 @@ export default function SocialShell({
   // clic envoyait vers la liste des communautés (sans community_id, ces
   // publications n'en ont pas) au lieu du Fil où vivent ces publications.
   // Isolés dans leur propre catégorie, routés vers goTab("feed") ci-dessous.
-  const unreadPostNotifications = prefEnabled("communities") ? visibleCommunityNotifications.filter((n) =>
-    n.type === "post_liked" || n.type === "post_commented"
-  ) : [];
+  const unreadPostNotifications = prefEnabled("communities") ? visibleCommunityNotifications.filter((n) => isPostNotification(n.type)) : [];
   const unreadCommunityNotifications = prefEnabled("communities") ? visibleCommunityNotifications.filter((n) =>
     n.target_type !== "event" && n.type !== "new_follower" && n.type !== "new_like" && n.type !== "new_match" && n.type !== "new_message"
-    && n.type !== "post_liked" && n.type !== "post_commented"
+    && !isPostNotification(n.type)
   ) : [];
   // Bug corrigé à l'audit : ces badges se basaient sur
   // `unreadCommunityCount > 0 ? X.length : 0`, c'est-à-dire la taille TOTALE

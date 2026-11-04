@@ -4,8 +4,8 @@ import { render, act, screen, waitFor, fireEvent, cleanup } from "@testing-libra
 
 vi.mock("../../lib/ImageLightboxContext", () => ({ useImageLightbox: () => ({ openLightbox: vi.fn() }) }));
 
-// Réactions du fil (SQL-28) : faux client dont la table post_likes enregistre les écritures et peut simuler
-// « colonne emoji absente » (SQL-28 pas encore exécuté) ou un conflit d'unicité.
+// Réactions du fil (SQL-32) : faux client dont la table post_likes enregistre les écritures et peut simuler
+// « colonne emoji absente » (SQL-32 pas encore exécuté) ou un conflit d'unicité.
 function makeFake({ likes = [], missingColumn = false, conflictOnInsert = false } = {}) {
   const db = { likes: likes.map((l) => ({ ...l })), missingColumn, conflictOnInsert, calls: [] };
   const missing = { data: null, error: { code: "PGRST204", message: "Could not find the 'emoji' column of 'post_likes' in the schema cache" } };
@@ -130,7 +130,7 @@ describe("PostsFeed — réactions multiples", () => {
     expect(await screen.findByRole("button", { name: "Retirer ma réaction 👏" })).toBeTruthy();
   });
 
-  describe("avant SQL-28 (colonne emoji absente)", () => {
+  describe("avant SQL-32 (colonne emoji absente)", () => {
     it("le fil se charge quand même (relecture sans emoji) : tout est un cœur", async () => {
       await mount({ missingColumn: true, likes: [likeRow("x1"), likeRow("u1")] });
       const mine = await screen.findByRole("button", { name: "Retirer le like" });

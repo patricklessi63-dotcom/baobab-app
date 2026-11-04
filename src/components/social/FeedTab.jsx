@@ -16,7 +16,7 @@ import { rankCommunities } from "../../lib/communities/recommendations";
 import { rankEvents } from "../../lib/events/recommendations";
 import { getProfileCompletion } from "../../lib/profileCompletion";
 import { PRIORITY_STEPS } from "../../lib/newcomerGuideData";
-import { NOTIFICATION_LABELS, NOTIF_CATEGORIES, groupNotificationRows } from "../../lib/notificationLabels";
+import { NOTIFICATION_LABELS, NOTIF_CATEGORIES, groupNotificationRows, postNotificationRow } from "../../lib/notificationLabels";
 import { primary, navy, coral, coralText, goldText, bg, muted, card, body, primaryRgb } from "./theme";
 
 // Panneau vertical (item demandé : notifications visibles directement dans
@@ -114,8 +114,7 @@ function NotificationsPanel({
       ...unreadPostNotifications.map((n) => ({
         n,
         category: "posts",
-        icon: n.type === "post_commented" ? "💬" : "❤️",
-        label: n.actor?.name ? `${n.actor.name} ${n.type === "post_commented" ? "a commenté ta publication" : "a aimé ta publication"}` : (NOTIFICATION_LABELS[n.type] || "Nouvelle activité"),
+        ...postNotificationRow(n),
         onClick: () => { markOneNotificationRead(n.id); goTab("feed"); },
       })),
     ];

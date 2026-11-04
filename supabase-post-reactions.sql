@@ -1,5 +1,5 @@
 -- ============================================================================
--- SQL-28 - Reactions multiples sur les publications du fil general (Actualites)
+-- SQL-32 - Reactions multiples sur les publications du fil general (Actualites)
 --
 -- LIVRE, NON EXECUTE. A jouer d'abord sur le projet de repetition (LANCEMENT.md 9.7).
 -- Fichier entierement ASCII : aucun emoji en clair (codes Unicode via chr()), il se colle sans risque

@@ -1,7 +1,7 @@
 # Modération de Baobab — texte, sanctions, images (100 % gratuit)
 
 Livré le 4 novembre 2026. **Rien de ce qui touche la base de production n'est exécuté** : le serveur
-attend `supabase-moderation-text.sql` (SQL-27). D'ici là, l'application fait déjà le contrôle côté
+attend `supabase-moderation-text.sql` (SQL-31). D'ici là, l'application fait déjà le contrôle côté
 navigateur avec la liste de départ du dépôt.
 
 ## 1. Ce qui existait déjà (réutilisé, rien de supprimé)
@@ -31,7 +31,7 @@ navigateur avec la liste de départ du dépôt.
   d'un commentaire (fil, communauté, événement), d'une publication de communauté, d'un statut et d'une
   biographie**. Refus : « Ce message contient des propos non autorisés. »
 - `src/config/moderationTerms.seed.json` : liste de **départ** (101 termes, 5 catégories : insulte, racisme,
-  homophobie, menace, harcèlement). Une fois SQL-27 exécuté, la liste vivante est la table
+  homophobie, menace, harcèlement). Une fois SQL-31 exécuté, la liste vivante est la table
   `moderation_terms`, que les administrateurs modifient sans toucher au code ; l'application la charge au
   premier envoi et garde la liste de départ si la table est illisible.
 
@@ -122,6 +122,35 @@ ce service et son interrupteur (`image_provider`). Rien de cela n'est actif aujo
   traitement humain prioritaire.
 - Pas de notification automatique à la personne sanctionnée (elle voit l'effet : compte suspendu).
 
+## 6 bis. Vie privée et conservation (Loi 25) — relecture croisée du 4 novembre
+
+- **Ce qui part vers le serveur** : quand l'application refuse ou signale un texte, elle appelle `moderation_screen` avec le
+  texte, pour que le SERVEUR refasse la détection (il ne fait jamais confiance au client) et enregistre l'infraction. Aucun tiers :
+  le serveur est celui de Baobab.
+- **Ce qui est conservé** (`moderation_violations`) : l'auteur, la source, la catégorie, le terme détecté, une empreinte (MD5 du
+  texte normalisé, pour ne pas compter deux fois le même texte), la date, et — **sauf pour les messages privés** — un extrait de
+  **200 caractères au plus**. Jamais le texte complet.
+- **Messages privés** : aucun extrait n'est conservé, et un message privé « ambigu » (mot à relire) n'entre **jamais** dans la file
+  de relecture humaine : seul un refus certain est comptabilisé (terme + empreinte, sans texte). Les modérateurs ne lisent donc
+  pas de conversations privées par ce canal ; elles ne leur parviennent que par un signalement de la personne concernée.
+- **Qui y accède** : les modérateurs et administrateurs (policies de lecture réservées), l'historique de leurs décisions est journalisé.
+- **Durée de conservation** : `moderation_purge_old(jours)` (administrateurs, 365 jours par défaut, minimum 30) supprime les
+  infractions anciennes ; l'historique des sanctions est conservé. À lancer à la main chaque mois, ou planifier (extension
+  pg_cron déjà utilisée par le projet) :
+  `select cron.schedule('baobab-moderation-purge', '0 4 1 * *', $$select moderation_purge_old(365)$$);`
+  (non exécuté ; durée à valider).
+- **À faire avant l'exécution en production** : mentionner ce traitement (finalité : sécurité de la communauté ; données ; durée ;
+  accès) dans la politique de confidentialité — **texte à faire valider par le propriétaire / un juriste** ; non modifié ici.
+
+## 6 ter. Cas limites assumés
+
+- Un titre d'œuvre contenant un terme de la liste (ex. « Nègres blancs d'Amérique ») est refusé ; l'ajouter en **exception** si souhaité
+  (onglet Modération → Réglages, ou `admin_upsert_moderation_exception`). Mais une exception retire l'expression du texte avant
+  la recherche : « sale nègre blanc » ne serait alors plus refusé. À peser.
+- Les usages affectueux (« salope » entre amies) sont refusés : le filtre ne comprend pas le contexte.
+- Vérifié à la relecture : pas de faux positif « Scunthorpe » (Bitche, Cumberland, Dickinson, assistant, concert) ; auto-descriptions
+  d'identité (« je suis gay », « femme noire, immigrante et lesbienne ») acceptées.
+
 ## 7. Décisions à valider
 
 1. **Bannissement automatique** : désactivé par défaut (`auto_ban_enabled = false`) : le 4e palier devient une
@@ -139,7 +168,7 @@ ce service et son interrupteur (`image_provider`). Rien de cela n'est actif aujo
   (approuver / confirmer l'infraction), sanctions (annuler), appels (accepter / refuser), images masquées ou
   suspectes (voir l'image, rétablir / masquer / retirer), et pour les administrateurs : interrupteur général,
   bannissement automatique, liste de termes (ajouter, désactiver, retirer). Recherche dans chaque liste, motif
-  facultatif conservé dans le journal des décisions (vidé après chaque décision). Tant que SQL-27 n'est pas exécuté,
+  facultatif conservé dans le journal des décisions (vidé après chaque décision). Tant que SQL-31 n'est pas exécuté,
   l'écran affiche « pas encore installée sur le serveur ».
 - **Signaler une image** : menu ⋮ d'un statut photo ou vidéo (« Signaler cette image ») et bouton « Signaler l'image »
   sous une publication du fil qui en contient (`ReportMediaDialog.jsx`). Motifs : sexuel, violence, haine,

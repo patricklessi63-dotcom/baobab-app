@@ -25,6 +25,8 @@ export const NOTIFICATION_LABELS = {
   new_message: "Nouveau message",
   post_liked: "A aimé ta publication",
   post_commented: "A commenté ta publication",
+  post_mention: "T'a mentionné(e) dans une publication",
+  comment_replied: "A répondu à ton commentaire",
   // Écrites par le webhook Stripe (stripe-webhook/index.ts) mais jamais
   // affichées correctement avant (audit complémentaire post-palette) :
   // elles tombaient dans le fourre-tout "Communautés" sans libellé dédié.
@@ -99,6 +101,23 @@ export function groupNotificationRows(rows) {
   return result.sort((a, b) => new Date(b.n.created_at) - new Date(a.n.created_at));
 }
 
+// Notifications liées aux publications du fil général (like / réaction, commentaire, mention, réponse).
+export const POST_NOTIFICATION_TYPES = ["post_liked", "post_commented", "post_mention", "comment_replied"];
+export const isPostNotification = (type) => POST_NOTIFICATION_TYPES.includes(type);
+
+// Icône et libellé d'une notification de publication (menu déroulant et fil d'accueil).
+export function postNotificationRow(n) {
+  const name = n?.actor?.name;
+  const table = {
+    post_commented: { icon: "💬", text: "a commenté ta publication" },
+    post_mention: { icon: "@", text: "t'a mentionné(e) dans une publication" },
+    comment_replied: { icon: "↩️", text: "a répondu à ton commentaire" },
+    post_liked: { icon: "❤️", text: "a réagi à ta publication" },
+  };
+  const row = table[n?.type] || table.post_liked;
+  return { icon: row.icon, label: name ? `${name} ${row.text}` : (NOTIFICATION_LABELS[n?.type] || "Nouvelle activité") };
+}
+
 // Catégorie d'affichage d'une notification d'après son type (même partition que celle de
 // SocialShell : événements d'abord par target_type, puis like/match, message, abonné,
 // publications du fil, le reste -> communautés/abonnement). Sert à classer aussi les
@@ -109,7 +128,7 @@ export function notificationCategory(n) {
   if (n.type === "new_like" || n.type === "new_match") return "dating";
   if (n.type === "new_message") return "messages";
   if (n.type === "new_follower") return "follows";
-  if (n.type === "post_liked" || n.type === "post_commented") return "posts";
+  if (isPostNotification(n.type)) return "posts";
   return "communities";
 }
 

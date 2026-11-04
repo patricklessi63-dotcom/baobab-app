@@ -53,7 +53,7 @@ describe("ReportMediaDialog", () => {
     await waitFor(() => expect(onError).toHaveBeenCalledWith("Trop de signalements en peu de temps, reessaie plus tard."));
   });
 
-  it("SQL-27 pas encore exécuté : message clair", async () => {
+  it("SQL-31 pas encore exécuté : message clair", async () => {
     api.reportMedia.mockRejectedValue({ code: "42883", message: "function does not exist" });
     const { onError } = setup();
     fireEvent.click(screen.getByLabelText("Autre"));
