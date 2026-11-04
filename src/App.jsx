@@ -30,6 +30,7 @@ import { disablePushNotifications } from "./lib/pushNotifications";
 import { isLikelyInCanada, TRAVEL_GRACE_PERIOD_MS } from "./lib/canadaGate";
 import { friendlyDbError, dbErrorCode } from "./lib/friendlyDbError";
 import { screenText, isModerationRefusal, MODERATION_REFUSAL } from "./lib/contentGate";
+import { loadMessageDeleteWindow } from "./lib/messageDeletion";
 import { isNetworkFailure, networkFailureMessage } from "./lib/networkError";
 import { insertMessageWithRecovery, maxRealMessageId, dropGhostTemps, mergeRefreshedMessages, planRefresh, refreshHasMore } from "./lib/messageGhost";
 import { usePathname } from "./hooks/usePathname";
@@ -52,6 +53,7 @@ import { isNative } from "./lib/platform";
 import { onAppStateChange } from "./lib/nativeApp";
 import { createFieldWriteQueue } from "./lib/fieldWriteQueue";
 import { chunk } from "./lib/chunk";
+import { loadDraft, saveDraft, clearDraft, clearAllDrafts } from "./lib/messageDrafts";
 import { fetchExportData } from "./lib/exportData";
 import { fetchSocialGraph as fetchSocialGraphWith, fetchInitialData, createOwnProfilePrefetch } from "./lib/initialLoad";
 
@@ -936,6 +938,14 @@ export default function App() {
     });
   }, [session, loadAll]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Délai de « Supprimer pour tout le monde » (app_config.message_delete_window_minutes, SQL-27) :
+  // lu une fois par session pour n'afficher l'option que pendant le délai. Ne lève jamais ; le défaut
+  // de 15 minutes s'applique tant que la colonne n'existe pas. Le serveur reste l'autorité.
+  useEffect(() => {
+    if (!currentUser?.id) return;
+    loadMessageDeleteWindow(supabase);
+  }, [currentUser?.id]);
+
   // La demande de localisation ne se fait plus qu'une fois, pendant
   // l'inscription (voir Auth.jsx) — plus de popup à chaque lancement (item 2
   // des specs navigation/auth, révisé). Ici on charge la ligne existante et,
@@ -1339,6 +1349,7 @@ export default function App() {
   }
 
   async function handleSignOut() {
+    clearAllDrafts(); // appareil partagé : les brouillons du compte ne restent pas après une déconnexion volontaire
     // Bug corrigé : sur un appareil partagé (ordinateur familial/public), le
     // navigateur reste abonné aux notifications push de CE compte après la
     // déconnexion — rien ne désabonnait jamais push_subscriptions au moment
@@ -2453,6 +2464,9 @@ export default function App() {
     setActiveMatch(match);
     setView("matches");
     setReplyingTo(null);
+    // Brouillon propre à cette conversation (localStorage, voir lib/messageDrafts.js) : restauré à
+    // la réouverture, et ne fuit plus d'une conversation à l'autre.
+    setMessageDraft(currentUser ? loadDraft(currentUser.id, match.id) : "");
     await refreshMessages(match);
   }
 
@@ -2464,6 +2478,7 @@ export default function App() {
     chatLoadTokenRef.current++;
     setActiveMatch(null);
     setReplyingTo(null);
+    setMessageDraft("");
   }
 
   async function markConversationRead(match) {
@@ -2712,6 +2727,14 @@ export default function App() {
     );
   }
 
+  // Saisie utilisateur (frappe, emoji, suggestion IA) : met à jour la zone de saisie ET enregistre le
+  // brouillon de la conversation ouverte. Passe par activeMatchRef pour viser la bonne conversation.
+  function changeMessageDraft(value) {
+    const next = typeof value === "function" ? value(messageDraft) : value; // le sélecteur d'emoji passe une fonction
+    setMessageDraft(next);
+    if (currentUser && activeMatchRef.current) saveDraft(currentUser.id, activeMatchRef.current.id, next);
+  }
+
   function sendMessage() {
     if (!messageDraft.trim() || !currentUser || !activeMatch) return;
     const text = messageDraft.trim();
@@ -2731,6 +2754,7 @@ export default function App() {
       _status: "sending",
     }]);
     setMessageDraft("");
+    clearDraft(currentUser.id, activeMatch.id);
     setReplyingTo(null);
     sendMessageText(text, tempId, replyToId);
   }
@@ -3511,10 +3535,20 @@ export default function App() {
         .update({ deleted_at: new Date().toISOString(), deleted_by: currentUser.id })
         .eq("id", message.id);
       if (delError) throw delError;
+      // Le serveur a remplacé le contenu (SQL-27) : le fichier d'une pièce jointe, lui, reste dans le
+      // bucket privé (SQL ne peut pas supprimer un objet Storage). L'expéditeur y a droit : on le retire
+      // au mieux, sans jamais faire échouer la suppression si ça rate.
+      if (message.media_path && ["image", "video", "audio", "file"].includes(message.kind)) {
+        try {
+          Promise.resolve(supabase.storage.from("chat-media").remove([message.media_path])).catch(() => {});
+        } catch { /* meilleur effort */ }
+      }
     } catch (e) {
       console.error(e);
       setMessages((m) => m.map((x) => (x.id === message.id ? { ...x, deleted_at: prevDeletedAt, deleted_by: prevDeletedBy } : x)));
-      setError("Impossible de supprimer ce message.");
+      // Délai de suppression dépassé (vérifié par le serveur avec sa propre horloge) : message exact.
+      const friendly = friendlyDbError(e);
+      setError(friendly && /délai/i.test(friendly) ? friendly : "Impossible de supprimer ce message.");
     }
   }
 
@@ -3700,7 +3734,7 @@ export default function App() {
           loadingOlder={loadingOlder}
           onLoadOlder={loadOlderMessages}
           messageDraft={messageDraft}
-          setMessageDraft={setMessageDraft}
+          setMessageDraft={changeMessageDraft}
           broadcastTyping={broadcastTyping}
           sendMessage={sendMessage}
           sendMessageTo={sendMessageTo}

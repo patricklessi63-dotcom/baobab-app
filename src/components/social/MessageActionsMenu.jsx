@@ -4,7 +4,9 @@ import { primary, coralText, muted, card, primaryRgb } from "./theme";
 
 const QUICK_REACTIONS = ["❤️", "😂", "👍", "😮", "😢", "🎉"];
 
-export default function MessageActionsMenu({ message, isMine, align, onReact, onReply, onCopy, onForward, onSelect, onReport, onDeleteForMe, onDeleteForEveryone, onClose }) {
+// canDeleteForEveryone : calculé par l'appelant (auteur ET délai de suppression non expiré, voir
+// lib/messageDeletion.js) ; par défaut `isMine` pour les appelants qui ne le fournissent pas.
+export default function MessageActionsMenu({ message, isMine, canDeleteForEveryone = isMine, align, onReact, onReply, onCopy, onForward, onSelect, onReport, onDeleteForMe, onDeleteForEveryone, onClose }) {
   return (
     <div
       role="menu"
@@ -56,7 +58,7 @@ export default function MessageActionsMenu({ message, isMine, align, onReact, on
       <button role="menuitem" onClick={() => { onDeleteForMe(); onClose(); }} className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-left" style={{ color: muted, borderTop: `1px solid rgba(${primaryRgb},.08)` }}>
         <Trash2 size={14} /> Supprimer pour moi
       </button>
-      {isMine && (
+      {canDeleteForEveryone && (
         <button role="menuitem" onClick={() => { onDeleteForEveryone(); onClose(); }} className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-left" style={{ color: coralText, borderTop: `1px solid rgba(${primaryRgb},.08)` }}>
           <Trash2 size={14} /> Supprimer pour tout le monde
         </button>
