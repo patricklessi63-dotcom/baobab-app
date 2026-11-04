@@ -1,0 +1,376 @@
+// @vitest-environment node
+import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import fs from "node:fs";
+import path from "node:path";
+import { PGlite } from "@electric-sql/pglite";
+import { normalizeForModeration, checkText } from "../lib/contentModeration.js";
+
+// Validation de supabase-moderation-text.sql (SQL-27) sur un SCHÉMA FACTICE : PGlite = PostgreSQL en
+// WebAssembly. Honnêteté : ce n'est pas la base Supabase (pas de RLS réelle ici : un seul rôle) ; ce test
+// prouve la syntaxe, l'équivalence SQL/JS de la normalisation, les déclencheurs, l'échelle de sanctions,
+// les annulations et les signalements d'images. La RLS et les droits d'exécution se vérifient sur la répétition.
+
+const SQL = fs.readFileSync(path.join(process.cwd(), "supabase-moderation-text.sql"), "utf8");
+
+const U = (n) => `00000000-0000-0000-0000-${String(n).padStart(12, "0")}`;
+let db;
+const as = (n) => db.exec(`select set_config('test.uid', '${n ? U(100 + n) : ""}', false)`);
+const q = async (sql, params) => (await db.query(sql, params)).rows;
+const fails = async (fn) => { try { await fn(); } catch (e) { return String(e.message); } return null; };
+
+beforeAll(async () => {
+  db = new PGlite();
+  await db.exec(`
+    create role anon nologin; create role authenticated nologin;
+    create schema auth;
+    create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('test.uid', true), '')::uuid $$;
+    create table profiles (
+      id uuid primary key, user_id uuid, name text, bio text, created_at timestamptz default now(),
+      suspended_until timestamptz, suspend_reason text, banned_at timestamptz, ban_reason text
+    );
+    create table platform_roles (profile_id uuid primary key, role text);
+    create function current_profile_id() returns uuid language sql stable as $$ select id from profiles where user_id = auth.uid() $$;
+    create function platform_role(p uuid) returns text language sql stable as $$ select role from platform_roles where profile_id = p $$;
+    create function is_moderator_or_above() returns boolean language sql stable as $$ select platform_role(current_profile_id()) in ('moderator','admin','super_admin') $$;
+    create function is_admin_or_above() returns boolean language sql stable as $$ select platform_role(current_profile_id()) in ('admin','super_admin') $$;
+    create table messages (id serial primary key, from_id uuid, kind text default 'text', text text);
+    create table posts (id serial primary key, author_id uuid, body text);
+    create table post_comments (id serial primary key, body text);
+    create table community_posts (id serial primary key, body text);
+    create table community_comments (id serial primary key, body text);
+    create table event_comments (id serial primary key, body text);
+    create table stories (id serial primary key, profile_id uuid, text text);
+  `);
+  // 1 = utilisateur, 2 = modérateur, 3 = administrateur, 4..6 = comptes pour signaler, 7 = très récent
+  for (let n = 1; n <= 6; n++) {
+    await db.query("insert into profiles (id, user_id, name, created_at) values ($1, $2, $3, now() - interval '30 days')", [U(n), U(100 + n), `P${n}`]);
+  }
+  await db.query("insert into profiles (id, user_id, name) values ($1, $2, 'Nouveau')", [U(7), U(107)]);
+  await db.exec(`insert into platform_roles values ('${U(2)}', 'moderator'), ('${U(3)}', 'admin')`);
+  await db.exec(SQL);
+}, 120000);
+afterAll(async () => { await db.close(); });
+
+describe("le fichier SQL s'exécute en entier et se rejoue (idempotent)", () => {
+  it("réexécution sans erreur, liste de départ sans doublon", async () => {
+    const before = (await q("select count(*)::int as n from moderation_terms"))[0].n;
+    expect(before).toBeGreaterThan(90);
+    await db.exec(SQL);
+    expect((await q("select count(*)::int as n from moderation_terms"))[0].n).toBe(before);
+  });
+  it("les 8 déclencheurs de contrôle de texte sont posés (+ 2 de normalisation de la liste)", async () => {
+    const t = await q("select count(*)::int as n from pg_trigger where tgname like 'trg_moderation_%' and tgname not like '%_norm' and not tgisinternal");
+    expect(t[0].n).toBe(8);
+  });
+});
+
+describe("moderation_normalize() (SQL) = normalizeForModeration() (JS)", () => {
+  const corpus = [
+    "connard", "Conn@rd !", "c0nnard", "c.o.n.n.a.r.d", "c o n n a r d", "f.d.p", "m3rde", "m€rde", "sale pu+e",
+    "connnnnard", "Éléphant, ÇA va ?!", "j'y ai pensé", "ｃｏｎｎａｒｄ", "cönnard", "  ", "", "a b c d", "7ais-toi",
+    "соnnard", "Bonjour, bienvenue au Canada !", "Un concert à Montréal", "i will kill you", "f u c k   y o u",
+    "ferme ta gueule", "100 % sûr", "ÀÉÎÔÛ çñ", "tu es nul 123 456",
+  ];
+  it.each(corpus)("« %s »", async (text) => {
+    const [{ n }] = await q("select moderation_normalize($1) as n", [text]);
+    expect(n).toBe(normalizeForModeration(text));
+  });
+});
+
+describe("moderation_check() (SQL) = checkText() (JS)", () => {
+  const phrases = [
+    "connard", "bande de connards", "conn@rd", "c.o.n.n.a.r.d", "f.d.p", "m3rde", "quel con", "il n'est pas con du tout",
+    "Un concert à Montréal", "Un contact au Canada", "je vais te tuer", "i will kill you", "fuck you", "sale pd", "Bonjour !",
+    "Je suis en retard", "idiot", "ferme la porte", "kill yourself", "retourne dans ton pays", "соnnard",
+  ];
+  it.each(phrases)("« %s »", async (text) => {
+    const [r] = await q("select * from moderation_check($1)", [text]);
+    const js = checkText(text);
+    expect({ blocked: r.blocked, flagged: r.flagged, category: r.category, severity: r.severity })
+      .toEqual({ blocked: js.blocked, flagged: js.flagged, category: js.category, severity: js.severity });
+  });
+});
+
+describe("déclencheurs « filet » côté serveur", () => {
+  it("un message insultant est refusé avec le marqueur lu par l'application", async () => {
+    await as(1);
+    const err = await fails(() => db.query("insert into messages (from_id, text) values ($1, $2)", [U(1), "espèce de connard"]));
+    expect(err).toContain("MODERATION_REFUSED");
+    expect(err).toContain("propos non autoris");
+  });
+  it("contournements refusés aussi (leet, points)", async () => {
+    await as(1);
+    for (const t of ["conn@rd", "c.o.n.n.a.r.d", "f.d.p"]) {
+      expect(await fails(() => db.query("insert into posts (author_id, body) values ($1, $2)", [U(1), t])), t).toContain("MODERATION_REFUSED");
+    }
+  });
+  it("un texte propre passe ; faux positifs courants passent", async () => {
+    await as(1);
+    for (const t of ["Bonjour !", "Un concert à Montréal", "Je cherche un contact au Canada"]) {
+      expect(await fails(() => db.query("insert into messages (from_id, text) values ($1, $2)", [U(1), t])), t).toBeNull();
+    }
+  });
+  it("les messages non texte (photo, sticker) ne sont pas contrôlés", async () => {
+    await as(1);
+    expect(await fails(() => db.query("insert into messages (from_id, kind, text) values ($1, 'photo', 'connard')", [U(1)]))).toBeNull();
+  });
+  it("chacune des 8 zones de texte refuse une insulte", async () => {
+    await as(1);
+    const stmts = [
+      "insert into posts (body) values ('sale salope')",
+      "insert into post_comments (body) values ('sale salope')",
+      "insert into community_posts (body) values ('sale salope')",
+      "insert into community_comments (body) values ('sale salope')",
+      "insert into event_comments (body) values ('sale salope')",
+      "insert into stories (text) values ('sale salope')",
+      `update profiles set bio = 'sale salope' where id = '${U(1)}'`,
+    ];
+    for (const s of stmts) expect(await fails(() => db.exec(s)), s).toContain("MODERATION_REFUSED");
+  });
+  it("une biographie inchangée n'est pas recontrôlée (le reste du profil reste modifiable)", async () => {
+    await as(0);
+    await db.exec(`update profiles set bio = 'sale salope' where id = '${U(5)}'`); // posée hors contrôle (clé de service)
+    await as(5);
+    expect(await fails(() => db.exec(`update profiles set name = 'Cinq' where id = '${U(5)}'`))).toBeNull();
+  });
+  it("mot ambigu : accepté et placé en file de relecture, une seule fois par texte", async () => {
+    await as(1);
+    await db.query("insert into messages (from_id, text) values ($1, 'quel con')", [U(1)]);
+    await db.query("insert into messages (from_id, text) values ($1, 'quel con')", [U(1)]);
+    const rows = await q("select status, source, term from moderation_violations where profile_id = $1 and status = 'flagged'", [U(1)]);
+    expect(rows).toEqual([{ status: "flagged", source: "message", term: "con" }]);
+  });
+  it("insertion système (sans utilisateur connecté) : jamais bloquée", async () => {
+    await as(0);
+    expect(await fails(() => db.query("insert into messages (from_id, text) values ($1, 'connard')", [U(1)]))).toBeNull();
+  });
+  it("interrupteur général : désactivé, plus aucun refus", async () => {
+    await db.exec("update moderation_settings set text_filter_enabled = false where id = 1");
+    await as(1);
+    expect(await fails(() => db.query("insert into messages (from_id, text) values ($1, 'connard')", [U(1)]))).toBeNull();
+    await db.exec("update moderation_settings set text_filter_enabled = true where id = 1");
+  });
+  it("échec OUVERT : une panne du filtre ne bloque pas la messagerie", async () => {
+    await as(1);
+    await db.exec("alter table moderation_terms rename to moderation_terms_off");
+    try {
+      expect(await fails(() => db.query("insert into messages (from_id, text) values ($1, 'connard')", [U(1)]))).toBeNull();
+    } finally {
+      await db.exec("alter table moderation_terms_off rename to moderation_terms");
+    }
+    expect(await fails(() => db.query("insert into messages (from_id, text) values ($1, 'connard')", [U(1)]))).toContain("MODERATION_REFUSED");
+  });
+});
+
+describe("sanctions progressives", () => {
+  const insults = ["sale salope", "espèce de connard", "tu es un salaud", "gros enfoiré", "ferme ta gueule"];
+  it("avertissement, suspension 24 h, suspension 7 jours, puis (bannissement automatique désactivé) 30 jours à confirmer", async () => {
+    await as(1);
+    await db.exec(`update profiles set suspended_until = null, banned_at = null where id = '${U(1)}'`);
+    await db.exec(`delete from moderation_sanctions where profile_id = '${U(1)}'; delete from moderation_violations where profile_id = '${U(1)}'`);
+    const out = [];
+    for (const t of insults.slice(0, 4)) out.push((await q("select moderation_screen('message', $1) as r", [t]))[0].r);
+    expect(out.map((r) => r.allowed)).toEqual([false, false, false, false]);
+    expect(out.map((r) => r.sanction)).toEqual(["warning", "suspension", "suspension", "suspension"]);
+    const hours = out.slice(1).map((r) => Math.round((new Date(r.until) - Date.now()) / 3600000));
+    expect(hours[0]).toBe(24);
+    expect(hours[1]).toBe(168);
+    expect(hours[2]).toBe(720);
+    const [p] = await q("select banned_at from profiles where id = $1", [U(1)]);
+    expect(p.banned_at).toBeNull();
+  });
+  it("bannissement réel quand l'administrateur active auto_ban_enabled", async () => {
+    await as(1);
+    await db.exec("update moderation_settings set auto_ban_enabled = true where id = 1");
+    const r = (await q("select moderation_screen('message', $1) as r", [insults[4]]))[0].r;
+    expect(r.sanction).toBe("ban");
+    expect((await q("select banned_at from profiles where id = $1", [U(1)]))[0].banned_at).not.toBeNull();
+    await db.exec("update moderation_settings set auto_ban_enabled = false where id = 1");
+  });
+  it("le même texte renvoyé tout de suite n'est PAS une nouvelle infraction", async () => {
+    await as(5);
+    const a = (await q("select moderation_screen('post', 'sale salope') as r"))[0].r;
+    const b = (await q("select moderation_screen('post', 'sale salope') as r"))[0].r;
+    expect(a.sanction).toBe("warning");
+    expect(b).toMatchObject({ allowed: false, duplicate: true });
+    expect((await q("select count(*)::int as n from moderation_sanctions where profile_id = $1", [U(5)]))[0].n).toBe(1);
+  });
+  it("une infraction produit au plus une sanction (index unique)", async () => {
+    const err = await fails(() => db.exec(`
+      insert into moderation_sanctions (profile_id, violation_id, kind) select profile_id, id, 'warning' from moderation_violations where profile_id = '${U(5)}' and status = 'counted' limit 1`));
+    expect(err).toBeTruthy();
+  });
+  it("l'équipe de la plateforme n'est jamais sanctionnée automatiquement", async () => {
+    await as(2);
+    const r = (await q("select moderation_screen('message', 'sale salope') as r"))[0].r;
+    expect(r.allowed).toBe(false);
+    expect(r.sanction).toBeNull();
+    expect((await q("select suspended_until, banned_at from profiles where id = $1", [U(2)]))[0]).toEqual({ suspended_until: null, banned_at: null });
+  });
+  it("un texte propre ou ambigu n'est jamais sanctionné", async () => {
+    await as(6);
+    expect((await q("select moderation_screen('comment', 'Bonjour !') as r"))[0].r).toEqual({ allowed: true });
+    expect((await q("select moderation_screen('comment', 'quel con') as r"))[0].r).toMatchObject({ allowed: true, flagged: true });
+    expect((await q("select count(*)::int as n from moderation_sanctions where profile_id = $1", [U(6)]))[0].n).toBe(0);
+  });
+  it("source invalide et utilisateur anonyme refusés", async () => {
+    await as(6);
+    expect(await fails(() => db.query("select moderation_screen('inconnue', 'x')"))).toContain("Source invalide");
+    await as(0);
+    expect(await fails(() => db.query("select moderation_screen('post', 'x')"))).toContain("Non autorise");
+  });
+});
+
+describe("annulation, appel et décisions humaines", () => {
+  it("un modérateur annule une suspension : le compte est rétabli, l'infraction est annulée, la décision est journalisée", async () => {
+    await as(0);
+    await db.exec(`update profiles set suspended_until = null, suspend_reason = null, banned_at = null where id = '${U(5)}'`);
+    await db.exec(`delete from moderation_sanctions where profile_id = '${U(5)}'; delete from moderation_violations where profile_id = '${U(5)}'`);
+    await as(5);
+    await q("select moderation_screen('message', 'sale salope') as r");
+    await q("select moderation_screen('message', 'espèce de connard') as r");
+    const [s] = await q("select id from moderation_sanctions where profile_id = $1 and kind = 'suspension'", [U(5)]);
+    expect((await q("select suspended_until from profiles where id = $1", [U(5)]))[0].suspended_until).not.toBeNull();
+
+    await as(1); // simple utilisateur
+    expect(await fails(() => db.query("select moderation_revoke_sanction($1, 'test')", [s.id]))).toContain("Non autorise");
+
+    await as(2); // modérateur
+    await db.query("select moderation_revoke_sanction($1, 'erreur de la liste')", [s.id]);
+    expect((await q("select suspended_until from profiles where id = $1", [U(5)]))[0].suspended_until).toBeNull();
+    expect((await q("select revoked_at is not null as r from moderation_sanctions where id = $1", [s.id]))[0].r).toBe(true);
+    expect((await q("select count(*)::int as n from moderation_decisions where action = 'sanction_revoked'"))[0].n).toBe(1);
+  });
+  it("la personne sanctionnée peut contester UNE fois ; le modérateur accepte ou refuse", async () => {
+    await as(0);
+    await db.exec(`delete from moderation_sanctions where profile_id = '${U(6)}'; delete from moderation_violations where profile_id = '${U(6)}'`);
+    await as(6);
+    await q("select moderation_screen('message', 'sale salope') as r");
+    await q("select moderation_screen('message', 'espèce de connard') as r");
+    const [s] = await q("select id from moderation_sanctions where profile_id = $1 and kind = 'suspension'", [U(6)]);
+
+    await as(1); // pas la sienne
+    expect(await fails(() => db.query("select moderation_appeal($1, 'ce texte était une citation')", [s.id]))).toContain("Non autorise");
+    await as(6);
+    expect(await fails(() => db.query("select moderation_appeal($1, 'court')", [s.id]))).toContain("APPEAL_TOO_SHORT");
+    await db.query("select moderation_appeal($1, 'ce texte était une citation')", [s.id]);
+    expect(await fails(() => db.query("select moderation_appeal($1, 'ce texte était une citation')", [s.id]))).toContain("APPEAL_UNAVAILABLE");
+
+    await as(2);
+    const pending = await q("select count(*)::int as n from admin_moderation_sanctions(true)");
+    expect(pending[0].n).toBe(1);
+    await db.query("select moderation_decide_appeal($1, true, 'citation')", [s.id]);
+    const [after] = await q("select appeal_status, revoked_at is not null as revoked from moderation_sanctions where id = $1", [s.id]);
+    expect(after).toEqual({ appeal_status: "accepted", revoked: true });
+    expect((await q("select suspended_until from profiles where id = $1", [U(6)]))[0].suspended_until).toBeNull();
+  });
+  it("texte « à relire » : approuvé (aucune sanction) ou confirmé (compte dans l'échelle)", async () => {
+    await as(0);
+    await db.exec("delete from moderation_sanctions; delete from moderation_violations");
+    await as(1);
+    await db.query("insert into messages (from_id, text) values ($1, 'quel con')", [U(1)]);
+    await db.query("insert into messages (from_id, text) values ($1, 'quel idiot')", [U(1)]);
+    await as(2);
+    const flagged = await q("select id, term from admin_moderation_violations('flagged') order by term");
+    expect(flagged.map((f) => f.term)).toEqual(["con", "idiot"]);
+    await as(1); // simple utilisateur : refusé
+    expect(await fails(() => db.query("select moderation_resolve_flag($1, true)", [flagged[0].id]))).toContain("Non autorise");
+    expect(await fails(() => db.query("select * from admin_moderation_violations()"))).toContain("Non autorise");
+    await as(2);
+    await db.query("select moderation_resolve_flag($1, false, 'compliment')", [flagged[0].id]);
+    const confirmed = (await q("select moderation_resolve_flag($1, true, 'insulte') as r", [flagged[1].id]))[0].r;
+    expect(confirmed.sanction).toBe("warning");
+    expect((await q("select count(*)::int as n from moderation_violations where status = 'overturned'"))[0].n).toBe(1);
+  });
+});
+
+describe("liste, exceptions et réglages (administrateurs seulement)", () => {
+  it("un administrateur ajoute un terme et une exception ; le filtre les applique tout de suite", async () => {
+    await as(2); // modérateur : refusé
+    expect(await fails(() => db.query("select admin_upsert_moderation_term('zorglub', 'insulte', 'block')"))).toContain("Non autorise");
+    await as(3);
+    await db.query("select admin_upsert_moderation_term('Zorglub', 'insulte', 'block')");
+    expect((await q("select blocked from moderation_check('sale zorglub')"))[0].blocked).toBe(true);
+    await db.query("select admin_upsert_moderation_exception('pas zorglub')");
+    expect((await q("select blocked from moderation_check('pas zorglub')"))[0].blocked).toBe(false);
+    await db.query("select admin_upsert_moderation_term('zorglub', 'insulte', 'block', false)"); // désactivé
+    expect((await q("select blocked from moderation_check('sale zorglub')"))[0].blocked).toBe(false);
+  });
+  it("les accents du terme saisi sont normalisés (« Café » devient « cafe »)", async () => {
+    await as(3);
+    await db.query("select admin_upsert_moderation_term('Mauvaisé', 'insulte', 'review')");
+    expect((await q("select term_norm from moderation_terms where term = 'Mauvaisé'"))[0].term_norm).toBe("mauvaise");
+  });
+  it("réglages : administrateur seulement, valeurs conservées si absentes", async () => {
+    await as(2);
+    expect(await fails(() => db.query("select admin_update_moderation_settings('{\"window_days\": 10}'::jsonb)"))).toContain("Non autorise");
+    await as(3);
+    await db.query("select admin_update_moderation_settings('{\"window_days\": 10}'::jsonb)");
+    const [s] = await q("select window_days, text_filter_enabled, media_report_threshold from moderation_settings");
+    expect(s).toEqual({ window_days: 10, text_filter_enabled: true, media_report_threshold: 3 });
+    await db.query("select admin_update_moderation_settings('{\"window_days\": 30}'::jsonb)");
+  });
+});
+
+describe("signalements d'images", () => {
+  const img = "11111111-1111-1111-1111-111111111111";
+  it("un seul signalement par personne : le doublon ne gonfle pas le compteur", async () => {
+    await as(1);
+    await db.query("select report_media('post_media', $1, 'sexuel')", [img]);
+    const dup = (await q("select report_media('post_media', $1, 'sexuel') as r", [img]))[0].r;
+    expect(dup).toEqual({ duplicate: true });
+    expect((await q("select report_count from media_moderation where target_id = $1", [img]))[0].report_count).toBe(1);
+  });
+  it("trois signalements indépendants masquent l'image ; les modérateurs la voient et peuvent la rétablir", async () => {
+    await as(4);
+    await db.query("select report_media('post_media', $1, 'sexuel')", [img]);
+    expect((await q("select status from media_moderation where target_id = $1", [img]))[0].status).toBe("visible");
+    await as(5);
+    const r = (await q("select report_media('post_media', $1, 'violence') as r", [img]))[0].r;
+    expect(r).toMatchObject({ reports: 3, hidden: true });
+    expect((await q("select status from media_moderation where target_id = $1", [img]))[0].status).toBe("hidden");
+
+    await as(1);
+    expect(await fails(() => db.query("select * from admin_media_queue()"))).toContain("Non autorise");
+    await as(2);
+    const queue = await q("select status, report_count, reasons from admin_media_queue()");
+    expect(queue[0]).toMatchObject({ status: "hidden", report_count: 3 });
+    await db.query("select moderate_media('post_media', $1, 'restore', 'image anodine')", [img]);
+    expect((await q("select status, locked from media_moderation where target_id = $1", [img]))[0]).toEqual({ status: "visible", locked: true });
+  });
+  it("une image rétablie par un humain n'est plus masquée automatiquement", async () => {
+    await as(6);
+    await db.query("select report_media('post_media', $1, 'haine')", [img]);
+    expect((await q("select status from media_moderation where target_id = $1", [img]))[0].status).toBe("visible");
+  });
+  it("« retirer » ne supprime aucune ligne : seul le statut change", async () => {
+    await as(2);
+    await db.query("select moderate_media('post_media', $1, 'remove', 'contenu explicite')", [img]);
+    expect((await q("select status from media_moderation where target_id = $1", [img]))[0].status).toBe("removed");
+    expect((await q("select count(*)::int as n from media_reports where target_id = $1", [img]))[0].n).toBe(4);
+  });
+  it("signalements surtout par des comptes tout neufs : l'image reste visible et attend un humain", async () => {
+    const img2 = "22222222-2222-2222-2222-222222222222";
+    await db.exec(`insert into profiles (id, user_id, name) values ('${U(8)}', '${U(108)}', 'N8'), ('${U(9)}', '${U(109)}', 'N9')`);
+    for (const n of [7, 8, 9]) { await as(n); await db.query("select report_media('story', $1, 'harcelement')", [img2]); }
+    const [m] = await q("select status, suspicious from media_moderation where target_id = $1", [img2]);
+    expect(m).toEqual({ status: "visible", suspicious: true });
+    await as(2);
+    expect((await q("select count(*)::int as n from admin_media_queue() where suspicious"))[0].n).toBe(1);
+  });
+  it("limite horaire de signalements par personne", async () => {
+    await as(0);
+    await db.exec("update moderation_settings set media_reports_per_hour = 2 where id = 1");
+    await as(3);
+    await db.query("select report_media('avatar', '33333333-3333-3333-3333-333333333331', 'autre')");
+    await db.query("select report_media('avatar', '33333333-3333-3333-3333-333333333332', 'autre')");
+    expect(await fails(() => db.query("select report_media('avatar', '33333333-3333-3333-3333-333333333333', 'autre')"))).toContain("REPORT_RATE_LIMIT");
+    await as(0);
+    await db.exec("update moderation_settings set media_reports_per_hour = 10 where id = 1");
+  });
+  it("types et motifs invalides refusés par la base", async () => {
+    await as(4);
+    expect(await fails(() => db.query("select report_media('nimportequoi', $1, 'sexuel')", ['44444444-4444-4444-4444-444444444444']))).toBeTruthy();
+    expect(await fails(() => db.query("select report_media('story', $1, 'motif-inventé')", ['44444444-4444-4444-4444-444444444444']))).toBeTruthy();
+  });
+});

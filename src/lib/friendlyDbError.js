@@ -5,6 +5,9 @@
 // ("Réessaie"), qui masque la vraie raison (ex. limite de débit atteinte) et
 // fait relancer en boucle une action qui échouera à l'identique.
 export function friendlyDbError(e) {
+  // Texte refusé par la modération : refus local (contentGate.screenText) ou du serveur
+  // (déclencheur SQL, message « MODERATION_REFUSED: … » ci-dessous, code P0001).
+  if (e?.moderation === true) return e.message;
   if (e?.code === "P0001") {
     return (e.message || "").replace(/^[A-Z_]+:\s*/, "") || null;
   }

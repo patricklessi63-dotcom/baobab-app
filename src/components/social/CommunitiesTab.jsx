@@ -21,6 +21,7 @@ import { COMMUNITY_REPORT_CATEGORIES } from "../../lib/communities/communityConf
 import { trackActivation } from "../../lib/trackActivation";
 import { selectInChunks, selectAllPages } from "../../lib/inChunks";
 import { friendlyDbError } from "../../lib/friendlyDbError";
+import { screenText, isModerationRefusal, MODERATION_REFUSAL } from "../../lib/contentGate";
 import { validateMediaFile } from "../../lib/mediaValidation";
 import { compressImageIfNeeded } from "../../lib/imageCompression";
 import { extFromMime } from "../../lib/mediaConstants";
@@ -1035,6 +1036,7 @@ export default function CommunitiesTab({ aiEnabled = false, currentUser, onError
         const { data: signed } = await supabase.storage.from(COMMUNITY_MEDIA_BUCKET).createSignedUrl(path, 60 * 60 * 24 * 365 * 5);
         mediaUrl = signed?.signedUrl || null;
       }
+      if (postDraft.trim()) await screenText(supabase, "community_post", postDraft);
       const { data, error } = await supabase
         .from("community_posts")
         .insert({
@@ -1214,6 +1216,7 @@ export default function CommunitiesTab({ aiEnabled = false, currentUser, onError
     if (commentSubmittingRef.current.has(postId)) return;
     commentSubmittingRef.current.add(postId);
     try {
+      await screenText(supabase, "comment", text);
       const { data, error } = await supabase
         .from("community_comments").insert({ post_id: postId, author_id: currentUser.id, body: text, reply_to_id: replyToId })
         .select("*, profiles(name, avatar_url, is_founder, is_premium, email_verified, phone_verified)").single();
@@ -1222,7 +1225,7 @@ export default function CommunitiesTab({ aiEnabled = false, currentUser, onError
       setPostCommentCounts((c) => ({ ...c, [postId]: (c[postId] || 0) + 1 }));
     } catch (e) {
       console.error(e);
-      onError("Impossible d'envoyer ce commentaire.");
+      onError(isModerationRefusal(e) ? MODERATION_REFUSAL : "Impossible d'envoyer ce commentaire.");
     } finally {
       commentSubmittingRef.current.delete(postId);
     }

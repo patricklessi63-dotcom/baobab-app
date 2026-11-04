@@ -14,6 +14,7 @@ import { compressImageIfNeeded } from "../../lib/imageCompression";
 import { uploadWithProgress } from "../../lib/uploadWithProgress";
 import { POST_MEDIA_BUCKET, extFromMime, looksLikeImage } from "../../lib/mediaConstants";
 import { friendlyDbError } from "../../lib/friendlyDbError";
+import { screenText, isModerationRefusal, MODERATION_REFUSAL } from "../../lib/contentGate";
 import { selectAllPages } from "../../lib/inChunks";
 import { useOnlineStatus } from "../../hooks/useOnlineStatus";
 import { useResumeTick } from "../../hooks/useResumeTick";
@@ -684,6 +685,7 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
     publishingRef.current = true;
     setPublishing(true);
     try {
+      if (draft.trim()) await screenText(supabase, "post", draft);
       const body = draft.trim() || PLACEHOLDER_BODY;
       const postSelect = "*, profiles(name, avatar_url, is_founder, is_premium, email_verified, phone_verified)";
       const outcome = await insertWithRecovery({
@@ -856,6 +858,7 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
     if (commentSubmittingRef.current.has(postId)) return false;
     commentSubmittingRef.current.add(postId);
     try {
+      await screenText(supabase, "comment", text);
       const commentSelect = "*, profiles(name, avatar_url, is_founder, is_premium, email_verified, phone_verified)";
       const attemptKey = `${postId}:${text}`;
       const outcome = await insertWithRecovery({
@@ -876,7 +879,7 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
       return true;
     } catch (e) {
       console.error(e);
-      onError(isNetworkFailure(e) ? `${networkFailureMessage()} Impossible d'envoyer ce commentaire.` : "Impossible d'envoyer ce commentaire.");
+      onError(isModerationRefusal(e) ? MODERATION_REFUSAL : isNetworkFailure(e) ? `${networkFailureMessage()} Impossible d'envoyer ce commentaire.` : "Impossible d'envoyer ce commentaire.");
       return false;
     } finally {
       commentSubmittingRef.current.delete(postId);

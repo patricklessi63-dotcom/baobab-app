@@ -1,0 +1,516 @@
+{
+  "_note": "Liste de DÉPART de la modération de texte. Source unique : le script scripts/gen-moderation-seed.mjs en tire le SQL d'amorçage (supabase-moderation-text.sql). Une fois ce SQL exécuté, la liste vivante est la table moderation_terms (modifiable par les administrateurs) ; ce fichier ne sert plus que de repli quand la table est inaccessible. severity : block = refusé ; review = accepté mais placé en file de modération (mot ambigu). Termes écrits sans accent, en minuscules.",
+  "terms": [
+    {
+      "term": "connard",
+      "category": "insulte",
+      "severity": "block"
+    },
+    {
+      "term": "connasse",
+      "category": "insulte",
+      "severity": "block"
+    },
+    {
+      "term": "conne",
+      "category": "insulte",
+      "severity": "review"
+    },
+    {
+      "term": "con",
+      "category": "insulte",
+      "severity": "review"
+    },
+    {
+      "term": "salaud",
+      "category": "insulte",
+      "severity": "block"
+    },
+    {
+      "term": "salopard",
+      "category": "insulte",
+      "severity": "block"
+    },
+    {
+      "term": "salope",
+      "category": "insulte",
+      "severity": "block"
+    },
+    {
+      "term": "pute",
+      "category": "insulte",
+      "severity": "block"
+    },
+    {
+      "term": "putain de merde",
+      "category": "insulte",
+      "severity": "block"
+    },
+    {
+      "term": "enculer",
+      "category": "insulte",
+      "severity": "block"
+    },
+    {
+      "term": "encule",
+      "category": "insulte",
+      "severity": "block"
+    },
+    {
+      "term": "enfoire",
+      "category": "insulte",
+      "severity": "block"
+    },
+    {
+      "term": "batard",
+      "category": "insulte",
+      "severity": "block"
+    },
+    {
+      "term": "fdp",
+      "category": "insulte",
+      "severity": "block"
+    },
+    {
+      "term": "ntm",
+      "category": "insulte",
+      "severity": "block"
+    },
+    {
+      "term": "tg",
+      "category": "insulte",
+      "severity": "review"
+    },
+    {
+      "term": "ta gueule",
+      "category": "insulte",
+      "severity": "block"
+    },
+    {
+      "term": "ferme ta gueule",
+      "category": "insulte",
+      "severity": "block"
+    },
+    {
+      "term": "merde",
+      "category": "insulte",
+      "severity": "review"
+    },
+    {
+      "term": "merdeux",
+      "category": "insulte",
+      "severity": "block"
+    },
+    {
+      "term": "abruti",
+      "category": "insulte",
+      "severity": "block"
+    },
+    {
+      "term": "abrutie",
+      "category": "insulte",
+      "severity": "block"
+    },
+    {
+      "term": "debile",
+      "category": "insulte",
+      "severity": "block"
+    },
+    {
+      "term": "imbecile",
+      "category": "insulte",
+      "severity": "block"
+    },
+    {
+      "term": "idiot",
+      "category": "insulte",
+      "severity": "review"
+    },
+    {
+      "term": "idiote",
+      "category": "insulte",
+      "severity": "review"
+    },
+    {
+      "term": "cretin",
+      "category": "insulte",
+      "severity": "block"
+    },
+    {
+      "term": "cretine",
+      "category": "insulte",
+      "severity": "block"
+    },
+    {
+      "term": "ordure",
+      "category": "insulte",
+      "severity": "block"
+    },
+    {
+      "term": "petasse",
+      "category": "insulte",
+      "severity": "block"
+    },
+    {
+      "term": "pouffiasse",
+      "category": "insulte",
+      "severity": "block"
+    },
+    {
+      "term": "grognasse",
+      "category": "insulte",
+      "severity": "block"
+    },
+    {
+      "term": "tarlouze",
+      "category": "homophobie",
+      "severity": "block"
+    },
+    {
+      "term": "pede",
+      "category": "homophobie",
+      "severity": "block"
+    },
+    {
+      "term": "pd",
+      "category": "homophobie",
+      "severity": "review"
+    },
+    {
+      "term": "tapette",
+      "category": "homophobie",
+      "severity": "block"
+    },
+    {
+      "term": "gouine",
+      "category": "homophobie",
+      "severity": "block"
+    },
+    {
+      "term": "sale pd",
+      "category": "homophobie",
+      "severity": "block"
+    },
+    {
+      "term": "negre",
+      "category": "racisme",
+      "severity": "block"
+    },
+    {
+      "term": "negresse",
+      "category": "racisme",
+      "severity": "block"
+    },
+    {
+      "term": "sale noir",
+      "category": "racisme",
+      "severity": "block"
+    },
+    {
+      "term": "sale arabe",
+      "category": "racisme",
+      "severity": "block"
+    },
+    {
+      "term": "sale juif",
+      "category": "racisme",
+      "severity": "block"
+    },
+    {
+      "term": "sale blanc",
+      "category": "racisme",
+      "severity": "block"
+    },
+    {
+      "term": "sale chinois",
+      "category": "racisme",
+      "severity": "block"
+    },
+    {
+      "term": "bougnoule",
+      "category": "racisme",
+      "severity": "block"
+    },
+    {
+      "term": "bicot",
+      "category": "racisme",
+      "severity": "block"
+    },
+    {
+      "term": "youpin",
+      "category": "racisme",
+      "severity": "block"
+    },
+    {
+      "term": "chintoque",
+      "category": "racisme",
+      "severity": "block"
+    },
+    {
+      "term": "retourne dans ton pays",
+      "category": "racisme",
+      "severity": "block"
+    },
+    {
+      "term": "rentre chez toi",
+      "category": "racisme",
+      "severity": "review"
+    },
+    {
+      "term": "sale etranger",
+      "category": "racisme",
+      "severity": "block"
+    },
+    {
+      "term": "sale immigre",
+      "category": "racisme",
+      "severity": "block"
+    },
+    {
+      "term": "je vais te tuer",
+      "category": "menace",
+      "severity": "block"
+    },
+    {
+      "term": "je vais te buter",
+      "category": "menace",
+      "severity": "block"
+    },
+    {
+      "term": "je vais te retrouver",
+      "category": "menace",
+      "severity": "review"
+    },
+    {
+      "term": "je vais te frapper",
+      "category": "menace",
+      "severity": "block"
+    },
+    {
+      "term": "je vais te casser la gueule",
+      "category": "menace",
+      "severity": "block"
+    },
+    {
+      "term": "je te tue",
+      "category": "menace",
+      "severity": "block"
+    },
+    {
+      "term": "tu vas mourir",
+      "category": "menace",
+      "severity": "block"
+    },
+    {
+      "term": "va te faire foutre",
+      "category": "harcelement",
+      "severity": "block"
+    },
+    {
+      "term": "va te faire enculer",
+      "category": "harcelement",
+      "severity": "block"
+    },
+    {
+      "term": "va crever",
+      "category": "harcelement",
+      "severity": "block"
+    },
+    {
+      "term": "suicide toi",
+      "category": "harcelement",
+      "severity": "block"
+    },
+    {
+      "term": "personne ne t aime",
+      "category": "harcelement",
+      "severity": "review"
+    },
+    {
+      "term": "tu es moche",
+      "category": "harcelement",
+      "severity": "review"
+    },
+    {
+      "term": "fuck you",
+      "category": "insulte",
+      "severity": "block"
+    },
+    {
+      "term": "fuck off",
+      "category": "insulte",
+      "severity": "block"
+    },
+    {
+      "term": "fucker",
+      "category": "insulte",
+      "severity": "block"
+    },
+    {
+      "term": "motherfucker",
+      "category": "insulte",
+      "severity": "block"
+    },
+    {
+      "term": "asshole",
+      "category": "insulte",
+      "severity": "block"
+    },
+    {
+      "term": "bitch",
+      "category": "insulte",
+      "severity": "block"
+    },
+    {
+      "term": "bastard",
+      "category": "insulte",
+      "severity": "block"
+    },
+    {
+      "term": "dickhead",
+      "category": "insulte",
+      "severity": "block"
+    },
+    {
+      "term": "douchebag",
+      "category": "insulte",
+      "severity": "block"
+    },
+    {
+      "term": "slut",
+      "category": "insulte",
+      "severity": "block"
+    },
+    {
+      "term": "whore",
+      "category": "insulte",
+      "severity": "block"
+    },
+    {
+      "term": "cunt",
+      "category": "insulte",
+      "severity": "block"
+    },
+    {
+      "term": "moron",
+      "category": "insulte",
+      "severity": "review"
+    },
+    {
+      "term": "stfu",
+      "category": "insulte",
+      "severity": "review"
+    },
+    {
+      "term": "piece of shit",
+      "category": "insulte",
+      "severity": "block"
+    },
+    {
+      "term": "faggot",
+      "category": "homophobie",
+      "severity": "block"
+    },
+    {
+      "term": "fag",
+      "category": "homophobie",
+      "severity": "block"
+    },
+    {
+      "term": "dyke",
+      "category": "homophobie",
+      "severity": "block"
+    },
+    {
+      "term": "tranny",
+      "category": "homophobie",
+      "severity": "block"
+    },
+    {
+      "term": "nigger",
+      "category": "racisme",
+      "severity": "block"
+    },
+    {
+      "term": "nigga",
+      "category": "racisme",
+      "severity": "block"
+    },
+    {
+      "term": "chink",
+      "category": "racisme",
+      "severity": "block"
+    },
+    {
+      "term": "spic",
+      "category": "racisme",
+      "severity": "block"
+    },
+    {
+      "term": "kike",
+      "category": "racisme",
+      "severity": "block"
+    },
+    {
+      "term": "paki",
+      "category": "racisme",
+      "severity": "block"
+    },
+    {
+      "term": "go back to your country",
+      "category": "racisme",
+      "severity": "block"
+    },
+    {
+      "term": "i will kill you",
+      "category": "menace",
+      "severity": "block"
+    },
+    {
+      "term": "i m going to kill you",
+      "category": "menace",
+      "severity": "block"
+    },
+    {
+      "term": "i will find you",
+      "category": "menace",
+      "severity": "review"
+    },
+    {
+      "term": "kill yourself",
+      "category": "harcelement",
+      "severity": "block"
+    },
+    {
+      "term": "kys",
+      "category": "harcelement",
+      "severity": "block"
+    },
+    {
+      "term": "go die",
+      "category": "harcelement",
+      "severity": "block"
+    },
+    {
+      "term": "nobody likes you",
+      "category": "harcelement",
+      "severity": "review"
+    },
+    {
+      "term": "retarded",
+      "category": "insulte",
+      "severity": "block"
+    },
+    {
+      "term": "fuck",
+      "category": "insulte",
+      "severity": "review"
+    }
+  ],
+  "exceptions": [
+    "pas con",
+    "pas idiot",
+    "pas idiote",
+    "pas conne"
+  ]
+}

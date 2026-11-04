@@ -30,6 +30,7 @@ import { extFromMime } from "../lib/mediaConstants";
 import { uploadWithProgress } from "../lib/uploadWithProgress";
 import { trackBetaEvent } from "../lib/trackBetaEvent";
 import { friendlyDbError } from "../lib/friendlyDbError";
+import { screenText } from "../lib/contentGate";
 import { resolveLiveMatch } from "../lib/activeMatchPresence";
 import ChunkErrorBoundary from "./ChunkErrorBoundary";
 import { useHiddenRecommendations } from "../lib/useHiddenRecommendations";
@@ -1890,6 +1891,8 @@ export default function SocialShell({
     try {
       let mediaUrl = null;
       const mediaKind = storyMedia ? storyMediaKind : null;
+      // Modération du texte AVANT tout téléversement : un statut refusé ne laisse aucun fichier.
+      if (text) await screenText(supabase, "status", text);
       if (storyMedia) {
         // Bug corrigé à l'audit (croisement exhaustif avec
         // compressImageIfNeeded, déjà utilisé par PostsFeed.jsx) : une photo

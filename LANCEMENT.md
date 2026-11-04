@@ -698,7 +698,7 @@ redéfinis plusieurs fois. Quand deux fichiers redéfinissent la même chose, **
 Légende des catégories : **A** = en prod (prouvé) ; **B** = à exécuter ; **C** = socle d'août, supposé en prod, à
 vérifier par le bilan ; **D** = obsolète ou outil manuel, ne pas exécuter. « Modifié » = date du dernier commit.
 
-### Catégorie A — déjà en prod (46 fichiers) [PROUVÉ]
+### Catégorie A — déjà en prod (47 fichiers) [PROUVÉ]
 
 Exécutés avec le script consolidé le **9 sept 2026** (le correctif d'ordre le 10 sept). Preuve : `DEPLOIEMENT.md` (en-tête et §1), commit `9b05c5b` ; chaque fichier ci-dessous a été modifié pour la dernière fois au plus tard le 9 sept à 23 h 15, donc avant le constat d'exécution (commit `9b05c5b`, 10 sept 17 h 06). Rien à faire ; **ne rien rejouer**.
 
@@ -750,8 +750,9 @@ Exécutés avec le script consolidé le **9 sept 2026** (le correctif d'ordre le
 | `supabase-event-reminders-cron.sql` | 09/09 | Rappels d'événement 24 h / 1 h (cron toutes les 15 min). |  |
 | `supabase-cleanup-expired-stories.sql` | 09/09 | Purge des statuts expirés (cron 3 h) : appelle l'edge function du même nom. | La fonction n'est pas déployée (404) : le cron échoue chaque nuit sans dommage. |
 | `supabase-combined-supersede-order-regression-fix.sql` | 09/09 | Rétablit l'état final correct de 3 objets écrasés par l'ordre du COMBINED. | Exécuté le 10 sept ; aussi inclus en dernière section du COMBINED. |
+| `supabase-story-reactions-emoji-check-fix.sql` | 04/11 | Remplace la contrainte `story_reactions_emoji_check` (émojis abîmés en production : toute réaction à un statut était refusée, erreur 23514). | SQL-26. **Exécuté en production le 04/11/2026** (avec accord explicite, lecture avant / après, essai d'insertion annulé). Défaut documenté : ne jamais coller d'émojis en clair dans un éditeur SQL. |
 
-### Catégorie B — livrés, NON exécutés : à exécuter (25 fichiers)
+### Catégorie B — livrés, NON exécutés : à exécuter (26 fichiers)
 
 Ordre et fiches : §5. Tous postérieurs à l'exécution du COMBINED, aucun mentionné comme exécuté dans `DEPLOIEMENT.md` (le bilan §4 le confirme ou l'infirme).
 
@@ -783,6 +784,7 @@ Ordre et fiches : §5. Tous postérieurs à l'exécution du COMBINED, aucun ment
 | `supabase-close-read-leaks.sql` | 20/10 | Ferme les fuites de lecture : `profile_photos` (RLS), `EXECUTE` retiré à anon sur les fonctions SECURITY DEFINER + search_path, colonnes sensibles de `profiles`, Realtime DELETE. | SQL-22. **Répéter d'abord** (§9.7) ; bloc par bloc ; ordre code → SQL. |
 | `supabase-remove-community-member-cleanup-events-fix.sql` | 31/10 | Fonction `remove_community_member_and_cleanup_events()` : l'exclusion d'un membre par le staff décline aussi ses invitations et retire ses inscriptions aux événements « membres » à venir de la communauté (une transaction). | SQL-23. À jouer **AVANT** de déployer le client qui l'appelle. |
 | `supabase-age-refresh-cron.sql` | 01/11 | Fonction `refresh_profile_ages()` + tâche quotidienne : recalcule `profiles.age` à partir de `birth_date` (l’âge affiché ne vieillissait jamais). | SQL-24. Additif. Déclaré exécuté le 01/11 (§2.1). |
+| `supabase-moderation-text.sql` | 04/11 | Modération de texte gratuite : liste de termes et d'exceptions, `moderation_check()`, déclencheurs sur messages / publications / commentaires / statuts / biographies, sanctions progressives, appels, signalements d'images avec masquage après 3 signalements. | SQL-27. **NON exécuté.** Répétition d'abord. Fichier entièrement ASCII. Lire `MODERATION.md`. Interrupteur : `moderation_settings.text_filter_enabled`. |
 
 ### Catégorie C — socle d'août (60 fichiers) : supposé en prod, À VÉRIFIER
 
@@ -851,7 +853,7 @@ Antérieurs au COMBINED et absents de celui-ci ; l'application tourne en bêta d
 | `supabase-stories-media.sql` | 16/08 | Photo/vidéo dans les statuts. |  |
 | `supabase-unlike.sql` | 18/08 | Retirer un like avant match. |  |
 
-### Catégorie D — obsolètes ou outils manuels (5 fichiers) : ne pas exécuter
+### Catégorie D — obsolètes ou outils manuels (6 fichiers) : ne pas exécuter
 
 | Fichier | Modifié | Rôle | Remarque |
 | --- | --- | --- | --- |
@@ -860,8 +862,9 @@ Antérieurs au COMBINED et absents de celui-ci ; l'application tourne en bêta d
 | `supabase-onboarding-incomplete-target-action-fix.sql` | 09/09 | Première version des gardes « onboarding incomplet ». | OBSOLÈTE (même remplaçant). Ne pas exécuter. |
 | `supabase-cleanup-test-data.sql` | 21/08 | Outil manuel pour supprimer des comptes de test. | DESTRUCTIF : n'exécuter qu'en connaissance de cause, jamais en production réelle. |
 | `supabase-beta-dashboard.sql` | 21/08 | Requêtes de statistiques de la bêta (lecture seule). | Outil de consultation, pas une migration. |
+| `supabase-moderation-text-rollback.sql` | 04/11 | Retour arrière de SQL-27 (coupure douce, retrait des déclencheurs, suppression complète commentée). | Outil manuel, ne pas exécuter sans avoir lu `MODERATION.md` §4. |
 
-Total : 46 + 24 + 60 + 5 = 135 fichiers.
+Total : 47 + 25 + 60 + 6 = 138 fichiers.
 
 ---
 

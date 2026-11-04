@@ -29,6 +29,7 @@ import { checkNativeLocationPermission, locationSettingsPath } from "./lib/nativ
 import { disablePushNotifications } from "./lib/pushNotifications";
 import { isLikelyInCanada, TRAVEL_GRACE_PERIOD_MS } from "./lib/canadaGate";
 import { friendlyDbError, dbErrorCode } from "./lib/friendlyDbError";
+import { screenText, isModerationRefusal, MODERATION_REFUSAL } from "./lib/contentGate";
 import { isNetworkFailure, networkFailureMessage } from "./lib/networkError";
 import { insertMessageWithRecovery, maxRealMessageId, dropGhostTemps, mergeRefreshedMessages, planRefresh, refreshHasMore } from "./lib/messageGhost";
 import { usePathname } from "./hooks/usePathname";
@@ -2190,6 +2191,9 @@ export default function App() {
         relationship_needs: (editForm.relationshipNeeds || []).join(", "),
         avatar_url: newAvatarUrl,
       };
+      // Biographie contrôlée seulement si elle a changé (comme le déclencheur serveur) : une ancienne
+      // biographie ne doit pas empêcher d'enregistrer le reste du profil.
+      if (payload.bio && payload.bio !== (currentUser.bio || "")) await screenText(supabase, "bio", payload.bio);
       const { data, error: updateError } = await updateOwnProfile(supabase, currentUser.id, payload);
       if (updateError) throw updateError;
 
@@ -2212,7 +2216,7 @@ export default function App() {
       setView("feed");
     } catch (e) {
       console.error("handleSaveProfile error:", e?.message, "| code:", e?.code, "| details:", e?.details, "| hint:", e?.hint);
-      setError("Erreur lors de la mise à jour du profil.");
+      setError(isModerationRefusal(e) ? MODERATION_REFUSAL : "Erreur lors de la mise à jour du profil.");
       // Upload(s) Storage réussi(s) mais une étape suivante (insertion
       // profile_photos ou mise à jour du profil) a échoué : sans ce
       // nettoyage, les photos/couverture fraîchement envoyées restaient
@@ -2644,6 +2648,8 @@ export default function App() {
     const retry = Boolean(existing?._maybeSent);
     const afterId = existing?._afterId ?? maxRealMessageId(messagesRef.current);
     try {
+      // Modération de texte : refusé ici = bulle « échec » avec le motif (voir contentGate.js).
+      if (row.kind === "text" && row.text) await screenText(supabase, "message", row.text);
       const result = await insertMessageWithRecovery(supabase, row, { afterId, retry });
       if (result.outcome === "failed") throw Object.assign(result.error || new Error("Envoi impossible"), { _ambiguous: result.ambiguous });
       const data = result.data;

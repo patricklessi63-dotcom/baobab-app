@@ -22,6 +22,7 @@ import { buildEventShareMeta } from "../../lib/events/shareCard";
 import { trackActivation } from "../../lib/trackActivation";
 import { selectInChunks, selectAllPages } from "../../lib/inChunks";
 import { friendlyDbError } from "../../lib/friendlyDbError";
+import { screenText, isModerationRefusal, MODERATION_REFUSAL } from "../../lib/contentGate";
 import { escapeLikePattern, escapeOrFilterValue, normalizeForSearch } from "../../lib/searchQuery";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
 import { useReconnectTick } from "../../hooks/useReconnectTick";
@@ -866,6 +867,7 @@ export default function EventsTab({ currentUser, onError, onBack = () => {}, ini
     if (commentSubmittingRef.current) return;
     commentSubmittingRef.current = true;
     try {
+      await screenText(supabase, "comment", commentDraft);
       const { data, error } = await supabase
         .from("event_comments")
         .insert({ event_id: event.id, author_id: currentUser.id, body: commentDraft.trim() })
@@ -875,7 +877,7 @@ export default function EventsTab({ currentUser, onError, onBack = () => {}, ini
       setCommentDraft("");
     } catch (e) {
       console.error(e);
-      onError("Impossible d'envoyer ce message.");
+      onError(isModerationRefusal(e) ? MODERATION_REFUSAL : "Impossible d'envoyer ce message.");
     } finally {
       commentSubmittingRef.current = false;
     }
