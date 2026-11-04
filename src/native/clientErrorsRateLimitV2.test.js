@@ -4,8 +4,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { PGlite } from "@electric-sql/pglite";
 
-// Validation de supabase-client-errors-rate-limit-v2-fix.sql (SQL-31) sur un SCHÉMA FACTICE (PGlite) :
-// on pose d'abord SQL-28 (déjà en production) puis SQL-31, et on prouve les trois défauts corrigés
+// Validation de supabase-client-errors-rate-limit-v2-fix.sql (SQL-34) sur un SCHÉMA FACTICE (PGlite) :
+// on pose d'abord SQL-28 (déjà en production) puis SQL-34, et on prouve les trois défauts corrigés
 // (compartiments anonymes / connectés, dédoublonnage, taille). Ce n'est PAS la base Supabase.
 
 const V1 = fs.readFileSync(path.join(process.cwd(), "supabase-client-errors-rate-limit-fix.sql"), "utf8");

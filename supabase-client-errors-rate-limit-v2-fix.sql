@@ -1,5 +1,5 @@
 -- ============================================================================
--- SQL-31 — client_errors : plafonds PAR CATÉGORIE + dédoublonnage + plafond de TAILLE.
+-- SQL-34 — client_errors : plafonds PAR CATÉGORIE + dédoublonnage + plafond de TAILLE.
 --
 -- LIVRÉ, NON EXÉCUTÉ (aucun SQL de production sans autorisation explicite du propriétaire).
 -- Remplace le CORPS de la fonction `client_errors_guard()` posée par SQL-28
