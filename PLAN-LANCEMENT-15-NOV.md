@@ -1,5 +1,16 @@
 # Baobab — Plan de lancement du 15 novembre 2026
 
+> ## ⏸ LANCEMENT REPORTÉ DU 15 NOVEMBRE AU 15 DÉCEMBRE 2026 (décision du propriétaire, novembre 2026)
+> **Nouvelle date de lancement : mardi 15 décembre 2026** (jour de la semaine à confirmer par le propriétaire : l'ancienne cible, le 15 novembre, était un dimanche). Le **gel des fonctionnalités passe à environ 13-14 décembre** (à confirmer) ; le calendrier intermédiaire (bêta, tests, répétition) **se décale d'un mois** : toutes les dates de novembre ci-dessous se lisent « + 1 mois » et seront recalculées avec le propriétaire. Les critères de lancement restent applicables tels quels. Les fichiers ne sont pas renommés (nom historique « 15-NOV »).
+> **Critère O1 (sauvegarde / restauration) : toujours NON REMPLI** — offre gratuite, aucune sauvegarde ni PITR ; à décider avant tout nouveau SQL de production (`LANCEMENT.md` §9.4).
+> **État de la production au début de novembre 2026** (déclaré par le propriétaire / les sessions qui l'ont exécuté ; non revérifié par l'assistant sauf mention) :
+> - **SQL exécuté** : SQL-1 à SQL-15, SQL-22 (blocs 1, 2, 4A, 3A, 3B), SQL-23, SQL-24, correction de géolocalisation (`supabase-geolocation-privacy-fix.sql`). Toujours **sans sauvegarde** ni répétition préalable.
+> - **Fonctions Edge déployées** : `process-scheduled-deletions` v6, `cleanup-expired-stories` v1, `send-push` v7. La fonction fantôme `delete-account` n'est **pas supprimée** (suppression irréversible ; code sauvegardé hors dépôt).
+> - **SQL-25 (`supabase-block-enforcement-messages-fix.sql`) : livré, NON exécuté** — en attente de l'accord explicite du propriétaire. Il corrige un défaut de sécurité constaté sur le projet de répétition : une personne bloquée peut encore écrire, réagir, liker, suivre, mettre en favori et téléverser vers celle qui l'a bloquée. Tant qu'il n'est pas exécuté, le blocage n'est pas effectif côté serveur pour ces actions.
+> - **Messagerie** : correctifs et nouveautés poussés sur `main` (voir `RAPPORT-MESSAGERIE.md`) ; essai réel à deux comptes fait **sur le projet de répétition seulement**, jamais en production.
+> - **Toujours ouverts** : test de bout en bout sur la production à deux comptes réels, SMTP / DNS / contact / textes légaux, décisions §10, SQL optionnels (SQL-16 à SQL-21 hors ceux déjà exécutés).
+
+
 Rédigé le **mardi 20 octobre 2026 (J0)**. Cible : **dimanche 15 novembre 2026 (J+26)**.
 S'appuie sur `AUDIT-BAOBAB.md` (constats C1–C7, I1–I13) et sur `LANCEMENT.md` (fiches SQL-1 à SQL-21, §8 fonctions,
 §9 réglages, §10 décisions, §13 contrôles de santé), qui restent les références de détail. Rien ici n'a été exécuté.
