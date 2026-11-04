@@ -1,0 +1,94 @@
+# Audit complet de Baobab — rapport (3-4 novembre 2026)
+
+Complète `RAPPORT-MESSAGERIE.md` (détail de la messagerie). Méthode : lecture du code, tests automatisés (vitest : jsdom + PGlite), et — nouveauté — **essais réels sur un projet Supabase de répétition** (`baobab-staging`, séparé de la production) avec deux comptes (A, B) plus un « outsider » : 3 scripts rejouables (`scripts/staging-e2e.mjs`, `scripts/staging-security.mjs`, structure exportable `scripts/staging-export-schema.sql`).
+
+**Règles respectées** : aucun SQL exécuté en production (seule une lecture seule des catalogues Postgres, avec l'accord explicite du propriétaire) ; aucun compte de test en production ; aucune RLS ni protection désactivée ; aucune donnée supprimée ; aucun service payant ; aucun secret exposé (mots de passe de test dans `.env.staging.local`, ignoré par git).
+
+> **Limites à connaître** — la répétition **n'est pas identique** à la production : structure exportée de la production, puis rejeu de 124 des 132 fichiers SQL et des blocs 1, 2, 3A, 3B, 4A de SQL-22 (l'état « exécuté en production » déclaré). 8 fichiers n'ont pas pu être rejoués et la RLS de 8 tables a dû être réactivée à la main. Les défauts ci-dessous viennent des **policies/fonctions réellement rejouées depuis les fichiers du dépôt** ; **à re-vérifier sur la production par l'exécutant autorisé** avant de conclure qu'ils y existent à l'identique. Aucun navigateur autre que Chromium (navigateur intégré + Chrome) n'a été utilisé ; aucun appareil physique.
+
+## A–C. Bilan chiffré
+- **Défauts détectés : 17** (messagerie 12, sécurité/base de données 5). **Corrigés et vérifiés : 12** dans le code déjà poussé ; **4 correctifs SQL livrés, vérifiés sur la répétition, NON exécutés en production** (voir G) ; **1 constat accepté** (ci-dessous).
+- **Restent ouverts / à décider** : voir I.
+
+| # | Défaut | Gravité | Cause | Correction | Vérification |
+|---|---|---|---|---|---|
+| 1 | Une personne **bloquée** peut encore écrire, réagir, téléverser, liker, suivre, mettre en favori | **Haute** | sous-requête `blocks` des policies exécutée avec les droits de l'appelant, qui ne voit que SES blocages | SQL-25 (fonction `is_blocked_pair` + policies restrictives) | PGlite (reproduction puis correctif) + répétition réelle |
+| 2 | `client_errors` : un visiteur sans compte insère 2 000 lignes de 8 Ko (16 Mo) en une requête → risque de saturer les 500 Mo gratuits et de passer toute la base en lecture seule | **Haute** | policy `with check (true)` sans limite de nombre | SQL-28 (déclencheur 30/min, 300/jour, 3 000 au total + `profile_id` imposé) | PGlite + répétition (lot de 2 000 refusé) |
+| 3 | Commentaires sans limite de débit (60 d'affilée acceptés) | Moyenne | aucun déclencheur sur `post_comments`/`community_comments`/`event_comments` | SQL-30 (20 / 5 min, 300 / 24 h) | PGlite + répétition (20 acceptés, 10 refusés) |
+| 4 | 43 clés étrangères sans index (suppression de compte = parcours complet de chaque table liée) | Moyenne (performance) | index jamais créés | SQL-29 (`create index if not exists`) | appliqué sur la répétition : 0 FK sans index ensuite |
+| 5 | Le badge « non lus » baissait quand l'autre lisait MES messages | Basse | décrément sans filtrer `from_id` | corrigé (`SocialShell`) | test de non-régression vérifié par mutation |
+| 6 | Galerie de photos et traduction sans effet sous `React.StrictMode` (dev) | Basse (dev seulement) | `mountedRef` jamais remis à `true` | corrigé (+ autre session : 6 autres composants) | test StrictMode vérifié par mutation + essai réel |
+| 7 | Boutons « Favoris » / « Préférences » du profil débordaient de 6 px à 320 px | Basse | `flex-1` sans `min-w-0` | corrigé (`ProfileTab`) | mesure sur la page réelle à 320 px |
+| 8 | Champ de saisie : « Écris un message… » sur 2 lignes avec barre de défilement à 375 px | Basse | placeholder trop long | « Message » | essai réel |
+| 9–17 | Autres défauts de messagerie (photos rognées, vocal sans forme d'onde/durée, vocaux vides envoyables, réactions multiples, frappe diffusée à chaque touche, séparateur de jour par année, aperçu « Média », clavier mobile…) | Basse à moyenne | voir `RAPPORT-MESSAGERIE.md` §3 | corrigés | tests + essais réels |
+
+**Constat accepté, non corrigé** : l'expéditeur peut marquer « lu » son propre message (faux accusé sans autre effet) ; la personne bloquée peut relire l'historique (seul l'envoi est interdit par SQL-25).
+
+## Rapport 1 — AUDIT ANTI-PIRATAGE
+- **Méthode** : `scripts/staging-security.mjs` (105 contrôles, exécutés contre la répétition) + audit du code.
+- **Testé et REFUSÉ comme attendu (105/105)** : lecture anonyme de 36 tables privées (messages, profils, positions, notifications, tokens push, signalements, rôles…) ; appel anonyme des RPC d'administration (`admin_*`, `ban_user`, `get_my_profile`…) ; énumération anonyme des buckets ; **élévation de privilèges** (passer `is_premium`, `is_founder`, `email_verified`, `banned_at`, `risk_level`… sans effet ; s'attribuer un rôle dans `platform_roles` refusé ; RPC admin refusées à un compte ordinaire) ; **données d'autrui** (modifier/supprimer le profil, les photos, les publications, les commentaires d'un autre ; lire ses positions, notifications, tokens, signalements ; fabriquer une notification, un like ou une publication au nom d'un autre ; lire `birth_date`/`ban_reason`) ; **messagerie** (lecture, écriture, usurpation `from_id`, modification du texte, suppression « pour tous » par un tiers, réactions par un outsider, Realtime : l'outsider ne reçoit aucun événement) ; **stockage** (écrire dans le dossier d'un autre, écraser/supprimer ses fichiers, téléverser `text/html` ou `image/svg+xml`, URL signée refusée à l'outsider, bucket privé non lisible anonymement).
+- **Code** : aucune clé secrète dans `src/`, `index.html` ni `public/` (le seul `service_role` trouvé est un commentaire) ; aucun `eval`/`new Function` ; un seul `dangerouslySetInnerHTML` (logo : titre nettoyé, contenu statique) ; les liens des messages ne sont que `http(s)` ; `target="_blank"` avec `rel` ; aucun `.env` ni clé de signature suivi par git (seul `.env.example`) ; `npm audit` en production : **0 vulnérabilité** (6 avis « modérés » sur des outils de développement — vitest, esbuild, minimatch — non livrés aux utilisateurs).
+- **Sécurité base** : toutes les tables ont la RLS ; toutes les fonctions SECURITY DEFINER ont un `search_path` figé ; **une seule** fonction exécutable par `anon` (`public_user_count`, compteur de la page d'accueil) ; **une seule** policy d'écriture ouverte (`client_errors_insert_anyone`, corrigée par SQL-28).
+- **Corrigé** : #1, #2, #3 ci-dessus (**livrés en SQL, non exécutés en production**).
+- **Restant** : 15 connexions échouées de suite n'ont **jamais** été limitées (429) sur la répétition : la limitation par défaut de Supabase Auth est trop souple pour freiner une attaque lente — à régler dans **Authentication > Rate Limits** + envisager une protection anti-robot (Turnstile/hCaptcha, gratuits) : **réglage du tableau de bord, décision du propriétaire** (aucun code ni service payant ajouté). Journalisation des actions sensibles : `admin_actions` existe pour l'administration ; pas de journal pour les actions utilisateur (acceptable). Tests CSRF : sans objet (API sans cookie, jeton en en-tête).
+- **Non testé** : fonctions Edge réelles (`send-push`, `ai-assist`…), webhook Stripe, authentification par email externe, injection SQL via les filtres `.or()` du client (le code utilise `escapeOrFilterValue`/`escapeLikePattern`, couvert par des tests unitaires, pas par un essai réel).
+
+## Rapport 2 — AUDIT UX/UI
+- **Pages / écrans vérifiés (essais réels, compte A)** : accueil public, connexion, inscription, assistant d'inscription (10 étapes), Découverte, Rencontres, Messages (liste + conversation), Intégration, Profil, fenêtre de publication, visionneuse de photos, fenêtre de transfert, mode sélection, menus de messages.
+- **Problèmes visuels / ergonomiques trouvés** : #7 et #8 ci-dessus (corrigés) ; l'heure d'une photo partageait la ligne de l'image (corrigé : pastille en surimpression) ; bouton de vitesse du vocal chevauchant l'heure à 375 px (corrigé).
+- **Faux positif écarté** : des boutons d'icônes mesurent 13–15 px, mais la classe `bb-hit` ajoute une zone tactile de 44 px (CSS `pointer: coarse`) : conforme.
+- **Accessibilité** : curseur de lecture vocale au clavier (flèches, début, fin), étiquettes `aria` des réactions, `aria-live` du compteur de sélection ; réduction des animations respectée par la règle globale.
+- **Restent** : états « connexion perdue / accès interdit / action refusée » vérifiés seulement par les tests existants et un essai « backend injoignable » ; contrastes non mesurés outil en main ; pas d'audit lecteur d'écran réel.
+
+## Rapport 3 — AUDIT COMPATIBILITÉ
+- **Testé réellement** : Chromium (navigateur intégré) en émulation de largeur **320, 375, 414, 768, 1024, 1440 px** sur les 5 onglets principaux (aucun débordement horizontal de page après correctif #7) ; **Google Chrome** (Windows) en bureau pour le second compte ; conversation mobile (375 × 812) ; faux `visualViewport` pour le clavier.
+- **Navigateurs NON testés** : Firefox, Edge, Safari (macOS et iOS), Chrome Android, applications Capacitor. **Appareils physiques : aucun.** Clavier virtuel, encoche/zones de sécurité, gestes tactiles réels, orientation paysage mobile, lecture audio Safari : **non vérifiés** (simulation seulement).
+- **Compatibilité audio** : l'enregistrement choisit `audio/mp4` en priorité (Safari l'exige) puis webm/ogg ; vérifié : Chrome enregistre bien en m4a ; Safari/Firefox **non essayés**.
+- **Problèmes détectés** : #7, #8. **Corrections** : idem.
+
+## D–E. Optimisations
+Messagerie : frappe limitée à 1 diffusion / 2 s (au lieu d'une par touche) ; historique chargé automatiquement ; signature d'URL en lots (déjà présente) ; **43 index de clés étrangères** (SQL-29, non exécuté) ; plafond de `client_errors`. Mesure : 610 messages affichés = ~7 500 nœuds DOM, mise en page ≈ 4–11 ms. Bundle principal ~508 Ko (150 Ko gzip) : un avertissement de taille existe, pas de régression ; **pas de découpage supplémentaire fait**.
+
+## F. Fichiers modifiés (cette série)
+`src/components/social/ProfileTab.jsx`, `src/components/SocialShell.jsx`, `src/components/social/ConversationPane.jsx`, `RAPPORT-MESSAGERIE.md`, `LANCEMENT.md`, `PLAN-LANCEMENT-15-NOV.md`, `DEPLOIEMENT.md`, `.gitignore`. Nouveaux : `scripts/staging-export-schema.sql`, `scripts/staging-e2e.mjs`, `scripts/staging-security.mjs`, tests `src/native/{blockEnforcement,clientErrorsRateLimit,commentRateLimit}.test.js`, ce rapport.
+
+## G. Migrations SQL créées (toutes NON exécutées en production)
+| Fichier | Rôle | Risque |
+|---|---|---|
+| `supabase-block-enforcement-messages-fix.sql` (SQL-25) | blocage effectif pour messages, réactions, stockage, likes, follows, favoris, invitations | additif ; policies restrictives |
+| `supabase-client-errors-rate-limit-fix.sql` (SQL-28) | plafond des écritures anonymes de `client_errors` | additif ; peut perdre des rapports d'erreur pendant une inondation |
+| `supabase-fk-indexes-fix.sql` (SQL-29) | 43 index | additif ; verrou d'écriture très bref par table, hors heures de pointe |
+| `supabase-comment-rate-limit-fix.sql` (SQL-30) | limite de débit des commentaires | additif |
+Chacun a son en-tête (contrôle + retour arrière) et figure dans `LANCEMENT.md` §5/§7 et, pour deux d'entre eux, `DEPLOIEMENT.md`. **Aucune sauvegarde n'existe** (offre gratuite, critère O1) : à décider avant d'exécuter quoi que ce soit.
+
+## H. Tests exécutés
+Voir le résultat final de la suite complète en bas du fichier (§ Validation globale). Essais réels : 35 contrôles API messagerie (`staging-e2e`) et 105 contrôles de sécurité (`staging-security`), tous réussis sur la répétition après correction de ses écarts avec la production (RLS réactivée, SQL-22, SQL-25 appliqués).
+
+## I. Impossible à corriger automatiquement / décisions humaines
+1. **Exécuter SQL-25, 28, 29, 30 en production** (accord explicite ; sauvegarde à trancher).
+2. **Limite de connexions échouées** et anti-robot : réglage du tableau de bord Supabase.
+3. Vérifier en production (par l'exécutant autorisé) que les défauts 1–3 y existent bien : la répétition les montre, la production peut différer.
+4. 8 fichiers SQL non rejoués sur la répétition (SQL-22 complet, quota de stockage…) : leurs comportements n'ont pas été éprouvés.
+5. Tests sur appareils réels (iOS/Android), Safari/Firefox/Edge.
+
+## J. Recommandations
+Créer une **sauvegarde** avant toute migration (passer au plan payant le temps du lancement ou exporter `pg_dump` régulièrement) ; garder la répétition à jour (rejouer chaque nouveau SQL dessus d'abord) ; ajouter `staging-security.mjs` à la routine avant chaque ouverture ; limiter par IP côté passerelle (Cloudflare gratuit) si le trafic grossit ; surveiller la taille de la base (`client_errors`, `notifications`, `analytics_events`).
+
+## Bilan par domaine
+| Domaine | État |
+|---|---|
+| Frontend | OK (réserve : navigateurs non testés) |
+| Backend / Edge functions | **Non audité en réel** (fonctions non déployées sur la répétition) |
+| Base de données | **À corriger** : SQL-25/28/29/30 à exécuter |
+| Sécurité | **À corriger** : mêmes SQL + limitation des connexions (tableau de bord) |
+| Messagerie | OK sur la répétition (réserve : appareils réels, iOS/Android, vrai micro) |
+| Interface mobile | OK en émulation (réserve : appareils réels) |
+| Performances | OK aux volumes mesurés (réserve : index SQL-29 et mobiles modestes non mesurés) |
+| Tests | OK (suite complète verte, voir ci-dessous) |
+
+## Validation globale (4 novembre 2026, après rebase sur `main`)
+- `npm run build` : **réussi** (avertissement habituel de taille de chunk, sans régression).
+- Suite complète `vitest run` : **289 fichiers, 2 301 tests, tous réussis** (4 workers ; les tests sensibles à la charge passent quand la machine n'exécute pas d'autre tâche lourde).
+- Essais réels sur la répétition : `staging-e2e` 35/35 (dont 2 constats « INFO » acceptés) ; `staging-security` 105/105.
+- Pas de configuration de lint ni de vérification de types dans le dépôt (JavaScript sans TypeScript) : **non exécutés**, rien d'inventé.
+- Contrôle de fumée visuel : 5 onglets × 6 largeurs, aucune erreur JavaScript nouvelle, aucun débordement horizontal.
