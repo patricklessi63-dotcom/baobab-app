@@ -3,15 +3,16 @@ import { AlertTriangle, X } from "lucide-react";
 import { C } from "../constants";
 import { useEscapeKey } from "../hooks/useEscapeKey";
 import { useFocusTrap } from "../hooks/useFocusTrap";
-import { requestAccountDeletion } from "../lib/deleteAccount";
+import { requestAccountDeletion, verifyPasswordForDeletion } from "../lib/deleteAccount";
 
-// Confirmation explicite par saisie de texte — jamais déclenché par un
+// Confirmation explicite par saisie de texte ET par mot de passe — jamais déclenché par un
 // simple clic accidentel (item 33 : pas de bouton trompeur, pas de case
 // pré-cochée). Depuis le délai de grâce de 24h, cette action n'est
 // plus la suppression elle-même — juste la demande, annulable (voir
 // AccountDeletionBanner.jsx).
 export default function DeleteAccountModal({ open, onClose, currentUser, onRequested }) {
   const [confirmText, setConfirmText] = useState("");
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const panelRef = useRef(null);
@@ -23,11 +24,11 @@ export default function DeleteAccountModal({ open, onClose, currentUser, onReque
   // (bouton de suppression actif sans nouvelle confirmation explicite) ou
   // une erreur d'une tentative précédente affichée à tort.
   useEffect(() => {
-    if (open) { setConfirmText(""); setError(""); }
+    if (open) { setConfirmText(""); setPassword(""); setError(""); }
   }, [open]);
   if (!open) return null;
 
-  const ready = confirmText.trim().toUpperCase() === "SUPPRIMER";
+  const ready = confirmText.trim().toUpperCase() === "SUPPRIMER" && password.length > 0;
   const deletionDateTime = new Date(Date.now() + 24 * 60 * 60 * 1000);
   const deletionDate = deletionDateTime.toLocaleDateString("fr-CA", { year: "numeric", month: "long", day: "numeric" });
   const deletionTime = deletionDateTime.toLocaleTimeString("fr-CA", { hour: "2-digit", minute: "2-digit" });
@@ -37,11 +38,14 @@ export default function DeleteAccountModal({ open, onClose, currentUser, onReque
     setLoading(true);
     setError("");
     try {
+      // Mot de passe vérifié AVANT toute écriture : refusé = rien n'est programmé.
+      await verifyPasswordForDeletion(password);
       await requestAccountDeletion(currentUser.id);
       onRequested();
     } catch (e) {
       setError(e.message);
     } finally {
+      setPassword("");
       setLoading(false);
     }
   };
@@ -62,6 +66,10 @@ export default function DeleteAccountModal({ open, onClose, currentUser, onReque
         <label className="block mb-3">
           <span className="text-xs font-bold" style={{ color: "var(--bb-text-faint)" }}>Tape SUPPRIMER pour confirmer</span>
           <input value={confirmText} onChange={(e) => setConfirmText(e.target.value)} className="bb-input w-full mt-1.5" placeholder="SUPPRIMER" autoComplete="off" />
+        </label>
+        <label className="block mb-3">
+          <span className="text-xs font-bold" style={{ color: "var(--bb-text-faint)" }}>Ton mot de passe</span>
+          <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="bb-input w-full mt-1.5" autoComplete="current-password" />
         </label>
         {error && <p role="alert" className="text-sm mb-3" style={{ color: C.coralText }}>{error}</p>}
         <button onClick={handleDelete} disabled={!ready || loading} className="bb-btn-danger w-full py-3 rounded-full text-sm font-bold text-white disabled:opacity-40" style={{ minHeight: 44 }}>

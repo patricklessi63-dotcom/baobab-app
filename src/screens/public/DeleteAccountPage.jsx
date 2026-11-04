@@ -9,7 +9,7 @@ import { LegalSection as Section, RETENTION } from "../../legalContent";
 // et utile à Apple (5.1.1(v)) : la suppression se fait DANS l'application, sans
 // contacter le support. Le chemin décrit ci-dessous est le chemin RÉEL :
 // ProfileMenu.jsx (« Réglages ») -> AppModals.jsx (« Zone de danger » ->
-// « Supprimer mon compte ») -> DeleteAccountModal.jsx (saisir SUPPRIMER). Le test
+// « Supprimer mon compte ») -> DeleteAccountModal.jsx (saisir SUPPRIMER + mot de passe). Le test
 // DeleteAccountPage.dom.test.jsx vérifie ces libellés dans le code source.
 export default function DeleteAccountPage({ navigate }) {
   return (
@@ -26,7 +26,7 @@ export default function DeleteAccountPage({ navigate }) {
           <li>Ouvrez Baobab et connectez-vous à votre compte.</li>
           <li>Touchez votre photo de profil (en haut à droite), puis <strong>Réglages</strong>.</li>
           <li>Descendez jusqu'à la <strong>Zone de danger</strong> et touchez <strong>Supprimer mon compte</strong>.</li>
-          <li>Tapez <strong>SUPPRIMER</strong> pour confirmer, puis touchez <strong>Programmer la suppression dans {RETENTION.deletionGraceHours} heures</strong>.</li>
+          <li>Tapez <strong>SUPPRIMER</strong> et saisissez votre mot de passe pour confirmer, puis touchez <strong>Programmer la suppression dans {RETENTION.deletionGraceHours} heures</strong>.</li>
         </ol>
         <p>
           Vous ne pouvez plus ouvrir l'application ou vous avez oublié votre mot de passe ? Sur la page de connexion, utilisez
