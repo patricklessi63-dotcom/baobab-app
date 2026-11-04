@@ -1960,7 +1960,9 @@ export default function SocialShell({
   const recordStoryView = async (storyId) => {
     if (!storyId || !currentUser) return;
     try {
-      await supabase.from("story_views").insert({ story_id: storyId, viewer_id: currentUser.id });
+      // upsert + ignoreDuplicates (ON CONFLICT DO NOTHING) : la revue d'un statut déjà vu ne
+      // produit plus de 409 « duplicate key » dans la console.
+      await supabase.from("story_views").upsert({ story_id: storyId, viewer_id: currentUser.id }, { onConflict: "story_id,viewer_id", ignoreDuplicates: true });
     } catch (_) { /* volontairement silencieux */ }
   };
 
