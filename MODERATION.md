@@ -145,7 +145,10 @@ ce service et son interrupteur (`image_provider`). Rien de cela n'est actif aujo
   sous une publication du fil qui en contient (`ReportMediaDialog.jsx`). Motifs : sexuel, violence, haine,
   harcèlement, mineur, autre. Après 3 signalements indépendants, l'image est **masquée à l'affichage** pour les
   autres membres (« Image masquée en attendant l'examen d'un modérateur ») ; son auteur la voit toujours.
-- **Pas encore branché** : le signalement d'image sur les publications de communauté, les photos d'événement,
-  les photos de profil et les pièces jointes de messages (les fonctions serveur acceptent déjà ces types) ;
-  l'écran de contestation côté personne sanctionnée (la fonction `moderation_appeal` existe, l'écran du compte
-  suspendu ne la propose pas encore).
+- **Aussi branchés** : signalement d'image sur les publications de communauté (`CommunityPostCard`) et sur les photos de
+  profil (`PublicProfileModal` : « Signaler cette photo », à l'unité quand l'identifiant de la photo est connu, sinon
+  l'avatar) ; une photo masquée disparaît de la galerie. **Contestation** : l'écran « Compte suspendu / banni » propose
+  « Contester cette décision » (`AppealPanel.jsx`) quand une sanction automatique existe ; une suspension décidée à la main
+  par un modérateur n'a pas de ligne de sanction automatique et n'ouvre pas de contestation.
+- **Pas encore branché** : le signalement d'image sur les photos d'événement et les pièces jointes de messages (les fonctions
+  serveur acceptent déjà ces types ; leurs fichiers sont privés, l'aperçu modérateur est alors indisponible).

@@ -1,6 +1,8 @@
 import React, { useEffect, useRef, useState } from "react";
 import { displayArrivedSince } from "../../lib/arrivedSince";
-import { X, ChevronLeft, ChevronRight, Heart, MessageCircle, UserPlus, UserCheck, Star, Flag, Ban } from "lucide-react";
+import { X, ChevronLeft, ChevronRight, Heart, MessageCircle, UserPlus, UserCheck, Star, Flag, Ban, ImageOff } from "lucide-react";
+import ReportMediaDialog from "../ReportMediaDialog";
+import { fetchHiddenMedia } from "../../lib/moderationApi";
 import Avatar from "../Avatar";
 import ClickableImage from "../ClickableImage";
 import StatusBadge from "../StatusBadge";
@@ -41,6 +43,16 @@ export default function PublicProfileModal({
   onBlock,
 }) {
   const [photoIdx, setPhotoIdx] = useState(0);
+  // Photos masquées en attendant un modérateur (signalements indépendants) et dialogue de signalement.
+  const [hiddenPhotoIds, setHiddenPhotoIds] = useState(() => new Set());
+  const [mediaReport, setMediaReport] = useState(null);
+  const photoIdsKey = photos.map((p) => p.id).filter(Boolean).join(",");
+  useEffect(() => {
+    if (!photoIdsKey) { setHiddenPhotoIds(new Set()); return undefined; }
+    let cancelled = false;
+    fetchHiddenMedia("profile_photo", photoIdsKey.split(",")).then((set) => { if (!cancelled) setHiddenPhotoIds(set); });
+    return () => { cancelled = true; };
+  }, [photoIdsKey]);
   useEscapeKey(Boolean(profile), onClose);
   const dialogRef = useRef(null);
   useFocusTrap(Boolean(profile), dialogRef);
@@ -57,7 +69,11 @@ export default function PublicProfileModal({
   useEffect(() => { setPhotoIdx(0); }, [profile?.id]);
   if (!profile) return null;
 
-  const gallery = photos.length > 0 ? photos.map((p) => p.url) : profile.avatar_url ? [profile.avatar_url] : [];
+  const shownPhotos = photos.filter((p) => !(p.id && hiddenPhotoIds.has(p.id)));
+  const gallery = photos.length > 0 ? shownPhotos.map((p) => p.url) : profile.avatar_url ? [profile.avatar_url] : [];
+  // Photo affichée : signalée à l'unité quand on connaît son identifiant, sinon l'avatar du profil.
+  const currentPhoto = photos.length > 0 ? shownPhotos[photoIdx] : null;
+  const reportTargetMedia = currentPhoto?.id ? { kind: "profile_photo", id: currentPhoto.id } : { kind: "avatar", id: profile.id };
   const next = () => setPhotoIdx((i) => (i + 1) % gallery.length);
   const prev = () => setPhotoIdx((i) => (i - 1 + gallery.length) % gallery.length);
 
@@ -234,6 +250,11 @@ export default function PublicProfileModal({
                 <Flag size={15} color={muted} />
               </button>
             )}
+            {onReport && gallery.length > 0 && (
+              <button onClick={() => setMediaReport(reportTargetMedia)} aria-label="Signaler cette photo" className="bb-hit h-10 w-10 rounded-full flex items-center justify-center shrink-0 focus-visible:outline focus-visible:outline-2" style={{ background: bg }}>
+                <ImageOff size={15} color={muted} />
+              </button>
+            )}
             {onBlock && (
               <button onClick={() => onBlock(profile)} aria-label="Bloquer" className="bb-hit h-10 w-10 rounded-full flex items-center justify-center shrink-0 focus-visible:outline focus-visible:outline-2" style={{ background: bg }}>
                 <Ban size={15} color={muted} />
@@ -242,6 +263,7 @@ export default function PublicProfileModal({
           </div>
         </div>
       </div>
+      <ReportMediaDialog open={Boolean(mediaReport)} kind={mediaReport?.kind} targetId={mediaReport?.id} onClose={() => setMediaReport(null)} />
     </div>
   );
 }

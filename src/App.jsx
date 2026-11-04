@@ -30,6 +30,7 @@ import { disablePushNotifications } from "./lib/pushNotifications";
 import { isLikelyInCanada, TRAVEL_GRACE_PERIOD_MS } from "./lib/canadaGate";
 import { friendlyDbError, dbErrorCode } from "./lib/friendlyDbError";
 import { screenText, isModerationRefusal, MODERATION_REFUSAL } from "./lib/contentGate";
+import AppealPanel from "./components/AppealPanel";
 import { loadMessageDeleteWindow } from "./lib/messageDeletion";
 import { isNetworkFailure, networkFailureMessage } from "./lib/networkError";
 import { insertMessageWithRecovery, maxRealMessageId, dropGhostTemps, mergeRefreshedMessages, planRefresh, refreshHasMore } from "./lib/messageGhost";
@@ -3669,6 +3670,7 @@ export default function App() {
               Motif : {reason}
             </p>
           )}
+          <AppealPanel />
           <button onClick={() => handleSignOut().then(() => navigate("/connexion"))} className="w-full mt-6 py-3 rounded-full text-sm font-bold text-white" style={{ background: C.navy }}>
             Se déconnecter
           </button>

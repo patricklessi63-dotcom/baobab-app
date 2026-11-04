@@ -23,20 +23,24 @@ export default function ReportMediaDialog({ open, kind, targetId, onClose, onErr
   const [note, setNote] = useState("");
   const [sending, setSending] = useState(false);
   const [doneMessage, setDoneMessage] = useState("");
+  const [error, setError] = useState("");
   const panelRef = useRef(null);
   useEscapeKey(open, onClose);
   useFocusTrap(open, panelRef);
-  useEffect(() => { if (open) { setReason(""); setNote(""); setDoneMessage(""); } }, [open]);
+  useEffect(() => { if (open) { setReason(""); setNote(""); setDoneMessage(""); setError(""); } }, [open]);
   if (!open) return null;
 
   const submit = async () => {
     if (!reason || sending) return;
     setSending(true);
+    setError("");
     try {
       const res = await reportMedia(kind, targetId, reason, note.trim() || null);
       setDoneMessage(res?.duplicate ? "Tu as déjà signalé cette image." : "Merci, ton signalement a été transmis à l'équipe.");
     } catch (e) {
-      onError?.(isModerationMissing(e) ? "Le signalement d'images n'est pas encore disponible." : friendlyDbError(e) || "Impossible d'envoyer le signalement. Réessaie.");
+      const msg = isModerationMissing(e) ? "Le signalement d'images n'est pas encore disponible." : friendlyDbError(e) || "Impossible d'envoyer le signalement. Réessaie.";
+      setError(msg);
+      onError?.(msg);
     } finally {
       setSending(false);
     }
@@ -74,6 +78,7 @@ export default function ReportMediaDialog({ open, kind, targetId, onClose, onErr
           <span className="text-xs font-bold" style={{ color: "var(--bb-text-faint)" }}>Précision (facultatif)</span>
           <textarea value={note} onChange={(e) => setNote(e.target.value)} maxLength={500} rows={2} className="bb-input w-full mt-1.5" />
         </label>
+        {error && <p role="alert" className="text-sm mb-3" style={{ color: "var(--bb-coral-text, #C0392B)" }}>{error}</p>}
         <button onClick={submit} disabled={!reason || sending} className="bb-btn-danger w-full py-3 rounded-full text-sm font-bold text-white disabled:opacity-40" style={{ minHeight: 44 }}>
           {sending ? "Envoi..." : "Envoyer le signalement"}
         </button>

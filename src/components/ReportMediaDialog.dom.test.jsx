@@ -61,6 +61,14 @@ describe("ReportMediaDialog", () => {
     await waitFor(() => expect(onError).toHaveBeenCalledWith("Le signalement d'images n'est pas encore disponible."));
   });
 
+  it("l'erreur s'affiche dans la boîte même sans canal d'erreur du parent (vue de communauté, profil)", async () => {
+    api.reportMedia.mockRejectedValue({ code: "P0001", message: "REPORT_RATE_LIMIT: Trop de signalements en peu de temps, reessaie plus tard." });
+    render(<ReportMediaDialog open kind="community_post" targetId="c1" onClose={() => {}} />);
+    fireEvent.click(screen.getByLabelText("Autre"));
+    fireEvent.click(screen.getByRole("button", { name: "Envoyer le signalement" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Trop de signalements en peu de temps");
+  });
+
   it("Annuler ferme sans rien envoyer", () => {
     const { onClose } = setup();
     fireEvent.click(screen.getByRole("button", { name: "Annuler" }));

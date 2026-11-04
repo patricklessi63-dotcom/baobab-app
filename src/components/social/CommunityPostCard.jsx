@@ -1,5 +1,5 @@
 import React, { useRef, useState } from "react";
-import { MessageCircle, Flag, Ban, Trash2, X, Reply, Pencil, Check } from "lucide-react";
+import { MessageCircle, Flag, Ban, Trash2, X, Reply, Pencil, Check, ImageOff } from "lucide-react";
 import Avatar from "../Avatar";
 import StatusBadge from "../StatusBadge";
 import ClickableImage from "../ClickableImage";
@@ -26,6 +26,8 @@ export default function CommunityPostCard({
   onSubmitComment,
   onEditComment = () => {},
   onReport,
+  onReportMedia,
+  mediaHidden = false,
   onReportComment = () => {},
   onBlockAuthor,
   onDelete,
@@ -98,7 +100,10 @@ export default function CommunityPostCard({
           </div>
           {post.body && <p dir="auto" className="text-sm mt-1 whitespace-pre-wrap break-words">{post.body}</p>}
 
-          {post.media_url && (
+          {post.media_url && mediaHidden && (
+            <p role="status" className="text-xs mt-2 p-3 rounded-xl" style={{ background: "var(--bb-surface-2)", color: muted }}>Image masquée en attendant l'examen d'un modérateur.</p>
+          )}
+          {post.media_url && !mediaHidden && (
             <div className="mt-2 rounded-xl overflow-hidden" style={{ maxHeight: 360 }}>
               {post.media_kind === "video" ? (
                 <video src={post.media_url} controls playsInline preload="metadata" className="w-full max-h-[360px] object-cover" />
@@ -135,6 +140,11 @@ export default function CommunityPostCard({
             <button onClick={() => onReport(post)} aria-label="Signaler la publication" className="bb-hit flex items-center gap-1.5 text-xs font-semibold focus-visible:outline focus-visible:outline-2" style={{ color: muted }}>
               <Flag size={13} />
             </button>
+            {post.media_url && onReportMedia && post.author_id !== currentUserId && (
+              <button onClick={() => onReportMedia({ kind: "community_post", id: post.id })} aria-label="Signaler l'image" className="bb-hit flex items-center gap-1.5 text-xs font-semibold focus-visible:outline focus-visible:outline-2" style={{ color: muted }}>
+                <ImageOff size={13} />
+              </button>
+            )}
             {onBlockAuthor && post.author_id !== currentUserId && (
               <button onClick={() => onBlockAuthor({ id: post.author_id, name: author.name || "cet auteur" })} aria-label="Bloquer l'auteur de la publication" className="bb-hit flex items-center gap-1.5 text-xs font-semibold focus-visible:outline focus-visible:outline-2" style={{ color: muted }}>
                 <Ban size={13} />

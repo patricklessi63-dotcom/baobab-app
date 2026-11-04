@@ -1,6 +1,8 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { ArrowLeft, MapPin, Users, Share2, Flag, Lock, Mail, Shield, Calendar, UserPlus, Trash2 } from "lucide-react";
 import CommunityPostCard from "./CommunityPostCard";
+import ReportMediaDialog from "../ReportMediaDialog";
+import { fetchHiddenMedia } from "../../lib/moderationApi";
 import CommunityPostComposer from "./CommunityPostComposer";
 import CommunityMemberRow from "./CommunityMemberRow";
 import CommunityAdminPanel from "./CommunityAdminPanel";
@@ -69,6 +71,16 @@ export default function CommunityDetailView({
   onOpenInvite = () => {},
 }) {
   const [subTab, setSubTab] = useState("posts");
+  // Images masquées en attendant un modérateur (signalements indépendants) et dialogue de signalement.
+  const [hiddenPostMedia, setHiddenPostMedia] = useState(() => new Set());
+  const [mediaReport, setMediaReport] = useState(null);
+  const mediaPostIdsKey = (posts || []).filter((p) => p.media_url).map((p) => p.id).join(",");
+  useEffect(() => {
+    if (!mediaPostIdsKey) return undefined;
+    let cancelled = false;
+    fetchHiddenMedia("community_post", mediaPostIdsKey.split(",")).then((set) => { if (!cancelled) setHiddenPostMedia(set); });
+    return () => { cancelled = true; };
+  }, [mediaPostIdsKey]);
   // Action destructive en attente de confirmation (quitter/supprimer la
   // communauté) — remplace les window.confirm() natifs, voir ConfirmModal.jsx.
   const [pendingAction, setPendingAction] = useState(null); // { type: "leave" | "delete" }
@@ -244,6 +256,8 @@ export default function CommunityDetailView({
                     onSubmitComment={onSubmitComment}
                     onEditComment={onEditComment}
                     onReport={onReportPost}
+                    onReportMedia={setMediaReport}
+                    mediaHidden={hiddenPostMedia.has(post.id)}
                     onReportComment={onReportComment}
                     onBlockAuthor={onBlockAuthor}
                     onDelete={onDeletePost}
@@ -344,6 +358,7 @@ export default function CommunityDetailView({
           setPendingAction(null);
         }}
       />
+      <ReportMediaDialog open={Boolean(mediaReport)} kind={mediaReport?.kind} targetId={mediaReport?.id} onClose={() => setMediaReport(null)} />
     </div>
   );
 }
