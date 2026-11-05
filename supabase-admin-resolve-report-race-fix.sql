@@ -46,6 +46,8 @@ returns void language plpgsql security definer set search_path = public as $$
 declare
   v_status text := case when p_dismiss then 'dismissed' else 'resolved' end;
   v_current_status text;
+  v_hex text;
+  v_key text;
 begin
   if not is_moderator_or_above() then raise exception 'Non autorise'; end if;
 
@@ -73,6 +75,15 @@ begin
       raise exception 'Signalement introuvable ou deja traite';
     end if;
     update info_reports set status = v_status where id = p_id;
+  elsif p_source = 'profile' then
+    -- decode l'uuid reversible produit par admin_list_reports (16 zeros + 16 chiffres hexadecimaux = un entier) ; sinon uuid tel quel
+    v_hex := replace(p_id::text, '-', '');
+    v_key := case when v_hex ~ '^0{16}[0-9a-f]{16}$' then (('x' || right(v_hex, 16))::bit(64)::bigint)::text else p_id::text end;
+    select status into v_current_status from reports where id::text = v_key for update;
+    if v_current_status is distinct from 'open' then
+      raise exception 'Signalement introuvable ou deja traite';
+    end if;
+    update reports set status = v_status where id::text = v_key;
   else
     raise exception 'Source inconnue';
   end if;

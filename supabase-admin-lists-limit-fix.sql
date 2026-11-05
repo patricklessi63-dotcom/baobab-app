@@ -32,9 +32,11 @@
 -- ============================================================================
 
 -- 2e CORRECTION (5 novembre 2026) : la version précédente de ce fichier, exécutée en production, faisait échouer admin_list_reports()
--- à chaque appel (HTTP 400, « column reference "category" is ambiguous ») : RETURNS TABLE expose une colonne « category » que
--- l'ORDER BY non qualifié confondait avec la colonne de sortie. L'ORDER BY est maintenant appliqué sur une sous-requête avec des
--- colonnes qualifiées (r.category, r.created_at). Voir aussi supabase-admin-list-reports-hotfix.sql (à exécuter seul).
+-- à chaque appel (HTTP 400) pour DEUX raisons : (1) reports.id est bigint en production alors que les autres tables de signalement ont un id
+-- uuid : « UNION types uuid and bigint cannot be matched » (erreur d'analyse, vue dans les journaux Postgres) ; (2) l'ORDER BY « category » non
+-- qualifié était ambigu avec la colonne de sortie (« column reference "category" is ambiguous »). Maintenant : l'id d'un signalement de profil
+-- est renvoyé en uuid réversible (voir supabase-admin-list-reports-hotfix.sql, qui corrige aussi admin_resolve_report) et l'ORDER BY est
+-- appliqué sur une sous-requête avec colonnes qualifiées.
 create or replace function admin_list_reports(p_status text default 'open')
 returns table (
   source text, id uuid, target_type text, target_id text, from_id uuid,
@@ -58,7 +60,10 @@ begin
       select 'info'::text, ir.id, 'info_article'::text, ir.article_id::text, ir.from_id, ir.category, ir.reason, ir.status, ir.created_at
       from info_reports ir where ir.status = p_status
       union all
-      select 'profile'::text, rp.id, 'profile'::text, rp.to_id::text, rp.from_id, rp.category, rp.reason, rp.status, rp.created_at
+      -- reports.id est bigint en production (uuid ailleurs) : encode un entier en uuid reversible, garde un uuid tel quel
+      select 'profile'::text,
+             case when rp.id::text ~ '^[0-9]+$' then lpad(to_hex(rp.id::text::bigint), 32, '0')::uuid else rp.id::text::uuid end,
+             'profile'::text, rp.to_id::text, rp.from_id, rp.category, rp.reason, rp.status, rp.created_at
       from reports rp where rp.status = p_status
     ) r
     order by

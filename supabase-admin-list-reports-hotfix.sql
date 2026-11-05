@@ -1,14 +1,19 @@
 -- ============================================================================
--- CORRECTIF : admin_list_reports() renvoyait HTTP 400 a chaque appel (tableau de bord administrateur, onglet Signalements).
+-- CORRECTIF : l'onglet Signalements du tableau de bord administrateur renvoyait HTTP 400 a chaque appel (admin_list_reports).
 --
--- Cause : la version de supabase-admin-lists-limit-fix.sql (et du script consolide) utilisait « order by case category ... »
--- sans qualifier la colonne ; comme la fonction declare RETURNS TABLE (... category ...), PostgreSQL leve
---   ERREUR 42702 : column reference "category" is ambiguous
--- (reproduit sur PostgreSQL embarque, test src/native/adminListReports.test.js).
+-- DEUX causes, toutes deux corrigees ici :
+--  1. reports.id est bigint en PRODUCTION (uuid pour community/event/post/info_reports) : le UNION ALL echoue a l'analyse avec
+--       « UNION types uuid and bigint cannot be matched »   (vu dans les journaux Postgres a chaque 400).
+--  2. l'ORDER BY « case category ... » non qualifie est ambigu avec la colonne de sortie (RETURNS TABLE ... category ...) :
+--       « column reference "category" is ambiguous »     (42702, reproduit sur PostgreSQL embarque).
 --
--- Ce fichier : create or replace seulement (aucune donnee modifiee, droits d'execution conserves). Il garde le tri par priorite
--- (mineur_suspecte, arnaque, harcelement, puis le reste) et la limite de 200 lignes.
--- A executer dans Supabase : SQL Editor. Rejouable.
+-- Solution sans changer les signatures (le client reste identique) : l'id d'un signalement de PROFIL est renvoye sous forme d'uuid reversible
+-- (entier -> 32 chiffres hexadecimaux, ex. 00000000-0000-0000-0000-00000000002a pour l'id 42) et admin_resolve_report le decode.
+-- Fonctionne aussi si reports.id est un uuid. admin_resolve_report gagne la branche 'profile' (absente de la version precedente :
+-- « Source inconnue ») avec le meme verrou et le meme controle « deja traite » que les autres sources.
+--
+-- create or replace seulement : aucune donnee modifiee, droits d'execution conserves. A executer dans Supabase : SQL Editor. Rejouable.
+-- Tests : src/native/adminListReports.test.js (PGlite avec reports.id bigint ET uuid).
 -- ============================================================================
 create or replace function admin_list_reports(p_status text default 'open')
 returns table (
@@ -33,7 +38,10 @@ begin
       select 'info'::text, ir.id, 'info_article'::text, ir.article_id::text, ir.from_id, ir.category, ir.reason, ir.status, ir.created_at
       from info_reports ir where ir.status = p_status
       union all
-      select 'profile'::text, rp.id, 'profile'::text, rp.to_id::text, rp.from_id, rp.category, rp.reason, rp.status, rp.created_at
+      -- reports.id est bigint en production (uuid ailleurs) : encode un entier en uuid reversible, garde un uuid tel quel
+      select 'profile'::text,
+             case when rp.id::text ~ '^[0-9]+$' then lpad(to_hex(rp.id::text::bigint), 32, '0')::uuid else rp.id::text::uuid end,
+             'profile'::text, rp.to_id::text, rp.from_id, rp.category, rp.reason, rp.status, rp.created_at
       from reports rp where rp.status = p_status
     ) r
     order by
@@ -43,7 +51,60 @@ begin
 end;
 $$;
 
+create or replace function admin_resolve_report(p_source text, p_id uuid, p_dismiss boolean default false)
+returns void language plpgsql security definer set search_path = public as $$
+declare
+  v_status text := case when p_dismiss then 'dismissed' else 'resolved' end;
+  v_current_status text;
+  v_hex text;
+  v_key text;
+begin
+  if not is_moderator_or_above() then raise exception 'Non autorise'; end if;
+
+  if p_source = 'community' then
+    select status into v_current_status from community_reports where id = p_id for update;
+    if v_current_status is distinct from 'open' then
+      raise exception 'Signalement introuvable ou deja traite';
+    end if;
+    update community_reports set status = v_status where id = p_id;
+  elsif p_source = 'event' then
+    select status into v_current_status from event_reports where id = p_id for update;
+    if v_current_status is distinct from 'open' then
+      raise exception 'Signalement introuvable ou deja traite';
+    end if;
+    update event_reports set status = v_status where id = p_id;
+  elsif p_source = 'post' then
+    select coalesce(status, 'open') into v_current_status from post_reports where id = p_id for update;
+    if v_current_status is distinct from 'open' then
+      raise exception 'Signalement introuvable ou deja traite';
+    end if;
+    update post_reports set status = v_status where id = p_id;
+  elsif p_source = 'info' then
+    select status into v_current_status from info_reports where id = p_id for update;
+    if v_current_status is distinct from 'open' then
+      raise exception 'Signalement introuvable ou deja traite';
+    end if;
+    update info_reports set status = v_status where id = p_id;
+  elsif p_source = 'profile' then
+    -- decode l'uuid reversible produit par admin_list_reports (16 zeros + 16 chiffres hexadecimaux = un entier) ; sinon uuid tel quel
+    v_hex := replace(p_id::text, '-', '');
+    v_key := case when v_hex ~ '^0{16}[0-9a-f]{16}$' then (('x' || right(v_hex, 16))::bit(64)::bigint)::text else p_id::text end;
+    select status into v_current_status from reports where id::text = v_key for update;
+    if v_current_status is distinct from 'open' then
+      raise exception 'Signalement introuvable ou deja traite';
+    end if;
+    update reports set status = v_status where id::text = v_key;
+  else
+    raise exception 'Source inconnue';
+  end if;
+
+  insert into admin_actions (actor_id, action_type, metadata)
+  values (current_profile_id(), case when p_dismiss then 'report_dismissed' else 'report_resolved' end,
+    jsonb_build_object('source', p_source, 'report_id', p_id));
+end;
+$$;
+
 -- Verification (lecture seule, a executer apres) :
--- select source, category, status, created_at from admin_list_reports('open') limit 5;  -- ne doit plus lever d'erreur
--- select count(*) from admin_list_reports('open');                                       -- <= 200
+-- select source, id, category, status from admin_list_reports('open') limit 5;   -- ne doit plus lever d'erreur
+-- select count(*) from admin_list_reports('open');                               -- <= 200
 -- ============================================================================
