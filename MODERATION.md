@@ -136,6 +136,7 @@ ce service et son interrupteur (`image_provider`). Rien de cela n'est actif aujo
   pg_cron déjà utilisée par le projet) :
   `select cron.schedule('baobab-moderation-purge', '0 4 1 * *', $$select moderation_purge_old(365)$$);`
   (non exécuté ; durée à valider).
+- **Brouillon de textes légaux** : `LEGAL-MODERATION-BROUILLON.md` (Conditions d'utilisation § 8, Politique de confidentialité §§ 2, 4, 5) décrit ce que le code fait réellement ; à faire valider, puis à publier en même temps que SQL-31.
 - **À faire avant l'exécution en production** : mentionner ce traitement (finalité : sécurité de la communauté ; données ; durée ;
   accès) dans la politique de confidentialité — **texte à faire valider par le propriétaire / un juriste** ; non modifié ici.
 
