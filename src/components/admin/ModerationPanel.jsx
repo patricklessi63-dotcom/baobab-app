@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { ShieldAlert, Gavel, MessageSquareWarning, Image as ImageIcon, SlidersHorizontal, Search } from "lucide-react";
+import { ShieldAlert, Gavel, MessageSquareWarning, Image as ImageIcon, SlidersHorizontal, Search, FlaskConical } from "lucide-react";
 import EmptyState from "../home/EmptyState";
 import Skeleton from "../Skeleton";
 import * as modApi from "../../lib/moderationApi";
@@ -14,11 +14,13 @@ const SECTIONS = [
   ["sanctions", "Sanctions", Gavel],
   ["appeals", "Appels", ShieldAlert],
   ["media", "Images", ImageIcon],
+  ["rules", "Règles", FlaskConical],
   ["settings", "Réglages", SlidersHorizontal],
 ];
 const SOURCE_LABEL = { message: "Message privé", post: "Publication", comment: "Commentaire", community_post: "Publication de communauté", bio: "Biographie", status: "Statut" };
 const KIND_LABEL = { warning: "Avertissement", suspension: "Suspension", ban: "Bannissement" };
 const MEDIA_LABEL = { story: "Statut", post_media: "Publication", community_post: "Communauté", profile_photo: "Photo de profil", avatar: "Avatar", event_media: "Événement", message_media: "Message" };
+const SUGGESTION_KIND = { new_term: "Nouveau terme", new_variant: "Nouvelle variante", false_positive: "Faux positif (exception)", false_negative: "Faux négatif (terme manqué)" };
 const CATEGORIES = [["insulte", "Insulte"], ["racisme", "Racisme"], ["homophobie", "Homophobie"], ["menace", "Menace"], ["harcelement", "Harcèlement"]];
 
 const fmt = (d) => (d ? new Date(d).toLocaleString("fr-CA", { dateStyle: "short", timeStyle: "short" }) : "");
@@ -36,6 +38,13 @@ export default function ModerationPanel({ onError, isAdmin = false }) {
   const [terms, setTerms] = useState([]);
   const [newTerm, setNewTerm] = useState({ term: "", category: "insulte", severity: "block" });
   const [previews, setPreviews] = useState({});
+  // Règles : suggestions à valider (jamais appliquées sans un administrateur), précision par terme, test d'un texte
+  const [suggestions, setSuggestions] = useState([]);
+  const [stats, setStats] = useState([]);
+  const [testText, setTestText] = useState("");
+  const [candidate, setCandidate] = useState("");
+  const [testResult, setTestResult] = useState(null);
+  const [proposal, setProposal] = useState({ kind: "new_variant", term: "", category: "insulte", severity: "review", rationale: "" });
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -45,6 +54,7 @@ export default function ModerationPanel({ onError, isAdmin = false }) {
       else if (section === "sanctions") setRows(await modApi.listSanctions(false));
       else if (section === "appeals") setRows(await modApi.listSanctions(true));
       else if (section === "media") setRows(await modApi.listMediaQueue());
+      else if (section === "rules") { const [sug, st] = await Promise.all([modApi.listRuleSuggestions("pending"), modApi.termStats(90)]); setSuggestions(sug); setStats(st); }
       else if (section === "settings") { setSettings(await modApi.fetchSettings()); setTerms(isAdmin ? await modApi.fetchTerms() : []); }
     } catch (e) {
       if (modApi.isModerationMissing(e)) setMissing(true);
@@ -76,6 +86,17 @@ export default function ModerationPanel({ onError, isAdmin = false }) {
     return rows.filter((r) => JSON.stringify(r).toLowerCase().includes(needle));
   }, [rows, query]);
 
+  const runTest = async () => {
+    if (!testText.trim() || busyId) return;
+    setBusyId("test");
+    try { setTestResult(await modApi.testModeration(testText, candidate.trim() || null)); }
+    catch (e) { onError?.(modApi.isModerationMissing(e) ? "Modération non installée sur le serveur." : "Test impossible. Réessaie."); }
+    finally { setBusyId(null); }
+  };
+  const propose = () => {
+    if (proposal.term.trim().length < 2) return;
+    act("proposal", async () => { await modApi.suggestRule(proposal.kind, proposal.term.trim(), proposal.category, proposal.severity, proposal.rationale.trim() || null); setProposal({ ...proposal, term: "", rationale: "" }); });
+  };
   const saveSetting = (patch) => act("settings", () => modApi.updateSettings(patch));
   const addTerm = () => {
     if (newTerm.term.trim().length < 2) return;
@@ -100,11 +121,11 @@ export default function ModerationPanel({ onError, isAdmin = false }) {
 
       {!missing && section !== "settings" && (
         <div className="flex flex-col gap-2 mb-3">
-          <label className="relative block">
+          {section !== "rules" && <label className="relative block">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2" color={muted} />
             <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Rechercher (nom, terme, motif…)" aria-label="Rechercher dans la liste"
               className="bb-input w-full" style={{ paddingLeft: 32 }} />
-          </label>
+          </label>}
           <input value={reason} onChange={(e) => setReason(e.target.value)} maxLength={300} placeholder="Motif de la décision (facultatif, conservé dans le journal)" aria-label="Motif de la décision" className="bb-input w-full" />
         </div>
       )}
@@ -200,6 +221,89 @@ export default function ModerationPanel({ onError, isAdmin = false }) {
             })}
           </div>
         )
+      )}
+
+
+      {!missing && !loading && section === "rules" && (
+        <div className="flex flex-col gap-3">
+          <div className={`${card} p-4`}>
+            <div className="text-sm font-bold mb-1" style={{ color: primary }}>Tester un texte</div>
+            <p className="text-xs mb-2" style={{ color: muted }}>Rien n'est enregistré ni sanctionné : le test applique les règles actuelles, et le terme candidat (pas encore actif) s'il est fourni.</p>
+            <textarea value={testText} onChange={(e) => setTestText(e.target.value)} rows={3} maxLength={4000} aria-label="Texte à tester" className="bb-input w-full mb-2" />
+            <div className="flex flex-wrap gap-2">
+              <input value={candidate} onChange={(e) => setCandidate(e.target.value)} placeholder="Terme candidat (facultatif)" aria-label="Terme candidat" className="bb-input flex-1 min-w-[140px]" />
+              <button onClick={runTest} disabled={busyId === "test" || !testText.trim()} className={btn} style={{ background: navy, color: "#fff" }}>Tester</button>
+            </div>
+            {testResult && (
+              <div role="status" className="text-xs mt-3 p-3 rounded-xl" style={{ background: bg, color: primary }}>
+                <div className="font-bold">{testResult.blocked ? `Refusé — ${testResult.category} : « ${testResult.term} »` : testResult.flagged ? `À relire — ${testResult.category} : « ${testResult.term} »` : "Accepté par les règles actuelles"}</div>
+                {testResult.candidate_match !== null && testResult.candidate_match !== undefined && (
+                  <div className="mt-1">{testResult.candidate_match ? "Le terme candidat correspond à ce texte." : "Le terme candidat ne correspond pas à ce texte."}</div>
+                )}
+              </div>
+            )}
+          </div>
+
+          <div className={`${card} p-4`}>
+            <div className="text-sm font-bold mb-1" style={{ color: primary }}>Suggestions de règles ({suggestions.length})</div>
+            <p className="text-xs mb-3" style={{ color: muted }}>Une suggestion ne devient une règle que si un administrateur l'accepte : rien n'est jamais appliqué automatiquement.{!isAdmin ? " Seuls les administrateurs décident." : ""}</p>
+            {suggestions.length === 0 ? <p className="text-xs" style={{ color: muted }}>Aucune suggestion en attente.</p> : (
+              <div className="flex flex-col gap-2 mb-3">
+                {suggestions.map((x) => (
+                  <div key={x.id} className="p-3 rounded-xl" style={{ background: bg }}>
+                    <div className="text-xs font-bold" style={{ color: primary }}>{SUGGESTION_KIND[x.kind] || x.kind} — « {x.term} » <span style={{ color: muted }}>({x.category}, {x.severity === "block" ? "refus" : "relecture"})</span></div>
+                    {x.rationale && <p className="text-xs mt-1 break-words" style={{ color: muted }}>{x.rationale}</p>}
+                    {isAdmin && (
+                      <div className="flex items-center gap-2 mt-2">
+                        <button disabled={busyId === x.id} onClick={() => act(x.id, () => modApi.decideRuleSuggestion(x.id, true, reason || null))} className={btn} style={{ background: green, color: "#fff" }}>Accepter</button>
+                        <button disabled={busyId === x.id} onClick={() => act(x.id, () => modApi.decideRuleSuggestion(x.id, false, reason || null))} className={btn} style={{ background: bg, color: muted }}>Rejeter</button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="text-xs font-bold mb-2" style={{ color: primary }}>Proposer une règle</div>
+            <div className="flex flex-wrap gap-2">
+              <select value={proposal.kind} onChange={(e) => setProposal({ ...proposal, kind: e.target.value })} aria-label="Type de suggestion" className="bb-input">
+                {Object.entries(SUGGESTION_KIND).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+              </select>
+              <input value={proposal.term} onChange={(e) => setProposal({ ...proposal, term: e.target.value })} placeholder="Terme ou expression" aria-label="Terme proposé" className="bb-input flex-1 min-w-[140px]" />
+              <select value={proposal.category} onChange={(e) => setProposal({ ...proposal, category: e.target.value })} aria-label="Catégorie proposée" className="bb-input">
+                {CATEGORIES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+              </select>
+              <select value={proposal.severity} onChange={(e) => setProposal({ ...proposal, severity: e.target.value })} aria-label="Gravité proposée" className="bb-input">
+                <option value="block">Refuser</option>
+                <option value="review">Relire</option>
+              </select>
+            </div>
+            <input value={proposal.rationale} onChange={(e) => setProposal({ ...proposal, rationale: e.target.value })} maxLength={500} placeholder="Pourquoi ? (facultatif)" aria-label="Justification de la suggestion" className="bb-input w-full mt-2" />
+            <button onClick={propose} disabled={busyId === "proposal"} className={`${btn} mt-2`} style={{ background: navy, color: "#fff" }}>Proposer</button>
+          </div>
+
+          <div className={`${card} p-4`}>
+            <div className="text-sm font-bold mb-1" style={{ color: primary }}>Précision des règles (90 derniers jours)</div>
+            <p className="text-xs mb-2" style={{ color: muted }}>Confirmées contre annulées par un modérateur (faux positifs). Une faible précision signale un terme à retoucher.</p>
+            {stats.length === 0 ? <p className="text-xs" style={{ color: muted }}>Aucune donnée pour l'instant.</p> : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead><tr style={{ color: muted }}><th className="text-left py-1">Terme</th><th className="text-right">Confirmées</th><th className="text-right">Faux positifs</th><th className="text-right">À relire</th><th className="text-right">Précision</th></tr></thead>
+                  <tbody>
+                    {stats.map((t) => (
+                      <tr key={t.term} style={{ color: primary }}>
+                        <td className="py-1">{t.term}</td>
+                        <td className="text-right">{t.confirmed}</td>
+                        <td className="text-right">{t.false_positives}</td>
+                        <td className="text-right">{t.pending}</td>
+                        <td className="text-right font-bold" style={{ color: t.precision_ratio !== null && Number(t.precision_ratio) < 0.7 ? coralText : primary }}>{t.precision_ratio === null || t.precision_ratio === undefined ? "—" : `${Math.round(Number(t.precision_ratio) * 100)} %`}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
       )}
 
       {!missing && !loading && section === "settings" && settings && (
