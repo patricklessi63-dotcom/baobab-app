@@ -23,6 +23,13 @@ export async function listReports(status = "open") {
   return data || [];
 }
 
+// Étapes intermédiaires d'un signalement : "open" (relâcher), "in_review" (en cours d'examen), "confirmed" (confirmé).
+// supabase-report-statuses.sql ; la clôture (résolu / rejeté) reste resolveReport().
+export async function setReportStatus(source, id, status, note = null) {
+  const { error } = await supabase.rpc("admin_set_report_status", { p_source: source, p_id: id, p_status: status, p_note: note });
+  if (error) throw error;
+}
+
 export async function resolveReport(source, id, dismiss = false) {
   const { error } = await supabase.rpc("admin_resolve_report", { p_source: source, p_id: id, p_dismiss: dismiss });
   if (error) throw error;

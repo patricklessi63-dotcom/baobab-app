@@ -25,6 +25,7 @@ const SUSPEND_DURATIONS = [
   { label: "7 jours", ms: 7 * 24 * 60 * 60 * 1000 },
   { label: "30 jours", ms: 30 * 24 * 60 * 60 * 1000 },
 ];
+const REPORT_STATUS_LABEL = { open: "En attente", in_review: "En cours d'examen", confirmed: "Confirmé" };
 const REPORT_SOURCE_LABEL = { community: "Communauté", event: "Événement", post: "Fil général", info: "Baobab Info", profile: "Profil (rencontre/messagerie)" };
 
 export default function AdminDashboard({ onBack, onError, myPlatformRole, myProfileId }) {
@@ -53,6 +54,10 @@ export default function AdminDashboard({ onBack, onError, myPlatformRole, myProf
 
   const [reports, setReports] = useState([]);
   const [reportsLoading, setReportsLoading] = useState(true);
+  // Filtres de la file (côté client : la liste est plafonnée à 200 lignes par le serveur) et disponibilité des étapes intermédiaires
+  const [reportCategoryFilter, setReportCategoryFilter] = useState("all");
+  const [reportStatusFilter, setReportStatusFilter] = useState("all");
+  const [reportStepsAvailable, setReportStepsAvailable] = useState(true);
   // Même garde que userActionInFlightRef ci-dessus : admin_resolve_report()
   // insère elle aussi une ligne admin_actions à chaque appel — Résolu/Ignorer
   // n'étaient jamais désactivés pendant la requête.
@@ -263,6 +268,41 @@ export default function AdminDashboard({ onBack, onError, myPlatformRole, myProf
     }
   };
 
+  // « En cours d'examen » / « Confirmé » / « Libérer » (supabase-report-statuses.sql). Tant que ce fichier n'est pas exécuté sur le
+  // serveur, ces boutons disparaissent (Résolu et Rejeter marchent comme avant) au lieu d'échouer à chaque clic.
+  const handleSetStatus = async (r, status) => {
+    const key = `${r.source}-${r.id}`;
+    if (reportActionInFlightRef.current.has(key)) return;
+    reportActionInFlightRef.current.add(key);
+    try {
+      await adminApi.setReportStatus(r.source, r.id, status);
+      setReports((rs) => rs.map((x) => (x.source === r.source && x.id === r.id ? { ...x, status } : x)));
+    } catch (e) {
+      console.error(e);
+      if (isAlreadyHandledReportError(e)) {
+        setReports((rs) => rs.filter((x) => !(x.source === r.source && x.id === r.id)));
+        onError("Ce signalement a déjà été traité (par toi ou un autre membre du staff) entre-temps.");
+      } else if (e?.code === "PGRST202" || e?.code === "42883" || /could not find the function|does not exist/i.test(e?.message || "")) {
+        setReportStepsAvailable(false);
+        onError("Les statuts « en cours d'examen » et « confirmé » ne sont pas encore installés sur le serveur.");
+      } else if (/Transition invalide/i.test(e?.message || "")) {
+        onError("Cette étape n'est plus possible : le signalement a changé entre-temps.");
+        loadReports();
+      } else {
+        onError("Impossible de mettre à jour ce signalement.");
+      }
+    } finally {
+      reportActionInFlightRef.current.delete(key);
+    }
+  };
+
+  const reportCategories = [...new Set(reports.map((r) => r.category).filter(Boolean))].sort();
+  const visibleReports = reports.filter((r) => {
+    if (reportCategoryFilter !== "all" && r.category !== reportCategoryFilter) return false;
+    if (reportStatusFilter !== "all" && (r.status || "open") !== reportStatusFilter) return false;
+    return true;
+  });
+
   return (
     <section className="max-w-4xl mx-auto">
       <button onClick={onBack} className="flex items-center gap-1.5 text-sm font-bold mb-4" style={{ color: primary }}>
@@ -372,20 +412,46 @@ export default function AdminDashboard({ onBack, onError, myPlatformRole, myProf
           <EmptyState icon={Flag} title="Aucun signalement ouvert." />
         ) : (
           <div className="flex flex-col gap-2">
-            {reports.map((r) => (
-              <div key={`${r.source}-${r.id}`} className={`${card} p-4`}>
-                <div className="flex items-center justify-between gap-2 mb-1">
-                  <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full" style={{ background: bg, color: primary }}>{REPORT_SOURCE_LABEL[r.source] || r.source}</span>
-                  <span className="text-[11px]" style={{ color: muted }}>{new Date(r.created_at).toLocaleDateString("fr-CA")}</span>
+            <div className="flex flex-wrap gap-2 mb-1">
+              <select value={reportCategoryFilter} onChange={(e) => setReportCategoryFilter(e.target.value)} aria-label="Filtrer par catégorie" className="bb-input text-xs">
+                <option value="all">Toutes les catégories</option>
+                {reportCategories.map((c) => <option key={c} value={c}>{`Catégorie : ${c}`}</option>)}
+              </select>
+              <select value={reportStatusFilter} onChange={(e) => setReportStatusFilter(e.target.value)} aria-label="Filtrer par statut" className="bb-input text-xs">
+                <option value="all">Tous les statuts</option>
+                {Object.entries(REPORT_STATUS_LABEL).map(([v, l]) => <option key={v} value={v}>{`Statut : ${l}`}</option>)}
+              </select>
+            </div>
+            {visibleReports.length === 0 && <p className="text-xs" style={{ color: muted }}>Aucun signalement ne correspond à ces filtres.</p>}
+            {visibleReports.map((r) => {
+              const status = r.status || "open";
+              return (
+                <div key={`${r.source}-${r.id}`} className={`${card} p-4`}>
+                  <div className="flex items-center justify-between gap-2 mb-1">
+                    <span className="flex items-center gap-1.5">
+                      <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full" style={{ background: bg, color: primary }}>{REPORT_SOURCE_LABEL[r.source] || r.source}</span>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: status === "open" ? bg : navy, color: status === "open" ? muted : "#fff" }}>{REPORT_STATUS_LABEL[status] || status}</span>
+                    </span>
+                    <span className="text-[11px]" style={{ color: muted }}>{new Date(r.created_at).toLocaleDateString("fr-CA")}</span>
+                  </div>
+                  <div className="text-sm font-bold" style={{ color: primary }}>{r.category}</div>
+                  {r.reason && <p className="text-xs mt-1" style={{ color: muted }}>{r.reason}</p>}
+                  <div className="flex items-center gap-2 mt-3 flex-wrap">
+                    {reportStepsAvailable && status === "open" && (
+                      <button onClick={() => handleSetStatus(r, "in_review")} className="text-xs font-bold px-3 py-2 rounded-full" style={{ background: bg, color: primary }}>Prendre en charge</button>
+                    )}
+                    {reportStepsAvailable && status === "in_review" && (
+                      <button onClick={() => handleSetStatus(r, "open")} className="text-xs font-bold px-3 py-2 rounded-full" style={{ background: bg, color: muted }}>Libérer</button>
+                    )}
+                    {reportStepsAvailable && status !== "confirmed" && (
+                      <button onClick={() => handleSetStatus(r, "confirmed")} className="text-xs font-bold px-3 py-2 rounded-full" style={{ background: bg, color: coralText }}>Confirmer</button>
+                    )}
+                    <button onClick={() => handleResolve(r, false)} className="text-xs font-bold px-3 py-2 rounded-full text-white" style={{ background: green }}>Résolu</button>
+                    <button onClick={() => handleResolve(r, true)} className="text-xs font-bold px-3 py-2 rounded-full" style={{ background: bg, color: muted }}>Rejeter</button>
+                  </div>
                 </div>
-                <div className="text-sm font-bold" style={{ color: primary }}>{r.category}</div>
-                {r.reason && <p className="text-xs mt-1" style={{ color: muted }}>{r.reason}</p>}
-                <div className="flex items-center gap-2 mt-3">
-                  <button onClick={() => handleResolve(r, false)} className="text-xs font-bold px-3 py-2 rounded-full text-white" style={{ background: green }}>Résolu</button>
-                  <button onClick={() => handleResolve(r, true)} className="text-xs font-bold px-3 py-2 rounded-full" style={{ background: bg, color: muted }}>Ignorer</button>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )
       )}
