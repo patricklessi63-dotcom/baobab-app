@@ -136,3 +136,15 @@ Fichier `supabase-moderation-text.sql` rejoué tel quel sur `baobab-staging` (o�
 - **Photo de profil par id entier** : signalement avec un id numérique JSON (comme le client) ou texte ; doublon ignoré ; 2 signalements = visible, 3 comptes anciens = **masquée** ; état « masquée » lisible par l'application ; visible dans `admin_media_queue` (motifs agrégés) ; `admin_media_info` renvoie l'adresse et le propriétaire ; `moderate_media('restore')` la rétablit et la verrouille (un nouveau signalement ne la re-masque pas) ; décision journalisée (`profile_photo:3`). Refus pour un anonyme et pour un utilisateur ordinaire (« Non autorise »).
 - **Régression** : les 61 contrôles du premier essai (échelle, bannissement, connexion refusée, réinscription, journal, droits) et le cycle bannissement/levée passent toujours.
 - **Non testé** : l'interface (onglets Règles et File d'images), les suggestions de règles, la purge planifiée, les médias privés (messages, événements), la production.
+
+## Rejeu de SQL-31 (commit 2e61b5c : nom, nom de famille et métier contrôlés) sur la répétition — 5 novembre 2026
+
+Fichier `supabase-moderation-text.sql` rejoué tel quel sur `baobab-staging` (jamais en production), puis 16 contrôles avec de vrais comptes.
+
+- **Déclencheurs** : 11 `trg_moderation_*` hors `*_norm` (8 zones dont `profiles_bio`, plus `profiles_name`, `profiles_last_name`, `profiles_occupation`).
+- **Refus** : un compte ordinaire ne peut pas mettre « connard » comme nom, « Salaud » comme nom de famille ni « grosse connasse » comme métier (P0001 `MODERATION_REFUSED`, valeur inchangée) ; la création d'un profil avec un nom injurieux est refusée (aucun profil créé).
+- **Pas de faux positifs** : « Aïcha », « Mélanie », « Dickinson », « Cumberland », « Bassett », « Assistante sociale » passent.
+- **Sans recontrôle** : modifier la bio sans toucher au nom passe ; un profil dont le nom injurieux date d'avant SQL-31 peut modifier ses autres champs et renvoyer le même nom, mais pas passer à un autre nom injurieux.
+- **Interrupteur / système** : filtre désactivé = aucun contrôle (échec ouvert) ; écriture SQL directe sans utilisateur = non contrôlée.
+- **Observations** : le message de refus dit « Ce message contient des propos non autorisés » même pour un nom ou un métier (libellé à adapter côté client) ; un refus annule l'écriture et n'est pas compté comme infraction (0 infraction enregistrée), donc un nom injurieux n'a pas de sanction progressive — conforme à MODERATION.md, à confirmer comme voulu.
+- **Régression** : les 61 contrôles du premier essai, le cycle bannissement/levée et les 26 contrôles « images » passent toujours. Non testé : interface, purge, production.

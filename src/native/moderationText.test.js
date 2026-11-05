@@ -27,7 +27,8 @@ beforeAll(async () => {
     create function auth.role() returns text language sql stable as $$ select case when current_setting('test.enforce_trust', true) = 'on' and coalesce(current_setting('test.uid', true), '') <> '' then 'authenticated' else 'service_role' end $$;
     create table profiles (
       id uuid primary key, user_id uuid, name text, bio text, created_at timestamptz default now(),
-      suspended_until timestamptz, suspend_reason text, banned_at timestamptz, ban_reason text, avatar_url text
+      suspended_until timestamptz, suspend_reason text, banned_at timestamptz, ban_reason text, avatar_url text,
+      last_name text, occupation text
     );
     create table platform_roles (profile_id uuid primary key, role text);
     create function current_profile_id() returns uuid language sql stable as $$ select id from profiles where user_id = auth.uid() $$;
@@ -90,9 +91,9 @@ describe("le fichier SQL s'exécute en entier et se rejoue (idempotent)", () => 
     await db.exec(SQL);
     expect((await q("select count(*)::int as n from moderation_terms"))[0].n).toBe(before);
   });
-  it("les 8 déclencheurs de contrôle de texte sont posés (+ 2 de normalisation de la liste)", async () => {
+  it("les 11 déclencheurs de contrôle de texte sont posés (8 zones + nom, nom de famille, métier ; + 2 de normalisation de la liste)", async () => {
     const t = await q("select count(*)::int as n from pg_trigger where tgname like 'trg_moderation_%' and tgname not like '%_norm' and not tgisinternal");
-    expect(t[0].n).toBe(8);
+    expect(t[0].n).toBe(11);
   });
 });
 
@@ -120,6 +121,34 @@ describe("moderation_check() (SQL) = checkText() (JS)", () => {
     const js = checkText(text);
     expect({ blocked: r.blocked, flagged: r.flagged, category: r.category, severity: r.severity })
       .toEqual({ blocked: js.blocked, flagged: js.flagged, category: js.category, severity: js.severity });
+  });
+});
+
+describe("nom affiché, nom de famille et métier (textes de profil visibles par les autres)", () => {
+  it("un nom, un nom de famille ou un métier injurieux est refusé à la modification ET à la création du profil", async () => {
+    await as(1);
+    for (const col of ["name", "last_name", "occupation"]) {
+      expect(await fails(() => db.query(`update profiles set ${col} = 'sale connard' where id = $1`, [U(1)])), col).toContain("MODERATION_REFUSED");
+    }
+    await as(0);
+    await db.exec("alter table profiles alter column id set default gen_random_uuid()");
+    await as(9);
+    expect(await fails(() => db.query("insert into profiles (user_id, name) values ($1, 'espèce de connard')", [U(209)]))).toContain("MODERATION_REFUSED");
+  });
+  it("des noms et métiers normaux passent (pas de faux positif sur des noms courants)", async () => {
+    await as(1);
+    for (const [col, val] of [["name", "Aïcha"], ["last_name", "Cumberland"], ["name", "Dickinson"], ["occupation", "Assistant dentaire"], ["last_name", "Bitche"], ["name", "Karim"]]) {
+      expect(await fails(() => db.query(`update profiles set ${col} = $2 where id = $1`, [U(1), val])), `${col}=${val}`).toBeNull();
+    }
+    await db.query("update profiles set name = 'P1' where id = $1", [U(1)]);
+  });
+  it("une valeur inchangée n'est pas recontrôlée (un ancien nom ne bloque pas l'enregistrement du reste)", async () => {
+    await as(0);
+    await db.exec("update profiles set name = 'Nom limite connard' where id = '" + U(6) + "'"); // posé hors application (clé de service)
+    await as(6);
+    expect(await fails(() => db.query("update profiles set name = name, bio = 'Bonjour' where id = $1", [U(6)]))).toBeNull();
+    await as(0);
+    await db.exec("update profiles set name = 'P6', bio = null where id = '" + U(6) + "'");
   });
 });
 

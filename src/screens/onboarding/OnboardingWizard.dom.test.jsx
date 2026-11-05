@@ -19,6 +19,7 @@ vi.mock("../../supabaseClient", () => ({
 }));
 
 import OnboardingWizard from "./OnboardingWizard";
+import { MODERATION_REFUSAL } from "../../lib/contentGate";
 
 function renderWizard(overrides = {}) {
   const props = {
@@ -183,5 +184,56 @@ describe("OnboardingWizard — étape photo pendant la préparation", () => {
   it("« Continuer » est désactivé tant que des photos se préparent, même avec une photo déjà prête", () => {
     renderWizard({ ...photoStep, photosPreparing: true });
     expect(screen.getByRole("button", { name: /Préparation des photos/ })).toBeDisabled();
+  });
+});
+
+// Modération du texte (SQL-31) : la bio saisie à la dernière étape est contrôlée avant l'envoi ; un refus
+// affiche le message de modération (et non « Réessaie », qui invitait à renvoyer le même texte).
+describe("OnboardingWizard — modération de la bio (dernière étape)", () => {
+  const lastStepUser = (bio) => ({ id: "u1", onboarding_step: 9, usage_goals: "❤️ Rencontre", bio });
+
+  it("une bio refusée n'est jamais envoyée et affiche le message de modération", async () => {
+    renderWizard({ currentUser: lastStepUser("Va te faire foutre") });
+    fireEvent.click(await screen.findByRole("button", { name: "Terminer" }));
+    expect(await screen.findByText(MODERATION_REFUSAL)).toBeInTheDocument();
+    expect(chain.update).not.toHaveBeenCalled();
+    expect(screen.queryByText(/Réessaie/)).not.toBeInTheDocument();
+  });
+
+  it("une bio normale est enregistrée comme avant", async () => {
+    single.mockResolvedValue({ data: { id: "u1", onboarding_step: 10, bio: "J'aime la cuisine et la randonnée." }, error: null });
+    renderWizard({ currentUser: lastStepUser("J'aime la cuisine et la randonnée.") });
+    fireEvent.click(await screen.findByRole("button", { name: "Terminer" }));
+    await waitFor(() => expect(chain.update).toHaveBeenCalledTimes(1));
+    expect(chain.update.mock.calls[0][0]).toMatchObject({ bio: "J'aime la cuisine et la randonnée.", onboarding_step: 10 });
+    expect(screen.queryByText(MODERATION_REFUSAL)).not.toBeInTheDocument();
+  });
+});
+
+// Le nom affiché et le nom de famille sont visibles de tous les membres : contrôlés eux aussi avant l'envoi (étape 2).
+describe("OnboardingWizard — modération du nom (étape 2)", () => {
+  const nameStepUser = (name, last_name = "") => ({ id: "u1", onboarding_step: 1, usage_goals: "❤️ Rencontre", name, last_name, birth_date: "1990-05-12" });
+
+  it("un nom refusé n'est jamais envoyé et affiche le message de modération", async () => {
+    renderWizard({ currentUser: nameStepUser("Sale connard") });
+    fireEvent.click(await screen.findByRole("button", { name: "Continuer" }));
+    expect(await screen.findByText(MODERATION_REFUSAL)).toBeInTheDocument();
+    expect(chain.update).not.toHaveBeenCalled();
+  });
+
+  it("un nom de famille refusé non plus ; un nom normal est enregistré comme avant", async () => {
+    renderWizard({ currentUser: nameStepUser("Karim", "Espèce de connard") });
+    fireEvent.click(await screen.findByRole("button", { name: "Continuer" }));
+    expect(await screen.findByText(MODERATION_REFUSAL)).toBeInTheDocument();
+    expect(chain.update).not.toHaveBeenCalled();
+  });
+
+  it("un prénom courant passe", async () => {
+    single.mockResolvedValue({ data: { id: "u1", onboarding_step: 2, name: "Aïcha" }, error: null });
+    renderWizard({ currentUser: nameStepUser("Aïcha", "Dickinson") });
+    fireEvent.click(await screen.findByRole("button", { name: "Continuer" }));
+    await waitFor(() => expect(chain.update).toHaveBeenCalledTimes(1));
+    expect(chain.update.mock.calls[0][0]).toMatchObject({ name: "Aïcha", last_name: "Dickinson", onboarding_step: 2 });
+    expect(screen.queryByText(MODERATION_REFUSAL)).not.toBeInTheDocument();
   });
 });
