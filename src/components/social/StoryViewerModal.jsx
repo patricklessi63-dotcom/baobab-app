@@ -10,6 +10,8 @@ import { isImeComposing } from "../../utils/keyboard";
 const REACTIONS = ["❤️", "😂", "😍", "😮", "👏", "🔥"];
 const SWIPE_THRESHOLD = 60;
 
+import RelativeTime from "../RelativeTime";
+
 function timeAgo(iso) {
   if (!iso) return "";
   const diffMs = Date.now() - new Date(iso).getTime();
@@ -234,7 +236,7 @@ export default function StoryViewerModal({
             className="text-left min-w-0 flex-1 focus-visible:outline focus-visible:outline-2"
           >
             <div className="text-white text-sm font-bold truncate">{story.name}</div>
-            {story.created_at && <div className="text-white/60 text-[11px]">{timeAgo(story.created_at)}</div>}
+            {story.created_at && <div className="text-white/60 text-[11px]"><RelativeTime value={story.created_at} format={timeAgo} /></div>}
           </button>
           {story.media_kind === "video" && (
             <button onClick={() => setMuted((m) => !m)} aria-label={muted ? "Activer le son" : "Couper le son"} className="bb-hit h-9 w-9 rounded-full bg-white/15 backdrop-blur flex items-center justify-center shrink-0 focus-visible:outline focus-visible:outline-2">
@@ -450,7 +452,7 @@ export default function StoryViewerModal({
                       {unavailable ? (
                         <div className="text-xs" style={{ color: coralText }}>Ce compte n'est plus disponible</div>
                       ) : (
-                        <div className="text-xs" style={{ color: "var(--bb-text-faint)" }}>{timeAgo(v.viewed_at)}</div>
+                        <div className="text-xs" style={{ color: "var(--bb-text-faint)" }}><RelativeTime value={v.viewed_at} format={timeAgo} /></div>
                       )}
                     </div>
                     {v.reaction && <span className="text-lg shrink-0">{v.reaction}</span>}

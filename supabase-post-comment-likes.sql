@@ -14,6 +14,16 @@
 -- Retour arriere en pied de fichier.
 -- ============================================================================
 
+-- Prerequis : public.is_blocked_pair() (SQL-25, supabase-block-enforcement-messages-fix.sql, deja en production).
+-- Une sous-selection directe sur `blocks` serait soumise a la RLS de l'appelant : la personne BLOQUEE ne verrait pas
+-- le blocage et passerait la garde. is_blocked_pair() est SECURITY DEFINER et lit `blocks` sans RLS.
+do $$
+begin
+  if to_regprocedure('public.is_blocked_pair(uuid, uuid)') is null then
+    raise exception 'is_blocked_pair(uuid, uuid) introuvable : executer d''abord supabase-block-enforcement-messages-fix.sql (SQL-25)';
+  end if;
+end $$;
+
 create table if not exists post_comment_likes (
   id uuid primary key default gen_random_uuid(),
   comment_id uuid not null references post_comments(id) on delete cascade,
@@ -49,14 +59,9 @@ begin
       select 1 from profiles p
       where p.id = post_comment_likes.profile_id and p.deletion_requested_at is not null
     )
-    and not exists (
-      select 1 from post_comments c
-      where c.id = post_comment_likes.comment_id
-        and exists (
-          select 1 from blocks b
-          where (b.from_id = post_comment_likes.profile_id and b.to_id = c.author_id)
-             or (b.from_id = c.author_id and b.to_id = post_comment_likes.profile_id)
-        )
+    and not public.is_blocked_pair(
+      post_comment_likes.profile_id,
+      (select c.author_id from post_comments c where c.id = post_comment_likes.comment_id)
     )
   );
 
@@ -93,6 +98,12 @@ declare v_author uuid; v_post uuid;
 begin
   select author_id, post_id into v_author, v_post from post_comments where id = new.comment_id;
   if v_author is null or v_author = new.profile_id then return new; end if;
+  -- aimer, retirer, aimer de nouveau : une seule notification par personne, par commentaire et par jour
+  if exists (
+    select 1 from notifications
+    where recipient_id = v_author and actor_id = new.profile_id and type = 'comment_liked'
+      and target_id = v_post and created_at > now() - interval '1 day'
+  ) then return new; end if;
   if exists (
     select 1 from blocks b
     where (b.from_id = new.profile_id and b.to_id = v_author) or (b.from_id = v_author and b.to_id = new.profile_id)

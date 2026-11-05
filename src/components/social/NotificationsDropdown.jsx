@@ -2,6 +2,7 @@ import React from "react";
 import { Bell } from "lucide-react";
 import { navy, coralText, goldText, leaf, bg, muted } from "./theme";
 import Avatar from "../Avatar";
+import RelativeTime from "../RelativeTime";
 import { NOTIFICATION_LABELS, NOTIF_CATEGORIES, groupNotificationRows, formatNotifAge, notificationCategory, postNotificationRow } from "../../lib/notificationLabels";
 
 // Dropdown de la cloche du header de SocialShell.jsx (liste des notifications
@@ -149,7 +150,7 @@ export default function NotificationsDropdown({
         </span>
         <span className="min-w-0 flex-1">
           <span className={`block ${unread ? "font-semibold" : ""}`} style={{ color: unread ? "var(--bb-text)" : "var(--bb-muted)" }}>{row.label}</span>
-          {row.n.created_at && <span className="block text-[11px]" style={{ color: "var(--bb-text-faint)" }}>{formatNotifAge(row.n.created_at)}</span>}
+          {row.n.created_at && <span className="block text-[11px]" style={{ color: "var(--bb-text-faint)" }}><RelativeTime value={row.n.created_at} format={formatNotifAge} /></span>}
         </span>
         {unread && (
           <>

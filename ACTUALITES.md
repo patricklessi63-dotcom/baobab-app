@@ -44,3 +44,11 @@ SQL-33 et SQL-35 **reconstruisent** `notifications_type_check` à partir de sa d
 Avant de jouer : `select pg_get_constraintdef(oid) from pg_constraint where conname = 'notifications_type_check';` — **garder le résultat hors
 dépôt**. Après : la même requête doit montrer **tous** les types d'avant, plus `post_mention` et `comment_replied` (SQL-33), puis `comment_liked` (SQL-35).
 SQL-33 relit aussi le **nom** de chaque mention depuis `profiles` : un client modifié ne peut pas faire passer « @Support » pour une autre personne.
+
+## Prérequis de SQL-32 et SQL-35 : `is_blocked_pair()` (SQL-25)
+
+Les gardes de blocage de SQL-32 (changer sa réaction) et SQL-35 (aimer un commentaire) utilisent `public.is_blocked_pair()` (SQL-25, **déjà exécuté en
+production**) et non une sous-sélection directe sur `blocks` : la RLS de `blocks` ne montre à la personne bloquée aucune ligne la concernant, donc
+une garde écrite avec `not exists (select … from blocks …)` la laisserait passer (défaut relevé à la relecture croisée du 5 novembre, couvert par
+les tests PGlite qui modélisent cette RLS). Chaque fichier vérifie au début que la fonction existe et s'arrête avec un message clair sinon.
+SQL-35 ne notifie en outre qu'**une fois par jour** pour un même commentaire et une même personne (aimer / retirer / aimer de nouveau ne fait pas de bruit).

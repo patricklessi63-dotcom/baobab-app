@@ -18,6 +18,16 @@
 -- qui n'existait pas). Retour arriere en bas du fichier.
 -- ============================================================================
 
+-- Prerequis : public.is_blocked_pair() (SQL-25, supabase-block-enforcement-messages-fix.sql, deja en production).
+-- Une sous-selection directe sur `blocks` serait soumise a la RLS de l'appelant : la personne BLOQUEE ne verrait pas
+-- le blocage et passerait la garde. is_blocked_pair() est SECURITY DEFINER et lit `blocks` sans RLS.
+do $$
+begin
+  if to_regprocedure('public.is_blocked_pair(uuid, uuid)') is null then
+    raise exception 'is_blocked_pair(uuid, uuid) introuvable : executer d''abord supabase-block-enforcement-messages-fix.sql (SQL-25)';
+  end if;
+end $$;
+
 alter table post_likes add column if not exists emoji text not null default (chr(10084) || chr(65039));
 
 do $$
@@ -52,14 +62,9 @@ begin
       where p.id = post_likes.profile_id
         and p.deletion_requested_at is not null
     )
-    and not exists (
-      select 1 from posts p
-      where p.id = post_likes.post_id
-        and exists (
-          select 1 from blocks b
-          where (b.from_id = post_likes.profile_id and b.to_id = p.author_id)
-             or (b.from_id = p.author_id and b.to_id = post_likes.profile_id)
-        )
+    and not public.is_blocked_pair(
+      post_likes.profile_id,
+      (select p.author_id from posts p where p.id = post_likes.post_id)
     )
   );
 end $$;

@@ -9,6 +9,9 @@ import { PGlite } from "@electric-sql/pglite";
 // base Supabase ; les policies d'insertion / lecture ci-dessous sont des substituts simples.
 
 const SQL = fs.readFileSync(path.join(process.cwd(), "supabase-post-reactions.sql"), "utf8");
+const SQL25 = fs.readFileSync(path.join(process.cwd(), "supabase-block-enforcement-messages-fix.sql"), "utf8");
+const IS_BLOCKED_PAIR = SQL25.slice(SQL25.indexOf("create or replace function public.is_blocked_pair"), SQL25.indexOf("revoke all on function public.is_blocked_pair"));
+
 const U = (n) => `00000000-0000-0000-0000-${String(n).padStart(12, "0")}`;
 const noVariant = (s) => String(s).replace(/️/g, "");
 let db;
@@ -29,6 +32,8 @@ beforeAll(async () => {
     create table profiles (id uuid primary key, user_id uuid, banned_at timestamptz, suspended_until timestamptz, deletion_requested_at timestamptz);
     create function current_profile_id() returns uuid language sql stable security definer as $$ select id from profiles where user_id = auth.uid() $$;
     create table blocks (from_id uuid, to_id uuid);
+    alter table blocks enable row level security;
+    create policy blocks_voir_les_miens on blocks for select to authenticated using (from_id = current_profile_id());
     create table posts (id uuid primary key default gen_random_uuid(), author_id uuid);
     create table post_likes (
       id uuid primary key default gen_random_uuid(),
@@ -49,6 +54,8 @@ beforeAll(async () => {
   await db.query("insert into posts (id, author_id) values ($1, $2)", [U(50), U(3)]);
   // like existant AVANT la migration
   await db.query("insert into post_likes (post_id, profile_id) values ($1, $2)", [U(50), U(2)]);
+  await db.exec(IS_BLOCKED_PAIR);
+  await db.exec("grant execute on function public.is_blocked_pair(uuid, uuid) to authenticated");
   await db.exec(SQL);
 }, 120000);
 afterAll(async () => { await db.close(); });

@@ -3,6 +3,7 @@ import { ArrowLeft, ArrowDown, MoreVertical, MoreHorizontal, Reply, X, Flag, Ban
 import Avatar from "../Avatar";
 import StatusBadge from "../StatusBadge";
 import ConversationStarters from "./ConversationStarters";
+import RelativeTime from "../RelativeTime";
 import { formatLastSeen, formatMessageTime, formatDayLabel, dayKey, messagePreviewLabel, truncateUnicodeSafe } from "../../utils/format";
 import { getSignedUrl } from "../../lib/signedUrlCache";
 import { useOptionalImageLightbox } from "../../lib/ImageLightboxContext";
@@ -581,7 +582,7 @@ export default function ConversationPane({
                 ? "En ligne"
                 : activeMatch.show_online_status === false
                 ? "Statut non disponible"
-                : formatLastSeen(activeMatch.last_seen)}
+                : <RelativeTime value={activeMatch.last_seen} format={formatLastSeen} />}
             </div>
           </div>
         </button>
