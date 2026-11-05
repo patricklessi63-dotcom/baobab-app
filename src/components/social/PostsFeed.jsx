@@ -17,6 +17,7 @@ import { friendlyDbError } from "../../lib/friendlyDbError";
 import { screenText, isModerationRefusal, MODERATION_REFUSAL } from "../../lib/contentGate";
 import ReportMediaDialog from "../ReportMediaDialog";
 import { prunedMentions, escapeLike, isMissingColumnError } from "../../lib/mentions";
+import { FEED_FILTERS, EMPTY_MESSAGES, POPULAR_FETCH, applyFeedFilter, rankPopular, readStoredFilter, storeFilter } from "../../lib/feedFilters";
 import { HEART, tallyReactions, totalOf, planReaction, applyReactionChange, isMissingEmojiColumn } from "../../lib/postReactions";
 import { fetchHiddenMedia } from "../../lib/moderationApi";
 import { selectAllPages } from "../../lib/inChunks";
@@ -73,6 +74,10 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
   const [draft, setDraft] = useState("");
   // Mentions choisies dans la liste (SQL-33) ; élaguées à l'envoi si le texte ne contient plus « @Nom ».
   const [postMentions, setPostMentions] = useState([]);
+  // Filtre du fil général (Tout / Abonnements / Populaires / Photos et vidéos). Le fil d'un auteur (profil) n'en a pas.
+  const [feedFilter, setFeedFilter] = useState(() => (authorId ? "all" : readStoredFilter()));
+  const filterCtxRef = useRef({});
+  const changeFilter = (key) => { filterCtxRef.current = {}; setFeedFilter(key); storeFilter(key); };
   // Items sélectionnés mais pas encore envoyés — aperçu local uniquement
   // (URL.createObjectURL), jamais uploadés tant que l'utilisateur n'a pas
   // cliqué "Publier" (item 20 du cahier des charges : l'upload démarre au
@@ -220,6 +225,26 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
   // l'état « Chargement… » qui remplacerait la liste affichée le temps de la
   // requête, et sans marquer d'échec bloquant si elle échoue (la liste déjà
   // affichée reste utilisable ; le message d'erreur habituel est quand même émis).
+  // Données dont certains filtres ont besoin : mes abonnements, et les publications récentes qui portent un média.
+  // Une panne de la table de médias (non migrée) ne casse pas le fil : seul l'ancien champ media_url compte alors.
+  const loadFilterContext = async (filter) => {
+    const ctx = filterCtxRef.current;
+    if (filter === "following" && !ctx.followingIds) {
+      const { data, error } = await supabase.from("follows").select("to_id").eq("from_id", currentUser.id).limit(2000);
+      if (error) throw error;
+      ctx.followingIds = (data || []).map((r) => r.to_id);
+    }
+    if (filter === "media") {
+      try {
+        const { data } = await supabase.from("post_media").select("post_id").order("created_at", { ascending: false }).limit(300);
+        ctx.mediaPostIds = [...new Set((data || []).map((r) => r.post_id))];
+      } catch (_) {
+        ctx.mediaPostIds = [];
+      }
+    }
+    return ctx;
+  };
+
   const loadPosts = async (pageCursor, { silent = false } = {}) => {
     const isFirstPage = !pageCursor;
     if (isFirstPage && !silent) setPostsLoading(true);
@@ -234,6 +259,22 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
         .order("id", { ascending: false })
         .limit(PAGE_SIZE);
       if (authorId) query = query.eq("author_id", authorId);
+      let emptyByFilter = false;
+      if (!authorId && feedFilter !== "all") {
+        const applied = applyFeedFilter(query, feedFilter, await loadFilterContext(feedFilter));
+        query = applied.query;
+        emptyByFilter = applied.empty;
+        // Populaires : une seule page des 60 plus récentes de la semaine, classée ensuite côté application.
+        if (feedFilter === "popular") query = query.limit(POPULAR_FETCH);
+      }
+      if (emptyByFilter) {
+        setPosts([]);
+        setHasMore(false);
+        setCursor(null);
+        setLoadError(false);
+        await loadCounts([], true);
+        return;
+      }
       if (pageCursor) {
         query = query.or(`created_at.lt.${pageCursor.created_at},and(created_at.eq.${pageCursor.created_at},id.lt.${pageCursor.id})`);
       }
@@ -274,7 +315,7 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
         .map((p) => normalizePost({ ...p, post_media: mediaByPost[p.id] || [] }));
       setPosts((prev) => (isFirstPage ? rows : [...prev, ...rows]));
       if (isFirstPage) setLoadError(false);
-      setHasMore((data || []).length === PAGE_SIZE);
+      setHasMore(feedFilter === "popular" && !authorId ? false : (data || []).length === PAGE_SIZE);
       const last = (data || [])[(data || []).length - 1];
       setCursor(last ? { created_at: last.created_at, id: last.id } : null);
       await countsPromise;
@@ -300,7 +341,7 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
     if (!currentUser) return;
     loadPosts(null);
     setNewPostsCount(0);
-  }, [currentUser?.id, authorId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [currentUser?.id, authorId, feedFilter]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Détecte les nouvelles publications en direct (Realtime) — n'insère
   // jamais automatiquement dans la liste affichée (éviterait un décalage
@@ -1020,6 +1061,10 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
   // dans loadPosts() : un blocage effectué pendant que ce fil reste monté
   // doit faire disparaître ses publications immédiatement, sans recharger.
   const visiblePosts = posts.filter((p) => !blockedIds.has(p.author_id));
+  // Populaires : classement par réactions et commentaires (le fil d'un auteur et la grille ne sont pas concernés).
+  const shownPosts = feedFilter === "popular" && !authorId
+    ? rankPopular(visiblePosts, Object.fromEntries(Object.entries(reactionCounts).map(([id, c]) => [id, totalOf(c)])), postCommentCounts)
+    : visiblePosts;
   // Images masquées en attendant un modérateur (signalements indépendants) : par publication.
   const [hiddenPostMedia, setHiddenPostMedia] = useState(() => new Set());
   const [mediaReport, setMediaReport] = useState(null);
@@ -1115,12 +1160,29 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
         Partage quelque chose avec la communauté...
       </button>
 
+      {!authorId && (
+        <div role="tablist" aria-label="Filtrer le fil" className="flex gap-1.5 mb-3 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
+          {FEED_FILTERS.map(([key, label]) => (
+            <button
+              key={key}
+              role="tab"
+              aria-selected={feedFilter === key}
+              onClick={() => changeFilter(key)}
+              className="px-3.5 py-2 rounded-full text-xs font-bold flex-shrink-0 focus-visible:outline focus-visible:outline-2"
+              style={{ background: feedFilter === key ? navy : bg, color: feedFilter === key ? "#fff" : muted, minHeight: 36 }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
+
       {postsLoading ? (
         <p className="text-sm text-center py-6" style={{ color: muted }}>Chargement...</p>
-      ) : visiblePosts.length === 0 && loadError ? (
+      ) : shownPosts.length === 0 && loadError ? (
         <LoadErrorNotice what="les publications" onRetry={() => loadPosts(null)} />
-      ) : visiblePosts.length === 0 ? (
-        <EmptyState icon={ImageIcon} title="Aucune publication pour l'instant." subtitle="Sois le/la premier·ère à partager quelque chose." />
+      ) : shownPosts.length === 0 ? (
+        <EmptyState icon={ImageIcon} title={(!authorId && EMPTY_MESSAGES[feedFilter]?.title) || "Aucune publication pour l'instant."} subtitle={(!authorId && EMPTY_MESSAGES[feedFilter]?.subtitle) || "Sois le/la premier·ère à partager quelque chose."} />
       ) : (
         <>
           {newPostsCount > 0 && (
@@ -1129,7 +1191,7 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
             </button>
           )}
           <div className="flex flex-col">
-            {visiblePosts.map((post) => (
+            {shownPosts.map((post) => (
               <PostCard
                 key={post.id}
                 post={post}
@@ -1149,7 +1211,6 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
                 onReportComment={openReportComment}
                 onReportMedia={setMediaReport}
                 onSearchMentions={searchMentionCandidates}
-                onViewProfile={onViewProfile}
                 mediaHidden={hiddenPostMedia.has(post.id)}
                 onDelete={deletePost}
                 onEdit={editPost}
