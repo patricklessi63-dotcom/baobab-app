@@ -24,6 +24,17 @@ begin
   end if;
 end $$;
 
+-- Une sous-requete passee a is_blocked_pair() s'execute avec les droits de l'appelant : la RLS de lecture cache le contenu de
+-- la personne bloquee a celui qui l'a bloquee, la sous-requete renvoie NULL, is_blocked_pair(x, NULL) est faux et l'ecriture passerait.
+-- On retrouve donc l'auteur DANS une fonction SECURITY DEFINER (meme definition que supabase-block-enforcement-content-fix.sql,
+-- SQL-36 : `create or replace` identique, l'ordre d'execution des deux fichiers n'a pas d'importance).
+create or replace function public.is_blocked_with_comment_author(p_actor uuid, p_comment_id uuid)
+returns boolean language sql stable security definer set search_path = public as $$
+  select public.is_blocked_pair(p_actor, (select c.author_id from public.post_comments c where c.id = p_comment_id));
+$$;
+revoke all on function public.is_blocked_with_comment_author(uuid, uuid) from public, anon;
+grant execute on function public.is_blocked_with_comment_author(uuid, uuid) to authenticated;
+
 create table if not exists post_comment_likes (
   id uuid primary key default gen_random_uuid(),
   comment_id uuid not null references post_comments(id) on delete cascade,
@@ -59,10 +70,7 @@ begin
       select 1 from profiles p
       where p.id = post_comment_likes.profile_id and p.deletion_requested_at is not null
     )
-    and not public.is_blocked_pair(
-      post_comment_likes.profile_id,
-      (select c.author_id from post_comments c where c.id = post_comment_likes.comment_id)
-    )
+    and not public.is_blocked_with_comment_author(post_comment_likes.profile_id, post_comment_likes.comment_id)
   );
 
   create policy "Retirer son propre like de commentaire"

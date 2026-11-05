@@ -28,6 +28,17 @@ begin
   end if;
 end $$;
 
+-- Une sous-requete passee a is_blocked_pair() s'execute avec les droits de l'appelant : la RLS de lecture cache le contenu de
+-- la personne bloquee a celui qui l'a bloquee, la sous-requete renvoie NULL, is_blocked_pair(x, NULL) est faux et l'ecriture passerait.
+-- On retrouve donc l'auteur DANS une fonction SECURITY DEFINER (meme definition que supabase-block-enforcement-content-fix.sql,
+-- SQL-36 : `create or replace` identique, l'ordre d'execution des deux fichiers n'a pas d'importance).
+create or replace function public.is_blocked_with_post_author(p_actor uuid, p_post_id uuid)
+returns boolean language sql stable security definer set search_path = public as $$
+  select public.is_blocked_pair(p_actor, (select p.author_id from public.posts p where p.id = p_post_id));
+$$;
+revoke all on function public.is_blocked_with_post_author(uuid, uuid) from public, anon;
+grant execute on function public.is_blocked_with_post_author(uuid, uuid) to authenticated;
+
 alter table post_likes add column if not exists emoji text not null default (chr(10084) || chr(65039));
 
 do $$
@@ -62,10 +73,7 @@ begin
       where p.id = post_likes.profile_id
         and p.deletion_requested_at is not null
     )
-    and not public.is_blocked_pair(
-      post_likes.profile_id,
-      (select p.author_id from posts p where p.id = post_likes.post_id)
-    )
+    and not public.is_blocked_with_post_author(post_likes.profile_id, post_likes.post_id)
   );
 end $$;
 

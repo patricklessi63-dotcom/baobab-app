@@ -52,3 +52,11 @@ production**) et non une sous-sélection directe sur `blocks` : la RLS de `block
 une garde écrite avec `not exists (select … from blocks …)` la laisserait passer (défaut relevé à la relecture croisée du 5 novembre, couvert par
 les tests PGlite qui modélisent cette RLS). Chaque fichier vérifie au début que la fonction existe et s'arrête avec un message clair sinon.
 SQL-35 ne notifie en outre qu'**une fois par jour** pour un même commentaire et une même personne (aimer / retirer / aimer de nouveau ne fait pas de bruit).
+
+### Correctif du 5 novembre (relecture de la session messagerie, essai de SQL-36 sur la répétition)
+
+Passer une **sous-requête** à `is_blocked_pair()` ne couvre pas le sens « celui qui a bloqué » : la RLS de lecture de `posts` / `post_comments` cache le contenu
+de la personne bloquée à celui qui l'a bloquée, la sous-requête renvoie NULL et la garde est fausse. SQL-32 et SQL-35 retrouvent donc l'auteur dans des fonctions
+**SECURITY DEFINER** (`is_blocked_with_post_author`, `is_blocked_with_comment_author`), de même définition que celles de SQL-36 : `create or replace` identique, l'ordre
+d'exécution des fichiers n'a pas d'importance. Les tests PGlite modélisent désormais la RLS de lecture (contenu caché à qui a un blocage dans un sens ou l'autre) et
+couvrent « B a bloqué A, B réagit / aime sur le contenu de A → refusé ».

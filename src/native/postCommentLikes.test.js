@@ -44,6 +44,8 @@ beforeAll(async () => {
   await db.query("insert into posts (id, author_id) values ($1, $2)", [U(50), U(1)]);
   [{ id: commentId }] = await q("insert into post_comments (post_id, author_id, body) values ($1, $2, 'mon commentaire') returning id", [U(50), U(2)]);
   await db.exec(IS_BLOCKED_PAIR);
+  // RLS de lecture réaliste : le contenu d'une personne bloquée est CACHÉ à celui qui l'a bloquée (et inversement).
+  await db.exec("alter table post_comments enable row level security; create policy comments_lecture on post_comments for select to authenticated using (not public.is_blocked_pair(current_profile_id(), author_id))");
   await db.exec("grant execute on function public.is_blocked_pair(uuid, uuid) to authenticated");
   await db.exec(SQL);
   await db.exec("grant select, insert, delete on post_comment_likes to authenticated");
@@ -123,6 +125,17 @@ describe("SQL-35 : likes de commentaires", () => {
     await db.exec(`insert into blocks values ('${U(2)}', '${U(3)}')`); // l'auteur du commentaire a bloqué la personne
     await as(3);
     expect((await q("select count(*)::int as n from blocks"))[0].n).toBe(0); // invisible pour elle
+    expect(await fails(() => db.query("insert into post_comment_likes (comment_id, profile_id) values ($1, $2)", [commentId, U(3)]))).toContain("row-level security");
+    await as(0);
+    await db.exec("delete from blocks");
+  });
+
+  it("CELUI QUI A BLOQUÉ ne voit plus le commentaire de la personne bloquée et ne peut pourtant pas l'aimer (sous-requête NULL évitée)", async () => {
+    await as(0);
+    await db.exec("delete from blocks; delete from post_comment_likes");
+    await db.exec(`insert into blocks values ('${U(3)}', '${U(2)}')`); // U3 a bloqué U2, auteur du commentaire
+    await as(3);
+    expect((await q("select count(*)::int as n from post_comments where id = $1", [commentId]))[0].n).toBe(0); // caché à celui qui a bloqué
     expect(await fails(() => db.query("insert into post_comment_likes (comment_id, profile_id) values ($1, $2)", [commentId, U(3)]))).toContain("row-level security");
     await as(0);
     await db.exec("delete from blocks");

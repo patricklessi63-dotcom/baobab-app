@@ -55,6 +55,8 @@ beforeAll(async () => {
   // like existant AVANT la migration
   await db.query("insert into post_likes (post_id, profile_id) values ($1, $2)", [U(50), U(2)]);
   await db.exec(IS_BLOCKED_PAIR);
+  // RLS de lecture réaliste : le contenu d'une personne bloquée est CACHÉ à celui qui l'a bloquée (et inversement).
+  await db.exec("alter table posts enable row level security; create policy posts_lecture on posts for select to authenticated using (not public.is_blocked_pair(current_profile_id(), author_id))");
   await db.exec("grant execute on function public.is_blocked_pair(uuid, uuid) to authenticated");
   await db.exec(SQL);
 }, 120000);
@@ -126,6 +128,20 @@ describe("SQL-32 : réactions multiples sur post_likes", () => {
     await as(0);
     await db.exec("delete from blocks");
     expect(await attempt()).toBeNull();
+  });
+
+  it("CELUI QUI A BLOQUÉ : il ne voit plus le post de la personne bloquée (RLS de lecture) et ne peut pourtant pas y changer sa réaction", async () => {
+    await as(0);
+    await db.exec("delete from blocks");
+    await db.query("insert into posts (id, author_id) values ($1, $2) on conflict do nothing", [U(51), U(2)]);
+    await db.query("insert into post_likes (post_id, profile_id, emoji) values ($1, $2, '😂') on conflict do nothing", [U(51), U(1)]);
+    await db.exec(`insert into blocks values ('${U(1)}', '${U(2)}')`); // U1 a bloqué U2, auteur du post
+    await as(1);
+    expect((await q("select count(*)::int as n from posts where id = $1", [U(51)]))[0].n).toBe(0); // contenu caché à celui qui a bloqué
+    expect(await fails(() => db.query("update post_likes set emoji = '😮' where post_id = $1 and profile_id = $2", [U(51), U(1)]))).toContain("row-level security"); // refusé même si le post lui est devenu invisible
+    await as(0);
+    expect((await q("select emoji from post_likes where post_id = $1 and profile_id = $2", [U(51), U(1)]))[0].emoji).toBe("😂");
+    await db.exec("delete from blocks");
   });
 
   it("sans compte connecté : aucune modification", async () => {
