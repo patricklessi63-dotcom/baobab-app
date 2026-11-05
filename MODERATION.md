@@ -209,3 +209,14 @@ L'audit d'écart `scripts/schema-drift-audit.mjs` (export du catalogue de produc
 
 ### Vérification après exécution en production
 `scripts/verify-prod-sql31-and-statuses.sql` : requête en **lecture seule** (une ligne par contrôle, champ `ok`) à lancer après l'exécution de SQL-31 puis de `supabase-report-statuses.sql` : 11 tables avec RLS, 101 termes, réglages 4 / 24 h / 3 / 365 j, 11 déclencheurs de texte, déclencheur de bannissement sur profiles, **deux déclencheurs sur auth.users** (sans eux le bannissement durable de l'e-mail ne marche pas, en silence), journal non modifiable, ids d'images en text, droits (anon sans aucun droit d'exécution ; fonctions internes non exécutables), moteur de détection, contraintes CHECK élargies. Validée par `src/native/verifyProdScript.test.js` (tout à true sur une installation complète ; un élément retiré fait passer son contrôle à false).
+
+## Exécution en production (5 novembre 2026)
+
+SQL-31 exécuté avec l'accord explicite du propriétaire, **sans sauvegarde**, en dernier (après SQL-36, 32, 33, 35), après un instantané « avant » hors dépôt.
+Contrôles en lecture seule : 101 termes et 4 exceptions ; réglages `text_filter_enabled` et `auto_ban_enabled` actifs, fenêtre 365 j ; 11 déclencheurs
+`trg_moderation_*` (hors normalisation) dont 4 sur `profiles` (name, last_name, occupation, bio) ; `trg_modban_signup` et `trg_modban_email` présents sur `auth.users` ;
+`moderation_private` : 1 ligne, sel présent ; `banned_identities` : 0 ; aucun accès anonyme aux 23 fonctions de modération ; `moderation_check` : « c.o.n.n.a.r.d » et « f.d.p »
+refusés, « quel con » à relire, « Bonjour, bienvenue au Canada ! », « Un concert à Montréal » et « Je cherche un contact au Canada » acceptés.
+**Interrupteur d'urgence** (sans rien supprimer) : `update moderation_settings set text_filter_enabled = false where id = 1;`
+Retour arrière de l'inscription : `drop trigger trg_modban_signup on auth.users; drop trigger trg_modban_email on auth.users;`.
+**À faire par le propriétaire juste après** : UNE connexion normale et UN message normal (je ne peux pas créer de compte en production).

@@ -67,3 +67,13 @@ SQL-32, 33 et 35 rejoués dans cet ordre sur `baobab-staging` : 24/24, 18/18, 20
 - SQL-33 refuse maintenant la **réponse** entre deux personnes qui se sont bloquées (dans un sens ou l'autre) ; avant, la personne bloquée pouvait encore répondre au commentaire de celle qui l'avait bloquée.
 - SQL-35 : la déduplication de la notification est **par publication et par jour** (la notification ne porte que l'id de la publication) ; le commentaire du fichier le dit maintenant.
 - SQL-32/33/35 se terminent par `notify pgrst, 'reload schema'` : sans cela, un premier appel API peut échouer quelques secondes (« Could not find the 'emoji' column … in the schema cache »).
+
+## Exécution en production (5 novembre 2026)
+
+Exécutés avec l'accord explicite du propriétaire, **sans sauvegarde** (plan Free), dans l'ordre SQL-36, SQL-32, SQL-33, SQL-35, après un instantané « avant »
+hors dépôt (définitions des fonctions, policies, triggers et de `notifications_type_check`). Contrôles en lecture seule :
+- SQL-36 : 12 policies `*_block_enforcement_insert` toutes restrictives ; 4 fonctions `is_blocked_with_*`, anon = faux.
+- SQL-32 : colonne `emoji` (défaut cœur), contrainte à 6 réactions, une policy UPDATE, fonction sans accès anonyme.
+- SQL-33 : colonnes `parent_id` et `mentions`, 6 triggers `trg_post_*` de ce fichier ; `notifications_type_check` garde ses 23 types et ajoute `post_mention`, `comment_replied`.
+- SQL-35 : table `post_comment_likes` avec RLS et 3 policies, trigger de notification ; `notifications_type_check` ajoute `comment_liked` (26 types au total).
+Avant ces fichiers : aucune de ces colonnes ni tables n'existait ; 0 commentaire dans le fil.
