@@ -38,6 +38,11 @@ const EVENT = "40000000-0000-0000-0000-000000000001"; // événement organisé p
 // Même forme que les policies de production : le NOT EXISTS lit « blocks » avec les droits de l'appelant.
 const oneSided = (a, b) => `not exists (select 1 from public.blocks bl where (bl.from_id = ${a} and bl.to_id = ${b}) or (bl.from_id = ${b} and bl.to_id = ${a}))`;
 const mine = (col) => `auth.uid() = (select user_id from public.profiles where id = ${col})`;
+const me = `(select id from public.profiles where user_id = auth.uid())`;
+// RLS de lecture de la production : le contenu est caché à qui a un blocage avec son auteur, DANS LES DEUX SENS
+// (celui qui a bloqué voit son propre blocage). C'est ce qui rend NULL la sous-requête « auteur de la publication »
+// pour celui qui a bloqué — le trou trouvé à la répétition.
+const hidden = (col) => `not exists (select 1 from public.blocks bl where (bl.from_id = ${col} and bl.to_id = ${me}) or (bl.from_id = ${me} and bl.to_id = ${col}))`;
 
 const BASE = `
   create role anon nologin; create role authenticated nologin;
@@ -53,23 +58,29 @@ const BASE = `
   create policy profiles_read on public.profiles for select using (true);
   insert into public.profiles values ('${P.A}','${U.A}'), ('${P.B}','${U.B}'), ('${P.C}','${U.C}'), ('${P.D}','${U.D}');
 
-  create table public.blocks (id bigint generated always as identity primary key, from_id uuid not null, to_id uuid not null);
+  create table public.blocks (id uuid primary key default gen_random_uuid(), from_id uuid not null, to_id uuid not null);
   alter table public.blocks enable row level security;
   create policy blocks_select_own on public.blocks for select using (${mine("blocks.from_id")});
 
   create table public.posts (id uuid primary key, author_id uuid not null);
   create table public.community_posts (id uuid primary key, author_id uuid not null);
   create table public.events (id uuid primary key, created_by uuid);
+  alter table public.posts enable row level security;
+  alter table public.community_posts enable row level security;
+  alter table public.events enable row level security;
+  create policy posts_read on public.posts for select to authenticated using (${hidden("posts.author_id")});
+  create policy community_posts_read on public.community_posts for select to authenticated using (${hidden("community_posts.author_id")});
+  create policy events_read on public.events for select to authenticated using (${hidden("events.created_by")});
   insert into public.posts values ('${POST}', '${P.A}');
   insert into public.community_posts values ('${CPOST}', '${P.A}');
   insert into public.events values ('${EVENT}', '${P.A}');
 
-  create table public.post_comments (id bigint generated always as identity primary key, post_id uuid not null, author_id uuid not null, body text);
-  create table public.post_likes (id bigint generated always as identity primary key, post_id uuid not null, profile_id uuid not null);
-  create table public.community_comments (id bigint generated always as identity primary key, post_id uuid not null, author_id uuid not null, body text);
-  create table public.community_post_likes (id bigint generated always as identity primary key, post_id uuid not null, profile_id uuid not null);
-  create table public.event_comments (id bigint generated always as identity primary key, event_id uuid not null, author_id uuid not null, body text);
-  create table public.community_invites (id bigint generated always as identity primary key, invited_by uuid not null, invited_profile_id uuid not null);
+  create table public.post_comments (id uuid primary key default gen_random_uuid(), post_id uuid not null, author_id uuid not null, body text);
+  create table public.post_likes (id uuid primary key default gen_random_uuid(), post_id uuid not null, profile_id uuid not null);
+  create table public.community_comments (id uuid primary key default gen_random_uuid(), post_id uuid not null, author_id uuid not null, body text);
+  create table public.community_post_likes (id uuid primary key default gen_random_uuid(), post_id uuid not null, profile_id uuid not null);
+  create table public.event_comments (id uuid primary key default gen_random_uuid(), event_id uuid not null, author_id uuid not null, body text);
+  create table public.community_invites (id uuid primary key default gen_random_uuid(), invited_by uuid not null, invited_profile_id uuid not null);
 
   alter table public.post_comments enable row level security;
   alter table public.post_likes enable row level security;
@@ -132,6 +143,16 @@ describe("AVANT SQL-36 : le défaut est reproduit (la personne bloquée peut enc
     await block("A", "B");
     await expect(asUser("B", () => db.exec(`insert into public.community_invites (invited_by, invited_profile_id) values ('${P.B}', '${P.A}')`))).resolves.toBeDefined();
   });
+});
+
+describe("AVANT SQL-36 : le sens « celui qui a BLOQUÉ » passe aussi (sous-requête auteur = NULL sous RLS)", () => {
+  for (const [name, sql] of Object.entries(ACTIONS)) {
+    it(`${name} : B, qui a bloqué A, y arrive`, async () => {
+      await clean();
+      await block("B", "A");
+      await expect(asUser("B", () => db.exec(sql("B")))).resolves.toBeDefined();
+    });
+  }
 });
 
 describe("APRÈS SQL-36", () => {
@@ -205,6 +226,18 @@ describe("APRÈS SQL-36", () => {
     await block("A", "B");
     const r = await asUser("C", () => db.query(`select public.is_blocked_pair('${P.A}', '${P.B}') as b`));
     expect(r.rows[0].b).toBe(false);
+  });
+
+  it("les fonctions « cible » ne renvoient qu'un booléen, sont fermées à anon et ne divulguent rien à un tiers", async () => {
+    await clean();
+    await block("A", "B");
+    const asC = await asUser("C", () => db.query(`select public.is_blocked_with_post_author('${P.A}', '${POST}') as p, public.is_blocked_with_community_post_author('${P.A}', '${CPOST}') as c, public.is_blocked_with_event_organizer('${P.A}', '${EVENT}') as e`));
+    expect(asC.rows[0]).toEqual({ p: false, c: false, e: false });
+    const asB = await asUser("B", () => db.query(`select public.is_blocked_with_post_author('${P.B}', '${POST}') as p`));
+    expect(asB.rows[0].p).toBe(true);
+    const { rows } = await db.query("select p.proname, has_function_privilege('anon', p.oid, 'EXECUTE') as anon, has_function_privilege('authenticated', p.oid, 'EXECUTE') as auth, p.prosecdef from pg_proc p where p.proname like 'is_blocked_with_%' order by 1");
+    expect(rows).toHaveLength(4);
+    expect(rows.every((r) => r.anon === false && r.auth === true && r.prosecdef === true)).toBe(true);
   });
 
   it("les six policies sont RESTRICTIVES, nommées clairement, et le fichier est rejouable (idempotent)", async () => {
