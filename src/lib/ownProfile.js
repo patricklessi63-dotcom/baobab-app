@@ -11,15 +11,19 @@
 //  - Tant que le bloc 3B n'est pas exécuté : EXACTEMENT les mêmes requêtes qu'avant (select("*"), update().select().single()).
 //  - Si l'une d'elles échoue avec 42501 (le bloc 3B vient d'être joué), on bascule sur get_my_profile() et on mémorise ce
 //    choix dans le navigateur (avec l'heure) : les chargements suivants appellent get_my_profile() d'emblée (aucun 403 de plus
-//    dans la console). Le choix EXPIRE après RPC_PREF_TTL_MS : on retente alors le chemin direct (un retour arrière du bloc 3B
+//    dans la console). Le choix EXPIRE après RPC_PREF_TTL_MS (7 jours) : on retente alors le chemin direct (un retour arrière du bloc 3B
 //    est ainsi repris sans intervention) ; s'il est encore refusé, on rebascule et on re-mémorise.
 //  - Si get_my_profile() est introuvable (bloc 3A annulé), on oublie ce choix et on revient aux requêtes directes.
 // Une écriture refusée avec 42501 n'a RIEN écrit (une seule instruction SQL, annulée en bloc) : la rejouer sans RETURNING est sûre.
 
 const PREF_KEY = "baobab:ownProfileViaRpc";
 
-// Durée de validité du choix « passer par get_my_profile() » (6 h). Valeur non numérique (ancienne valeur "1") = expirée.
-export const RPC_PREF_TTL_MS = 6 * 60 * 60 * 1000;
+// Durée de validité du choix « passer par get_my_profile() » (7 jours). Valeur non numérique (ancienne valeur "1") = expirée.
+// Chaque expiration coûte UNE requête select("*") refusée (42501, visible dans les journaux Postgres de production comme « permission denied
+// for table profiles ») : avec 6 h, chaque personne en produisait une par demi-journée, ce qui noie les vraies erreurs dans les journaux à
+// l'échelle d'un lancement. Le bloc 3B est exécuté en production et ne sera pas annulé à la légère ; si c'était le cas, get_my_profile()
+// continue de répondre (rien ne casse), le chemin direct est simplement retenté au bout de 7 jours.
+export const RPC_PREF_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 function rpcPreferred(now = Date.now()) {
   try {
