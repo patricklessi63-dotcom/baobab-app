@@ -85,3 +85,28 @@ describe("traduireAuthErreur — mapping code -> message FR", () => {
     expect(traduireAuthErreur({ name: "AuthRetryableFetchError", message: "Failed to fetch" })).toBe("Pas de connexion internet.");
   });
 });
+
+// Modération (SQL-31) : messages EXACTS observés sur le projet de répétition avec SQL-31 appliqué.
+describe("traduireAuthErreur — compte banni et adresse bannie (SQL-31)", () => {
+  it("connexion d'un compte banni (« User is banned », code user_banned) : message clair, sans « réessaie »", () => {
+    const expected = "Ce compte n'est plus disponible. Si tu penses qu'il s'agit d'une erreur, contacte le support.";
+    expect(traduireAuthErreur({ code: "user_banned", message: "User is banned" })).toBe(expected);
+    expect(traduireAuthErreur({ message: "User is banned" })).toBe(expected);
+    expect(expected).not.toMatch(/réessaie/i);
+  });
+
+  it("réinscription d'une adresse bannie (variantes +alias, points Gmail) : « Database error saving new user »", () => {
+    const expected = "Impossible de créer un compte avec cette adresse. Utilise une autre adresse ou contacte le support.";
+    expect(traduireAuthErreur({ message: "Database error saving new user" })).toBe(expected);
+    expect(expected).not.toMatch(/réessaie/i);
+  });
+
+  it("l'adresse exacte d'un compte existant reste « déjà associée à un compte » (pas le déclencheur)", () => {
+    expect(traduireAuthErreur({ message: "User already registered" })).toBe("Cette adresse email est déjà associée à un compte Baobab.");
+  });
+
+  it("n'avale pas les cas voisins : la liste blanche beta et les mots de passe faibles gardent leur message", () => {
+    expect(traduireAuthErreur({ message: "Inscription en beta privée sur invitation." })).toMatch(/beta privée/);
+    expect(traduireAuthErreur({ code: "weak_password", message: "Password should be at least 8 characters" })).toMatch(/règles minimales/);
+  });
+});
