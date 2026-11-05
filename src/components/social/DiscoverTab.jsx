@@ -8,6 +8,7 @@ import MatchCard from "./MatchCard";
 import MatchInfoModal from "./MatchInfoModal";
 import EmptyState from "../home/EmptyState";
 import Paywall from "../premium/Paywall";
+import { setPremiumIntent } from "../../lib/premium/premiumIntent";
 import { computeMatch, rankCandidates } from "../../lib/matching/matchingService";
 import { usePremiumStatus } from "../../lib/premium/usePremiumStatus";
 import { fetchNearbyProfiles } from "../../lib/locationApi";
@@ -611,7 +612,9 @@ export default function DiscoverTab({
                         <Paywall
                           title="Filtres de recherche avancés"
                           description="Affine Découverte par centres d'intérêt, langues parlées et activité récente."
+                          featureKey="advanced_filters"
                           onDiscover={() => goTab("premium")}
+                          onSubscribe={() => { setPremiumIntent("plans"); goTab("premium"); }}
                         />
                       </div>
                     )}

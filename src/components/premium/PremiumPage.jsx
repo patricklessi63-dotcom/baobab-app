@@ -1,8 +1,10 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowLeft, Check } from "lucide-react";
 import { PREMIUM_PLANS, PREMIUM_FEATURES } from "../../lib/premium/premiumConfig";
 import { startCheckout, openBillingPortal } from "../../lib/premium/checkout";
 import { usePremiumStatus } from "../../lib/premium/usePremiumStatus";
+import { consumePremiumIntent } from "../../lib/premium/premiumIntent";
+import PremiumComparison from "./PremiumComparison";
 import { primary, coral, coralText, gold, green, muted, bg, card, goldText } from "../social/theme";
 
 // Page complète (pas une modale), montée comme un onglet sans icône de
@@ -25,6 +27,19 @@ export default function PremiumPage({ currentUser, onBack, onError, justSubscrib
   // Stripe Checkout créée pour le même abonnement pendant que la première
   // redirection était encore en vol.
   const submittingRef = useRef(false);
+
+  // « Passer à Premium » (Paywall) arrive ici avec l'intention d'aller droit aux
+  // formules ; « Découvrir Premium » arrive sans, et la page s'ouvre en haut
+  // (avantages, comparaison). Lue une seule fois, au montage. Le conteneur des
+  // formules n'existe que pour un compte sans abonnement : le défilement se fait
+  // donc quand il apparaît (ref callback), puis l'intention est oubliée.
+  const [plansIntent] = useState(() => consumePremiumIntent() === "plans");
+  const plansIntentDoneRef = useRef(false);
+  const plansContainerRef = useCallback((node) => {
+    if (!node || !plansIntent || plansIntentDoneRef.current) return;
+    plansIntentDoneRef.current = true;
+    node.scrollIntoView?.({ behavior: "smooth", block: "start" });
+  }, [plansIntent]);
 
   // Retour de Stripe Checkout : le webhook (stripe-webhook/index.ts) qui
   // écrit la ligne "subscriptions" est asynchrone et peut arriver quelques
@@ -217,7 +232,9 @@ export default function PremiumPage({ currentUser, onBack, onError, justSubscrib
             </ul>
           </div>
 
-          <div className="grid sm:grid-cols-2 gap-4 mb-6">
+          <PremiumComparison />
+
+          <div ref={plansContainerRef} id="premium-plans" className="grid sm:grid-cols-2 gap-4 mb-6 scroll-mt-4">
             {PREMIUM_PLANS.map((plan) => (
               <button
                 key={plan.id}

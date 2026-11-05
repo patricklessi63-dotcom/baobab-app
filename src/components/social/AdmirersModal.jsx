@@ -4,6 +4,7 @@ import Avatar from "../Avatar";
 import StatusBadge from "../StatusBadge";
 import EmptyState from "../home/EmptyState";
 import Paywall from "../premium/Paywall";
+import { setPremiumIntent } from "../../lib/premium/premiumIntent";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { usePremiumStatus } from "../../lib/premium/usePremiumStatus";
@@ -59,7 +60,9 @@ export default function AdmirersModal({ open, onClose, admirerProfiles = [], adm
                 : "1 personne t'a déjà aimé·e")
               : "Découvre qui t'a aimé·e en premier"}
             description="Passe à Premium pour voir qui t'a déjà aimé·e et matcher directement, sans attendre."
+            featureKey="admirers_reveal"
             onDiscover={onUpgrade}
+            onSubscribe={() => { setPremiumIntent("plans"); onUpgrade?.(); }}
           />
         ) : admirerProfiles.length === 0 ? (
           <EmptyState
