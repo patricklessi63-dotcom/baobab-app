@@ -96,6 +96,7 @@ vi.mock("../../supabaseClient", () => ({
 }));
 
 import CommunitiesTab from "./CommunitiesTab";
+import { MODERATION_REFUSAL } from "../../lib/contentGate";
 
 describe("CommunitiesTab — édition d'un commentaire de communauté", () => {
   let updateCalls;
@@ -174,5 +175,54 @@ describe("CommunitiesTab — édition d'un commentaire de communauté", () => {
     expect(onError.mock.calls[0][0]).toMatch(/modifié entre-temps/);
     // La condition IS NULL doit avoir été posée (commentaire jamais édité localement).
     expect(updateCalls[0].filters["is:updated_at"]).toBe(null);
+  });
+});
+
+// Modération du texte (SQL-31) : la modification d'un commentaire est contrôlée avant l'envoi, comme un
+// nouveau commentaire ; un refus affiche le message de modération (et non « Impossible de modifier »).
+describe("CommunitiesTab — modération à la modification d'un commentaire", () => {
+  let updateCalls;
+  const community = { id: "c1", name: "Communauté Test", visibility: "public", category: "general", city: "", description: "", rules: "", cover_url: null, created_by: null };
+  const comment = { id: "cmt1", post_id: "p1", author_id: "me1", body: "Texte original", updated_at: null, created_at: new Date().toISOString(), profiles: { name: "Moi" } };
+  const post = { id: "p1", community_id: "c1", author_id: "other1", body: "Publication", created_at: new Date().toISOString(), profiles: { name: "Autre" } };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    updateCalls = [];
+    mocks.fromMock.mockImplementation((table) => {
+      if (table === "communities") return makeCommunityBuilder(community);
+      if (table === "community_members") return makeMembersBuilder("member");
+      if (table === "community_posts") return makeQueryBuilder({ data: [post], error: null });
+      if (table === "community_comments") return makeCommentsBuilder({ comment, updateCalls, updateImpl: () => ({ data: { ...comment, body: "ok", updated_at: "2026-11-05T00:00:00Z" }, error: null }) });
+      return makeQueryBuilder();
+    });
+  });
+
+  async function editTo(text, onError) {
+    const user = userEvent.setup();
+    render(<CommunitiesTab currentUser={{ id: "me1", name: "Moi" }} onError={onError} initialCommunityId="c1" />);
+    await screen.findByText("Publication");
+    await user.click(await screen.findByRole("button", { name: "Afficher les commentaires" }));
+    await screen.findByText("Texte original");
+    await user.click(screen.getByRole("button", { name: "Modifier ce commentaire" }));
+    const input = screen.getByLabelText("Modifier le commentaire");
+    await user.clear(input);
+    await user.type(input, text);
+    await user.click(screen.getByRole("button", { name: "Valider la modification" }));
+  }
+
+  it("un texte refusé n'est jamais envoyé et affiche le message de modération", async () => {
+    const onError = vi.fn();
+    await editTo("Va te faire foutre", onError);
+    await waitFor(() => expect(onError).toHaveBeenCalledWith(MODERATION_REFUSAL));
+    expect(updateCalls.length).toBe(0);
+  });
+
+  it("un texte normal est enregistré comme avant", async () => {
+    const onError = vi.fn();
+    await editTo("Merci pour l'info", onError);
+    await waitFor(() => expect(updateCalls.length).toBe(1));
+    expect(updateCalls[0].payload.body).toBe("Merci pour l'info");
+    expect(onError).not.toHaveBeenCalled();
   });
 });
