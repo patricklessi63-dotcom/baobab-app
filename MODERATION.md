@@ -41,11 +41,7 @@ navigateur avec la liste de départ du dépôt.
 - **Déclencheurs « filet »** sur `messages`, `posts`, `post_comments`, `community_posts`,
   `community_comments`, `event_comments`, `stories`, `profiles.bio` : refusent côté serveur même si
   l'application est contournée. **Échec ouvert** : une panne interne du filtre laisse passer le texte.
-- **Sanctions progressives** (`moderation_settings.steps`, modifiable) : 1re infraction avertissement,
-  2e suspension 24 h, 3e suspension 7 jours, 4e bannissement. Décompte sur une fenêtre configurable
-  (30 jours par défaut). Une infraction ne produit jamais deux sanctions ; le même texte renvoyé dans
-  les 10 minutes n'est pas une nouvelle infraction ; l'équipe de la plateforme n'est jamais sanctionnée
-  automatiquement ; seules les détections **certaines** (`block`) comptent.
+- **Sanctions progressives** (réglages `moderation_settings`, modifiables par un administrateur) : **infractions 1 à 4 = avertissement** (contenu bloqué, infraction enregistrée, règle expliquée) ; **la 5e = suspension de 24 h** ; on **continue de compter** (6 à 9 avertissements, 10e = 2e suspension…) ; **la 3e suspension (15e infraction) = bannissement** (`auto_ban_enabled`, actif par défaut ; sinon suspension de 30 jours à confirmer par un modérateur). Décompte sur une fenêtre configurable (365 jours par défaut). Une infraction ne produit jamais deux sanctions ; le même texte renvoyé dans les 10 minutes n'est pas une nouvelle infraction ; l'équipe de la plateforme n'est jamais sanctionnée automatiquement ; seules les détections **certaines** (`block`) comptent : un signalement non vérifié ne sanctionne jamais.
 - Historique : `moderation_violations`, `moderation_sanctions`, `moderation_decisions`.
 - Modérateurs : annuler une sanction, approuver ou confirmer un texte « à relire », décider d'un appel.
   Utilisateur : contester une sanction (`moderation_appeal`, une seule fois par sanction).
@@ -74,8 +70,9 @@ navigateur avec la liste de départ du dépôt.
    `select * from moderation_check('c.o.n.n.a.r.d');` → `blocked = true` ;
    `select * from moderation_check('Un concert a Montreal');` → tout à `false` ;
    `select count(*) from moderation_terms;` → 101 ; 10 déclencheurs `trg_moderation_%` (8 contrôles de texte + 2 normalisations de la liste).
-3. Essayer avec deux comptes de test : un message insultant doit être refusé, trois refus rapprochés
-   doivent suspendre le compte (échelle), un modérateur doit pouvoir annuler la sanction.
+3. Essayer avec deux comptes de test : un message insultant doit être refusé ; avec les réglages par défaut, les 4 premières infractions sont des avertissements, la 5e suspend le compte 24 h (pour un essai court : `update moderation_settings set warnings_before_suspension = 1 where id = 1;`, puis remettre 4) ; un modérateur doit pouvoir annuler la sanction.
+   **Base de répétition où l'ancienne version a déjà été jouée** : la ligne `moderation_settings` existante garde ses anciennes valeurs (fenêtre de 30 jours, bannissement automatique désactivé). Pour les aligner sur le cahier des charges : `update moderation_settings set window_days = 365, auto_ban_enabled = true where id = 1;`. La colonne `steps` de l'ancienne version devient inutilisée.
+   **Déclencheur d'inscription** (`trg_modban_signup`, `trg_modban_email` sur `auth.users`) : vérifier sur la répétition qu'un compte de test banni ne peut plus se réinscrire, que la connexion d'un compte non banni n'est pas affectée, et que le message d'erreur côté application est acceptable.
 4. Puis production, même fichier, une seule exécution (il est rejouable : `if not exists`,
    `on conflict do nothing`, `create or replace`).
 5. Si la liste de départ change : `node scripts/gen-moderation-seed.mjs` puis relancer les tests.
@@ -84,9 +81,9 @@ Aucune variable d'environnement, aucune clé, aucun abonnement : `.env.example` 
 
 ## 3 bis. Ce qui a été validé, et ce qui ne l'est pas
 
-- **Validé automatiquement** sur un vrai moteur PostgreSQL embarqué (PGlite, schéma factice, `src/native/moderationText.test.js`, 80 tests) : le fichier s'exécute en entier et se rejoue ; la normalisation et la détection SQL donnent **le même résultat que le JS** sur un corpus de 48 textes ; les 8 déclencheurs refusent ; l'échec ouvert ; l'échelle de sanctions (avertissement, 24 h, 7 jours, palier 4) ; un texte renvoyé n'est pas une nouvelle infraction ; annulation, appel, relecture ; termes réservés aux administrateurs ; signalements d'images (doublon, seuil, comptes neufs, limite horaire, rétablissement verrouillé).
+- **Validé automatiquement** sur un vrai moteur PostgreSQL embarqué (PGlite, schéma factice, `src/native/moderationText.test.js`, 105 tests) : le fichier s'exécute en entier et se rejoue ; la normalisation et la détection SQL donnent **le même résultat que le JS** sur un corpus de 48 textes ; les 8 déclencheurs refusent ; l'échec ouvert ; l'échelle de sanctions du cahier des charges (4 avertissements, suspension de 24 h à la 5e infraction, bannissement à la 3e suspension, sur 15 infractions), les sessions révoquées, le registre d'adresses bannies, le journal non modifiable ; un texte renvoyé n'est pas une nouvelle infraction ; annulation, appel, relecture ; termes réservés aux administrateurs ; signalements d'images (doublon, seuil, comptes neufs, limite horaire, rétablissement verrouillé).
 - **Un défaut réel trouvé et corrigé par ces tests** : pour une personne sans rôle, `is_moderator_or_above()` renvoie NULL et non faux ; `if not NULL` ne lève aucune erreur, donc n'importe qui aurait pu appeler les fonctions de modération. Elles utilisent maintenant `coalesce(..., false)`.
-- **Non validé** : la RLS réelle de Supabase, les droits d'exécution (`revoke` / `grant` par rôle) et le comportement sur vos vraies tables. D'où la répétition obligatoire avant la production.
+- **Non validé** (liste complète en §9) : la RLS réelle de Supabase, les droits d'exécution (`revoke` / `grant` par rôle) et le comportement sur vos vraies tables. D'où la répétition obligatoire avant la production.
 
 ## 4. Retour arrière
 
@@ -120,7 +117,7 @@ ce service et son interrupteur (`image_provider`). Rien de cela n'est actif aujo
   accessible à qui la connaît (stockage public). Pas de blocage serveur de l'image elle-même.
 - L'âge réel d'une personne sur une photo ne peut pas être déterminé : « Mineur suspecté » reste un
   traitement humain prioritaire.
-- Pas de notification automatique à la personne sanctionnée (elle voit l'effet : compte suspendu).
+- La personne sanctionnée voit l'explication à l'écran de son compte suspendu / banni, mais ne reçoit ni e-mail ni notification push.
 
 ## 6 bis. Vie privée et conservation (Loi 25) — relecture croisée du 4 novembre
 
@@ -153,14 +150,11 @@ ce service et son interrupteur (`image_provider`). Rien de cela n'est actif aujo
 
 ## 7. Décisions à valider
 
-1. **Bannissement automatique** : désactivé par défaut (`auto_ban_enabled = false`) : le 4e palier devient une
-   suspension de 30 jours à confirmer par un modérateur. À activer si vous acceptez qu'un faux positif
-   répété puisse bannir.
+1. **Bannissement automatique** : **actif par défaut** (cahier des charges du 4 novembre : 3e suspension = bannissement). Garde-fous : seules les détections certaines comptent (15 au minimum), un modérateur peut annuler, la personne peut contester. Désactiver (`auto_ban_enabled = false`) transforme le bannissement en suspension de 30 jours à confirmer.
 2. **Gravité des mots ambigus** (`review` ou `block`) et contenu exact de la liste de départ.
 3. **Interrupteur général** `text_filter_enabled` : activé dès l'exécution du SQL.
 4. Seuil de masquage des images (3) et plafond de signalements par heure (10).
-5. Création d'un faux compte par un utilisateur banni : aucune protection sans collecte de données
-   supplémentaires (téléphone, appareil) : décision produit et juridique.
+5. Création d'un faux compte par un utilisateur banni : l'empreinte de l'e-mail est bloquée (voir §9). Aller plus loin (téléphone, appareil, IP) exige de collecter davantage de données : décision produit et juridique, et mise à jour de la politique de confidentialité.
 
 ## 8. Interface (livrée)
 
@@ -179,5 +173,29 @@ ce service et son interrupteur (`image_provider`). Rien de cela n'est actif aujo
   l'avatar) ; une photo masquée disparaît de la galerie. **Contestation** : l'écran « Compte suspendu / banni » propose
   « Contester cette décision » (`AppealPanel.jsx`) quand une sanction automatique existe ; une suspension décidée à la main
   par un modérateur n'a pas de ligne de sanction automatique et n'ouvre pas de contestation.
+- **Explication de la sanction** (livrée) : l'écran « Compte suspendu / banni » (`AppealPanel.jsx`) affiche la règle enfreinte, le nombre d'infractions confirmées, la durée, le fonctionnement de l'échelle et un lien vers les règles de la communauté (`/conditions`), lus par `my_moderation_status()`. Si la fonction est absente, seul le formulaire de contestation reste.
+- **Pas encore d'écran** pour les suggestions de règles, la précision par terme et le test d'un texte : les fonctions SQL et `moderationApi.js` existent (`listRuleSuggestions`, `suggestRule`, `decideRuleSuggestion`, `termStats`, `testModeration`), l'interface reste à faire.
 - **Pas encore branché** : le signalement d'image sur les photos d'événement et les pièces jointes de messages (les fonctions
   serveur acceptent déjà ces types ; leurs fichiers sont privés, l'aperçu modérateur est alors indisponible).
+
+## 9. Cahier des charges de modération (4 novembre 2026) : ce qui est fait, ce qui ne l'est pas
+
+Tout est dans `supabase-moderation-text.sql` (toujours **NON exécuté en production**) ; rien n'a été activé.
+
+| Exigence | État |
+|---|---|
+| Détection serveur avant transmission (haine, harcèlement, insultes, variantes, caractères insérés, substitutions, fautes volontaires, contexte via exceptions et gravité « à relire ») | **Fait** (FR/EN, liste configurable). Pas d'autres langues que FR/EN ; ne comprend pas l'ironie. |
+| Échelle : 4 avertissements, 5e = suspension 24 h, 3e suspension = bannissement | **Fait** et testé (15 infractions de bout en bout). |
+| Notification explicative à la personne sanctionnée | **Fait à l'écran** (règle, nombre, durée, échelle, lien, contestation). **Pas d'e-mail ni de notification push.** |
+| Révocation des sessions au bannissement | **Fait** (déclencheur sur `profiles.banned_at` : couvre aussi `ban_user` manuel). Un jeton d'accès déjà émis reste valable ~1 h : les policies RLS refusent le compte entre-temps. **À vérifier sur la répétition** (le schéma `auth` réel n'est pas dans les tests). |
+| Empêcher la recréation d'un compte banni | **Partiel** : empreinte salée de l'e-mail normalisé (sans +alias, points Gmail retirés), déclencheur d'inscription sur `auth.users`. **Pas d'adresse IP stockée** (réseaux partagés, VPN, faux positifs). Un e-mail entièrement différent n'est pas détecté. Téléphone / appareil : non. Limitation de débit d'inscription : à régler dans le tableau de bord Supabase (Authentication, Rate Limits), hors SQL. |
+| Le déclencheur sur `auth.users` | À poser avec un rôle autorisé : si l'instruction échoue, le fichier continue (message `NOTICE`) ; la reposer à part. L'erreur côté inscription est générique (« Database error saving new user »). |
+| Journal d'audit non modifiable | **Fait** (ni UPDATE ni DELETE ; seule la mise à NULL par clé étrangère à la suppression d'un compte). Le propriétaire de la base peut toujours désactiver le déclencheur : le journal est protégé des utilisateurs, pas d'un administrateur de base. |
+| Signalements (profil, publication, commentaire, image) | **Existant** (tables `reports`, `post_reports`…, `report_media`). Le déclarant n'est jamais révélé à la personne signalée. Les statuts exacts demandés (en attente / en cours / confirmé / rejeté / résolu) ne sont **pas** tous présents partout : **à auditer table par table**, non modifié ici. |
+| Tableau de bord administrateur | **Existant** (textes à relire, sanctions, appels, images, termes, réglages). Nouvelles fonctions sans écran : suggestions, précision par terme, test d'un texte. |
+| Modération adaptative | **Fait côté SQL** : précision par terme (confirmées / annulées), suggestions (faux positif, faux négatif, nouvelle variante) **jamais appliquées sans décision d'un administrateur**, test d'un texte et d'un terme candidat sans effet. **Pas d'écran** et **pas de détection automatique de variantes** : les suggestions sont proposées par des modérateurs. |
+| Images pornographiques / mineurs : classification automatique | **NON fait.** Aucun moteur d'analyse n'est actif (voir §5) : cela exige un service tiers, une clé secrète côté serveur et un budget, donc une décision du propriétaire. Tant que ce n'est pas fait, seules les images **signalées** sont masquées (3 signalements) puis revues par un humain. |
+| Conservation des preuves et accès restreint aux contenus signalés | **Partiel** : extraits de 200 caractères, aucun message privé conservé, purge manuelle. Les fichiers d'images restent dans un stockage public à l'adresse connue (voir §6). |
+
+### Tests
+`src/native/moderationText.test.js` : PGlite (PostgreSQL embarqué), schéma factice incluant `auth.users` / `sessions` / `refresh_tokens`. Nouveaux cas : échelle 4/5/3 sur 15 infractions, sessions et jetons révoqués, registre sans adresse en clair, réinscription refusée (adresse et alias), levée du bannissement, bannissement manuel, panne du nettoyage sans blocage, journal non modifiable, suggestions (rien d'appliqué sans administrateur), précision, test sans effet, explication de la sanction. **Non couvert par ces tests** : la RLS réelle, les droits d'exécution par rôle, le vrai schéma `auth` : ils se vérifient sur la répétition (`scripts/staging-security.mjs`).

@@ -24,6 +24,11 @@ drop trigger if exists trg_moderation_community_comments on community_comments;
 drop trigger if exists trg_moderation_event_comments on event_comments;
 drop trigger if exists trg_moderation_stories on stories;
 drop trigger if exists trg_moderation_profiles_bio on profiles;
+-- Bannissement (révocation des sessions, registre d'e-mails) et journal non modifiable :
+drop trigger if exists trg_modban_change on profiles;
+drop trigger if exists trg_modban_signup on auth.users; -- a lancer avec le role proprietaire de auth.users
+drop trigger if exists trg_modban_email on auth.users;
+drop trigger if exists trg_modlog_immutable on moderation_decisions;
 
 -- ---------- C. suppression complète (décommenter pour exécuter) ----------
 -- drop function if exists moderation_screen(text, text);
@@ -50,5 +55,16 @@ drop trigger if exists trg_moderation_profiles_bio on profiles;
 -- drop function if exists moderation_normalize(text);
 -- drop function if exists moderation_normalize_term(text);
 -- drop function if exists moderation_terms_set_norm();
+-- drop function if exists moderation_on_ban_change();
+-- drop function if exists moderation_block_banned_signup();
+-- drop function if exists moderation_email_key(text);
+-- drop function if exists moderation_decisions_immutable();
+-- drop function if exists moderation_suggest_rule(text, text, text, text, text);
+-- drop function if exists admin_decide_rule_suggestion(uuid, boolean, text);
+-- drop function if exists admin_moderation_suggestions(text, int);
+-- drop function if exists admin_moderation_term_stats(int);
+-- drop function if exists admin_test_moderation(text, text);
+-- drop function if exists my_moderation_status();
+-- drop table if exists moderation_rule_suggestions, banned_identities, moderation_private;
 -- drop table if exists media_moderation, media_reports, moderation_decisions, moderation_sanctions,
 --   moderation_violations, moderation_exceptions, moderation_terms, moderation_settings;

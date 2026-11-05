@@ -31,18 +31,16 @@
 create table if not exists moderation_settings (
   id int primary key default 1 check (id = 1),
   text_filter_enabled boolean not null default true,
-  window_days int not null default 30 check (window_days between 1 and 3650),
-  -- Échelle : à partir de N infractions confirmées dans la fenêtre, appliquer l'action.
-  -- action : warning | suspend (hours) | ban.
-  steps jsonb not null default '[
-    {"after": 1, "action": "warning"},
-    {"after": 2, "action": "suspend", "hours": 24},
-    {"after": 3, "action": "suspend", "hours": 168},
-    {"after": 4, "action": "ban"}
-  ]'::jsonb,
+  -- Fenêtre de décompte des infractions confirmées (les anciennes ne comptent plus).
+  window_days int not null default 365 check (window_days between 1 and 3650),
+  -- Échelle (voir moderation_apply_ladder) : les colonnes warnings_before_suspension, suspension_hours
+  -- et suspensions_before_ban sont ajoutées juste après (alter ... add column if not exists), pour que
+  -- le fichier reste rejouable sur une base où l'ancienne version (colonne « steps ») aurait été jouée.
   -- Faux : le palier « ban » devient une suspension de 30 jours à confirmer par un modérateur.
-  -- Décision à valider (un faux positif ne doit pas bannir seul quelqu'un).
-  auto_ban_enabled boolean not null default false,
+  -- Vrai (défaut, conforme au cahier des charges) : bannissement automatique à la 3e suspension.
+  -- Garde-fous : seules les détections CERTAINES comptent, un modérateur peut annuler, la personne peut
+  -- contester, et l'interrupteur général / ce réglage restent modifiables par un administrateur.
+  auto_ban_enabled boolean not null default true,
   media_report_threshold int not null default 3 check (media_report_threshold >= 2),
   media_reports_per_hour int not null default 10 check (media_reports_per_hour >= 1),
   -- Réservé à une future analyse automatique d'images : AUCUN fournisseur n'est actif.
@@ -50,6 +48,15 @@ create table if not exists moderation_settings (
   updated_at timestamptz not null default now(),
   updated_by uuid references profiles(id) on delete set null
 );
+-- Échelle de sanctions : infractions 1 à `warnings_before_suspension` = avertissement ; la suivante = suspension
+-- de `suspension_hours` heures ; on continue de compter ; la `suspensions_before_ban`-ième suspension = bannissement.
+alter table moderation_settings add column if not exists warnings_before_suspension int not null default 4 check (warnings_before_suspension between 0 and 50);
+alter table moderation_settings add column if not exists suspension_hours int not null default 24 check (suspension_hours between 1 and 8760);
+alter table moderation_settings add column if not exists suspensions_before_ban int not null default 3 check (suspensions_before_ban between 1 and 20);
+-- Defauts du cahier des charges aussi sur une table deja creee par une version precedente. La LIGNE existante n'est
+-- jamais ecrasee (un administrateur a pu regler autrement) : voir MODERATION.md, section 3, pour l'aligner a la main.
+alter table moderation_settings alter column window_days set default 365;
+alter table moderation_settings alter column auto_ban_enabled set default true;
 insert into moderation_settings (id) values (1) on conflict (id) do nothing;
 alter table moderation_settings enable row level security;
 drop policy if exists "Reglages de moderation lisibles par les moderateurs" on moderation_settings;
@@ -269,17 +276,26 @@ drop policy if exists "Decisions lisibles par les moderateurs" on moderation_dec
 create policy "Decisions lisibles par les moderateurs" on moderation_decisions for select to authenticated using (is_moderator_or_above());
 
 -- Applique l'échelle de sanctions à une infraction CONFIRMÉE (status = 'counted').
+-- Règle (réglages modifiables par un administrateur) : avec W = warnings_before_suspension (4 par défaut),
+-- les infractions 1 à W sont des avertissements ; la (W+1)-ième = suspension de suspension_hours heures (24) ;
+-- on CONTINUE de compter ; chaque multiple de (W+1) est une nouvelle suspension ; la suspensions_before_ban-ième
+-- (3) = bannissement (si auto_ban_enabled ; sinon suspension de 30 jours à confirmer par un modérateur).
+-- Une infraction ne produit jamais deux sanctions (index unique) ; un signalement non vérifié ne compte jamais.
 create or replace function moderation_apply_ladder(p_profile uuid, p_violation uuid)
 returns jsonb language plpgsql security definer set search_path = public as $$
 declare
   s moderation_settings%rowtype;
   n int;
-  step jsonb;
+  v_cycle int;
+  v_rank int;
   v_action text;
   v_kind text;
+  v_hours int;
   v_until timestamptz;
   v_reason text := 'Moderation automatique : propos non autorises';
 begin
+  -- verrou par compte : deux infractions simultanées ne peuvent pas lire le même décompte (même rang de sanction)
+  perform pg_advisory_xact_lock(hashtextextended(p_profile::text, 0));
   select * into s from moderation_settings where id = 1;
   -- l'équipe de la plateforme n'est jamais sanctionnée automatiquement
   if platform_role(p_profile) is not null then return jsonb_build_object('sanction', null, 'staff', true); end if;
@@ -292,35 +308,37 @@ begin
   where profile_id = p_profile and status = 'counted'
     and created_at > now() - make_interval(days => s.window_days);
 
-  select e into step from jsonb_array_elements(s.steps) as e
-  where (e ->> 'after')::int <= n order by (e ->> 'after')::int desc limit 1;
-  if step is null then return jsonb_build_object('sanction', null, 'count', n); end if;
-
-  v_action := step ->> 'action';
-  if v_action = 'ban' and not s.auto_ban_enabled then
-    v_action := 'suspend';
-    step := jsonb_build_object('hours', 720);
-    v_reason := v_reason || ' (4e infraction : bannissement a confirmer par un moderateur)';
+  v_cycle := s.warnings_before_suspension + 1;
+  if n % v_cycle <> 0 then
+    v_action := 'warning';
+  else
+    v_rank := n / v_cycle; -- numéro de la suspension (1re, 2e, 3e...)
+    v_action := case when v_rank >= s.suspensions_before_ban then 'ban' else 'suspend' end;
+    v_hours := s.suspension_hours;
+    if v_action = 'ban' and not s.auto_ban_enabled then
+      v_action := 'suspend';
+      v_hours := 720;
+      v_reason := v_reason || ' (bannissement a confirmer par un moderateur)';
+    end if;
   end if;
 
   if v_action = 'warning' then
     v_kind := 'warning';
   elsif v_action = 'suspend' then
     v_kind := 'suspension';
-    v_until := now() + make_interval(hours => coalesce((step ->> 'hours')::int, 24));
+    v_until := now() + make_interval(hours => v_hours);
     update profiles
       set suspended_until = greatest(coalesce(suspended_until, v_until), v_until), suspend_reason = v_reason
       where id = p_profile;
-  elsif v_action = 'ban' then
+  else
     v_kind := 'ban';
     update profiles set banned_at = coalesce(banned_at, now()), ban_reason = v_reason where id = p_profile;
-  else
-    return jsonb_build_object('sanction', null, 'count', n);
   end if;
 
   insert into moderation_sanctions (profile_id, violation_id, kind, until_at, reason)
   values (p_profile, p_violation, v_kind, v_until, v_reason);
-  return jsonb_build_object('sanction', v_kind, 'until', v_until, 'count', n);
+  return jsonb_build_object('sanction', v_kind, 'until', v_until, 'count', n,
+    'warnings_left', case when v_kind = 'warning' then s.warnings_before_suspension - (n % v_cycle) else null end);
 end;
 $$;
 
@@ -418,7 +436,7 @@ begin
     v_block := false; -- échec ouvert
   end;
   if v_block then
-    raise exception '%', 'MODERATION_REFUSED: Ce message contient des propos non autoris' || chr(233) || 's.' using errcode = 'P0001';
+    raise exception '%', 'MODERATION_REFUSED: Ce message contient des propos non autoris' || chr(233) || 's. Les r' || chr(233) || 'cidives entra' || chr(238) || 'nent une suspension, puis un bannissement (voir les Conditions d''utilisation).' using errcode = 'P0001';
   end if;
   return new;
 end;
@@ -761,7 +779,9 @@ begin
   update moderation_settings set
     text_filter_enabled = coalesce((p_settings ->> 'text_filter_enabled')::boolean, text_filter_enabled),
     window_days = coalesce((p_settings ->> 'window_days')::int, window_days),
-    steps = coalesce(p_settings -> 'steps', steps),
+    warnings_before_suspension = coalesce((p_settings ->> 'warnings_before_suspension')::int, warnings_before_suspension),
+    suspension_hours = coalesce((p_settings ->> 'suspension_hours')::int, suspension_hours),
+    suspensions_before_ban = coalesce((p_settings ->> 'suspensions_before_ban')::int, suspensions_before_ban),
     auto_ban_enabled = coalesce((p_settings ->> 'auto_ban_enabled')::boolean, auto_ban_enabled),
     media_report_threshold = coalesce((p_settings ->> 'media_report_threshold')::int, media_report_threshold),
     media_reports_per_hour = coalesce((p_settings ->> 'media_reports_per_hour')::int, media_reports_per_hour),
@@ -772,11 +792,263 @@ end;
 $$;
 
 -- ----------------------------------------------------------------------------
+-- 9. Bannissement : sessions revoquees, registre d'identites bannies, inscription bloquee
+--    Pas d'adresse IP stockee (faux positifs : reseaux partages, VPN, mobile). Seule une EMPREINTE
+--    salee de l'e-mail normalise (sans +alias, points Gmail retires) est conservee, jamais l'e-mail en clair.
+-- ----------------------------------------------------------------------------
+create table if not exists moderation_private (
+  id int primary key default 1 check (id = 1),
+  email_salt text not null default encode(sha256(convert_to(gen_random_uuid()::text || clock_timestamp()::text, 'UTF8')), 'hex')
+);
+insert into moderation_private (id) values (1) on conflict (id) do nothing;
+alter table moderation_private enable row level security;
+
+-- Une ligne par (empreinte, compte) : deux comptes bannis qui partagent la meme adresse normalisee ont chacun leur ligne,
+-- lever le bannissement de l'un ne libere donc pas l'adresse de l'autre.
+create table if not exists banned_identities (
+  id bigint generated always as identity primary key,
+  email_key text not null,
+  profile_id uuid references profiles(id) on delete set null,
+  created_at timestamptz not null default now()
+);
+create index if not exists banned_identities_key_idx on banned_identities (email_key);
+create unique index if not exists banned_identities_key_profile_uniq on banned_identities (email_key, profile_id);
+create index if not exists banned_identities_profile_idx on banned_identities (profile_id);
+alter table banned_identities enable row level security;
+
+create or replace function moderation_email_key(p_email text)
+returns text language plpgsql stable security definer set search_path = public as $$
+declare v_local text; v_domain text; v_salt text;
+begin
+  if p_email is null or position('@' in p_email) = 0 then return null; end if;
+  v_local := split_part(lower(btrim(split_part(p_email, '@', 1))), '+', 1);
+  v_domain := lower(btrim(split_part(p_email, '@', 2)));
+  if v_domain in ('gmail.com', 'googlemail.com') then
+    v_local := replace(v_local, '.', '');
+    v_domain := 'gmail.com';
+  end if;
+  select email_salt into v_salt from moderation_private where id = 1;
+  return encode(sha256(convert_to(coalesce(v_salt, '') || ':' || v_local || '@' || v_domain, 'UTF8')), 'hex');
+end;
+$$;
+
+-- Quand un compte est banni (par l'echelle automatique OU par un moderateur via ban_user) : ses sessions sont
+-- revoquees et l'empreinte de son e-mail est inscrite au registre. Quand le bannissement est leve, l'empreinte
+-- est retiree. Un jeton d'acces deja emis reste valable jusqu'a son expiration (~1 h) : ce sont les policies RLS
+-- (qui verifient banned_at) qui refusent le compte dans l'intervalle. Le nettoyage ne bloque JAMAIS le bannissement.
+create or replace function moderation_on_ban_change()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare v_user uuid; v_email text;
+begin
+  if new.banned_at is not null and old.banned_at is null then
+    v_user := new.user_id;
+    if v_user is not null then
+      begin
+        if to_regclass('auth.users') is not null then
+          execute 'select email from auth.users where id = $1' into v_email using v_user;
+          if v_email is not null then
+            insert into banned_identities (email_key, profile_id) values (moderation_email_key(v_email), new.id) on conflict (email_key, profile_id) do nothing;
+          end if;
+        end if;
+        if to_regclass('auth.refresh_tokens') is not null then
+          execute 'update auth.refresh_tokens set revoked = true where user_id = $1' using v_user::text;
+        end if;
+        if to_regclass('auth.sessions') is not null then
+          execute 'delete from auth.sessions where user_id = $1' using v_user;
+        end if;
+      exception when others then
+        insert into moderation_decisions (action, target_profile_id, reason) values ('ban_cleanup_failed', new.id, left(sqlerrm, 200));
+      end;
+    end if;
+    insert into moderation_decisions (actor_id, action, target_profile_id, reason)
+    values (current_profile_id(), 'ban_applied', new.id, left(coalesce(new.ban_reason, ''), 200));
+  elsif new.banned_at is null and old.banned_at is not null then
+    delete from banned_identities where profile_id = new.id;
+    insert into moderation_decisions (actor_id, action, target_profile_id) values (current_profile_id(), 'ban_lifted', new.id);
+  end if;
+  return new;
+end;
+$$;
+drop trigger if exists trg_modban_change on profiles;
+create trigger trg_modban_change after update of banned_at on profiles
+  for each row when (old.banned_at is distinct from new.banned_at) execute function moderation_on_ban_change();
+
+create or replace function moderation_block_banned_signup()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if new.email is not null and exists (select 1 from banned_identities where email_key = moderation_email_key(new.email)) then
+    raise exception 'ACCOUNT_BANNED: Cette adresse ne peut pas etre utilisee.' using errcode = 'P0001';
+  end if;
+  return new;
+end;
+$$;
+-- Declencheur sur auth.users : a poser avec le role proprietaire (SQL Editor). S'il echoue (droits), le reste du
+-- fichier n'est pas affecte : repeter cette seule instruction depuis un role autorise (voir MODERATION.md).
+do $$
+begin
+  if to_regclass('auth.users') is not null then
+    execute 'drop trigger if exists trg_modban_signup on auth.users';
+    execute 'drop trigger if exists trg_modban_email on auth.users';
+    execute 'create trigger trg_modban_signup before insert on auth.users for each row execute function public.moderation_block_banned_signup()';
+    -- changement REEL d''adresse seulement : une simple reecriture de la ligne (connexion) ne declenche rien
+    execute 'create trigger trg_modban_email before update of email on auth.users for each row when (old.email is distinct from new.email) execute function public.moderation_block_banned_signup()';
+  end if;
+exception when others then
+  raise notice 'Declencheur d''inscription non pose : %', sqlerrm;
+end;
+$$;
+
+-- ----------------------------------------------------------------------------
+-- 10. Journal des decisions NON MODIFIABLE : ni UPDATE ni DELETE (sauf la mise a NULL d'une reference quand
+--     un compte est supprime, faite par la cle etrangere).
+-- ----------------------------------------------------------------------------
+create or replace function moderation_decisions_immutable()
+returns trigger language plpgsql set search_path = public as $$
+begin
+  if tg_op = 'DELETE' then
+    raise exception 'Le journal des decisions de moderation est non modifiable';
+  end if;
+  if new.action is distinct from old.action or new.reason is distinct from old.reason
+     or new.created_at is distinct from old.created_at or new.target_ref is distinct from old.target_ref
+     or (new.actor_id is distinct from old.actor_id and new.actor_id is not null)
+     or (new.target_profile_id is distinct from old.target_profile_id and new.target_profile_id is not null) then
+    raise exception 'Le journal des decisions de moderation est non modifiable';
+  end if;
+  return new;
+end;
+$$;
+drop trigger if exists trg_modlog_immutable on moderation_decisions;
+create trigger trg_modlog_immutable before update or delete on moderation_decisions
+  for each row execute function moderation_decisions_immutable();
+
+-- ----------------------------------------------------------------------------
+-- 11. Moderation adaptative : precision des regles, suggestions a valider, test sans effet.
+--     RIEN n'est jamais applique automatiquement : une suggestion ne devient une regle que par decision d'un administrateur.
+-- ----------------------------------------------------------------------------
+create table if not exists moderation_rule_suggestions (
+  id uuid primary key default gen_random_uuid(),
+  kind text not null check (kind in ('new_term', 'new_variant', 'false_positive', 'false_negative')),
+  term text not null check (char_length(btrim(term)) between 2 and 80),
+  category text not null default 'insulte',
+  severity text not null default 'review' check (severity in ('block', 'review')),
+  rationale text check (rationale is null or char_length(rationale) <= 500),
+  status text not null default 'pending' check (status in ('pending', 'accepted', 'rejected')),
+  proposed_by uuid references profiles(id) on delete set null,
+  decided_by uuid references profiles(id) on delete set null,
+  decided_at timestamptz,
+  decision_reason text,
+  created_at timestamptz not null default now()
+);
+create index if not exists moderation_rule_suggestions_status_idx on moderation_rule_suggestions (status, created_at desc);
+alter table moderation_rule_suggestions enable row level security;
+drop policy if exists "Suggestions lisibles par les moderateurs" on moderation_rule_suggestions;
+create policy "Suggestions lisibles par les moderateurs" on moderation_rule_suggestions for select to authenticated using (is_moderator_or_above());
+
+-- Un moderateur propose (faux positif a excepter, faux negatif ou nouvelle variante a ajouter).
+create or replace function moderation_suggest_rule(p_kind text, p_term text, p_category text default 'insulte', p_severity text default 'review', p_rationale text default null)
+returns uuid language plpgsql security definer set search_path = public as $$
+declare v_id uuid;
+begin
+  perform moderation_require_moderator();
+  insert into moderation_rule_suggestions (kind, term, category, severity, rationale, proposed_by)
+  values (p_kind, btrim(p_term), coalesce(p_category, 'insulte'), coalesce(p_severity, 'review'), left(p_rationale, 500), current_profile_id())
+  returning id into v_id;
+  insert into moderation_decisions (actor_id, action, target_ref, reason) values (current_profile_id(), 'rule_suggested', v_id::text, p_kind || ': ' || btrim(p_term));
+  return v_id;
+end;
+$$;
+
+-- Un administrateur accepte (la regle est alors creee) ou rejette. false_positive -> exception ; le reste -> terme.
+create or replace function admin_decide_rule_suggestion(p_id uuid, p_accept boolean, p_reason text default null)
+returns void language plpgsql security definer set search_path = public as $$
+declare x moderation_rule_suggestions%rowtype;
+begin
+  if not coalesce(is_admin_or_above(), false) then raise exception 'Non autorise'; end if;
+  select * into x from moderation_rule_suggestions where id = p_id for update;
+  if not found or x.status <> 'pending' then raise exception 'Suggestion introuvable ou deja traitee'; end if;
+  if p_accept then
+    if x.kind = 'false_positive' then
+      perform admin_upsert_moderation_exception(x.term, true);
+    else
+      perform admin_upsert_moderation_term(x.term, x.category, x.severity, true);
+    end if;
+  end if;
+  update moderation_rule_suggestions
+    set status = case when p_accept then 'accepted' else 'rejected' end, decided_by = current_profile_id(), decided_at = now(), decision_reason = left(p_reason, 500)
+    where id = x.id;
+  insert into moderation_decisions (actor_id, action, target_ref, reason)
+  values (current_profile_id(), case when p_accept then 'rule_accepted' else 'rule_rejected' end, x.id::text, p_reason);
+end;
+$$;
+
+create or replace function admin_moderation_suggestions(p_status text default 'pending', p_limit int default 100)
+returns setof moderation_rule_suggestions
+language plpgsql stable security definer set search_path = public as $$
+begin
+  perform moderation_require_moderator();
+  return query select * from moderation_rule_suggestions where (p_status = 'all' or status = p_status) order by created_at desc limit least(greatest(p_limit, 1), 500);
+end;
+$$;
+
+-- Precision de chaque terme : confirmees (counted) contre annulees (overturned = faux positifs) ; a relire en attente.
+create or replace function admin_moderation_term_stats(p_days int default 90)
+returns table (term text, category text, confirmed int, false_positives int, pending int, precision_ratio numeric)
+language plpgsql stable security definer set search_path = public as $$
+begin
+  perform moderation_require_moderator();
+  return query
+    select v.term, max(v.category), count(*) filter (where v.status = 'counted')::int, count(*) filter (where v.status = 'overturned')::int,
+           count(*) filter (where v.status = 'flagged')::int,
+           case when count(*) filter (where v.status in ('counted', 'overturned')) = 0 then null
+                else round(count(*) filter (where v.status = 'counted')::numeric / count(*) filter (where v.status in ('counted', 'overturned')), 3) end
+    from moderation_violations v
+    where v.term is not null and v.created_at > now() - make_interval(days => greatest(p_days, 1))
+    group by v.term order by 3 desc, 1;
+end;
+$$;
+
+-- Teste un texte (et, facultativement, un terme candidat pas encore actif) SANS rien enregistrer ni sanctionner.
+create or replace function admin_test_moderation(p_text text, p_candidate_term text default null)
+returns jsonb language plpgsql stable security definer set search_path = public as $$
+declare r record; v_norm text; v_cand text; v_hit boolean := null;
+begin
+  perform moderation_require_moderator();
+  select * into r from moderation_check(left(coalesce(p_text, ''), 4000));
+  if p_candidate_term is not null and btrim(p_candidate_term) <> '' then
+    v_cand := moderation_normalize_term(p_candidate_term);
+    v_norm := ' ' || moderation_normalize(left(coalesce(p_text, ''), 4000)) || ' ';
+    v_hit := v_cand <> '' and (btrim(v_norm) ~ ('(^| )' || v_cand || '(s|es|x)?( |$)'));
+  end if;
+  return jsonb_build_object('blocked', r.blocked, 'flagged', r.flagged, 'category', r.category, 'term', r.term, 'severity', r.severity, 'candidate_match', v_hit);
+end;
+$$;
+
+-- Etat de moderation de la personne connectee : de quoi lui expliquer sa sanction (regle, nombre d'infractions
+-- confirmees, duree, contestation). Ne revele jamais l'identite d'un declarant.
+create or replace function my_moderation_status()
+returns jsonb language plpgsql stable security definer set search_path = public as $$
+declare v_p uuid := current_profile_id(); s moderation_settings%rowtype; n int; x moderation_sanctions%rowtype;
+begin
+  if v_p is null then raise exception 'Non autorise'; end if;
+  select * into s from moderation_settings where id = 1;
+  select count(*) into n from moderation_violations where profile_id = v_p and status = 'counted' and created_at > now() - make_interval(days => s.window_days);
+  select * into x from moderation_sanctions where profile_id = v_p and revoked_at is null order by created_at desc limit 1;
+  return jsonb_build_object(
+    'confirmed_violations', n, 'window_days', s.window_days,
+    'warnings_before_suspension', s.warnings_before_suspension, 'suspension_hours', s.suspension_hours, 'suspensions_before_ban', s.suspensions_before_ban,
+    'sanction', case when x.id is null then null else jsonb_build_object('id', x.id, 'kind', x.kind, 'until', x.until_at, 'reason', x.reason, 'created_at', x.created_at, 'appeal_status', x.appeal_status) end);
+end;
+$$;
+
+-- ----------------------------------------------------------------------------
 -- Droits : aucune fonction appelable sans compte ; les écritures directes sont fermées
 -- (aucune policy INSERT/UPDATE/DELETE : tout passe par les fonctions ci-dessus).
 -- ----------------------------------------------------------------------------
 revoke all on moderation_settings, moderation_terms, moderation_exceptions, moderation_violations,
   moderation_sanctions, moderation_decisions, media_reports, media_moderation from anon;
+revoke all on moderation_private, banned_identities from public, anon, authenticated;
+revoke all on moderation_rule_suggestions from anon;
+revoke insert, update, delete on moderation_rule_suggestions from authenticated;
 revoke insert, update, delete on moderation_settings, moderation_terms, moderation_exceptions, moderation_violations,
   moderation_sanctions, moderation_decisions, media_reports, media_moderation from authenticated;
 
@@ -789,6 +1061,13 @@ revoke all on function moderation_screen(text, text), report_media(text, uuid, t
   moderation_appeal(uuid, text), moderation_decide_appeal(uuid, boolean, text), moderate_media(text, uuid, text, text),
   admin_upsert_moderation_term(text, text, text, boolean), admin_delete_moderation_term(bigint),
   admin_upsert_moderation_exception(text, boolean), admin_update_moderation_settings(jsonb), moderation_purge_old(int) from public, anon;
+-- Fonctions internes (declencheurs, empreinte) : jamais appelables par un client, meme connecte.
+revoke all on function moderation_email_key(text), moderation_on_ban_change(), moderation_block_banned_signup(), moderation_decisions_immutable() from public, anon, authenticated;
+-- Nouvelles fonctions : retirees a public et anon, accordees aux comptes connectes ; chacune verifie le role elle-meme.
+revoke all on function moderation_suggest_rule(text, text, text, text, text), admin_decide_rule_suggestion(uuid, boolean, text),
+  admin_moderation_suggestions(text, int), admin_moderation_term_stats(int), admin_test_moderation(text, text), my_moderation_status() from public, anon;
+grant execute on function moderation_suggest_rule(text, text, text, text, text), admin_decide_rule_suggestion(uuid, boolean, text),
+  admin_moderation_suggestions(text, int), admin_moderation_term_stats(int), admin_test_moderation(text, text), my_moderation_status() to authenticated;
 grant execute on function moderation_screen(text, text), report_media(text, uuid, text, text),
   admin_moderation_violations(text, int), admin_moderation_sanctions(boolean, int), admin_media_queue(int), admin_media_info(text, uuid),
   moderation_resolve_flag(uuid, boolean, text), moderation_revoke_sanction(uuid, text),

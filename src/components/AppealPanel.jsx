@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { fetchMySanctions, appealSanction } from "../lib/moderationApi";
+import { fetchMySanctions, appealSanction, fetchMyModerationStatus } from "../lib/moderationApi";
+import { formatLongDate } from "../utils/format";
 import { friendlyDbError } from "../lib/friendlyDbError";
 
 // Contestation d'une sanction automatique (supabase-moderation-text.sql : moderation_appeal), affichée
@@ -8,6 +9,7 @@ import { friendlyDbError } from "../lib/friendlyDbError";
 // automatique : rien n'est alors proposé ici (l'écran reste inchangé).
 export default function AppealPanel() {
   const [sanction, setSanction] = useState(null);
+  const [info, setInfo] = useState(null); // règle + nombre d'infractions confirmées (my_moderation_status)
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
@@ -17,9 +19,13 @@ export default function AppealPanel() {
     let cancelled = false;
     (async () => {
       try {
-        const rows = await fetchMySanctions();
+        // Explication de la sanction : facultative, jamais bloquante (fonction absente = on n'affiche que le formulaire).
+        // Lue en parallèle des sanctions : les deux requêtes sont indépendantes.
+        const [rows, explanation] = await Promise.all([fetchMySanctions(), fetchMyModerationStatus().catch(() => null)]);
         const active = rows.find((s) => s.kind !== "warning");
-        if (!cancelled) setSanction(active || null);
+        if (cancelled) return;
+        setSanction(active || null);
+        if (active && explanation) setInfo(explanation);
       } catch (_) {
         /* SQL-31 pas encore exécuté, ou lecture refusée : on n'affiche rien */
       }
@@ -46,6 +52,17 @@ export default function AppealPanel() {
 
   return (
     <div className="mt-5 text-left">
+      {info && (
+        <div className="text-sm rounded-xl p-3 mb-3 flex flex-col gap-1" style={{ background: "rgba(var(--bb-text-rgb),0.05)", color: "var(--bb-text)" }}>
+          <p><b>Règle enfreinte :</b> propos non autorisés (haine, insultes, harcèlement ou contenu interdit).</p>
+          <p><b>Infractions confirmées :</b> {info.confirmed_violations}</p>
+          <p><b>Durée :</b> {sanction.kind === "ban" ? "définitive" : sanction.until_at ? `jusqu'au ${formatLongDate(sanction.until_at)}` : "en cours"}</p>
+          <p className="text-xs" style={{ color: "var(--bb-text-faint)" }}>
+            Fonctionnement : {info.warnings_before_suspension} {info.warnings_before_suspension > 1 ? "avertissements" : "avertissement"}, puis une suspension de {info.suspension_hours} h à chaque nouvelle série ; la {info.suspensions_before_ban === 1 ? "1re" : `${info.suspensions_before_ban}e`} suspension entraîne un bannissement définitif.
+          </p>
+          <a href="/conditions" className="text-xs font-bold underline" style={{ color: "var(--bb-text)" }}>Lire les règles de la communauté</a>
+        </div>
+      )}
       {status === "pending" && (
         <p role="status" className="text-sm rounded-xl p-3" style={{ background: "rgba(var(--bb-text-rgb),0.05)", color: "var(--bb-text)" }}>
           Ta contestation a été transmise. Un modérateur va l'examiner.

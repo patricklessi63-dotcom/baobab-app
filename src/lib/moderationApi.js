@@ -45,6 +45,15 @@ export async function fetchTerms() {
 
 // Utilisateur : signaler une image, contester une sanction, lire ses sanctions.
 export const reportMedia = (kind, id, reason, note = null) => rpc("report_media", { p_kind: kind, p_id: id, p_reason: reason, p_note: note });
+// Règle, nombre d'infractions confirmées et sanction active de la personne connectée (my_moderation_status, SQL-31).
+export const fetchMyModerationStatus = () => rpc("my_moderation_status");
+// Modération adaptative (réservée aux modérateurs / administrateurs ; chaque fonction SQL vérifie le rôle) : aucune règle
+// n'est jamais appliquée sans la décision d'un administrateur.
+export const listRuleSuggestions = (status = "pending", limit = 100) => rpc("admin_moderation_suggestions", { p_status: status, p_limit: limit }).then((d) => d || []);
+export const suggestRule = (kind, term, category = "insulte", severity = "review", rationale = null) => rpc("moderation_suggest_rule", { p_kind: kind, p_term: term, p_category: category, p_severity: severity, p_rationale: rationale });
+export const decideRuleSuggestion = (id, accept, reason = null) => rpc("admin_decide_rule_suggestion", { p_id: id, p_accept: accept, p_reason: reason });
+export const termStats = (days = 90) => rpc("admin_moderation_term_stats", { p_days: days }).then((d) => d || []);
+export const testModeration = (text, candidateTerm = null) => rpc("admin_test_moderation", { p_text: text, p_candidate_term: candidateTerm });
 export const appealSanction = (sanctionId, text) => rpc("moderation_appeal", { p_sanction_id: sanctionId, p_text: text });
 export async function fetchMySanctions() {
   const { data, error } = await supabase.from("moderation_sanctions")

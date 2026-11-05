@@ -213,10 +213,10 @@ export default function ModerationPanel({ onError, isAdmin = false }) {
             </label>
             <label className="flex items-center gap-2 text-sm mb-2">
               <input type="checkbox" checked={settings.auto_ban_enabled} disabled={!isAdmin} onChange={(e) => saveSetting({ auto_ban_enabled: e.target.checked })} />
-              Bannissement automatique au 4e palier (sinon suspension de 30 jours à confirmer)
+              Bannissement automatique à la {settings.suspensions_before_ban ?? 3}e suspension (sinon suspension de 30 jours à confirmer)
             </label>
             <p className="text-xs" style={{ color: muted }}>
-              Fenêtre de décompte : {settings.window_days} jours · Masquage d'une image à {settings.media_report_threshold} signalements · {settings.media_reports_per_hour} signalements par heure et par personne.
+              Échelle : {settings.warnings_before_suspension ?? 4} avertissements, puis suspension de {settings.suspension_hours ?? 24} h, et on continue de compter · Fenêtre de décompte : {settings.window_days} jours · Masquage d'une image à {settings.media_report_threshold} signalements · {settings.media_reports_per_hour} signalements par heure et par personne.
             </p>
           </div>
           {isAdmin && (
