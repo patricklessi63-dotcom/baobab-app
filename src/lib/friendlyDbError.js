@@ -4,7 +4,16 @@
 // Sans extraire ce message, l'app ne peut afficher qu'un texte générique
 // ("Réessaie"), qui masque la vraie raison (ex. limite de débit atteinte) et
 // fait relancer en boucle une action qui échouera à l'identique.
-export function friendlyDbError(e) {
+//
+// `options.context === "send-message"` : pour l'ENVOI d'un message, un 42501 est
+// le refus de la policy « conversation matchée » (like mutuel, comptes non
+// bannis/suspendus, onboarding terminé, aucun blocage…). Le message générique
+// « permission d'effectuer cette action » ne dit pas que c'est la conversation
+// qui est en cause ; on la nomme, SANS révéler la cause exacte (jamais « tu es
+// bloqué·e » : un blocage ne doit pas être divulgué à la personne bloquée).
+export const MESSAGE_SEND_UNAVAILABLE = "Tu ne peux pas envoyer de message à cette personne pour le moment : conversation indisponible.";
+
+export function friendlyDbError(e, options) {
   // Texte refusé par la modération : refus local (contentGate.screenText) ou du serveur
   // (déclencheur SQL, message « MODERATION_REFUSED: … » ci-dessous, code P0001).
   if (e?.moderation === true) return e.message;
@@ -24,6 +33,7 @@ export function friendlyDbError(e) {
   // QUELLE policy a bloqué l'action, seulement QUE c'est une question de
   // permission et non un aléa réseau.
   if (e?.code === "42501") {
+    if (options?.context === "send-message") return MESSAGE_SEND_UNAVAILABLE;
     return "Tu n'as pas la permission d'effectuer cette action.";
   }
   return null;

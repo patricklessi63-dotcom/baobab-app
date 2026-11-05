@@ -2708,7 +2708,7 @@ export default function App() {
       setMessages((m) => m.map((msg) => (msg.id === tempId ? {
         ...msg,
         _status: "failed",
-        _error: friendlyDbError(e) || (isNetworkFailure(e) ? networkFailureMessage() : undefined),
+        _error: friendlyDbError(e, { context: "send-message" }) || (isNetworkFailure(e) ? networkFailureMessage() : undefined),
         _premiumBlocked: premiumBlocked,
         // Issue inconnue : le renvoi (manuel ou auto) vérifiera d'abord que le
         // message n'existe pas déjà ; `_afterId` borne cette recherche, et

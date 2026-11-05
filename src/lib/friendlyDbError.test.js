@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { friendlyDbError, dbErrorCode } from "./friendlyDbError.js";
+import { friendlyDbError, dbErrorCode, MESSAGE_SEND_UNAVAILABLE } from "./friendlyDbError.js";
 
 describe("friendlyDbError", () => {
   it("retourne null si le code n'est pas P0001 (exception métier Postgres)", () => {
@@ -36,6 +36,16 @@ describe("friendlyDbError", () => {
       friendlyDbError({ code: "42501", message: "permission denied for table messages" }),
     ).toBe("Tu n'as pas la permission d'effectuer cette action.");
     expect(friendlyDbError({ code: "42501" })).toBe("Tu n'as pas la permission d'effectuer cette action.");
+  });
+
+  it("nomme la conversation pour un 42501 à l'ENVOI d'un message, sans révéler un blocage", () => {
+    const msg = friendlyDbError({ code: "42501", message: 'new row violates row-level security policy for table "messages"' }, { context: "send-message" });
+    expect(msg).toBe(MESSAGE_SEND_UNAVAILABLE);
+    expect(msg).not.toMatch(/bloqu/i);
+    // Hors contexte d'envoi, le message générique est inchangé.
+    expect(friendlyDbError({ code: "42501" }, { context: "autre" })).toBe("Tu n'as pas la permission d'effectuer cette action.");
+    // Une exception métier P0001 garde la priorité, même en contexte d'envoi.
+    expect(friendlyDbError({ code: "P0001", message: "FREE_MESSAGE_LIMIT_REACHED: Limite atteinte." }, { context: "send-message" })).toBe("Limite atteinte.");
   });
 
   it("ne confond pas 42501 avec P0001 (pas de collision de branche)", () => {
