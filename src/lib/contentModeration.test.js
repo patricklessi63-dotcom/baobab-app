@@ -123,7 +123,7 @@ describe("gravité : refus ou file de modération", () => {
     });
   });
   it("le message de refus est clair, non agressif, nomme la règle et renvoie aux Conditions d'utilisation, sans dépasser un bandeau d'erreur (200 caractères)", () => {
-    expect(MODERATION_REFUSAL).toBe("Ce message contient des propos non autorisés. Les récidives entraînent une suspension, puis un bannissement (voir les Conditions d'utilisation).");
+    expect(MODERATION_REFUSAL).toBe("Ce contenu contient des propos non autorisés. Les récidives entraînent une suspension, puis un bannissement (voir les Conditions d'utilisation).");
     expect(MODERATION_REFUSAL).toMatch(/Conditions d'utilisation/);
     expect(MODERATION_REFUSAL.length).toBeLessThanOrEqual(200);
   });

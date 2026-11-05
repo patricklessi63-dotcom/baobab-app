@@ -13,7 +13,7 @@
 import seed from "../config/moderationTerms.seed.json";
 
 export const MODERATION_REFUSAL =
-  "Ce message contient des propos non autorisés. Les récidives entraînent une suspension, puis un bannissement (voir les Conditions d'utilisation).";
+  "Ce contenu contient des propos non autorisés. Les récidives entraînent une suspension, puis un bannissement (voir les Conditions d'utilisation).";
 
 // Caractères qui ressemblent à des lettres latines (cyrilliques et grecs courants).
 // Les lettres pleine chasse et les formes composées sont ramenées par NFKD plus bas.

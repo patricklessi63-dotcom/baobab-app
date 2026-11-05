@@ -29,7 +29,7 @@ navigateur avec la liste de départ du dépôt.
 - **Exceptions** configurables (ex. « pas con »).
 - `src/lib/contentGate.js` : `screenText()` appelé avant l'envoi d'un **message privé, d'une publication,
   d'un commentaire (fil, communauté, événement), d'une publication de communauté, d'un statut et d'une
-  biographie**. Refus : « Ce message contient des propos non autorisés. »
+  biographie**. Refus : « Ce contenu contient des propos non autorisés. »
 - `src/config/moderationTerms.seed.json` : liste de **départ** (101 termes, 5 catégories : insulte, racisme,
   homophobie, menace, harcèlement). Une fois SQL-31 exécuté, la liste vivante est la table
   `moderation_terms`, que les administrateurs modifient sans toucher au code ; l'application la charge au

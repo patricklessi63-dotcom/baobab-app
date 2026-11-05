@@ -439,7 +439,7 @@ begin
     v_block := false; -- échec ouvert
   end;
   if v_block then
-    raise exception '%', 'MODERATION_REFUSED: Ce message contient des propos non autoris' || chr(233) || 's. Les r' || chr(233) || 'cidives entra' || chr(238) || 'nent une suspension, puis un bannissement (voir les Conditions d''utilisation).' using errcode = 'P0001';
+    raise exception '%', 'MODERATION_REFUSED: Ce contenu contient des propos non autoris' || chr(233) || 's. Les r' || chr(233) || 'cidives entra' || chr(238) || 'nent une suspension, puis un bannissement (voir les Conditions d''utilisation).' using errcode = 'P0001';
   end if;
   return new;
 end;
