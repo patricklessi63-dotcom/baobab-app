@@ -3,6 +3,7 @@ import { toEditableArrivedSince, resolveArrivedSinceForSave } from "../../lib/ar
 import { ArrowLeft } from "lucide-react";
 import { supabase } from "../../supabaseClient";
 import { updateOwnProfile, insertOwnProfile } from "../../lib/ownProfile";
+import { screenText, isModerationRefusal, MODERATION_REFUSAL } from "../../lib/contentGate";
 import { pushBackEntry } from "../../hooks/useEscapeKey";
 import { C, EDUCATION_LEVELS } from "../../constants";
 import OnboardingProgress from "./OnboardingProgress";
@@ -303,6 +304,9 @@ export default function OnboardingWizard({
       } else if (step === 9) {
         payload = { interests: draft.interests.join(", "), onboarding_step: 9 };
       } else if (step === 10) {
+        // Modération du texte (SQL-31) : la bio est contrôlée AVANT l'envoi, comme dans « Modifier mon profil »
+        // (App.jsx). Sans cela, un refus du serveur affichait « Réessaie », qui invite à renvoyer le même texte.
+        if (draft.bio.trim()) await screenText(supabase, "bio", draft.bio);
         payload = {
           personality_evening: draft.personalityEvening,
           personality_travel: draft.personalityTravel,
@@ -320,7 +324,7 @@ export default function OnboardingWizard({
       return data;
     } catch (e) {
       console.error("onboarding save error:", e?.message, "| code:", e?.code, "| details:", e?.details, "| hint:", e?.hint);
-      setError("Une erreur est survenue lors de l'enregistrement. Réessaie.");
+      setError(isModerationRefusal(e) ? MODERATION_REFUSAL : "Une erreur est survenue lors de l'enregistrement. Réessaie.");
       // Voir commentaire au début de saveStep : nettoyage des photos
       // fraîchement uploadées (Storage) et/ou insérées (profile_photos) si
       // une étape suivante de l'étape 3 a échoué avant la fin. Pas de nettoyage si e.writeCommitted (lib/ownProfile.js) :
