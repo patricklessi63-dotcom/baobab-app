@@ -19,14 +19,14 @@ beforeAll(async () => {
   db = new PGlite();
   await db.exec(`
     create role anon nologin; create role authenticated nologin;
-    create table profiles (id uuid primary key);
+    create table profiles (id uuid primary key, name text);
     create table blocks (from_id uuid, to_id uuid);
     create table posts (id uuid primary key default gen_random_uuid(), author_id uuid references profiles(id), body text);
     create table post_comments (id uuid primary key default gen_random_uuid(), post_id uuid not null references posts(id) on delete cascade, author_id uuid references profiles(id), body text);
     create table notifications (id serial primary key, recipient_id uuid, actor_id uuid, type text, target_type text, target_id uuid);
     alter table notifications add constraint notifications_type_check check (type in ('new_follower','post_liked','post_commented','premium_activated'));
   `);
-  for (let n = 1; n <= 4; n++) await db.query("insert into profiles (id) values ($1)", [U(n)]);
+  for (let n = 1; n <= 12; n++) await db.query("insert into profiles (id, name) values ($1, $2)", [U(n), `Nom${n}`]);
   await db.query("insert into posts (id, author_id, body) values ($1, $2, 'Bonjour')", [U(50), U(1)]);
   await db.exec(SQL);
 }, 120000);
@@ -96,16 +96,33 @@ describe("SQL-33 : fil de discussion et mentions", () => {
       expect(await notifs()).toEqual([]);
     });
 
-    it("une mention vers un profil inexistant est ignorée sans erreur", async () => {
+    it("une mention vers un profil inexistant est ignorée sans erreur et retirée de la liste enregistrée", async () => {
       await reset();
-      expect(await fails(() => db.query("insert into posts (author_id, body, mentions) values ($1, 'x', $2::jsonb)", [U(1), JSON.stringify([{ id: U(777), name: "Fantôme" }])]))).toBeNull();
+      const [p] = await q("insert into posts (author_id, body, mentions) values ($1, 'x', $2::jsonb) returning mentions", [U(1), JSON.stringify([{ id: U(777), name: "Fantôme" }])]);
+      expect(p.mentions).toEqual([]);
       expect(await notifs()).toEqual([]);
     });
 
+    it("le NOM d'une mention est relu depuis le profil : un client modifié ne peut pas faire passer « @Support » pour quelqu'un d'autre", async () => {
+      await reset();
+      const dirty = JSON.stringify([{ id: U(2), name: "Support Baobab" }, { id: U(2), name: "Doublon" }, { id: "pas-un-uuid", name: "X" }, { id: U(3) }]);
+      const [c] = await q("insert into post_comments (post_id, author_id, body, mentions) values ($1, $2, '@Support Baobab', $3::jsonb) returning mentions", [U(50), U(1), dirty]);
+      expect(c.mentions).toEqual([{ id: U(2), name: "Nom2" }, { id: U(3), name: "Nom3" }]);
+    });
+
+    it("mentions absentes, nulles ou mal formées : liste vide, jamais d'erreur", async () => {
+      for (const m of ["null", "{}", "\"texte\"", "[]"]) {
+        const [p] = await q("insert into posts (author_id, body, mentions) values ($1, 'x', $2::jsonb) returning mentions", [U(1), m]);
+        expect(p.mentions, m).toEqual([]);
+      }
+      const [d] = await q("insert into posts (author_id, body) values ($1, 'x') returning mentions", [U(1)]);
+      expect(d.mentions).toEqual([]);
+    });
+
     it("plus de cinq mentions : refusé par la base", async () => {
-      const six = JSON.stringify(Array.from({ length: 6 }, (_, i) => ({ id: U(10 + i), name: `N${i}` })));
+      const six = JSON.stringify(Array.from({ length: 6 }, (_, i) => ({ id: U(5 + i), name: `N${i}` })));
       expect(await fails(() => db.query("insert into posts (author_id, body, mentions) values ($1, 'x', $2::jsonb)", [U(1), six]))).toContain("posts_mentions_check");
-      expect(await fails(() => db.query("insert into posts (author_id, body, mentions) values ($1, 'x', '{}'::jsonb)", [U(1)]))).toContain("posts_mentions_check");
+      // un objet (et non une liste) est écarté à la normalisation : liste vide, pas d'erreur
     });
 
     it("répondre au commentaire de quelqu'un le notifie (comment_replied) ; pas si on se répond à soi-même", async () => {

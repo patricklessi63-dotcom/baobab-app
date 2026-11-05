@@ -188,3 +188,37 @@ describe("PostComments — saisie avec mentions", () => {
     expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
   });
 });
+
+describe("PostComments — j'aime sur les commentaires (SQL-35)", () => {
+  it("bouton cœur avec compteur ; touche = bascule ; pressed reflète MES j'aime", () => {
+    const onToggleLike = vi.fn();
+    setup({ comments: [c("c1", "Awa", "A"), c("c2", "Zoe", "B")], likeCounts: { c1: 3, c2: 0 }, myLikes: new Set(["c1"]), onToggleLike });
+    const mine = screen.getByRole("button", { name: "Retirer mon j'aime" });
+    expect(mine).toHaveAttribute("aria-pressed", "true");
+    expect(mine.textContent).toContain("3");
+    const other = screen.getByRole("button", { name: "Aimer ce commentaire" });
+    expect(other).toHaveAttribute("aria-pressed", "false");
+    fireEvent.click(other);
+    expect(onToggleLike).toHaveBeenCalledWith(expect.objectContaining({ id: "c2" }));
+  });
+
+  it("sans compteurs (table absente) ou sans fonction : aucun bouton", () => {
+    setup({ comments: [c("c1", "Awa", "A")], likeCounts: null, onToggleLike: vi.fn() });
+    expect(screen.queryByRole("button", { name: /j'aime|Aimer ce commentaire/ })).not.toBeInTheDocument();
+    cleanup();
+    setup({ comments: [c("c1", "Awa", "A")], likeCounts: { c1: 1 } });
+    expect(screen.queryByRole("button", { name: /j'aime|Aimer ce commentaire/ })).not.toBeInTheDocument();
+  });
+
+  it("« Plus pertinents » : les j'aime comptent, une réponse vaut deux j'aime", () => {
+    const comments = [
+      c("c1", "A", "Peu aimé", { created_at: "2026-11-03T10:00:00Z" }),
+      c("c2", "B", "Très aimé", { created_at: "2026-11-01T10:00:00Z" }),
+      c("c3", "C", "Une réponse", { created_at: "2026-11-02T10:00:00Z" }),
+      c("c4", "D", "rep", { parent_id: "c3", created_at: "2026-11-04T10:00:00Z" }),
+    ];
+    const { container } = setup({ comments, likeCounts: { c1: 1, c2: 5, c3: 0, c4: 0 }, myLikes: new Set(), onToggleLike: vi.fn() });
+    fireEvent.change(screen.getByLabelText("Trier les commentaires"), { target: { value: "relevant" } });
+    expect(texts(container)).toEqual(["Très aimé", "Une réponse", "rep", "Peu aimé"]);
+  });
+});

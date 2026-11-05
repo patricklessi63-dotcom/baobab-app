@@ -769,7 +769,7 @@ Exécutés avec le script consolidé le **9 sept 2026** (le correctif d'ordre le
 | `supabase-combined-supersede-order-regression-fix.sql` | 09/09 | Rétablit l'état final correct de 3 objets écrasés par l'ordre du COMBINED. | Exécuté le 10 sept ; aussi inclus en dernière section du COMBINED. |
 | `supabase-story-reactions-emoji-check-fix.sql` | 04/11 | Remplace la contrainte `story_reactions_emoji_check` (émojis abîmés en production : toute réaction à un statut était refusée, erreur 23514). | SQL-26. **Exécuté en production le 04/11/2026** (avec accord explicite, lecture avant / après, essai d'insertion annulé). Défaut documenté : ne jamais coller d'émojis en clair dans un éditeur SQL. |
 
-### Catégorie B — livrés, NON exécutés : à exécuter (30 fichiers)
+### Catégorie B — livrés, NON exécutés : à exécuter (31 fichiers)
 
 Ordre et fiches : §5. Tous postérieurs à l'exécution du COMBINED, aucun mentionné comme exécuté dans `DEPLOIEMENT.md` (le bilan §4 le confirme ou l'infirme).
 
@@ -810,6 +810,7 @@ Ordre et fiches : §5. Tous postérieurs à l'exécution du COMBINED, aucun ment
 | `supabase-moderation-text.sql` | 04/11 | Modération de texte gratuite : liste de termes et d'exceptions, `moderation_check()`, déclencheurs sur messages / publications / commentaires / statuts / biographies, sanctions progressives, appels, signalements d'images avec masquage après 3 signalements. | SQL-31. **NON exécuté.** Répétition d'abord. Fichier entièrement ASCII. Lire `MODERATION.md`. Interrupteur : `moderation_settings.text_filter_enabled`. |
 | `supabase-post-reactions.sql` | 04/11 | Réactions multiples sur le fil général : colonne `emoji` sur `post_likes` (6 réactions, une par personne), policy UPDATE avec gardes d'état de compte et de blocage. Les likes existants deviennent des cœurs. | SQL-32. **NON exécuté.** Additif, entièrement ASCII, retour arrière en pied de fichier. Sans lui, le fil marche comme avant (cœur seul). Validé sur PGlite avec RLS (`src/native/postReactions.test.js`). |
 | `supabase-post-threads-mentions.sql` | 04/11 | Fil général : réponses aux commentaires (`post_comments.parent_id`, un niveau), mentions `@` (`mentions` jsonb, 5 au plus), notifications `post_mention` et `comment_replied` (aucune entre personnes qui se sont bloquées), ajout des deux types à `notifications_type_check` SANS recopier sa liste. | SQL-33. **NON exécuté.** Additif, entièrement ASCII, retour arrière en pied de fichier. Sans lui, les commentaires restent à plat. Validé sur PGlite (`src/native/postThreads.test.js`). |
+| `supabase-post-comment-likes.sql` | 05/11 | Fil général : « j'aime » sur les commentaires (`post_comment_likes`, un par personne, gardes de compte et de blocage) + notification `comment_liked` ajoutée à `notifications_type_check` SANS recopier sa liste. | SQL-35. **NON exécuté.** Additif, entièrement ASCII, retour arrière en pied de fichier. Sans lui, le bouton n'apparaît pas. Validé sur PGlite avec RLS (`src/native/postCommentLikes.test.js`). |
 
 ### Catégorie C — socle d'août (60 fichiers) : supposé en prod, À VÉRIFIER
 
@@ -889,7 +890,7 @@ Antérieurs au COMBINED et absents de celui-ci ; l'application tourne en bêta d
 | `supabase-beta-dashboard.sql` | 21/08 | Requêtes de statistiques de la bêta (lecture seule). | Outil de consultation, pas une migration. |
 | `supabase-moderation-text-rollback.sql` | 04/11 | Retour arrière de SQL-31 (coupure douce, retrait des déclencheurs, suppression complète commentée). | Outil manuel, ne pas exécuter sans avoir lu `MODERATION.md` §4. |
 
-Total : 47 + 27 + 60 + 6 = 140 fichiers.
+Total : 47 + 28 + 60 + 6 = 141 fichiers.
 
 ---
 

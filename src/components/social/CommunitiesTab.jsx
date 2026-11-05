@@ -1245,6 +1245,8 @@ export default function CommunitiesTab({ aiEnabled = false, currentUser, onError
       // silencieusement la modification du premier avec son propre texte
       // obsolète.
       const known = (commentsByPost[postId]?.items || []).find((x) => x.id === commentId);
+      // Modération : une modification est contrôlée comme un nouveau commentaire (le serveur la refuse aussi).
+      if (newBody.trim()) await screenText(supabase, "comment", newBody);
       let query = supabase
         .from("community_comments")
         .update({ body: newBody, updated_at: new Date().toISOString() })
@@ -1264,7 +1266,7 @@ export default function CommunitiesTab({ aiEnabled = false, currentUser, onError
       }));
     } catch (e) {
       console.error(e);
-      onError("Impossible de modifier ce commentaire.");
+      onError(isModerationRefusal(e) ? MODERATION_REFUSAL : "Impossible de modifier ce commentaire.");
     } finally {
       editCommentSubmittingRef.current.delete(commentId);
     }

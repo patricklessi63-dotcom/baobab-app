@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { Flag, Ban, CornerDownRight, X } from "lucide-react";
+import { Flag, Ban, CornerDownRight, X, Heart } from "lucide-react";
 import Avatar from "../Avatar";
 import MentionInput from "./MentionInput";
 import MentionText from "./MentionText";
@@ -20,7 +20,7 @@ export const COMMENT_SORTS = [
 // Commentaires d'une publication du fil : fil de discussion à UN niveau (les réponses à une réponse
 // sont rattachées au commentaire racine), tri, pagination, mentions « @ ». Les réponses exigent SQL-33
 // (colonne parent_id) : tant qu'il n'est pas exécuté, le commentaire part à plat avec son « @Nom ».
-export default function PostComments({ comments = [], currentUserId, onSubmit, onReportComment, onBlockAuthor, onSearchMentions, onOpenProfile }) {
+export default function PostComments({ comments = [], currentUserId, onSubmit, onReportComment, onBlockAuthor, onSearchMentions, onOpenProfile, likeCounts = null, myLikes, onToggleLike }) {
   const [draft, setDraft] = useState("");
   const [mentions, setMentions] = useState([]);
   const [replyTo, setReplyTo] = useState(null); // { rootId, name, authorId }
@@ -41,11 +41,15 @@ export default function PostComments({ comments = [], currentUserId, onSubmit, o
     const time = (c) => new Date(c.created_at || 0).getTime();
     const sorted = [...rootList];
     if (sort === "recent") sorted.sort((a, b) => time(b) - time(a));
-    else if (sort === "relevant") sorted.sort((a, b) => ((byRoot.get(b.id)?.length || 0) - (byRoot.get(a.id)?.length || 0)) || time(b) - time(a));
+    else if (sort === "relevant") {
+      // Pertinence : les réponses comptent double, puis les j'aime (SQL-35), puis la date.
+      const score = (c) => 2 * (byRoot.get(c.id)?.length || 0) + (likeCounts?.[c.id] || 0);
+      sorted.sort((a, b) => (score(b) - score(a)) || time(b) - time(a));
+    }
     else sorted.sort((a, b) => time(a) - time(b));
     for (const list of byRoot.values()) list.sort((a, b) => time(a) - time(b));
     return { roots: sorted, repliesByRoot: byRoot };
-  }, [comments, sort]);
+  }, [comments, sort, likeCounts]);
 
   const startReply = (root, target) => {
     const name = target.profiles?.name || "Membre";
@@ -79,11 +83,24 @@ export default function PostComments({ comments = [], currentUserId, onSubmit, o
           <span className="text-xs font-bold" style={{ color: primary }}>{c.profiles?.name || "Membre"}</span>
           <p className="text-xs mt-0.5 whitespace-pre-wrap break-words"><MentionText body={c.body} mentions={c.mentions} onOpenProfile={onOpenProfile} /></p>
         </div>
+        <div className="flex items-center gap-1 mt-0.5">
+        {onToggleLike && likeCounts && (
+          <button
+            onClick={() => onToggleLike(c)}
+            aria-label={myLikes?.has(c.id) ? "Retirer mon j'aime" : "Aimer ce commentaire"}
+            aria-pressed={Boolean(myLikes?.has(c.id))}
+            className="bb-hit-v flex items-center gap-1 text-[11px] font-bold px-2 focus-visible:outline focus-visible:outline-2"
+            style={{ color: myLikes?.has(c.id) ? coralText : muted }}
+          >
+            <Heart size={12} fill={myLikes?.has(c.id) ? "currentColor" : "none"} /> {likeCounts[c.id] > 0 ? likeCounts[c.id] : ""}
+          </button>
+        )}
         {onSubmit && c.author_id !== currentUserId && (
-          <button onClick={() => startReply(root, c)} className="bb-hit-v text-[11px] font-bold px-2 mt-0.5 focus-visible:outline focus-visible:outline-2" style={{ color: muted }} aria-label={`Répondre à ${c.profiles?.name || "ce membre"}`}>
+          <button onClick={() => startReply(root, c)} className="bb-hit-v text-[11px] font-bold px-2 focus-visible:outline focus-visible:outline-2" style={{ color: muted }} aria-label={`Répondre à ${c.profiles?.name || "ce membre"}`}>
             Répondre
           </button>
         )}
+        </div>
       </div>
       {/* Bug corrigé : post_reports.target_type autorise déjà ('post','comment') côté base
           (supabase-feed-posts.sql) et submitReport() de PostsFeed.jsx est générique — mais aucun bouton

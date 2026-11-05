@@ -43,6 +43,9 @@ export default function PostCard({
   canModerate = false,
   onViewProfile,
   onSearchMentions,
+  commentLikeCounts = null,
+  myCommentLikes,
+  onToggleCommentLike,
   onBlockAuthor,
 }) {
   const [commentsOpen, setCommentsOpen] = useState(false);
@@ -252,6 +255,9 @@ export default function PostCard({
               onReportComment={onReportComment}
               onBlockAuthor={onBlockAuthor}
               onSearchMentions={onSearchMentions}
+              likeCounts={commentLikeCounts}
+              myLikes={myCommentLikes}
+              onToggleLike={onToggleCommentLike}
               onOpenProfile={onViewProfile}
             />
           )}

@@ -161,6 +161,7 @@ describe("notificationCategory", () => {
     expect(notificationCategory({ type: "new_follower" })).toBe("follows");
     expect(notificationCategory({ type: "post_liked" })).toBe("posts");
     expect(notificationCategory({ type: "post_commented" })).toBe("posts");
+    for (const type of ["post_mention", "comment_replied", "comment_liked"]) expect(notificationCategory({ type })).toBe("posts");
     expect(notificationCategory({ type: "event_updated", target_type: "event" })).toBe("events");
     expect(notificationCategory({ type: "join_request_accepted" })).toBe("communities");
     expect(notificationCategory({ type: "premium_activated" })).toBe("communities");
@@ -196,5 +197,27 @@ describe("formatNotifAge", () => {
   });
   it("une date dans le futur ne donne pas de valeur négative", () => {
     expect(formatNotifAge(new Date(now + 60_000).toISOString(), now)).toBe("à l'instant");
+  });
+});
+
+import { isPostNotification, POST_NOTIFICATION_TYPES, postNotificationRow } from "./notificationLabels.js";
+
+describe("notifications du fil général : mentions, réponses, j'aime de commentaires", () => {
+  it("cinq types sont des notifications de publication", () => {
+    expect(POST_NOTIFICATION_TYPES).toEqual(["post_liked", "post_commented", "post_mention", "comment_replied", "comment_liked"]);
+    expect(isPostNotification("comment_liked")).toBe(true);
+    expect(isPostNotification("new_follower")).toBe(false);
+  });
+  it("libellé et icône par type, avec le nom de la personne", () => {
+    const actor = { name: "Awa" };
+    expect(postNotificationRow({ type: "post_mention", actor })).toEqual({ icon: "@", label: "Awa t'a mentionné(e) dans une publication" });
+    expect(postNotificationRow({ type: "comment_replied", actor })).toEqual({ icon: "↩️", label: "Awa a répondu à ton commentaire" });
+    expect(postNotificationRow({ type: "comment_liked", actor })).toEqual({ icon: "❤️", label: "Awa a aimé ton commentaire" });
+    expect(postNotificationRow({ type: "post_commented", actor })).toEqual({ icon: "💬", label: "Awa a commenté ta publication" });
+    expect(postNotificationRow({ type: "post_liked", actor })).toEqual({ icon: "❤️", label: "Awa a réagi à ta publication" });
+  });
+  it("sans auteur connu : libellé générique du type", () => {
+    expect(postNotificationRow({ type: "comment_replied" }).label).toBe("A répondu à ton commentaire");
+    expect(postNotificationRow({ type: "inconnu" }).label).toBe("Nouvelle activité");
   });
 });

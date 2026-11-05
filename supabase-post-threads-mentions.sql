@@ -58,6 +58,39 @@ begin
   end if;
 end $$;
 
+-- Normalisation SERVEUR des mentions : seules les personnes qui existent sont gardees, sans doublon, et leur
+-- NOM est relu depuis profiles (un client modifie ne peut pas faire pointer « @Support » vers un autre profil).
+-- S'execute AVANT la contrainte des 5 mentions : plus de 5 personnes valides restent refusees.
+create or replace function post_normalize_mentions()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if new.mentions is null or jsonb_typeof(new.mentions) <> 'array' or jsonb_array_length(new.mentions) = 0 then
+    new.mentions := '[]'::jsonb;
+    return new;
+  end if;
+  new.mentions := coalesce((
+    select jsonb_agg(jsonb_build_object('id', p.id, 'name', p.name) order by m.ord)
+    from (
+      select distinct on (x.id) x.id, x.ord
+      from (
+        select case when (t.e ->> 'id') ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' then (t.e ->> 'id')::uuid end as id, t.ord
+        from jsonb_array_elements(new.mentions) with ordinality as t(e, ord)
+      ) x
+      where x.id is not null
+      order by x.id, x.ord
+    ) m
+    join profiles p on p.id = m.id
+  ), '[]'::jsonb);
+  return new;
+end;
+$$;
+drop trigger if exists trg_post_normalize_mentions on posts;
+create trigger trg_post_normalize_mentions before insert on posts
+  for each row execute function post_normalize_mentions();
+drop trigger if exists trg_post_comment_normalize_mentions on post_comments;
+create trigger trg_post_comment_normalize_mentions before insert on post_comments
+  for each row execute function post_normalize_mentions();
+
 -- ---------------------------------------------------------------------------
 -- 3. Types de notification : ajout a la contrainte existante (sans recopier sa liste)
 -- ---------------------------------------------------------------------------
@@ -147,15 +180,20 @@ drop trigger if exists trg_post_notify_reply on post_comments;
 create trigger trg_post_notify_reply after insert on post_comments
   for each row execute function post_notify_reply();
 
-revoke all on function post_comment_check_parent(), post_notify_mentions(), post_notify_reply() from public, anon, authenticated;
+revoke all on function post_comment_check_parent(), post_normalize_mentions(), post_notify_mentions(), post_notify_reply() from public, anon, authenticated;
 
 -- ---------------------------------------------------------------------------
 -- Verifications apres execution (lecture seule) :
 --   select column_name from information_schema.columns where table_name = 'post_comments' and column_name in ('parent_id','mentions');
 --   select pg_get_constraintdef(oid) from pg_constraint where conname = 'notifications_type_check';   -- contient post_mention
+--   AVANT de jouer ce fichier, copier hors depot le resultat de cette meme requete : apres execution, tous les types existants
+--   doivent etre toujours presents (le bloc reconstruit la contrainte a partir de sa definition actuelle).
 --   select tgname from pg_trigger where tgname like 'trg_post_%' and not tgisinternal;
 --
 -- Retour arriere (sans perte de commentaires) :
+--   drop trigger if exists trg_post_normalize_mentions on posts;
+--   drop trigger if exists trg_post_comment_normalize_mentions on post_comments;
+--   drop function if exists post_normalize_mentions();
 --   drop trigger if exists trg_post_notify_reply on post_comments;
 --   drop trigger if exists trg_post_comment_notify_mentions on post_comments;
 --   drop trigger if exists trg_post_notify_mentions on posts;

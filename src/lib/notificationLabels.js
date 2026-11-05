@@ -27,6 +27,7 @@ export const NOTIFICATION_LABELS = {
   post_commented: "A commenté ta publication",
   post_mention: "T'a mentionné(e) dans une publication",
   comment_replied: "A répondu à ton commentaire",
+  comment_liked: "A aimé ton commentaire",
   // Écrites par le webhook Stripe (stripe-webhook/index.ts) mais jamais
   // affichées correctement avant (audit complémentaire post-palette) :
   // elles tombaient dans le fourre-tout "Communautés" sans libellé dédié.
@@ -102,7 +103,7 @@ export function groupNotificationRows(rows) {
 }
 
 // Notifications liées aux publications du fil général (like / réaction, commentaire, mention, réponse).
-export const POST_NOTIFICATION_TYPES = ["post_liked", "post_commented", "post_mention", "comment_replied"];
+export const POST_NOTIFICATION_TYPES = ["post_liked", "post_commented", "post_mention", "comment_replied", "comment_liked"];
 export const isPostNotification = (type) => POST_NOTIFICATION_TYPES.includes(type);
 
 // Icône et libellé d'une notification de publication (menu déroulant et fil d'accueil).
@@ -112,6 +113,7 @@ export function postNotificationRow(n) {
     post_commented: { icon: "💬", text: "a commenté ta publication" },
     post_mention: { icon: "@", text: "t'a mentionné(e) dans une publication" },
     comment_replied: { icon: "↩️", text: "a répondu à ton commentaire" },
+    comment_liked: { icon: "❤️", text: "a aimé ton commentaire" },
     post_liked: { icon: "❤️", text: "a réagi à ta publication" },
   };
   const row = table[n?.type] || table.post_liked;

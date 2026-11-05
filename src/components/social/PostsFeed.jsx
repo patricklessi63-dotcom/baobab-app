@@ -74,6 +74,9 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
   const [draft, setDraft] = useState("");
   // Mentions choisies dans la liste (SQL-33) ; élaguées à l'envoi si le texte ne contient plus « @Nom ».
   const [postMentions, setPostMentions] = useState([]);
+  // « J'aime » des commentaires (SQL-35) : compteurs et mes likes par commentaire. Indisponible tant que la table n'existe pas.
+  const [commentLikes, setCommentLikes] = useState({ counts: {}, mine: new Set(), available: true });
+  const commentLikeInFlightRef = useRef(new Set());
   // Filtre du fil général (Tout / Abonnements / Populaires / Photos et vidéos). Le fil d'un auteur (profil) n'en a pas.
   const [feedFilter, setFeedFilter] = useState(() => (authorId ? "all" : readStoredFilter()));
   const filterCtxRef = useRef({});
@@ -848,6 +851,8 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
       // si la ligne a changé entre-temps, la condition ne correspond plus,
       // aucune ligne n'est mise à jour, et on prévient l'utilisateur au lieu
       // d'écraser en silence.
+      // Modération : une modification est contrôlée comme une nouvelle publication (le serveur la refuse aussi).
+      if (newBody.trim()) await screenText(supabase, "post", newBody);
       let query = supabase.from("posts").update({ body: newBody, updated_at: new Date().toISOString() }).eq("id", post.id);
       query = post.updated_at ? query.eq("updated_at", post.updated_at) : query.is("updated_at", null);
       const { data, error } = await query
@@ -861,7 +866,7 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
       setPosts((p) => p.map((x) => (x.id === post.id ? { ...x, ...data } : x)));
     } catch (e) {
       console.error(e);
-      onError("Impossible de modifier cette publication.");
+      onError(isModerationRefusal(e) ? MODERATION_REFUSAL : "Impossible de modifier cette publication.");
     } finally {
       editSubmittingRef.current.delete(post.id);
     }
@@ -916,6 +921,53 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
   // Touche cœur (ancien « like ») : pose ou retire le cœur ; remplace toute autre réaction par un retrait.
   const toggleLike = (post) => reactToPost(post, myReactions[post.id] || HEART);
 
+  // Compteurs de likes de ces commentaires. Une table absente (SQL-35 pas exécuté) masque simplement le bouton.
+  const loadCommentLikes = async (ids) => {
+    if (!ids.length) return;
+    try {
+      const { data, error } = await supabase.from("post_comment_likes").select("comment_id, profile_id").in("comment_id", ids).limit(5000);
+      if (error) { setCommentLikes((s) => ({ ...s, available: false })); return; }
+      setCommentLikes((s) => {
+        const counts = { ...s.counts }; const mine = new Set(s.mine);
+        ids.forEach((id) => { counts[id] = 0; mine.delete(id); });
+        (data || []).forEach((l) => {
+          counts[l.comment_id] = (counts[l.comment_id] || 0) + 1;
+          if (l.profile_id === currentUser.id) mine.add(l.comment_id);
+        });
+        return { counts, mine, available: true };
+      });
+    } catch (_) {
+      setCommentLikes((s) => ({ ...s, available: false }));
+    }
+  };
+
+  // Aimer / ne plus aimer un commentaire : optimiste, retour arrière si la base refuse.
+  const toggleCommentLike = async (comment) => {
+    if (!currentUser || commentLikeInFlightRef.current.has(comment.id)) return;
+    commentLikeInFlightRef.current.add(comment.id);
+    const wasLiked = commentLikes.mine.has(comment.id);
+    const apply = (liked) => setCommentLikes((s) => {
+      const mine = new Set(s.mine); liked ? mine.add(comment.id) : mine.delete(comment.id);
+      return { ...s, mine, counts: { ...s.counts, [comment.id]: Math.max(0, (s.counts[comment.id] || 0) + (liked ? 1 : -1)) } };
+    });
+    apply(!wasLiked);
+    try {
+      if (wasLiked) {
+        const { error } = await supabase.from("post_comment_likes").delete().eq("comment_id", comment.id).eq("profile_id", currentUser.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("post_comment_likes").insert({ comment_id: comment.id, profile_id: currentUser.id });
+        if (error && error.code !== "23505") throw error;
+      }
+    } catch (e) {
+      console.error(e);
+      apply(wasLiked);
+      onError(friendlyDbError(e) || "Impossible de mettre à jour ce j'aime.");
+    } finally {
+      commentLikeInFlightRef.current.delete(comment.id);
+    }
+  };
+
   const loadComments = async (postId) => {
     try {
       const { data, error } = await supabase
@@ -924,6 +976,7 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
       if (error) throw error;
       // Idem : pas de filtrage blockedIds ici, il est appliqué au rendu.
       setCommentsByPost((c) => ({ ...c, [postId]: { items: data || [] } }));
+      loadCommentLikes((data || []).map((x) => x.id));
     } catch (e) {
       console.error(e);
       onError("Impossible de charger les commentaires.");
@@ -1211,6 +1264,9 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
                 onReportComment={openReportComment}
                 onReportMedia={setMediaReport}
                 onSearchMentions={searchMentionCandidates}
+                commentLikeCounts={commentLikes.available ? commentLikes.counts : null}
+                myCommentLikes={commentLikes.mine}
+                onToggleCommentLike={commentLikes.available ? toggleCommentLike : undefined}
                 mediaHidden={hiddenPostMedia.has(post.id)}
                 onDelete={deletePost}
                 onEdit={editPost}
