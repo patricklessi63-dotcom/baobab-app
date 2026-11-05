@@ -32,16 +32,16 @@ drop trigger if exists trg_modlog_immutable on moderation_decisions;
 
 -- ---------- C. suppression complète (décommenter pour exécuter) ----------
 -- drop function if exists moderation_screen(text, text);
--- drop function if exists report_media(text, uuid, text, text);
+-- drop function if exists report_media(text, text, text, text);
 -- drop function if exists admin_moderation_violations(text, int);
 -- drop function if exists admin_moderation_sanctions(boolean, int);
 -- drop function if exists admin_media_queue(int);
--- drop function if exists admin_media_info(text, uuid);
+-- drop function if exists admin_media_info(text, text);
 -- drop function if exists moderation_resolve_flag(uuid, boolean, text);
 -- drop function if exists moderation_revoke_sanction(uuid, text);
 -- drop function if exists moderation_appeal(uuid, text);
 -- drop function if exists moderation_decide_appeal(uuid, boolean, text);
--- drop function if exists moderate_media(text, uuid, text, text);
+-- drop function if exists moderate_media(text, text, text, text);
 -- drop function if exists moderation_purge_old(int);
 -- drop function if exists admin_upsert_moderation_term(text, text, text, boolean);
 -- drop function if exists admin_delete_moderation_term(bigint);
