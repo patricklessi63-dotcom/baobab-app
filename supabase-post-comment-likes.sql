@@ -106,7 +106,8 @@ declare v_author uuid; v_post uuid;
 begin
   select author_id, post_id into v_author, v_post from post_comments where id = new.comment_id;
   if v_author is null or v_author = new.profile_id then return new; end if;
-  -- aimer, retirer, aimer de nouveau : une seule notification par personne, par commentaire et par jour
+  -- aimer, retirer, aimer de nouveau : une seule notification par personne, par PUBLICATION et par jour (la
+  -- notification ne porte que l'id de la publication : deux commentaires du meme auteur aimes le meme jour = une seule)
   if exists (
     select 1 from notifications
     where recipient_id = v_author and actor_id = new.profile_id and type = 'comment_liked'
@@ -125,6 +126,11 @@ drop trigger if exists trg_post_notify_comment_like on post_comment_likes;
 create trigger trg_post_notify_comment_like after insert on post_comment_likes
   for each row execute function post_notify_comment_like();
 revoke all on function post_notify_comment_like() from public, anon, authenticated;
+
+
+-- Les colonnes / tables ajoutees ci-dessus sont connues de l'API apres le rechargement du cache de schema
+-- (sans cela, un premier appel peut echouer quelques secondes : « Could not find the ... column in the schema cache »).
+notify pgrst, 'reload schema';
 
 -- ---------------------------------------------------------------------------
 -- Verifications apres execution (lecture seule) :

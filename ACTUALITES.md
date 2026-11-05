@@ -60,3 +60,10 @@ de la personne bloquée à celui qui l'a bloquée, la sous-requête renvoie NULL
 **SECURITY DEFINER** (`is_blocked_with_post_author`, `is_blocked_with_comment_author`), de même définition que celles de SQL-36 : `create or replace` identique, l'ordre
 d'exécution des fichiers n'a pas d'importance. Les tests PGlite modélisent désormais la RLS de lecture (contenu caché à qui a un blocage dans un sens ou l'autre) et
 couvrent « B a bloqué A, B réagit / aime sur le contenu de A → refusé ».
+
+### Rejeu sur la répétition (session messagerie, 5 novembre) et suites
+
+SQL-32, 33 et 35 rejoués dans cet ordre sur `baobab-staging` : 24/24, 18/18, 20/20, aucun type de notification perdu, fichiers rejouables. Suites appliquées :
+- SQL-33 refuse maintenant la **réponse** entre deux personnes qui se sont bloquées (dans un sens ou l'autre) ; avant, la personne bloquée pouvait encore répondre au commentaire de celle qui l'avait bloquée.
+- SQL-35 : la déduplication de la notification est **par publication et par jour** (la notification ne porte que l'id de la publication) ; le commentaire du fichier le dit maintenant.
+- SQL-32/33/35 se terminent par `notify pgrst, 'reload schema'` : sans cela, un premier appel API peut échouer quelques secondes (« Could not find the 'emoji' column … in the schema cache »).

@@ -77,6 +77,11 @@ begin
   );
 end $$;
 
+
+-- Les colonnes / tables ajoutees ci-dessus sont connues de l'API apres le rechargement du cache de schema
+-- (sans cela, un premier appel peut echouer quelques secondes : « Could not find the ... column in the schema cache »).
+notify pgrst, 'reload schema';
+
 -- ----------------------------------------------------------------------------
 -- Verifications apres execution (lecture seule) :
 --   select conname, pg_get_constraintdef(oid) from pg_constraint where conrelid = 'public.post_likes'::regclass and contype = 'c';

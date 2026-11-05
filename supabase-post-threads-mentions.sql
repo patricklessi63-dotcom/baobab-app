@@ -31,6 +31,14 @@ begin
   if not found or v_parent.post_id <> new.post_id then
     raise exception 'THREAD_INVALID: Ce commentaire ne peut pas recevoir de reponse.' using errcode = 'P0001';
   end if;
+  -- pas de reponse entre deux personnes qui se sont bloquees (dans un sens ou l'autre) : sinon la personne bloquee
+  -- pouvait encore repondre au commentaire de celle qui l'a bloquee (la fonction est SECURITY DEFINER : elle lit blocks sans RLS)
+  if exists (
+    select 1 from blocks b
+    where (b.from_id = new.author_id and b.to_id = v_parent.author_id) or (b.from_id = v_parent.author_id and b.to_id = new.author_id)
+  ) then
+    raise exception 'THREAD_INVALID: Ce commentaire ne peut pas recevoir de reponse.' using errcode = 'P0001';
+  end if;
   -- repondre a une reponse : on rattache au commentaire racine (un seul niveau)
   if v_parent.parent_id is not null then new.parent_id := v_parent.parent_id; end if;
   return new;
@@ -181,6 +189,11 @@ create trigger trg_post_notify_reply after insert on post_comments
   for each row execute function post_notify_reply();
 
 revoke all on function post_comment_check_parent(), post_normalize_mentions(), post_notify_mentions(), post_notify_reply() from public, anon, authenticated;
+
+
+-- Les colonnes / tables ajoutees ci-dessus sont connues de l'API apres le rechargement du cache de schema
+-- (sans cela, un premier appel peut echouer quelques secondes : « Could not find the ... column in the schema cache »).
+notify pgrst, 'reload schema';
 
 -- ---------------------------------------------------------------------------
 -- Verifications apres execution (lecture seule) :

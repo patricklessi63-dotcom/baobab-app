@@ -61,6 +61,17 @@ describe("SQL-33 : fil de discussion et mentions", () => {
     expect(await fails(() => db.query("insert into post_comments (post_id, author_id, body, parent_id) values ($1, $2, 'x', $3)", [U(50), U(3), U(999)]))).toBeTruthy();
   });
 
+  it("réponse refusée entre deux personnes qui se sont bloquées, dans les deux sens (THREAD_INVALID), et sans effet pour les autres", async () => {
+    const [root] = await q("insert into post_comments (post_id, author_id, body) values ($1, $2, 'racine bloquante') returning id", [U(50), U(2)]);
+    await db.exec(`insert into blocks values ('${U(2)}', '${U(3)}')`); // l'auteur du commentaire a bloqué U3
+    expect(await fails(() => db.query("insert into post_comments (post_id, author_id, body, parent_id) values ($1, $2, 'rep', $3)", [U(50), U(3), root.id]))).toContain("THREAD_INVALID");
+    await db.exec("delete from blocks");
+    await db.exec(`insert into blocks values ('${U(3)}', '${U(2)}')`); // U3 a bloqué l'auteur
+    expect(await fails(() => db.query("insert into post_comments (post_id, author_id, body, parent_id) values ($1, $2, 'rep', $3)", [U(50), U(3), root.id]))).toContain("THREAD_INVALID");
+    expect(await fails(() => db.query("insert into post_comments (post_id, author_id, body, parent_id) values ($1, $2, 'rep tiers', $3)", [U(50), U(4), root.id]))).toBeNull();
+    await db.exec("delete from blocks");
+  });
+
   it("supprimer un commentaire supprime ses réponses (cascade), pas les autres", async () => {
     const [root] = await q("insert into post_comments (post_id, author_id, body) values ($1, $2, 'a supprimer') returning id", [U(50), U(2)]);
     await q("insert into post_comments (post_id, author_id, body, parent_id) values ($1, $2, 'r', $3)", [U(50), U(3), root.id]);
@@ -149,7 +160,8 @@ describe("SQL-33 : fil de discussion et mentions", () => {
       const [root] = await q("insert into post_comments (post_id, author_id, body) values ($1, $2, 'q') returning id", [U(50), U(2)]);
       await reset();
       await db.exec(`insert into blocks values ('${U(2)}', '${U(3)}')`);
-      await q("insert into post_comments (post_id, author_id, body, parent_id) values ($1, $2, 'r', $3)", [U(50), U(3), root.id]);
+      // la réponse elle-même est désormais refusée entre deux personnes qui se sont bloquées : aucune notification non plus
+      expect(await fails(() => db.query("insert into post_comments (post_id, author_id, body, parent_id) values ($1, $2, 'r', $3)", [U(50), U(3), root.id]))).toContain("THREAD_INVALID");
       await db.exec("delete from blocks");
       expect(await notifs()).toEqual([]);
     });
