@@ -2,8 +2,10 @@
 -- STATUTS DE SIGNALEMENT : en attente / en cours d'examen / confirmé / rejeté / résolu
 -- (cahier des charges de modération, section 7)  —  LIVRÉ, NON EXÉCUTÉ EN PRODUCTION.
 --
--- Aujourd'hui un signalement est « open » puis « resolved » ou « dismissed ». Aucune des cinq tables de signalement n'a de
--- contrainte CHECK sur status : ajouter « in_review » et « confirmed » ne demande AUCUNE migration de table.
+-- Aujourd'hui un signalement est « open » puis « resolved » ou « dismissed ». ATTENTION (trouvé à l'essai sur la répétition) :
+-- community_reports, event_reports, post_reports et info_reports ont une contrainte CHECK
+-- (status = any (array['open','resolved','dismissed'])) en production ; seule `reports` (profil) n'en a pas. Ce fichier ÉLARGIT
+-- ces quatre contraintes (étape 0, additive : les lignes existantes restent valides) AVANT les fonctions.
 --
 --   open       = en attente
 --   in_review  = en cours d'examen (un modérateur a pris le signalement en charge)
@@ -11,7 +13,9 @@
 --   dismissed  = rejeté (déjà le cas : bouton « Ignorer »)
 --   resolved   = résolu (déjà le cas)
 --
--- Ce fichier (create or replace uniquement, aucune donnée modifiée, droits d'exécution conservés) :
+-- Ce fichier (aucune donnée modifiée, droits d'exécution conservés) :
+--  0. Élargit les contraintes CHECK de status des 4 tables (open, in_review, confirmed, resolved, dismissed) ; retrouve la contrainte
+--     par sa définition (pas par son nom), la remplace par <table>_status_check. Rejouable.
 --  1. admin_list_reports(p_status) : 'open' = À TRAITER (open + in_review + confirmed), 'all' = tout, sinon le statut exact.
 --     Même forme de retour qu'avant (le client existant continue de marcher). Id d'un signalement de PROFIL en uuid réversible
 --     (reports.id est un entier en production : voir supabase-admin-list-reports-hotfix.sql).
@@ -20,9 +24,34 @@
 --     Journalisé dans moderation_decisions (SQL-31) SI cette table existe ; sinon sans journal (pas de dépendance dure :
 --     admin_actions a une contrainte CHECK sur action_type qu'on ne touche pas ici).
 --
--- Prérequis : supabase-admin-list-reports-hotfix.sql déjà exécuté (5 novembre 2026). Rejouable. Retour arrière : rejouer ce
--- hotfix (il restaure les versions précédentes de admin_list_reports et admin_resolve_report).
+-- Prérequis : supabase-admin-list-reports-hotfix.sql déjà exécuté (5 novembre 2026). Rejouable.
+-- Retour arrière : (1) remettre à open les signalements in_review / confirmed (update <table> set status = 'open' where status in
+-- ('in_review','confirmed')) ; (2) rejouer le hotfix (restaure admin_list_reports et admin_resolve_report) ; (3) remettre l'ancienne
+-- contrainte : alter table <table> drop constraint <table>_status_check; alter table <table> add constraint <table>_status_check
+-- check (status = any (array['open','resolved','dismissed'])).
 -- ============================================================================
+
+-- 0. Contraintes CHECK de status des 4 tables de signalement (community, event, post, info) : élargies. On retrouve la contrainte par
+-- sa définition (elle parle de status et de 'open'), quel que soit son nom, puis on la remplace. Les lignes existantes restent
+-- valides (la nouvelle liste est un sur-ensemble). 'reports' (profil) n'a pas de contrainte : on n'en ajoute pas.
+do $$
+declare
+  t text;
+  c record;
+begin
+  foreach t in array array['community_reports', 'event_reports', 'post_reports', 'info_reports'] loop
+    if to_regclass('public.' || t) is null then continue; end if;
+    for c in
+      select conname from pg_constraint
+      where conrelid = ('public.' || t)::regclass and contype = 'c'
+        and pg_get_constraintdef(oid) ilike '%status%' and pg_get_constraintdef(oid) ilike '%open%'
+    loop
+      execute format('alter table public.%I drop constraint %I', t, c.conname);
+    end loop;
+    execute format('alter table public.%I add constraint %I check (status = any (array[''open'', ''in_review'', ''confirmed'', ''resolved'', ''dismissed'']))', t, t || '_status_check');
+  end loop;
+end;
+$$;
 
 -- Aides internes (jamais appelables par un client).
 create or replace function admin_report_table(p_source text)

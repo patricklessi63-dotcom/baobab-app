@@ -18,10 +18,10 @@ async function freshDb(idType) {
     create function is_moderator_or_above() returns boolean language sql as $$ select coalesce(current_setting('test.mod', true), 'on') = 'on' $$;
     create function current_profile_id() returns uuid language sql as $$ select null::uuid $$;
     create table admin_actions (id serial primary key, actor_id uuid, action_type text, metadata jsonb);
-    create table community_reports (id uuid default gen_random_uuid(), target_type text, target_id uuid, from_id uuid, category text, reason text, status text default 'open', created_at timestamptz default now());
-    create table event_reports (id uuid default gen_random_uuid(), event_id uuid, from_id uuid, category text, reason text, status text default 'open', created_at timestamptz default now());
-    create table post_reports (id uuid default gen_random_uuid(), target_type text, target_id uuid, from_id uuid, category text, reason text, status text, created_at timestamptz default now());
-    create table info_reports (id uuid default gen_random_uuid(), article_id uuid, from_id uuid, category text, reason text, status text default 'open', created_at timestamptz default now());
+    create table community_reports (id uuid default gen_random_uuid(), target_type text, target_id uuid, from_id uuid, category text, reason text, status text default 'open' constraint chk_nom_different check (status = any (array['open','resolved','dismissed'])), created_at timestamptz default now());
+    create table event_reports (id uuid default gen_random_uuid(), event_id uuid, from_id uuid, category text, reason text, status text default 'open', created_at timestamptz default now(), constraint event_reports_status_check check (status = any (array['open','resolved','dismissed'])));
+    create table post_reports (id uuid default gen_random_uuid(), target_type text, target_id uuid, from_id uuid, category text, reason text, status text, created_at timestamptz default now(), constraint post_reports_status_check check (status = any (array['open','resolved','dismissed'])));
+    create table info_reports (id uuid default gen_random_uuid(), article_id uuid, from_id uuid, category text, reason text, status text default 'open', created_at timestamptz default now(), constraint info_reports_status_check check (status = any (array['open','resolved','dismissed'])));
     create table reports (${idCol}, to_id uuid, from_id uuid, category text, reason text, status text default 'open', created_at timestamptz default now());
     insert into reports (category, created_at) values ('autre', now()), ('harcelement', now() - interval '1 day'), ('mineur_suspecte', now() - interval '30 days');
     insert into post_reports (target_type, category) values ('post', 'arnaque'); -- statut NULL : traité comme « open »
@@ -94,6 +94,30 @@ describe.each(["bigint", "uuid"])("statuts de signalement avec reports.id en %s"
       expect(await fails(() => db.query("select * from admin_list_reports('open')"))).toContain("Non autorise");
       expect(await fails(() => db.query("select admin_set_report_status('profile', $1::uuid, 'in_review')", [id]))).toContain("Non autorise");
       expect(await fails(() => db.query("select admin_resolve_report('profile', $1::uuid, false)", [id]))).toContain("Non autorise");
+    } finally { await db.close(); }
+  });
+
+  it("les 4 tables à contrainte CHECK acceptent in_review et confirmed (contrainte élargie, quel que soit son nom) ; un statut inconnu reste refusé", async () => {
+    const db = await freshDb(idType);
+    try {
+      await db.exec("insert into event_reports (category) values ('autre'); insert into info_reports (category) values ('autre');");
+      for (const [source, table] of [["community", "community_reports"], ["event", "event_reports"], ["post", "post_reports"], ["info", "info_reports"]]) {
+        const [{ id }] = await q(db, `select id from ${table} limit 1`);
+        await db.query("select admin_set_report_status($1, $2::uuid, 'in_review')", [source, id]);
+        await db.query("select admin_set_report_status($1, $2::uuid, 'confirmed')", [source, id]);
+        expect((await q(db, `select status from ${table} where id = $1`, [id]))[0].status, source).toBe("confirmed");
+        await db.query("select admin_resolve_report($1, $2::uuid, false)", [source, id]);
+        expect((await q(db, `select status from ${table} where id = $1`, [id]))[0].status, source).toBe("resolved");
+        expect(await fails(() => db.query(`update ${table} set status = 'nimporte-quoi' where id = $1`, [id])), source).toContain("check constraint");
+      }
+      // une seule contrainte de statut par table après le fichier, nommée <table>_status_check ; 'reports' reste sans contrainte
+      const cons = await q(db, "select conrelid::regclass::text as t, conname from pg_constraint where contype = 'c' and pg_get_constraintdef(oid) ilike '%status%' order by 1");
+      expect(cons).toEqual([
+        { t: "community_reports", conname: "community_reports_status_check" },
+        { t: "event_reports", conname: "event_reports_status_check" },
+        { t: "info_reports", conname: "info_reports_status_check" },
+        { t: "post_reports", conname: "post_reports_status_check" },
+      ]);
     } finally { await db.close(); }
   });
 
