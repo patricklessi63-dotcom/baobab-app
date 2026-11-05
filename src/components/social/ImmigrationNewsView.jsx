@@ -68,7 +68,7 @@ function NewsCard({ item, featured, isFavorite, onToggleFavorite }) {
           aria-label={isFavorite ? "Retirer des favoris" : "Ajouter aux favoris"}
           aria-pressed={isFavorite}
           className="bb-hit absolute top-3 right-3 z-10 h-8 w-8 rounded-full flex items-center justify-center"
-          style={{ background: "rgba(255,255,255,.85)", backdropFilter: "blur(2px)" }}
+          style={{ background: "rgba(255,255,255,.85)", backdropFilter: "blur(2px)", WebkitBackdropFilter: "blur(2px)" }}
         >
           <Heart size={15} color={coral} fill={isFavorite ? coral : "none"} />
         </button>

@@ -20,7 +20,7 @@ export default function FavoritesModal({ open, onClose, favoriteProfiles = [], o
   return (
     <div
       className="fixed inset-0 z-[70] flex items-end md:items-center justify-center p-0 md:p-5"
-      style={{ background: `rgba(${primaryRgb},.55)`, backdropFilter: "blur(5px)" }}
+      style={{ background: `rgba(${primaryRgb},.55)`, backdropFilter: "blur(5px)", WebkitBackdropFilter: "blur(5px)" }}
       onClick={onClose}
       role="dialog"
       aria-modal="true"

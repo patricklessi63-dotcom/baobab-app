@@ -13,7 +13,7 @@ export default function MatchCelebrationModal({ match, currentUser, onStartChat,
   return (
     <div
       className="bb-fade-in fixed inset-0 flex items-center justify-center z-[90] p-5"
-      style={{ background: "rgba(8,20,14,0.72)", backdropFilter: "blur(4px)" }}
+      style={{ background: "rgba(8,20,14,0.72)", backdropFilter: "blur(4px)", WebkitBackdropFilter: "blur(4px)" }}
       role="dialog"
       aria-modal="true"
       aria-label="Nouvelle connexion"

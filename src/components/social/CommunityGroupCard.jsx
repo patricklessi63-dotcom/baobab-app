@@ -57,7 +57,7 @@ export default function CommunityGroupCard({ community, memberCount = 0, joined,
             <Lock size={13} color="#fff" />
           </span>
         )}
-        <span className="absolute bottom-2 left-2 text-xs font-black px-2.5 py-1 rounded-full text-white" style={{ background: `rgba(${primaryRgb},.55)`, backdropFilter: "blur(4px)" }}>
+        <span className="absolute bottom-2 left-2 text-xs font-black px-2.5 py-1 rounded-full text-white" style={{ background: `rgba(${primaryRgb},.55)`, backdropFilter: "blur(4px)", WebkitBackdropFilter: "blur(4px)" }}>
           {categoryIcon(community.category)} {categoryLabel(community.category)}
         </span>
       </div>

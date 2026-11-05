@@ -35,7 +35,7 @@ export default function EventCard({ event, participantCount = 0, status, onView 
             <Users2 size={13} color="#fff" />
           </span>
         )}
-        <span className="absolute bottom-2 left-2 text-xs font-black px-2.5 py-1 rounded-full text-white" style={{ background: `rgba(${primaryRgb},.55)`, backdropFilter: "blur(4px)" }}>
+        <span className="absolute bottom-2 left-2 text-xs font-black px-2.5 py-1 rounded-full text-white" style={{ background: `rgba(${primaryRgb},.55)`, backdropFilter: "blur(4px)", WebkitBackdropFilter: "blur(4px)" }}>
           {categoryIcon(event.category)} {categoryLabel(event.category)}
         </span>
       </div>

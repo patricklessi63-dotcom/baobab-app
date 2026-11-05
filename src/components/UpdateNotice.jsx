@@ -20,7 +20,7 @@ export default function UpdateNotice({ mandatory, recommended, info, onReload, o
 
   if (mandatory) {
     return (
-      <div className="fixed inset-0 z-[100] flex items-center justify-center p-5" style={{ background: "rgba(13,25,20,0.82)", backdropFilter: "blur(4px)" }} role="alertdialog" aria-modal="true" aria-label="Mise à jour nécessaire">
+      <div className="fixed inset-0 z-[100] flex items-center justify-center p-5" style={{ background: "rgba(13,25,20,0.82)", backdropFilter: "blur(4px)", WebkitBackdropFilter: "blur(4px)" }} role="alertdialog" aria-modal="true" aria-label="Mise à jour nécessaire">
         <div ref={panelRef} tabIndex={-1} className="w-full max-w-sm rounded-[24px] p-6 text-center" style={{ background: "var(--bb-surface)", border: "1px solid var(--bb-border)" }}>
           <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full" style={{ background: "rgba(192,57,43,0.12)" }}>
             <AlertTriangle size={26} color={C.coralTextStatic} />

@@ -59,7 +59,7 @@ export default function MatchCard({
         )}
         <span
           className="absolute top-3 left-3 px-2.5 py-1 rounded-full text-xs font-black text-white"
-          style={{ background: `rgba(${primaryRgb},.6)`, backdropFilter: "blur(4px)" }}
+          style={{ background: `rgba(${primaryRgb},.6)`, backdropFilter: "blur(4px)", WebkitBackdropFilter: "blur(4px)" }}
         >
           ~{match.score}%
         </span>

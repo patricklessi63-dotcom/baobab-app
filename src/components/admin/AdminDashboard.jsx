@@ -456,7 +456,7 @@ export default function AdminDashboard({ onBack, onError, myPlatformRole, myProf
       )}
 
       {actionTarget && (
-        <div className="bb-fade-in fixed inset-0 flex items-end md:items-center justify-center z-[80] p-0 md:p-5" style={{ background: `rgba(${primaryRgb},.55)`, backdropFilter: "blur(5px)" }} onClick={actionSaving ? undefined : () => setActionTarget(null)} role="dialog" aria-modal="true">
+        <div className="bb-fade-in fixed inset-0 flex items-end md:items-center justify-center z-[80] p-0 md:p-5" style={{ background: `rgba(${primaryRgb},.55)`, backdropFilter: "blur(5px)", WebkitBackdropFilter: "blur(5px)" }} onClick={actionSaving ? undefined : () => setActionTarget(null)} role="dialog" aria-modal="true">
           <div ref={actionDialogRef} tabIndex={-1} className={`${card} w-full max-w-sm p-6 rounded-t-[28px] md:rounded-[28px]`} onClick={(e) => e.stopPropagation()}>
             <h2 className="text-lg font-black" style={{ color: primary }}>
               {actionTarget.mode === "suspend" ? "Suspendre" : "Bannir"} {actionTarget.user.name}

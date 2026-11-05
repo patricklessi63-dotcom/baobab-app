@@ -82,7 +82,7 @@ export default function ProfileCard({
         {typeof compatibilityScore === "number" && (
           <span
             className="absolute top-2 left-2 px-2 py-0.5 rounded-full text-[10px] font-black text-white"
-            style={{ background: `rgba(${primaryRgb},.55)`, backdropFilter: "blur(4px)" }}
+            style={{ background: `rgba(${primaryRgb},.55)`, backdropFilter: "blur(4px)", WebkitBackdropFilter: "blur(4px)" }}
             title="Compatibilité estimée — pas une garantie"
           >
             ~{compatibilityScore}%

@@ -48,7 +48,7 @@ export default function ReportModal({
   return (
     <div
       className="fixed inset-0 z-[85] flex items-center justify-center p-5"
-      style={{ background: `rgba(${primaryRgb},.55)`, backdropFilter: "blur(4px)" }}
+      style={{ background: `rgba(${primaryRgb},.55)`, backdropFilter: "blur(4px)", WebkitBackdropFilter: "blur(4px)" }}
       onClick={submitted || sending ? undefined : onCancel}
       role="dialog"
       aria-modal="true"
