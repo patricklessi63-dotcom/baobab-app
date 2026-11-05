@@ -431,7 +431,7 @@ export default function FeedTab({
               )}
               {hasContent && s.media_kind === "video" && (
                 <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="h-9 w-9 rounded-full flex items-center justify-center" style={{ background: "rgba(255,255,255,.25)", backdropFilter: "blur(2px)" }}>
+                  <div className="h-9 w-9 rounded-full flex items-center justify-center" style={{ background: "rgba(255,255,255,.25)", backdropFilter: "blur(2px)", WebkitBackdropFilter: "blur(2px)" }}>
                     <Play size={16} color="#fff" fill="#fff" />
                   </div>
                 </div>

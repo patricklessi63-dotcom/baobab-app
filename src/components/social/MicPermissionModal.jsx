@@ -99,7 +99,7 @@ export default function MicPermissionModal({ open, phase, requesting, onAllow, o
   return (
     <div
       className="fixed inset-0 z-[90] flex items-center justify-center p-5"
-      style={{ background: `rgba(${primaryRgb},.5)`, backdropFilter: "blur(4px)" }}
+      style={{ background: `rgba(${primaryRgb},.5)`, backdropFilter: "blur(4px)", WebkitBackdropFilter: "blur(4px)" }}
       onClick={onDismiss}
       role="dialog"
       aria-modal="true"

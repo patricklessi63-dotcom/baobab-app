@@ -42,7 +42,7 @@ export default function ForwardModal({ open, matches = [], excludeId, count = 1,
   return (
     <div
       className="fixed inset-0 z-[85] flex items-end sm:items-center justify-center sm:p-5"
-      style={{ background: `rgba(${primaryRgb},.55)`, backdropFilter: "blur(4px)" }}
+      style={{ background: `rgba(${primaryRgb},.55)`, backdropFilter: "blur(4px)", WebkitBackdropFilter: "blur(4px)" }}
       onClick={sendingId != null ? undefined : onClose}
       role="dialog"
       aria-modal="true"

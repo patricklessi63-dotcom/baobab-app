@@ -477,7 +477,8 @@ create table if not exists media_reports (
   id uuid primary key default gen_random_uuid(),
   reporter_id uuid not null references profiles(id) on delete cascade,
   target_kind text not null check (target_kind in ('story','post','post_media','community_post','event_media','message_media','avatar','profile_photo')),
-  target_id uuid not null,
+  -- text et non uuid : profile_photos.id est un ENTIER (bigint) en production, les autres medias ont un uuid.
+  target_id text not null,
   reason text not null check (reason in ('sexuel','violence','haine','harcelement','mineur','autre')),
   note text check (note is null or char_length(note) <= 500),
   created_at timestamptz not null default now(),
@@ -492,7 +493,7 @@ create policy "Signalements d'images lisibles par les moderateurs" on media_repo
 
 create table if not exists media_moderation (
   target_kind text not null,
-  target_id uuid not null,
+  target_id text not null,
   status text not null default 'visible' check (status in ('visible','hidden','removed')),
   report_count int not null default 0,
   -- suspicious : seuil atteint mais surtout par des comptes très récents (campagne possible) :
@@ -515,7 +516,24 @@ alter table media_moderation enable row level security;
 drop policy if exists "Etat de moderation des images lisible" on media_moderation;
 create policy "Etat de moderation des images lisible" on media_moderation for select to authenticated using (true);
 
-create or replace function report_media(p_kind text, p_id uuid, p_reason text, p_note text default null)
+-- Mise a niveau d'une base ou la version precedente (target_id uuid) a deja ete jouee : colonnes uuid -> text, anciennes signatures retirees
+-- (sans quoi les deux versions coexisteraient et l'appel serait ambigu). Sans effet sur une base neuve.
+do $$
+begin
+  if exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'media_reports' and column_name = 'target_id' and data_type = 'uuid') then
+    alter table media_reports alter column target_id type text using target_id::text;
+  end if;
+  if exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'media_moderation' and column_name = 'target_id' and data_type = 'uuid') then
+    alter table media_moderation alter column target_id type text using target_id::text;
+  end if;
+end;
+$$;
+drop function if exists report_media(text, uuid, text, text);
+drop function if exists moderate_media(text, uuid, text, text);
+drop function if exists admin_media_info(text, uuid);
+drop function if exists admin_media_queue(int);
+
+create or replace function report_media(p_kind text, p_id text, p_reason text, p_note text default null)
 returns jsonb language plpgsql security definer set search_path = public as $$
 declare
   v_rep uuid := current_profile_id();
@@ -596,7 +614,7 @@ end;
 $$;
 
 create or replace function admin_media_queue(p_limit int default 100)
-returns table (target_kind text, target_id uuid, status text, report_count int, suspicious boolean, locked boolean, hidden_at timestamptz, reasons text)
+returns table (target_kind text, target_id text, status text, report_count int, suspicious boolean, locked boolean, hidden_at timestamptz, reasons text)
 language plpgsql stable security definer set search_path = public as $$
 begin
   perform moderation_require_moderator();
@@ -688,7 +706,7 @@ $$;
 
 -- Image : rétablir (verrouille contre le masquage automatique) / masquer / retirer.
 -- « removed » ne supprime AUCUN fichier : seul un humain décide ensuite de l'effacer.
-create or replace function moderate_media(p_kind text, p_id uuid, p_action text, p_reason text default null)
+create or replace function moderate_media(p_kind text, p_id text, p_action text, p_reason text default null)
 returns void language plpgsql security definer set search_path = public as $$
 begin
   perform moderation_require_moderator();
@@ -710,21 +728,21 @@ $$;
 -- n'est pas garantie pour lui : la RLS de ces tables suit la visibilité d'un membre ordinaire).
 -- Types résolus : story, post_media, community_post, profile_photo, avatar. Les médias privés
 -- (messages, événements : chemin de stockage non public) renvoient une adresse nulle.
-create or replace function admin_media_info(p_kind text, p_id uuid)
+create or replace function admin_media_info(p_kind text, p_id text)
 returns table (url text, owner_id uuid, owner_name text, created_at timestamptz)
 language plpgsql stable security definer set search_path = public as $$
 begin
   perform moderation_require_moderator();
   if p_kind = 'story' then
-    return query select st.media_url, st.profile_id, p.name, st.created_at from stories st join profiles p on p.id = st.profile_id where st.id = p_id;
+    return query select st.media_url, st.profile_id, p.name, st.created_at from stories st join profiles p on p.id = st.profile_id where st.id::text = p_id;
   elsif p_kind = 'post_media' then
-    return query select pm.url, po.author_id, p.name, pm.created_at from post_media pm join posts po on po.id = pm.post_id join profiles p on p.id = po.author_id where pm.id = p_id;
+    return query select pm.url, po.author_id, p.name, pm.created_at from post_media pm join posts po on po.id = pm.post_id join profiles p on p.id = po.author_id where pm.id::text = p_id;
   elsif p_kind = 'community_post' then
-    return query select cp.media_url, cp.author_id, p.name, cp.created_at from community_posts cp join profiles p on p.id = cp.author_id where cp.id = p_id;
+    return query select cp.media_url, cp.author_id, p.name, cp.created_at from community_posts cp join profiles p on p.id = cp.author_id where cp.id::text = p_id;
   elsif p_kind = 'profile_photo' then
-    return query select pp.url, pp.profile_id, p.name, pp.created_at from profile_photos pp join profiles p on p.id = pp.profile_id where pp.id = p_id;
+    return query select pp.url, pp.profile_id, p.name, pp.created_at from profile_photos pp join profiles p on p.id = pp.profile_id where pp.id::text = p_id;
   elsif p_kind = 'avatar' then
-    return query select p.avatar_url, p.id, p.name, p.created_at from profiles p where p.id = p_id;
+    return query select p.avatar_url, p.id, p.name, p.created_at from profiles p where p.id::text = p_id;
   end if;
 end;
 $$;
@@ -1070,10 +1088,10 @@ revoke insert, update, delete on moderation_settings, moderation_terms, moderati
 revoke all on function moderation_normalize(text), moderation_normalize_term(text), moderation_check(text),
   moderation_apply_ladder(uuid, uuid), moderation_record_flag(uuid, text, text, text, text, text),
   moderation_guard_text(), moderation_require_moderator(), moderation_terms_set_norm() from public, anon, authenticated;
-revoke all on function moderation_screen(text, text), report_media(text, uuid, text, text),
-  admin_moderation_violations(text, int), admin_moderation_sanctions(boolean, int), admin_media_queue(int), admin_media_info(text, uuid),
+revoke all on function moderation_screen(text, text), report_media(text, text, text, text),
+  admin_moderation_violations(text, int), admin_moderation_sanctions(boolean, int), admin_media_queue(int), admin_media_info(text, text),
   moderation_resolve_flag(uuid, boolean, text), moderation_revoke_sanction(uuid, text),
-  moderation_appeal(uuid, text), moderation_decide_appeal(uuid, boolean, text), moderate_media(text, uuid, text, text),
+  moderation_appeal(uuid, text), moderation_decide_appeal(uuid, boolean, text), moderate_media(text, text, text, text),
   admin_upsert_moderation_term(text, text, text, boolean), admin_delete_moderation_term(bigint),
   admin_upsert_moderation_exception(text, boolean), admin_update_moderation_settings(jsonb), moderation_purge_old(int) from public, anon;
 -- Fonctions internes (declencheurs, empreinte) : jamais appelables par un client, meme connecte.
@@ -1083,10 +1101,10 @@ revoke all on function moderation_suggest_rule(text, text, text, text, text), ad
   admin_moderation_suggestions(text, int), admin_moderation_term_stats(int), admin_test_moderation(text, text), my_moderation_status() from public, anon;
 grant execute on function moderation_suggest_rule(text, text, text, text, text), admin_decide_rule_suggestion(uuid, boolean, text),
   admin_moderation_suggestions(text, int), admin_moderation_term_stats(int), admin_test_moderation(text, text), my_moderation_status() to authenticated;
-grant execute on function moderation_screen(text, text), report_media(text, uuid, text, text),
-  admin_moderation_violations(text, int), admin_moderation_sanctions(boolean, int), admin_media_queue(int), admin_media_info(text, uuid),
+grant execute on function moderation_screen(text, text), report_media(text, text, text, text),
+  admin_moderation_violations(text, int), admin_moderation_sanctions(boolean, int), admin_media_queue(int), admin_media_info(text, text),
   moderation_resolve_flag(uuid, boolean, text), moderation_revoke_sanction(uuid, text),
-  moderation_appeal(uuid, text), moderation_decide_appeal(uuid, boolean, text), moderate_media(text, uuid, text, text),
+  moderation_appeal(uuid, text), moderation_decide_appeal(uuid, boolean, text), moderate_media(text, text, text, text),
   admin_upsert_moderation_term(text, text, text, boolean), admin_delete_moderation_term(bigint),
   admin_upsert_moderation_exception(text, boolean), admin_update_moderation_settings(jsonb), moderation_purge_old(int) to authenticated;
 

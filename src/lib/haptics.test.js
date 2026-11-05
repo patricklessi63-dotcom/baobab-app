@@ -25,7 +25,10 @@ vi.mock("@capacitor/haptics", () => {
 
 import { hapticLight, hapticSuccess, hapticError, _resetHapticsForTests } from "./haptics";
 
-const flush = () => new Promise((r) => setTimeout(r, 10));
+// Plusieurs tours de boucle d’événements, pas un seul délai de 10 ms : sous la charge de la suite complète
+// l’import asynchrone du plugin arrivait après le délai (appel manquant dans un test, appel tardif dans le
+// suivant). Le résultat reste déterministe, le test est seulement un peu plus lent (~50 ms par attente).
+const flush = async () => { for (let i = 0; i < 5; i += 1) await new Promise((r) => setTimeout(r, 10)); };
 const unhandled = [];
 const onUnhandled = (r) => unhandled.push(r);
 

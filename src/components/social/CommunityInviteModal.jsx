@@ -120,7 +120,7 @@ export default function CommunityInviteModal({ community, currentUser, memberIds
   return (
     <div
       className="bb-fade-in fixed inset-0 flex items-end md:items-center justify-center z-[70] p-0 md:p-5"
-      style={{ background: `rgba(${primaryRgb},.55)`, backdropFilter: "blur(5px)" }}
+      style={{ background: `rgba(${primaryRgb},.55)`, backdropFilter: "blur(5px)", WebkitBackdropFilter: "blur(5px)" }}
       onClick={onClose}
       role="dialog"
       aria-modal="true"

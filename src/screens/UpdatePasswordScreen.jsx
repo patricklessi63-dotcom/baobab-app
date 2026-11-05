@@ -117,7 +117,7 @@ export default function UpdatePasswordScreen({ onDone, onSignOut }) {
       <style>{`@media (prefers-reduced-motion: reduce) { .bb-auth * { animation: none !important; transition: none !important; } }`}</style>
       <div className="relative z-10 w-full max-w-sm rounded-[30px] p-6 sm:p-7"
         style={{ background: "rgba(11,21,17,0.82)", border: "1px solid rgba(243,238,228,0.16)",
-          boxShadow: "0 30px 90px rgba(0,0,0,0.52)", backdropFilter: "blur(22px)" }}>
+          boxShadow: "0 30px 90px rgba(0,0,0,0.52)", backdropFilter: "blur(22px)", WebkitBackdropFilter: "blur(22px)" }}>
         <div style={{ fontFamily: "var(--bb-font-title)", fontWeight: 800, fontSize: 24 }} className="mb-1">
           Nouveau mot de passe
         </div>

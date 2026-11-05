@@ -37,7 +37,7 @@ beforeAll(async () => {
     create table messages (id serial primary key, from_id uuid, kind text default 'text', text text);
     create table posts (id uuid primary key default gen_random_uuid(), author_id uuid, body text);
     create table post_media (id uuid primary key default gen_random_uuid(), post_id uuid references posts(id), url text, created_at timestamptz default now());
-    create table profile_photos (id uuid primary key default gen_random_uuid(), profile_id uuid, url text, created_at timestamptz default now());
+    create table profile_photos (id bigint generated always as identity primary key, profile_id uuid, url text, created_at timestamptz default now()); -- bigint comme en production
     create table post_comments (id serial primary key, body text);
     create table community_posts (id uuid primary key default gen_random_uuid(), body text, media_url text, author_id uuid, created_at timestamptz default now());
     create table community_comments (id serial primary key, body text);
@@ -436,7 +436,7 @@ describe("admin_media_info : l'adresse de l'image pour le modérateur", () => {
     expect(await fails(() => db.query("select * from admin_media_info('story', $1)", [st.id]))).toContain("Non autorise");
 
     await as(2);
-    const cases = [["story", st.id, "story.jpg"], ["post_media", pm.id, "post.jpg"], ["community_post", cp.id, "comm.jpg"], ["profile_photo", ph.id, "photo.jpg"], ["avatar", U(1), "avatar.jpg"]];
+    const cases = [["story", st.id, "story.jpg"], ["post_media", pm.id, "post.jpg"], ["community_post", cp.id, "comm.jpg"], ["profile_photo", String(ph.id), "photo.jpg"], ["avatar", U(1), "avatar.jpg"]];
     for (const [kind, id, file] of cases) {
       const [r] = await q("select * from admin_media_info($1, $2)", [kind, id]);
       expect(r.url, kind).toContain(file);
@@ -444,6 +444,35 @@ describe("admin_media_info : l'adresse de l'image pour le modérateur", () => {
       expect(r.owner_name, kind).toBe("P1");
     }
     expect(await q("select * from admin_media_info('message_media', $1)", [st.id])).toEqual([]);
+  });
+});
+
+describe("photo de profil : identifiant ENTIER (profile_photos.id est bigint en production)", () => {
+  it("signaler, masquer après 3 signalements, lister et rétablir une photo de profil par son identifiant entier", async () => {
+    await as(0);
+    await db.exec("update moderation_settings set media_report_threshold = 3, media_reports_per_hour = 10 where id = 1");
+    const [ph2] = await q("insert into profile_photos (profile_id, url) values ($1, 'https://x/p2.jpg') returning id", [U(1)]);
+    const id = String(ph2.id);
+    expect(id).toMatch(/^[0-9]+$/); // un entier, pas un uuid
+    for (const n of [3, 4, 5]) { await as(n); await db.query("select report_media('profile_photo', $1, 'harcelement')", [id]); }
+    const [m] = await q("select status, report_count from media_moderation where target_kind = 'profile_photo' and target_id = $1", [id]);
+    expect(m).toEqual({ status: "hidden", report_count: 3 });
+    await as(2);
+    const queue = await q("select target_kind, target_id from admin_media_queue() where target_kind = 'profile_photo'");
+    expect(queue).toEqual([{ target_kind: "profile_photo", target_id: id }]);
+    await db.query("select moderate_media('profile_photo', $1, 'restore', 'photo légitime')", [id]);
+    expect((await q("select status, locked from media_moderation where target_kind = 'profile_photo' and target_id = $1", [id]))[0]).toEqual({ status: "visible", locked: true });
+  });
+  it("le fichier SQL se rejoue sur une base où l'ancienne version (target_id uuid) était installée : colonnes converties, anciennes signatures retirées", async () => {
+    await as(0);
+    await db.exec("alter table media_reports alter column target_id type uuid using null; ").catch(() => {}); // peut échouer s'il reste des lignes : on vide d'abord
+    await db.exec("delete from media_reports; delete from media_moderation;");
+    await db.exec("alter table media_reports alter column target_id type uuid using target_id::uuid; alter table media_moderation alter column target_id type uuid using target_id::uuid;");
+    await db.exec("create function report_media(p_kind text, p_id uuid, p_reason text, p_note text default null) returns jsonb language sql as $$ select '{}'::jsonb $$;");
+    await db.exec(SQL);
+    expect((await q("select data_type from information_schema.columns where table_name = 'media_reports' and column_name = 'target_id'"))[0].data_type).toBe("text");
+    expect((await q("select data_type from information_schema.columns where table_name = 'media_moderation' and column_name = 'target_id'"))[0].data_type).toBe("text");
+    expect((await q("select oidvectortypes(proargtypes) as t from pg_proc where proname = 'report_media'")).map((r) => r.t)).toEqual(["text, text, text, text"]);
   });
 });
 

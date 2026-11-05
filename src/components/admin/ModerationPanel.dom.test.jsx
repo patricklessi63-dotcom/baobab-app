@@ -17,6 +17,11 @@ const api = vi.hoisted(() => ({
   upsertTerm: vi.fn(),
   deleteTerm: vi.fn(),
   updateSettings: vi.fn(),
+  listRuleSuggestions: vi.fn(),
+  suggestRule: vi.fn(),
+  decideRuleSuggestion: vi.fn(),
+  termStats: vi.fn(),
+  testModeration: vi.fn(),
 }));
 vi.mock("../../lib/moderationApi", () => api);
 
@@ -36,7 +41,9 @@ describe("ModerationPanel", () => {
     api.mediaInfo.mockResolvedValue({ url: "https://x/img.jpg", owner_name: "Karim", created_at: "2026-11-04T09:00:00Z" });
     api.fetchSettings.mockResolvedValue({ text_filter_enabled: true, auto_ban_enabled: false, window_days: 30, media_report_threshold: 3, media_reports_per_hour: 10 });
     api.fetchTerms.mockResolvedValue([{ id: 1, term: "connard", category: "insulte", severity: "block", active: true }]);
-    for (const k of ["resolveFlag", "revokeSanction", "decideAppeal", "moderateMedia", "upsertTerm", "deleteTerm", "updateSettings"]) api[k].mockResolvedValue(null);
+    api.listRuleSuggestions.mockResolvedValue([{ id: "r1", kind: "new_variant", term: "bouzin", category: "insulte", severity: "block", rationale: "vu dans 3 signalements", status: "pending" }]);
+    api.termStats.mockResolvedValue([{ term: "connard", category: "insulte", confirmed: 8, false_positives: 2, pending: 1, precision_ratio: "0.800" }, { term: "con", category: "insulte", confirmed: 1, false_positives: 4, pending: 0, precision_ratio: "0.200" }]);
+    for (const k of ["resolveFlag", "revokeSanction", "decideAppeal", "moderateMedia", "upsertTerm", "deleteTerm", "updateSettings", "suggestRule", "decideRuleSuggestion"]) api[k].mockResolvedValue(null);
   });
   afterEach(() => { cleanup(); vi.clearAllMocks(); });
 
@@ -116,5 +123,53 @@ describe("ModerationPanel", () => {
     render(<ModerationPanel onError={onError} />);
     fireEvent.click(await screen.findByRole("button", { name: "Approuver le texte" }));
     await waitFor(() => expect(onError).toHaveBeenCalledWith("Action impossible. Réessaie."));
+  });
+
+  it("règles : une suggestion ne s'accepte que par un administrateur ; un modérateur peut seulement proposer", async () => {
+    const { rerender } = render(<ModerationPanel onError={onError} isAdmin={false} />);
+    fireEvent.click(await screen.findByRole("tab", { name: /Règles/ }));
+    expect(await screen.findByText(/Nouvelle variante — « bouzin »/)).toBeInTheDocument();
+    expect(screen.getByText(/vu dans 3 signalements/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Accepter" })).not.toBeInTheDocument();
+    expect(screen.getByText(/Seuls les administrateurs décident/)).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Terme proposé"), { target: { value: "  zorglub " } });
+    fireEvent.change(screen.getByLabelText("Gravité proposée"), { target: { value: "block" } });
+    fireEvent.change(screen.getByLabelText("Justification de la suggestion"), { target: { value: "variante vue" } });
+    fireEvent.click(screen.getByRole("button", { name: "Proposer" }));
+    await waitFor(() => expect(api.suggestRule).toHaveBeenCalledWith("new_variant", "zorglub", "insulte", "block", "variante vue"));
+
+    rerender(<ModerationPanel onError={onError} isAdmin />);
+    fireEvent.click(screen.getByRole("tab", { name: /Images/ }));
+    fireEvent.click(await screen.findByRole("tab", { name: /Règles/ }));
+    fireEvent.change(await screen.findByLabelText("Motif de la décision"), { target: { value: "confirmé" } });
+    fireEvent.click(await screen.findByRole("button", { name: "Accepter" }));
+    await waitFor(() => expect(api.decideRuleSuggestion).toHaveBeenCalledWith("r1", true, "confirmé"));
+    fireEvent.click(screen.getByRole("button", { name: "Rejeter" }));
+    await waitFor(() => expect(api.decideRuleSuggestion).toHaveBeenCalledWith("r1", false, null));
+  });
+
+  it("règles : précision par terme (les termes peu fiables ressortent) et test d'un texte sans effet", async () => {
+    render(<ModerationPanel onError={onError} />);
+    fireEvent.click(await screen.findByRole("tab", { name: /Règles/ }));
+    expect(await screen.findByText("80 %")).toBeInTheDocument();
+    expect(screen.getByText("20 %")).toBeInTheDocument();
+
+    api.testModeration.mockResolvedValue({ blocked: true, flagged: false, category: "insulte", term: "connard", severity: "block", candidate_match: true });
+    fireEvent.change(screen.getByLabelText("Texte à tester"), { target: { value: "espèce de connard" } });
+    fireEvent.change(screen.getByLabelText("Terme candidat"), { target: { value: " zébulon " } });
+    fireEvent.click(screen.getByRole("button", { name: "Tester" }));
+    await waitFor(() => expect(api.testModeration).toHaveBeenCalledWith("espèce de connard", "zébulon"));
+    expect(await screen.findByRole("status")).toHaveTextContent("Refusé — insulte : « connard »");
+    expect(screen.getByRole("status")).toHaveTextContent("Le terme candidat correspond à ce texte.");
+    expect(api.suggestRule).not.toHaveBeenCalled(); // tester ne crée aucune règle
+  });
+
+  it("règles : SQL-31 absent = message clair, pas d'erreur", async () => {
+    api.listRuleSuggestions.mockRejectedValue({ code: "42883", message: "function does not exist" });
+    render(<ModerationPanel onError={onError} />);
+    fireEvent.click(await screen.findByRole("tab", { name: /Règles/ }));
+    expect(await screen.findByText(/pas encore installée sur le serveur/)).toBeInTheDocument();
+    expect(onError).not.toHaveBeenCalled();
   });
 });

@@ -428,7 +428,7 @@ export default function Auth({ justVerified = false, onAcknowledgeVerified = () 
       <div className="bb-hero relative z-10 hidden lg:block w-full max-w-6xl mr-auto">
         <div className="max-w-md pl-4 lg:pl-10">
           <div className="bb-badge inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-semibold"
-            style={{ background: "rgba(11,21,17,0.52)", border: "1px solid rgba(242,233,220,0.16)", backdropFilter: "blur(12px)" }}>
+            style={{ background: "rgba(11,21,17,0.52)", border: "1px solid rgba(242,233,220,0.16)", backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)" }}>
             <MapPin size={14} color={C.ochre} /> Une communauté partout au Canada
           </div>
           <h2 className="mt-5 text-3xl lg:text-5xl leading-[1.08]" style={{ fontFamily: "var(--bb-font-display)", fontWeight: 700, perspective: "700px" }}>

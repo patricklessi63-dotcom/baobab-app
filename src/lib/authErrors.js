@@ -41,6 +41,16 @@ export function traduireAuthErreur(err) {
   // jamais un email non invité.
   if (msg.toLowerCase().includes("beta privée"))
     return msg;
+  // Compte banni (modération, SQL-31 : banned_until posé sur auth.users) : GoTrue répond « User is banned »
+  // (code user_banned) à la connexion. Sans ce cas, le générique « Réessaie dans un instant » invitait à
+  // réessayer alors que ça échouera toujours. Le texte ne détaille pas le motif.
+  if (code === "user_banned" || /user is banned/i.test(msg))
+    return "Ce compte n'est plus disponible. Si tu penses qu'il s'agit d'une erreur, contacte le support.";
+  // Réinscription avec une adresse bannie (variantes +alias / points Gmail) : le déclencheur de la base
+  // refuse, mais GoTrue masque son message et répond « Database error saving new user ». Message honnête
+  // pour ce cas comme pour tout échec d'enregistrement du compte côté base : réessayer ne sert à rien.
+  if (/database error saving new user/i.test(msg))
+    return "Impossible de créer un compte avec cette adresse. Utilise une autre adresse ou contacte le support.";
   // Coupure / réseau instable (navigator.onLine peut rester vrai : Wi-Fi sans
   // internet, métro) : sans ce cas, « Failed to fetch » tombait dans le message
   // générique, qui ne dit pas que c'est la connexion et non le mot de passe.

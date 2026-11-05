@@ -67,7 +67,7 @@ export default function StoryComposerModal({
       <input ref={storyPhotoInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => onStoryMediaSelected(e, "photo")} />
       <input ref={storyVideoInputRef} type="file" accept="video/*" className="hidden" onChange={(e) => onStoryMediaSelected(e, "video")} />
       {storyComposer && createPortal(
-        <div className="fixed inset-0 z-[60] flex items-end md:items-center justify-center p-0 md:p-5" style={{ background: `rgba(${primaryRgb},.55)`, backdropFilter: "blur(5px)" }} onClick={handleClose} role="dialog" aria-modal="true" aria-label="Nouveau statut">
+        <div className="fixed inset-0 z-[60] flex items-end md:items-center justify-center p-0 md:p-5" style={{ background: `rgba(${primaryRgb},.55)`, backdropFilter: "blur(5px)", WebkitBackdropFilter: "blur(5px)" }} onClick={handleClose} role="dialog" aria-modal="true" aria-label="Nouveau statut">
           <div ref={panelRef} tabIndex={-1} className="bg-[var(--bb-surface)] w-full max-w-md rounded-t-[30px] md:rounded-[30px] shadow-2xl flex flex-col" style={{ maxHeight: "88dvh", paddingBottom: "env(safe-area-inset-bottom)" }} onClick={(e) => e.stopPropagation()}>
             {storyStep === "compose" ? (
               <>
