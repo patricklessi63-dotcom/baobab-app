@@ -6,6 +6,9 @@ import Skeleton, { SkeletonCard } from "../Skeleton";
 import * as adminApi from "../../lib/adminApi";
 import ModerationPanel from "./ModerationPanel";
 import { formatLongDate, truncateUnicodeSafe } from "../../utils/format";
+import { PROFILE_REPORT_CATEGORIES } from "../../lib/reportCategories";
+import { COMMUNITY_REPORT_CATEGORIES } from "../../lib/communities/communityConfig";
+import { EVENT_REPORT_CATEGORIES } from "../../lib/events/eventConfig";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { primary, coral, coralText, green, gold, goldText, muted, bg, card, primaryRgb, navy } from "../social/theme";
@@ -25,6 +28,17 @@ const SUSPEND_DURATIONS = [
   { label: "7 jours", ms: 7 * 24 * 60 * 60 * 1000 },
   { label: "30 jours", ms: 30 * 24 * 60 * 60 * 1000 },
 ];
+// Catégories de TOUS les types de signalement (profil, publication, communauté, événement, article d'info) avec leur libellé français.
+// Sans cela le tableau de bord affichait la clé brute (« harcelement », « mineur_suspecte »). Les catégories d'article d'info
+// (info_reports) n'ont pas de liste côté client (aucun écran de signalement d'article) : libellés définis ici.
+const INFO_REPORT_CATEGORY_LABELS = { obsolete: "Contenu obsolète", lien_incorrect: "Lien incorrect", erreur: "Erreur", source_indisponible: "Source indisponible", trompeuse: "Information trompeuse" };
+const REPORT_CATEGORY_LABELS = {
+  ...INFO_REPORT_CATEGORY_LABELS,
+  ...Object.fromEntries(EVENT_REPORT_CATEGORIES.map((c) => [c.value, c.label])),
+  ...Object.fromEntries(COMMUNITY_REPORT_CATEGORIES.map((c) => [c.value, c.label])),
+  ...Object.fromEntries(PROFILE_REPORT_CATEGORIES.map((c) => [c.value, c.label])),
+};
+const reportCategoryLabel = (value) => REPORT_CATEGORY_LABELS[value] || value;
 const REPORT_STATUS_LABEL = { open: "En attente", in_review: "En cours d'examen", confirmed: "Confirmé" };
 const REPORT_SOURCE_LABEL = { community: "Communauté", event: "Événement", post: "Fil général", info: "Baobab Info", profile: "Profil (rencontre/messagerie)" };
 
@@ -296,7 +310,8 @@ export default function AdminDashboard({ onBack, onError, myPlatformRole, myProf
     }
   };
 
-  const reportCategories = [...new Set(reports.map((r) => r.category).filter(Boolean))].sort();
+  const reportCategories = [...new Set([...Object.keys(REPORT_CATEGORY_LABELS), ...reports.map((r) => r.category).filter(Boolean)])]
+    .sort((a, b) => reportCategoryLabel(a).localeCompare(reportCategoryLabel(b), "fr"));
   const visibleReports = reports.filter((r) => {
     if (reportCategoryFilter !== "all" && r.category !== reportCategoryFilter) return false;
     if (reportStatusFilter !== "all" && (r.status || "open") !== reportStatusFilter) return false;
@@ -415,7 +430,7 @@ export default function AdminDashboard({ onBack, onError, myPlatformRole, myProf
             <div className="flex flex-wrap gap-2 mb-1">
               <select value={reportCategoryFilter} onChange={(e) => setReportCategoryFilter(e.target.value)} aria-label="Filtrer par catégorie" className="bb-input text-xs">
                 <option value="all">Toutes les catégories</option>
-                {reportCategories.map((c) => <option key={c} value={c}>{`Catégorie : ${c}`}</option>)}
+                {reportCategories.map((c) => <option key={c} value={c}>{`Catégorie : ${reportCategoryLabel(c)}`}</option>)}
               </select>
               <select value={reportStatusFilter} onChange={(e) => setReportStatusFilter(e.target.value)} aria-label="Filtrer par statut" className="bb-input text-xs">
                 <option value="all">Tous les statuts</option>
@@ -434,7 +449,7 @@ export default function AdminDashboard({ onBack, onError, myPlatformRole, myProf
                     </span>
                     <span className="text-[11px]" style={{ color: muted }}>{new Date(r.created_at).toLocaleDateString("fr-CA")}</span>
                   </div>
-                  <div className="text-sm font-bold" style={{ color: primary }}>{r.category}</div>
+                  <div className="text-sm font-bold" style={{ color: primary }}>{reportCategoryLabel(r.category)}</div>
                   {r.reason && <p className="text-xs mt-1" style={{ color: muted }}>{r.reason}</p>}
                   <div className="flex items-center gap-2 mt-3 flex-wrap">
                     {reportStepsAvailable && status === "open" && (

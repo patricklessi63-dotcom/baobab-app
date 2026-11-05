@@ -113,4 +113,24 @@ describe("AdminDashboard — statuts de signalement", () => {
     await openReports(vi.fn(), "Contenu indésirable");
     expect(within(card("Contenu indésirable")).getByText("En attente")).toBeInTheDocument();
   });
+
+  it("les catégories s'affichent en français (jamais la clé brute) et le filtre propose toutes les catégories connues, pas seulement celles affichées", async () => {
+    mocks.listReports.mockResolvedValue([{ source: "profile", id: "p9", category: "mineur_suspecte", reason: "Doute sur l'âge", status: "open", created_at: now }]);
+    const { user } = await openReports(vi.fn(), "Doute sur l'âge");
+    expect(within(card("Doute sur l'âge")).getByText("Mineur suspecté")).toBeInTheDocument();
+    expect(screen.queryByText("mineur_suspecte")).not.toBeInTheDocument();
+    const select = screen.getByLabelText("Filtrer par catégorie");
+    const labels = within(select).getAllByRole("option").map((o) => o.textContent);
+    for (const expected of ["Catégorie : Harcèlement", "Catégorie : Arnaque", "Catégorie : Faux événement", "Catégorie : Usurpation d'identité", "Catégorie : Lien incorrect"]) {
+      expect(labels).toContain(expected);
+    }
+  });
+
+  it("une catégorie inconnue du client reste affichée telle quelle (jamais masquée) et filtrable", async () => {
+    mocks.listReports.mockResolvedValue([{ source: "info", id: "i1", category: "nouvelle_categorie", reason: "Cas particulier", status: "open", created_at: now }]);
+    const { user } = await openReports(vi.fn(), "Cas particulier");
+    expect(within(card("Cas particulier")).getByText("nouvelle_categorie")).toBeInTheDocument();
+    await user.selectOptions(screen.getByLabelText("Filtrer par catégorie"), "nouvelle_categorie");
+    expect(screen.getByText("Cas particulier")).toBeInTheDocument();
+  });
 });

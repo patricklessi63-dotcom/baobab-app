@@ -46,11 +46,11 @@ describe("AdminDashboard — signalement déjà traité par un autre membre du s
 
     await user.click(screen.getByRole("button", { name: "Signalements" }));
 
-    await screen.findByText("spam");
+    await screen.findByText("Spam");
     await user.click(screen.getByRole("button", { name: "Résolu" }));
 
     await screen.findByText("Aucun signalement ouvert.");
-    expect(screen.queryByText("spam")).not.toBeInTheDocument();
+    expect(screen.queryByText("Spam")).not.toBeInTheDocument();
     expect(onError).toHaveBeenCalledWith(
       "Ce signalement a déjà été traité (par toi ou un autre membre du staff) entre-temps."
     );
