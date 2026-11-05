@@ -751,6 +751,7 @@ Exécutés avec le script consolidé le **9 sept 2026** (le correctif d'ordre le
 | `supabase-admin-dashboard-stats-fix.sql` | 01/09 | admin_dashboard_stats() : version fusionnée correcte. | Version finale de cette fonction. |
 | `supabase-admin-lists-limit-fix.sql` | 03/09 | Plafonne admin_list_reports() / admin_list_feedback() à 200 lignes. | Version finale de ces deux fonctions. |
 | `supabase-admin-list-reports-hotfix.sql` | 05/11 | Corrige le HTTP 400 de admin_list_reports() (UNION uuid/bigint car `reports.id` est bigint en production ; ORDER BY qualifié) et ajoute la source `profile` à admin_resolve_report(). | **EXÉCUTÉ en production le 05/11/2026** ; version finale des deux fonctions (remplace celle de admin-lists-limit-fix). |
+| `supabase-profile-report-minor-constraint-fix.sql` | 05/11 | Autorise le motif « mineur_suspecte » sur les signalements de PROFIL (la contrainte `reports_category_check` de production le refuse : l'envoi échoue). **Priorité haute (protection des mineurs).** | **LIVRÉ, NON EXÉCUTÉ** ; essai répétition 9/9 ; ne pas rejouer `report-minor-category` (écraserait le hotfix `admin_list_reports`). |
 | `supabase-events-duration-guard.sql` | 09/09 | Durée d'événement bornée côté serveur. | Sa version de create_event() est écrasée par le correctif d'ordre : ne pas rejouer seul. |
 | `supabase-communities-4.sql` | 01/09 | Correctif des réactions multi-emoji de communauté. |  |
 | `supabase-user-locations-rls-hardening.sql` | 02/09 | Filet RLS sur user_locations. |  |
