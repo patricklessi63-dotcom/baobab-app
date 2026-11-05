@@ -115,3 +115,12 @@ Fichier `supabase-moderation-text.sql` appliqué sur le projet de répétition `
 - **Observation** : un compte banni peut se reconnecter par mot de passe ; ses écritures (publication) sont ensuite refusées par la RLS. Si « connexion refusée » est exigé, poser `auth.users.banned_until`.
 - **Non testé** : l'interface, les rapports de médias, la purge planifiée, le comportement sur la base de production.
 - **Rejeu après correctif de la session auteur (fichier du dépôt appliqué tel quel sur la répétition)** : 61/61 contrôles réussis, sans correctif provisoire. Échelle jusqu'au bannissement, sessions et jetons révoqués, **connexion par mot de passe refusée pour un banni** (« User is banned », `auth.users.banned_until` ≈ +100 ans), **connexion rétablie, empreinte retirée et réinscription de l'adresse de nouveau possible après la levée** ; journal : `ban_applied` puis `ban_lifted`. Le défaut du drapeau `trust_column_write` et l'observation sur la reconnexion sont donc corrigés. Toujours non testé : interface, purge planifiée, production.
+
+## Contrôle en lecture seule de `admin_list_reports` en production — 5 novembre 2026
+
+Demandé après un HTTP 400 constaté sur l'onglet Signalements du tableau de bord (aucune écriture en production).
+
+- **Journaux (API Gateway + Postgres)** : 6 appels `POST /rest/v1/rpc/admin_list_reports` en 400 (4 nov. 16:05, 5 nov. 00:15 à 00:19), chacun correspondant à la seconde près à `ERROR: UNION types uuid and bigint cannot be matched`. Aucune erreur « column reference "category" is ambiguous » (42702) sur 3 jours.
+- **Cause réelle** : en production `reports.id` est `bigint` (export du catalogue de production), alors que `community_reports`, `event_reports`, `post_reports` et `info_reports` ont un `id` `uuid` ; la branche « profile » du `UNION ALL` ne peut pas être unifiée. Cette erreur d'analyse survient avant l'`ORDER BY`.
+- **Second défaut, masqué par le premier** : la définition en base se termine par `order by case category … created_at desc limit 200`, colonne non qualifiée alors que `RETURNS TABLE` expose `category` (42702 attendu une fois le UNION réparé). Le fichier `supabase-admin-list-reports-hotfix.sql` corrige seulement celui-ci : **il ne supprimerait pas le 400 en production** tant que le type de `reports.id` n'est pas traité. Signalé à la session auteur ; hotfix NON exécuté.
+- **Limite du contrôle** : seule la fin de la définition a pu être lue (un second essai de lecture a été refusé par le classifieur d'autorisation).
