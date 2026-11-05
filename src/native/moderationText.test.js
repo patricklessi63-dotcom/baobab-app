@@ -24,6 +24,7 @@ beforeAll(async () => {
     create role anon nologin; create role authenticated nologin;
     create schema auth;
     create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('test.uid', true), '')::uuid $$;
+    create function auth.role() returns text language sql stable as $$ select case when current_setting('test.enforce_trust', true) = 'on' and coalesce(current_setting('test.uid', true), '') <> '' then 'authenticated' else 'service_role' end $$;
     create table profiles (
       id uuid primary key, user_id uuid, name text, bio text, created_at timestamptz default now(),
       suspended_until timestamptz, suspend_reason text, banned_at timestamptz, ban_reason text, avatar_url text
@@ -48,11 +49,24 @@ beforeAll(async () => {
     await db.query("insert into profiles (id, user_id, name, created_at) values ($1, $2, $3, now() - interval '30 days')", [U(n), U(100 + n), `P${n}`]);
   }
   await db.query("insert into profiles (id, user_id, name) values ($1, $2, 'Nouveau')", [U(7), U(107)]);
+  // Reproduit trg_protect_profile_trust_columns (supabase-profile-trust-columns-protect-fix.sql) : un compte connecté ne peut pas
+  // écrire suspended_until / banned_at sans le drapeau posé par une fonction serveur. Armé seulement par test.enforce_trust.
+  await db.exec(`
+    create function protect_profile_trust_columns() returns trigger language plpgsql as $$
+    begin
+      if auth.role() = 'authenticated' and coalesce(current_setting('baobab.trust_column_write', true), '') <> 'on'
+         and (new.banned_at is distinct from old.banned_at or new.ban_reason is distinct from old.ban_reason
+              or new.suspended_until is distinct from old.suspended_until or new.suspend_reason is distinct from old.suspend_reason)
+      then raise exception 'Cette colonne ne peut pas etre modifiee directement via l''application'; end if;
+      return new;
+    end; $$;
+    create trigger trg_protect_profile_trust_columns before update on profiles for each row execute function protect_profile_trust_columns();
+  `);
   await db.exec(`insert into platform_roles values ('${U(2)}', 'moderator'), ('${U(3)}', 'admin')`);
   // Schéma auth FACTICE (utilisateurs, sessions, jetons) : sert à vérifier la révocation des sessions au bannissement
   // et le blocage de la réinscription. Posé AVANT le fichier SQL (qui y accroche son déclencheur d'inscription).
   await db.exec(`
-    create table auth.users (id uuid primary key, email text);
+    create table auth.users (id uuid primary key, email text, banned_until timestamptz);
     create table auth.sessions (id uuid primary key default gen_random_uuid(), user_id uuid);
     create table auth.refresh_tokens (id serial primary key, user_id varchar, revoked boolean default false);
   `);
@@ -484,7 +498,10 @@ describe("échelle conforme au cahier des charges (4 avertissements, 5e = suspen
   const say = async (i) => (await q("select moderation_screen('message', $1) as r", [`espèce de connard ${SUFFIXES[i]}`]))[0].r;
   let results;
 
+  // Protection des colonnes de confiance ARMÉE : les sanctions automatiques doivent passer par le drapeau serveur, comme en production
+  // (défaut trouvé sur la répétition : sans lui, la 5e infraction échouait pour un compte connecté).
   beforeAll(async () => {
+    await db.exec("select set_config('test.enforce_trust', 'on', false)");
     await as(0);
     await db.exec("update moderation_settings set warnings_before_suspension = 4, suspension_hours = 24, suspensions_before_ban = 3, auto_ban_enabled = true, window_days = 365 where id = 1");
     await db.exec(`delete from moderation_sanctions where profile_id = '${U(4)}'; delete from moderation_violations where profile_id = '${U(4)}'`);
@@ -516,6 +533,17 @@ describe("échelle conforme au cahier des charges (4 avertissements, 5e = suspen
     // 15 infractions, 14 sanctions « avertissement/suspension » + 1 bannissement : une sanction par infraction, pas plus
     expect((await q("select count(*)::int as n from moderation_sanctions where profile_id = $1", [U(4)]))[0].n).toBe(15);
     expect((await q("select count(*)::int as n from moderation_sanctions where profile_id = $1 and kind = 'suspension'", [U(4)]))[0].n).toBe(2);
+  });
+  it("le harnais protège réellement les colonnes : un compte connecté ne peut pas se sanctionner ni se rétablir par une écriture directe", async () => {
+    await as(1);
+    expect(await fails(() => db.query("update profiles set banned_at = null where id = $1", [U(4)]))).toContain("ne peut pas etre modifiee");
+    expect(await fails(() => db.query("update profiles set suspended_until = null where id = $1", [U(4)]))).toContain("ne peut pas etre modifiee");
+  });
+  it("un compte banni ne peut plus se reconnecter (auth.users.banned_until) ; levé au débannissement", async () => {
+    await as(0);
+    const [{ b }] = await q("select banned_until > now() + interval '50 years' as b from auth.users where id = $1", [U(104)]);
+    expect(b).toBe(true);
+    expect((await q("select banned_until from auth.users where id = $1", [U(105)]))[0].banned_until).toBeNull(); // les autres comptes ne sont pas touchés
   });
   it("le bannissement révoque les sessions et les jetons d'authentification et le journalise", async () => {
     expect((await q("select count(*)::int as n from auth.sessions where user_id = $1", [U(104)]))[0].n).toBe(0);
@@ -570,12 +598,14 @@ describe("protection contre le contournement : registre d'identités bannies, r�
     await db.query("update auth.users set email = 'User7@Example.com' where id = $1", [U(107)]);
   });
   it("la levée du bannissement par un modérateur rétablit le compte et retire l'empreinte", async () => {
+    expect((await q("select banned_until from auth.users where id = $1", [U(104)]))[0].banned_until).not.toBeNull();
     await as(2);
     const [s] = await q("select id from moderation_sanctions where profile_id = $1 and kind = 'ban'", [U(4)]);
     await db.query("select moderation_revoke_sanction($1, 'erreur de la liste')", [s.id]);
     expect((await q("select banned_at from profiles where id = $1", [U(4)]))[0].banned_at).toBeNull();
     expect((await q("select count(*)::int as n from banned_identities"))[0].n).toBe(0);
     expect(await fails(() => signup(4, "user4@example.com"))).toBeNull();
+    expect((await q("select banned_until from auth.users where id = $1", [U(104)]))[0].banned_until).toBeNull(); // reconnexion de nouveau possible
     expect((await q("select count(*)::int as n from moderation_decisions where action = 'ban_lifted' and target_profile_id = $1", [U(4)]))[0].n).toBe(1);
   });
   it("un bannissement MANUEL (ban_user : simple mise à jour de profiles.banned_at) déclenche aussi la révocation", async () => {

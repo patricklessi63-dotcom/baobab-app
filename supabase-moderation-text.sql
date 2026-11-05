@@ -322,6 +322,9 @@ begin
     end if;
   end if;
 
+  -- Ecriture serveur autorisee sur les colonnes protegees de profiles (suspended_until, banned_at...) : sans ce drapeau,
+  -- trg_protect_profile_trust_columns refuse l'UPDATE quand l'appel vient d'un compte connecte (comme suspend_user / ban_user).
+  perform set_config('baobab.trust_column_write', 'on', true);
   if v_action = 'warning' then
     v_kind := 'warning';
   elsif v_action = 'suspend' then
@@ -635,6 +638,7 @@ begin
   select * into x from moderation_sanctions where id = p_sanction_id for update;
   if not found then raise exception 'Sanction introuvable'; end if;
   if x.revoked_at is not null then return; end if;
+  perform set_config('baobab.trust_column_write', 'on', true);
   update moderation_sanctions set revoked_at = now(), revoked_by = current_profile_id(), revoke_reason = p_reason where id = x.id;
   if x.violation_id is not null then update moderation_violations set status = 'overturned' where id = x.violation_id; end if;
   if x.kind = 'suspension' then
@@ -853,6 +857,10 @@ begin
         if to_regclass('auth.refresh_tokens') is not null then
           execute 'update auth.refresh_tokens set revoked = true where user_id = $1' using v_user::text;
         end if;
+        -- connexion refusee (GoTrue refuse un compte dont banned_until est dans le futur) : pas seulement les sessions en cours
+        if exists (select 1 from information_schema.columns where table_schema = 'auth' and table_name = 'users' and column_name = 'banned_until') then
+          execute 'update auth.users set banned_until = now() + interval ''100 years'' where id = $1' using v_user;
+        end if;
         if to_regclass('auth.sessions') is not null then
           execute 'delete from auth.sessions where user_id = $1' using v_user;
         end if;
@@ -864,6 +872,13 @@ begin
     values (current_profile_id(), 'ban_applied', new.id, left(coalesce(new.ban_reason, ''), 200));
   elsif new.banned_at is null and old.banned_at is not null then
     delete from banned_identities where profile_id = new.id;
+    begin
+      if new.user_id is not null and exists (select 1 from information_schema.columns where table_schema = 'auth' and table_name = 'users' and column_name = 'banned_until') then
+        execute 'update auth.users set banned_until = null where id = $1' using new.user_id;
+      end if;
+    exception when others then
+      insert into moderation_decisions (action, target_profile_id, reason) values ('ban_lift_cleanup_failed', new.id, left(sqlerrm, 200));
+    end;
     insert into moderation_decisions (actor_id, action, target_profile_id) values (current_profile_id(), 'ban_lifted', new.id);
   end if;
   return new;
