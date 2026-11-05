@@ -466,9 +466,20 @@ create trigger trg_moderation_event_comments before insert or update of body on 
 drop trigger if exists trg_moderation_stories on stories;
 create trigger trg_moderation_stories before insert or update of text on stories
   for each row execute function moderation_guard_text('text', 'status');
+-- Profil : biographie, nom affiche, nom de famille, metier (textes visibles par les autres membres). INSERT compris :
+-- un profil cree directement avec un nom injurieux serait sinon accepte. Les refus comptent sous la source 'bio' (texte de profil).
 drop trigger if exists trg_moderation_profiles_bio on profiles;
-create trigger trg_moderation_profiles_bio before update of bio on profiles
+create trigger trg_moderation_profiles_bio before insert or update of bio on profiles
   for each row execute function moderation_guard_text('bio', 'bio');
+drop trigger if exists trg_moderation_profiles_name on profiles;
+create trigger trg_moderation_profiles_name before insert or update of name on profiles
+  for each row execute function moderation_guard_text('name', 'bio');
+drop trigger if exists trg_moderation_profiles_last_name on profiles;
+create trigger trg_moderation_profiles_last_name before insert or update of last_name on profiles
+  for each row execute function moderation_guard_text('last_name', 'bio');
+drop trigger if exists trg_moderation_profiles_occupation on profiles;
+create trigger trg_moderation_profiles_occupation before insert or update of occupation on profiles
+  for each row execute function moderation_guard_text('occupation', 'bio');
 
 -- ----------------------------------------------------------------------------
 -- 7. Signalements d'images

@@ -24,6 +24,9 @@ drop trigger if exists trg_moderation_community_comments on community_comments;
 drop trigger if exists trg_moderation_event_comments on event_comments;
 drop trigger if exists trg_moderation_stories on stories;
 drop trigger if exists trg_moderation_profiles_bio on profiles;
+drop trigger if exists trg_moderation_profiles_name on profiles;
+drop trigger if exists trg_moderation_profiles_last_name on profiles;
+drop trigger if exists trg_moderation_profiles_occupation on profiles;
 -- Bannissement (révocation des sessions, registre d'e-mails) et journal non modifiable :
 drop trigger if exists trg_modban_change on profiles;
 drop trigger if exists trg_modban_signup on auth.users; -- a lancer avec le role proprietaire de auth.users

@@ -209,3 +209,31 @@ describe("OnboardingWizard — modération de la bio (dernière étape)", () => 
     expect(screen.queryByText(MODERATION_REFUSAL)).not.toBeInTheDocument();
   });
 });
+
+// Le nom affiché et le nom de famille sont visibles de tous les membres : contrôlés eux aussi avant l'envoi (étape 2).
+describe("OnboardingWizard — modération du nom (étape 2)", () => {
+  const nameStepUser = (name, last_name = "") => ({ id: "u1", onboarding_step: 1, usage_goals: "❤️ Rencontre", name, last_name, birth_date: "1990-05-12" });
+
+  it("un nom refusé n'est jamais envoyé et affiche le message de modération", async () => {
+    renderWizard({ currentUser: nameStepUser("Sale connard") });
+    fireEvent.click(await screen.findByRole("button", { name: "Continuer" }));
+    expect(await screen.findByText(MODERATION_REFUSAL)).toBeInTheDocument();
+    expect(chain.update).not.toHaveBeenCalled();
+  });
+
+  it("un nom de famille refusé non plus ; un nom normal est enregistré comme avant", async () => {
+    renderWizard({ currentUser: nameStepUser("Karim", "Espèce de connard") });
+    fireEvent.click(await screen.findByRole("button", { name: "Continuer" }));
+    expect(await screen.findByText(MODERATION_REFUSAL)).toBeInTheDocument();
+    expect(chain.update).not.toHaveBeenCalled();
+  });
+
+  it("un prénom courant passe", async () => {
+    single.mockResolvedValue({ data: { id: "u1", onboarding_step: 2, name: "Aïcha" }, error: null });
+    renderWizard({ currentUser: nameStepUser("Aïcha", "Dickinson") });
+    fireEvent.click(await screen.findByRole("button", { name: "Continuer" }));
+    await waitFor(() => expect(chain.update).toHaveBeenCalledTimes(1));
+    expect(chain.update.mock.calls[0][0]).toMatchObject({ name: "Aïcha", last_name: "Dickinson", onboarding_step: 2 });
+    expect(screen.queryByText(MODERATION_REFUSAL)).not.toBeInTheDocument();
+  });
+});

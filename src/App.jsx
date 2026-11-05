@@ -2206,6 +2206,10 @@ export default function App() {
       // Biographie contrôlée seulement si elle a changé (comme le déclencheur serveur) : une ancienne
       // biographie ne doit pas empêcher d'enregistrer le reste du profil.
       if (payload.bio && payload.bio !== (currentUser.bio || "")) await screenText(supabase, "bio", payload.bio);
+      // Nom affiché, nom de famille et métier : visibles de tous, contrôlés eux aussi (déclencheurs serveur du même nom).
+      for (const field of ["name", "last_name", "occupation"]) {
+        if (payload[field] && payload[field] !== (currentUser[field] || "")) await screenText(supabase, "bio", payload[field]);
+      }
       const { data, error: updateError } = await updateOwnProfile(supabase, currentUser.id, payload);
       if (updateError) throw updateError;
 

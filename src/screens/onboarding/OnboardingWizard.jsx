@@ -204,6 +204,9 @@ export default function OnboardingWizard({
       }
 
       if (step === 2) {
+        // Nom affiché et nom de famille : texte visible des autres membres, contrôlé avant l'envoi (SQL-31).
+        if (draft.name.trim()) await screenText(supabase, "bio", draft.name);
+        if (draft.lastName.trim()) await screenText(supabase, "bio", draft.lastName);
         const payload = {
           name: draft.name.trim(),
           last_name: draft.lastName.trim() || null,
@@ -270,6 +273,7 @@ export default function OnboardingWizard({
       }
 
       let payload = null;
+      if (step === 5 && draft.occupation.trim()) await screenText(supabase, "bio", draft.occupation);
       if (step === 4) {
         payload = { country: draft.country.trim(), province: draft.province.trim(), city: draft.city.trim(), onboarding_step: 4 };
       } else if (step === 5) {
