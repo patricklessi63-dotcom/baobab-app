@@ -173,3 +173,21 @@ Fichier posé SUR le hotfix `admin_list_reports` déjà exécuté en production 
 - **Lecture seule en production (état ACTUEL, pas l'export)** : `reports_category_check` = `NULL` ou `harcelement`, `spam`, `faux_profil`, `contenu_inapproprie`, `arnaque`, `autre` — **sans `mineur_suspecte`**. Le client propose pourtant « Mineur suspecté » pour un profil (`reportCategories.js`) : l'envoi échoue avec « violates check constraint "reports_category_check" », alors que la politique de confidentialité promet un traitement prioritaire. Les listes communauté, événement et publication sont conformes. Même lecture : les 4 contraintes `<table>_status_check` (communauté, événement, publication, info) n'acceptent que `open`, `resolved`, `dismissed` en production — l'étape 0 de `supabase-report-statuses.sql` est donc nécessaire, confirmé sur la base réelle.
 - **Essai sur la répétition (contrainte remise à l'état de production)** de `supabase-profile-report-minor-constraint-fix.sql` : AVANT, `mineur_suspecte` refusé par l'API, un motif existant accepté ; fichier appliqué sans erreur, rejouable ; APRÈS : `mineur_suspecte` accepté, un motif inconnu toujours refusé, `NULL` accepté, lignes existantes intactes (20/20, même empreinte). 9/9 contrôles. Le fichier est **livré, NON exécuté en production**, indépendant de SQL-31 et des statuts ; ne PAS rejouer `supabase-report-minor-category.sql` (il écraserait `admin_list_reports` du hotfix).
 - **Non testé** : l'interface d'envoi du signalement, le traitement prioritaire côté modérateur de bout en bout, la production.
+
+## Relevé des erreurs de production (journaux Postgres et API Gateway) — 2 au 5 novembre 2026, lecture seule
+
+Fenêtre disponible dans la console : du 2 nov. 06 h au 5 nov. 07 h (heure de la console). Postgres : 3 + 44 + 43 = 90 lignes d'erreur ; API Gateway (4xx/5xx) du 4 au 5 nov. : 88 lignes. Les comptes ci-dessous sont des MINIMA (la console tronque les lignes simultanées).
+
+| Erreur (journaux) | Occurrences | Verdict |
+|---|---|---|
+| `permission denied for table profiles` (+ `profile_photos`) | ≥ 22 sur les 3 jours (chaque jour) ; côté API ≈ 9 × 401/403 `GET /rest/v1/profiles` | **À élucider** : une requête du client demande une colonne non accordée (privilèges par colonne) ou `select=*` ; récurrent, pas lié à un correctif |
+| `POST /rpc/moderation_screen` en **404** (+ `moderation_terms`, `moderation_exceptions`, `moderation_sanctions`, `moderation_violations`, `admin_moderation_violations`) | ≥ 22 + ≈ 9 | Le client déployé appelle déjà des objets de **SQL-31, absent de la production** : le contrôle de texte ne fonctionne pas encore ; vérifier que le client tombe en « autorisé » (échec ouvert) |
+| `UNION types uuid and bigint cannot be matched` (`admin_list_reports`, 400) | ≥ 6 | Corrigé par le hotfix exécuté le 5 nov. |
+| `story_reactions_emoji_check` violée | ≥ 12 (3 nov. 22 h 59 à 23 h 08) | Corrigé par SQL-26 (exécuté le 4 nov.) |
+| `column app_config.message_delete_window_minutes does not exist` (400) | ≥ 4 (4 nov. 09 h) | Corrigé par SQL-27 (exécuté à 10 h 11) |
+| RLS `messages` (403) | 3 | Attendu (blocage, pas de « j'aime » mutuel…) |
+| Rafale anonyme du 5 nov. 01 h 16–01 h 17 : 401 sur `blocks`, `messages`, `subscriptions`, `admin_actions`, `notifications`, `favorites`, `likes`, `event_reports`, `community_reports`, `profile_photos` ; `permission denied for function current_profile_id / is_admin_or_above / is_event_mod / is_community_mod` | ≈ 25 | Sonde anonyme (audit) : l'anonyme est bien refusé |
+| `duplicate key` sur `analytics_events_profile_id_event_type_key` (2) et `story_views_story_id_viewer_id_key` (3), RLS `story_views` (2) | 7 | Bruit du client (insertion au lieu d'un upsert « ignorer ») ; inoffensif |
+| Divers : `syntax error at or near "npx"` (2), `ESSAI_OK_ANNULE` (1), `canceling statement due to user request` (1), `Non autorise` (1), 400 sur `/auth/v1/token` (2) | 7 | Éditeur SQL / essais annulés / mauvais mot de passe : sans objet |
+
+Non couvert : avant le 2 nov. 06 h (hors fenêtre), le détail par utilisateur, les journaux PostgREST/Auth/Storage/Edge Functions, les 4xx de succès partiel.
