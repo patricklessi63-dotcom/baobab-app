@@ -72,7 +72,7 @@ function setup() {
 // garantit de cliquer sur le vrai lien de navigation (goTab), jamais sur le
 // sous-onglet du Fil.
 async function openProfileMenuAndClick(user, label) {
-  const trigger = screen.getByRole("button", { name: "Menu du profil" });
+  const trigger = await screen.findByRole("button", { name: "Menu du profil" });
   await user.click(trigger);
   await user.click(within(trigger.parentElement).getByRole("button", { name: label }));
 }
@@ -101,6 +101,7 @@ describe("SocialShell — navigation par historique (goTab/goBack réels)", () =
   it("un popstate simulé après un changement d'onglet (menu → Communautés) restaure l'onglet précédent (Fil)", async () => {
     const user = userEvent.setup();
     setup();
+    await screen.findByRole("navigation"); // attend l'affichage du Fil (rendu lent sous charge)
 
     // Écran de départ : Fil (tab initial par défaut).
     expect(bottomNavButton("Découverte")).toBeInTheDocument();
@@ -135,6 +136,7 @@ describe("SocialShell — navigation par historique (goTab/goBack réels)", () =
     // intermédiaire), jamais directement à l'écran de départ.
     const user = userEvent.setup();
     setup();
+    await screen.findByRole("navigation");
 
     await user.click(bottomNavButton("Rencontres"));
     await waitFor(() => expect(screen.getByText("Découvrir")).toBeInTheDocument());
@@ -154,6 +156,7 @@ describe("SocialShell — navigation par historique (goTab/goBack réels)", () =
   it("le bouton \"Retour\" visible dans Communautés (onBack=goBack) consomme la même entrée d'historique que le popstate", async () => {
     const user = userEvent.setup();
     setup();
+    await screen.findByRole("navigation");
 
     await openProfileMenuAndClick(user, "Communautés");
     await waitFor(() => expect(screen.getByText("🌍 Communautés Baobab")).toBeInTheDocument());
