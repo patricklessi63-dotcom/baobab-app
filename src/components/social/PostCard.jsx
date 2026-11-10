@@ -1,5 +1,5 @@
 import React, { useRef, useState } from "react";
-import { Heart, MessageCircle, Flag, Ban, Trash2, Pencil, Check, X, ImageOff, SmilePlus } from "lucide-react";
+import { Heart, MessageCircle, Flag, Ban, Trash2, Pencil, Check, X, ImageOff, SmilePlus, Bookmark } from "lucide-react";
 import Avatar from "../Avatar";
 import StatusBadge from "../StatusBadge";
 import ClickableImage from "../ClickableImage";
@@ -47,6 +47,8 @@ export default function PostCard({
   myCommentLikes,
   onToggleCommentLike,
   onBlockAuthor,
+  // Collections privées Premium : absent tant que Premium n'est pas ouvert (drapeau de lancement).
+  onSave,
 }) {
   const [commentsOpen, setCommentsOpen] = useState(false);
   // Sélecteur des six réactions (SQL-32) : ferme au clic extérieur et à Échap, comme les autres menus.
@@ -208,6 +210,11 @@ export default function PostCard({
               <button onClick={toggleComments} aria-label="Afficher les commentaires" className="bb-hit flex items-center gap-1.5 text-xs font-semibold focus-visible:outline focus-visible:outline-2" style={{ color: muted }}>
                 <MessageCircle size={15} /> {(commentsLoaded ? comments.length : commentCount) > 0 ? (commentsLoaded ? comments.length : commentCount) : "Commenter"}
               </button>
+              {onSave && (
+                <button onClick={() => onSave(post)} aria-label="Enregistrer dans une collection" className="bb-hit flex items-center gap-1.5 text-xs font-semibold focus-visible:outline focus-visible:outline-2" style={{ color: muted }}>
+                  <Bookmark size={15} />
+                </button>
+              )}
               {!isMine && (
                 <button onClick={() => onReport(post)} aria-label="Signaler la publication" className="bb-hit flex items-center gap-1.5 text-xs font-semibold focus-visible:outline focus-visible:outline-2" style={{ color: muted }}>
                   <Flag size={13} />

@@ -31,6 +31,12 @@ export const PREMIUM_PLANS = [
 // qu'un·e admin ne l'a pas activée.
 export const PREMIUM_FEATURES = [
   {
+    key: "private_collections",
+    icon: "📚",
+    label: "Collections privées de publications",
+    description: "Range les publications à retrouver plus tard dans tes collections. Elles restent privées, et tu les gardes même si tu résilies.",
+  },
+  {
     key: "advanced_filters",
     icon: "🔍",
     label: "Filtres de recherche avancés",
@@ -65,6 +71,16 @@ export const FEATURE_DETAILS = {
     ],
     stillFree: "Les filtres de base (ville, intention, étape d'arrivée, profils vérifiés, à proximité) restent gratuits.",
   },
+  private_collections: {
+    title: "Collections privées de publications",
+    purpose: "Retrouver facilement les publications qui comptent pour toi.",
+    benefits: [
+      "Jusqu'à 20 collections de ton choix",
+      "Jusqu'à 500 publications par collection",
+      "Visibles par toi seul·e, toujours",
+    ],
+    stillFree: "Le fil, les réactions et les commentaires restent gratuits. Si tu résilies, tu gardes tes collections et peux les consulter.",
+  },
   admirers_reveal: {
     title: "Qui t'a aimé·e en premier",
     purpose: "Savoir qui s'intéresse à toi sans attendre la réciprocité.",
@@ -87,6 +103,7 @@ export const COMPARISON_ROWS = [
   { icon: "🧭", label: "Découverte de profils", free: "Filtres de base", premium: "Filtres de base + avancés" },
   { icon: "🔍", label: "Filtrer par centres d'intérêt, langues et activité récente", free: false, premium: true },
   { icon: "💗", label: "Personnes qui t'ont aimé·e", free: "Le nombre", premium: "La liste complète" },
+  { icon: "📚", label: "Collections privées de publications", free: false, premium: true },
   { icon: "✨", label: "Badge Premium sur ton profil", free: false, premium: true },
 ];
 

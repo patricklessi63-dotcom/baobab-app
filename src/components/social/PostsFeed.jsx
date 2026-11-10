@@ -1,7 +1,11 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { Suspense, lazy, useCallback, useEffect, useRef, useState } from "react";
 import { Image as ImageIcon } from "lucide-react";
 import { supabase } from "../../supabaseClient";
 import PostCard from "./PostCard";
+// Chargée à la demande : inutile dans le chunk principal tant que Premium n'est pas ouvert.
+const CollectionsModal = lazy(() => import("./CollectionsModal"));
+import { isPremiumEnabled } from "../../lib/featureFlags";
+import { setPremiumIntent } from "../../lib/premium/premiumIntent";
 import PostComposerModal from "./PostComposerModal";
 import PostMediaGrid from "./PostMediaGrid";
 import ReportModal from "./ReportModal";
@@ -49,7 +53,7 @@ const MAX_MEDIA_ITEMS = 10;
 // onViewProfile(id) : ouvre la fiche (Signaler / Bloquer) de l'auteur ; onBlockProfile(profil) :
 // demande le blocage de l'auteur d'un contenu signalé (Apple 1.2 / Google Play UGC). Tous deux
 // facultatifs (la grille « Mes publications » du profil ne les fournit pas).
-export default function PostsFeed({ currentUser, blockedIds = new Set(), authorId, layout = "list", onError = () => {}, onPostCountChange = () => {}, onViewProfile, onBlockProfile }) {
+export default function PostsFeed({ currentUser, blockedIds = new Set(), authorId, layout = "list", onError = () => {}, onPostCountChange = () => {}, onViewProfile, onBlockProfile, onOpenPremium }) {
   const [posts, setPosts] = useState([]);
   const [postsLoading, setPostsLoading] = useState(true);
   // Échec du premier chargement : affiché comme une erreur (avec « Réessayer »)
@@ -69,6 +73,10 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
   // window.confirm(), voir ConfirmModal.jsx. La vue liste passe déjà par
   // PostCard.jsx, qui a sa propre confirmation.
   const [pendingDelete, setPendingDelete] = useState(null);
+  // Collections privées (Premium) : { post } pour enregistrer une publication, {} pour parcourir.
+  const [collectionsTarget, setCollectionsTarget] = useState(null);
+  const collectionsEnabled = isPremiumEnabled() && !authorId;
+  const openPremiumFromCollections = (intent) => { if (intent === "plans") setPremiumIntent("plans"); onOpenPremium?.(); };
 
   const [composer, setComposer] = useState(false);
   const [draft, setDraft] = useState("");
@@ -1213,6 +1221,12 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
         Partage quelque chose avec la communauté...
       </button>
 
+      {collectionsEnabled && onOpenPremium && (
+        <button type="button" onClick={() => setCollectionsTarget({})} className="text-xs font-bold mb-3 focus-visible:outline focus-visible:outline-2" style={{ color: muted }}>
+          📚 Mes collections
+        </button>
+      )}
+
       {!authorId && (
         <div role="tablist" aria-label="Filtrer le fil" className="flex gap-1.5 mb-3 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
           {FEED_FILTERS.map(([key, label]) => (
@@ -1272,6 +1286,7 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
                 onEdit={editPost}
                 onViewProfile={onViewProfile}
                 onBlockAuthor={onBlockProfile}
+                onSave={collectionsEnabled && onOpenPremium ? (p) => setCollectionsTarget({ post: p }) : undefined}
               />
             ))}
           </div>
@@ -1285,6 +1300,18 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
       )}
 
       <PostComposerModal {...composerProps} />
+
+      {collectionsEnabled && onOpenPremium && collectionsTarget && (
+        <Suspense fallback={null}>
+          <CollectionsModal
+            open
+            onClose={() => setCollectionsTarget(null)}
+            post={collectionsTarget.post || null}
+            currentUser={currentUser}
+            onOpenPremium={openPremiumFromCollections}
+          />
+        </Suspense>
+      )}
 
       <ReportModal
         target={reportTarget}

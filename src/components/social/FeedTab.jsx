@@ -572,7 +572,7 @@ export default function FeedTab({
             <h2 className="text-xl font-black" style={{ color: primary }}>📰 Fil d'actualité</h2>
             <p className="text-sm mt-1" style={{ color: muted }}>Ce que la communauté partage.</p>
           </div>
-          <PostsFeed currentUser={currentUser} blockedIds={blockedIds} onError={onError} onViewProfile={onOpenProfile} onBlockProfile={onBlockProfile} />
+          <PostsFeed currentUser={currentUser} blockedIds={blockedIds} onError={onError} onViewProfile={onOpenProfile} onBlockProfile={onBlockProfile} onOpenPremium={() => goTab("premium")} />
           </>
           )}
 
