@@ -157,3 +157,5 @@ Script rejouable (35 contrôles, comptes A, B et un « outsider » sans lien ave
 **Écart répétition / production, en lecture seule** : après exécution, j'ai relu sur la production et recoupé avec la répétition les policies de blocage, les fonctions `is_blocked_with_*`, `notifications_type_check`, les tables, déclencheurs et droits de la modération, les contraintes de signalement et les fonctions d'administration des signalements (concordance constatée) ; je n'ai pas comparé la base entière ; différences connues : la répétition contient des comptes et des lignes de test, la production non ; `reports.id`, `blocks.id` et `profile_photos.id` sont des entiers (bigint) dans les deux.
 
 **Toujours NON testé** : appareils réels (iOS Safari, Android Chrome, apps Capacitor), vrai micro et clavier virtuel, vidéos et fichiers joints, notifications push, hors ligne puis reconnexion, réinitialisation de mot de passe par e-mail, paiement/Premium, charge.
+
+**Pas-à-pas de test en production** (deux vrais comptes, deux appareils, 60 à 75 minutes, sans SQL ni compte de test) : `TEST-PRODUCTION-DEUX-COMPTES.md`.
