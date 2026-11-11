@@ -1,6 +1,6 @@
 import React from "react";
 import { Check, Minus } from "lucide-react";
-import { COMPARISON_ROWS } from "../../lib/premium/premiumConfig";
+import { getComparisonRows } from "../../lib/premium/premiumConfig";
 import { primary, muted, card, goldText, green } from "../social/theme";
 
 // Tableau comparatif Gratuit / Premium. Consultable par tout le monde, sans
@@ -29,7 +29,7 @@ function Cell({ value }) {
   return <span className="text-xs font-semibold leading-snug">{value}</span>;
 }
 
-export default function PremiumComparison({ rows = COMPARISON_ROWS }) {
+export default function PremiumComparison({ rows = getComparisonRows() }) {
   return (
     <section className={`${card} p-4 sm:p-5 mb-6`} aria-labelledby="premium-comparison-title">
       <h2 id="premium-comparison-title" className="text-xs font-black uppercase tracking-wider" style={{ color: muted }}>

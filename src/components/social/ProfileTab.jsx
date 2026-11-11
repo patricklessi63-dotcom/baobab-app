@@ -12,7 +12,7 @@ import { categoryIcon, categoryLabel } from "../../lib/communities/communityConf
 import { categoryIcon as eventCategoryIcon, categoryLabel as eventCategoryLabel } from "../../lib/events/eventConfig";
 import { formatEventWhen, visibleAge } from "../../utils/format";
 import { usePremiumStatus } from "../../lib/premium/usePremiumStatus";
-import { PREMIUM_FEATURES, PREMIUM_PLANS } from "../../lib/premium/premiumConfig";
+import { getPremiumFeatures, PREMIUM_PLANS } from "../../lib/premium/premiumConfig";
 import { openBillingPortal } from "../../lib/premium/checkout";
 import { primary, navy, green, coral, coralText, gold, goldText, bg, muted, online, verified, primaryRgb, leaf } from "./theme";
 import { isNative } from "../../lib/platform";
@@ -549,7 +549,7 @@ export default function ProfileTab({
                         Baobab reste entièrement utilisable gratuitement. Premium ajoute quelques outils en plus :
                       </p>
                       <ul className="space-y-2">
-                        {PREMIUM_FEATURES.map((f) => (
+                        {getPremiumFeatures().map((f) => (
                           <li key={f.label} className="flex items-center gap-2.5 text-sm" style={{ color: primary }}>
                             <span aria-hidden="true">{f.icon}</span>
                             <span className="font-bold">{f.label}</span>

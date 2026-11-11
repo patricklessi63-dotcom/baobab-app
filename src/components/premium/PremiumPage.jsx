@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowLeft, Check } from "lucide-react";
-import { PREMIUM_PLANS, PREMIUM_FEATURES } from "../../lib/premium/premiumConfig";
+import { PREMIUM_PLANS, getPremiumFeatures } from "../../lib/premium/premiumConfig";
 import { startCheckout, openBillingPortal } from "../../lib/premium/checkout";
 import { usePremiumStatus } from "../../lib/premium/usePremiumStatus";
 import { consumePremiumIntent } from "../../lib/premium/premiumIntent";
@@ -220,7 +220,7 @@ export default function PremiumPage({ currentUser, onBack, onError, justSubscrib
           <div className={`${card} p-5 mb-6`}>
             <span className="text-xs font-black uppercase tracking-wider" style={{ color: muted }}>Avantages</span>
             <ul className="flex flex-col gap-3 mt-3">
-              {PREMIUM_FEATURES.map((f) => (
+              {getPremiumFeatures().map((f) => (
                 <li key={f.label} className="flex items-start gap-3">
                   <span className="h-9 w-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: bg }}>{f.icon}</span>
                   <div>

@@ -39,6 +39,21 @@ describe("invokeAI — surface le vrai message d'erreur de l'edge function ai-as
     expect(error).toBe("Limite de suggestions IA atteinte pour cette heure. Réessaie plus tard.");
   });
 
+  it("remonte le code du serveur (premium_required, daily_limit...) en plus du message, sans le fabriquer quand il manque", async () => {
+    mocks.invokeMock.mockResolvedValue({
+      data: null,
+      error: makeHttpError({ error: "Cet outil est réservé aux abonnés Baobab Premium.", code: "premium_required" }),
+    });
+    const { invokeAI } = await import("./aiClient");
+    const withCode = await invokeAI("correct_text", { text: "bonjour" });
+    expect(withCode).toEqual({ data: null, error: "Cet outil est réservé aux abonnés Baobab Premium.", code: "premium_required" });
+
+    mocks.invokeMock.mockResolvedValue({ data: null, error: makeHttpError({ error: "Non authentifié." }) });
+    const withoutCode = await invokeAI("improve_post", { text: "bonjour" });
+    expect(withoutCode).toEqual({ data: null, error: "Non authentifié." });
+    expect("code" in withoutCode).toBe(false);
+  });
+
   it("propage les autres messages précis du serveur (ex. suggestions IA désactivées, non authentifié)", async () => {
     mocks.invokeMock.mockResolvedValue({
       data: null,

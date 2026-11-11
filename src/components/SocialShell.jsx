@@ -51,6 +51,7 @@ const AdminDashboard = lazy(() => import("./admin/AdminDashboard"));
 const PremiumPage = lazy(() => import("./premium/PremiumPage"));
 const PremiumGate = lazy(() => import("./premium/PremiumGate"));
 import { isPremiumEnabled, isAiEnabled } from "../lib/featureFlags";
+import { setPremiumNavigator } from "../lib/premium/premiumIntent";
 const ImmigrationNewsView = lazy(() => import("./social/ImmigrationNewsView"));
 
 // Modales secondaires chargées à la demande (item 2c de l'allègement du
@@ -2275,6 +2276,14 @@ export default function SocialShell({
     setMenu(false);
     setNotificationsOpen(false);
   };
+
+  // Permet à un composant profond (outils IA Premium du composeur, par exemple) d'ouvrir l'écran Premium
+  // sans qu'on lui fasse traverser toute l'arborescence en prop (voir lib/premium/premiumIntent.js).
+  // Réenregistré à chaque rendu : goTab lit l'onglet courant.
+  useEffect(() => {
+    setPremiumNavigator(() => goTab("premium"));
+    return () => setPremiumNavigator(null);
+  });
 
   // Retour "logique" (bouton flèche affiché en haut des écrans secondaires) :
   // identique au bouton retour matériel/geste mobile — consomme la VRAIE

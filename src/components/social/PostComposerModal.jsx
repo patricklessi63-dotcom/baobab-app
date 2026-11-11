@@ -6,6 +6,7 @@ import Avatar from "../Avatar";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 import AiSuggestButton from "../ai/AiSuggestButton";
+import AiWritingTools from "../ai/AiWritingTools";
 import EmojiPicker from "./EmojiPicker";
 import PostMediaGrid from "./PostMediaGrid";
 import PostDropZone from "./PostDropZone";
@@ -170,6 +171,13 @@ export default function PostComposerModal({
                           ) : <span />}
                           <span className="text-[11px]" style={{ color: draft.length > 3800 ? coralText : muted }}>{draft.length}/4000</span>
                         </div>
+                        {currentUser?.ai_suggestions_enabled !== false && !publishedPostId && (
+                          <AiWritingTools
+                            currentUser={currentUser}
+                            draft={draft}
+                            onApply={(text) => setDraft(truncateUnicodeSafe(text, 4000))}
+                          />
+                        )}
                       </div>
                     </div>
 

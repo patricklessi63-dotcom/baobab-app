@@ -50,8 +50,10 @@ export async function invokeAI(action, payload = {}) {
       // remplacée par un "Réessaie" générique : l'utilisateur qui venait de
       // dépasser son quota horaire ne le savait jamais et retentait aussitôt
       // pour rien.
-      const serverMessage = await readServerErrorMessage(error);
-      return { data: null, error: serverMessage || "Le service IA n'a pas pu répondre. Réessaie." };
+      const server = await readServerError(error);
+      // `code` (premium_required, daily_limit...) n'est ajouté que s'il existe : les appelants qui ne
+      // regardent que `error` ne voient aucune différence.
+      return { data: null, error: server.message || "Le service IA n'a pas pu répondre. Réessaie.", ...(server.code ? { code: server.code } : {}) };
     }
     if (data?.error) return { data: null, error: data.error };
     return { data, error: null };
@@ -64,13 +66,16 @@ export async function invokeAI(action, payload = {}) {
 // Extrait le message français rédigé côté serveur (voir ai-assist/index.ts,
 // toUserMessage) depuis la Response brute portée par FunctionsHttpError.
 // Défensif : le corps peut être vide, non-JSON, ou déjà consommé.
-async function readServerErrorMessage(error) {
+async function readServerError(error) {
   try {
     const response = error?.context;
-    if (!response || typeof response.json !== "function") return null;
+    if (!response || typeof response.json !== "function") return {};
     const body = await (typeof response.clone === "function" ? response.clone() : response).json();
-    return typeof body?.error === "string" ? body.error : null;
+    return {
+      message: typeof body?.error === "string" ? body.error : null,
+      code: typeof body?.code === "string" ? body.code : null,
+    };
   } catch (_) {
-    return null;
+    return {};
   }
 }
