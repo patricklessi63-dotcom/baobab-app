@@ -46,6 +46,12 @@ export const PREMIUM_FEATURES = [
     description: "Range les publications à retrouver plus tard dans tes collections. Elles restent privées, et tu les gardes même si tu résilies.",
   },
   {
+    key: "creator_stats",
+    icon: "📊",
+    label: "Mes statistiques",
+    description: "Vois les j'aime, commentaires et abonnés reçus, tes publications les plus appréciées et ton évolution semaine après semaine. Des chiffres réels, jamais la liste des personnes.",
+  },
+  {
     key: "advanced_filters",
     icon: "🔍",
     label: "Filtres de recherche avancés",
@@ -100,6 +106,16 @@ export const FEATURE_DETAILS = {
     ],
     stillFree: "Le fil, les réactions et les commentaires restent gratuits. Si tu résilies, tu gardes tes collections et peux les consulter.",
   },
+  creator_stats: {
+    title: "Mes statistiques",
+    purpose: "Comprendre ce qui plaît dans ce que tu partages.",
+    benefits: [
+      "J'aime, commentaires et abonnés reçus sur 7, 30 ou 90 jours",
+      "Tes cinq publications les plus appréciées",
+      "Ton évolution semaine après semaine",
+    ],
+    stillFree: "Tu vois toujours les j'aime et commentaires sous chaque publication. Baobab ne suit pas qui consulte ton profil : seuls des chiffres d'interactions réelles sont affichés.",
+  },
   admirers_reveal: {
     title: "Qui t'a aimé·e en premier",
     purpose: "Savoir qui s'intéresse à toi sans attendre la réciprocité.",
@@ -127,6 +143,7 @@ export const COMPARISON_ROWS = [
   // si le propriétaire les change dans Supabase, changer ces deux chiffres aussi.
   { icon: "🤖", label: "Suggestions IA par jour", free: "10", premium: "100", requiresFlag: "ai" },
   { icon: "📚", label: "Collections privées de publications", free: false, premium: true },
+  { icon: "📊", label: "Statistiques de mes publications et de mon profil", free: false, premium: true },
   { icon: "✨", label: "Badge Premium sur ton profil", free: false, premium: true },
 ];
 

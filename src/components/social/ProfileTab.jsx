@@ -19,6 +19,7 @@ import { isNative } from "../../lib/platform";
 import { linkOrigin } from "../../lib/publicOrigin";
 import { shareNative } from "../../lib/nativeShare";
 import { isPremiumEnabled } from "../../lib/featureFlags";
+import CreatorStats from "../premium/CreatorStats";
 
 // Même mapping que EventCard.jsx/EventParticipantsList.jsx (badge de statut
 // de participation) — repris ici pour "Mes événements" (onglet Profil), qui
@@ -335,7 +336,7 @@ export default function ProfileTab({
                   ["communities", "Mes communautés"],
                   ["events", "Événements"],
                   ["network", "Mon réseau"],
-                  ...(showPremium ? [["premium", "Abonnement"]] : []),
+                  ...(showPremium ? [["stats", "Statistiques"], ["premium", "Abonnement"]] : []),
                   ["about", "À propos"],
                 ]}
                 active={profileTab}
@@ -458,6 +459,8 @@ export default function ProfileTab({
                     </div>
                   )}
                 </div>
+              ) : profileTab === "stats" && showPremium ? (
+                <CreatorStats currentUser={currentUser} />
               ) : profileTab === "premium" ? (
                 <div className="p-5">
                   {isPremium ? (
