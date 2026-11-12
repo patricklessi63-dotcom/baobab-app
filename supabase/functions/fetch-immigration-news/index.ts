@@ -87,7 +87,8 @@ async function fetchSource(src: (typeof SOURCES)[number]) {
       source_url: href,
       fetched_at: new Date().toISOString(),
     };
-  }).filter((r) => r.title && r.source_url);
+  // Seules les adresses http(s) sont gardées : une adresse javascript: / data: placée dans un flux ne doit jamais arriver en base.
+  }).filter((r) => r.title && /^https?:///i.test(r.source_url));
 
   return rows;
 }

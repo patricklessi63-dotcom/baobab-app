@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { safeHttpUrl } from "../../utils/safeUrl";
 import {
   ArrowLeft, ExternalLink, AlertTriangle, Landmark, ShieldCheck,
   CreditCard, Stethoscope, Wallet, Car, Receipt, Home, Phone,
@@ -60,6 +61,10 @@ function NewsCard({ item, featured, isFavorite, onToggleFavorite }) {
   const meta = SOURCE_META[item.source] || {};
   const Icon = meta.icon || ShieldCheck;
   const fresh = freshness(item.published_at);
+  // Adresse venue d'un flux externe : seul http(s) devient un lien (jamais javascript: / data:). Sinon la carte reste lisible sans lien.
+  const sourceUrl = safeHttpUrl(item.source_url);
+  const Wrapper = sourceUrl ? "a" : "div";
+  const wrapperProps = sourceUrl ? { href: sourceUrl, target: "_blank", rel: "noopener noreferrer" } : {};
   return (
     <div className={`${card} relative overflow-hidden hover:-translate-y-0.5 transition-transform duration-200`}>
       {onToggleFavorite && (
@@ -73,7 +78,7 @@ function NewsCard({ item, featured, isFavorite, onToggleFavorite }) {
           <Heart size={15} color={coral} fill={isFavorite ? coral : "none"} />
         </button>
       )}
-      <a href={item.source_url} target="_blank" rel="noopener noreferrer" className="block">
+      <Wrapper {...wrapperProps} className="block">
         <div className="p-4">
           <div className="flex items-center justify-between gap-2 mb-2">
             <div className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-wider" style={{ color: meta.color }}>
@@ -94,12 +99,14 @@ function NewsCard({ item, featured, isFavorite, onToggleFavorite }) {
           )}
           <div className="flex items-center justify-between mt-3">
             <span className="text-[11px]" style={{ color: muted }}>{new Date(item.published_at).toLocaleDateString("fr-CA", { year: "numeric", month: "long", day: "numeric" })}</span>
-            <span className="text-[11px] font-bold flex items-center gap-1" style={{ color: coralText }}>
-              Source officielle <ExternalLink size={11} />
-            </span>
+            {sourceUrl && (
+              <span className="text-[11px] font-bold flex items-center gap-1" style={{ color: coralText }}>
+                Source officielle <ExternalLink size={11} />
+              </span>
+            )}
           </div>
         </div>
-      </a>
+      </Wrapper>
     </div>
   );
 }

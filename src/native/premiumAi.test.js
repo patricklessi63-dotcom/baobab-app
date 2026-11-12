@@ -78,6 +78,19 @@ describe("SQL-39 — outils d'écriture IA Premium", () => {
   });
 });
 
+describe("hygiène : ai_usage n'est écrite que par la fonction (clé de service)", () => {
+  it("un compte connecté peut lire mais ni insérer, ni modifier, ni effacer ; anonyme sans aucun droit", async () => {
+    const db = await fresh();
+    await db.exec(SQL39);
+    const priv = async (role, p) => (await db.query("select has_table_privilege($1, 'public.ai_usage', $2) as ok", [role, p])).rows[0].ok;
+    expect(await priv("authenticated", "INSERT")).toBe(false);
+    expect(await priv("authenticated", "UPDATE")).toBe(false);
+    expect(await priv("authenticated", "DELETE")).toBe(false);
+    for (const p of ["SELECT", "INSERT", "UPDATE", "DELETE"]) expect(await priv("anon", p), p).toBe(false);
+    await db.close();
+  });
+});
+
 describe("ai-assist/index.ts — branchement de la politique (garde-fou de dérive)", () => {
   const src = fs.readFileSync(path.join(process.cwd(), "supabase/functions/ai-assist/index.ts"), "utf8");
   const policy = fs.readFileSync(path.join(process.cwd(), "supabase/functions/_shared/aiPolicy.ts"), "utf8");

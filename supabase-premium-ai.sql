@@ -44,3 +44,8 @@ values ('ai_writing_tools', 'Outils d''écriture IA (correction, aide à la réd
 on conflict (key) do nothing;
 
 create index if not exists idx_ai_usage_created_at on public.ai_usage (created_at);
+
+-- Hygiene : ai_usage n'est ecrite QUE par la fonction ai-assist (cle de service) ; aucun compte connecte n'a a y inserer,
+-- modifier ou effacer sa propre consommation (l'unique policy est un SELECT, mais les privileges de table etaient ouverts).
+revoke insert, update, delete on public.ai_usage from authenticated;
+revoke all on public.ai_usage from anon;
