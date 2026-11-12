@@ -5,6 +5,7 @@ import EmptyState from "../home/EmptyState";
 import Skeleton, { SkeletonCard } from "../Skeleton";
 import * as adminApi from "../../lib/adminApi";
 import ModerationPanel from "./ModerationPanel";
+import PremiumStatsCard from "./PremiumStatsCard";
 import { formatLongDate, truncateUnicodeSafe } from "../../utils/format";
 import { PROFILE_REPORT_CATEGORIES } from "../../lib/reportCategories";
 import { COMMUNITY_REPORT_CATEGORIES } from "../../lib/communities/communityConfig";
@@ -47,6 +48,7 @@ export default function AdminDashboard({ onBack, onError, myPlatformRole, myProf
   const isAdmin = myPlatformRole === "admin" || myPlatformRole === "super_admin";
 
   const [stats, setStats] = useState(null);
+  const [premiumStats, setPremiumStats] = useState(null);
   const [statsLoading, setStatsLoading] = useState(true);
 
   const [query, setQuery] = useState("");
@@ -98,6 +100,11 @@ export default function AdminDashboard({ onBack, onError, myPlatformRole, myProf
     setStatsLoading(true);
     try {
       setStats(await adminApi.fetchDashboardStats());
+      // Bloc Premium : facultatif et réservé aux administrateurs. Toute erreur (rôle modérateur, fonction absente) le masque, sans bruit.
+      setPremiumStats(null);
+      if (myPlatformRole === "admin" || myPlatformRole === "super_admin") {
+        try { setPremiumStats(await adminApi.fetchPremiumStats()); } catch { setPremiumStats(null); }
+      }
     } catch (e) {
       console.error(e);
       onError("Impossible de charger les statistiques.");
@@ -361,6 +368,7 @@ export default function AdminDashboard({ onBack, onError, myPlatformRole, myProf
           </div>
         )
       )}
+      {subTab === "dashboard" && !statsLoading && premiumStats && <PremiumStatsCard stats={premiumStats} />}
 
       {subTab === "users" && (
         <div>

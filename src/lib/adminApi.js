@@ -11,6 +11,14 @@ export async function fetchDashboardStats() {
   return data;
 }
 
+// Statistiques d'abonnement (SQL-37, admin_premium_stats). Réservée aux administrateurs côté base ; aucun montant
+// (Stripe fait foi pour les revenus). Un modérateur reçoit une erreur : l'appelant masque alors le bloc.
+export async function fetchPremiumStats() {
+  const { data, error } = await supabase.rpc("admin_premium_stats");
+  if (error) throw error;
+  return data;
+}
+
 export async function searchUsers(query = "") {
   const { data, error } = await supabase.rpc("admin_search_users", { p_query: query });
   if (error) throw error;
