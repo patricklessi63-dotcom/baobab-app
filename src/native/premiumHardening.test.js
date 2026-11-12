@@ -10,17 +10,20 @@ import { PGlite } from "@electric-sql/pglite";
 
 const read = (f) => fs.readFileSync(path.join(process.cwd(), f), "utf8");
 const SQL37 = read("supabase-premium-entitlements.sql");
-const SQL38 = read("supabase-premium-collections.sql");
+// SQL-38 TEL QU'EXÉCUTÉ EN PRODUCTION le 12/11/2026 (copie figée) : SQL-41 doit corriger CET état-là.
+const SQL38_PROD = read("src/native/fixtures/sql38-as-executed-in-prod-2026-11-12.sql");
+// SQL-38 actuel du dépôt (corrigé à la source) : une installation neuve passe par lui puis par SQL-41.
+const SQL38_REPO = read("supabase-premium-collections.sql");
 const SQL41 = read("supabase-premium-hardening.sql");
 
 const id = (n) => `00000000-0000-0000-0000-${String(n).padStart(12, "0")}`;
-const PREMIUM = id(1), SUSPENDED = id(2), BANNED = id(3), EXPIRED_SUSPENSION = id(4), HIDER = id(5);
+const PREMIUM = id(1), SUSPENDED = id(2), BANNED = id(3), EXPIRED_SUSPENSION = id(4), HIDER = id(5), DELETING = id(6);
 const P_VISIBLE = id(100), P_HIDDEN = id(101), P_MISSING = id(999);
 
 const PREREQ = `
   create role anon nologin; create role authenticated nologin;
   grant usage on schema public to anon, authenticated;
-  create table public.profiles (id uuid primary key, banned_at timestamptz, suspended_until timestamptz);
+  create table public.profiles (id uuid primary key, banned_at timestamptz, suspended_until timestamptz, deletion_requested_at timestamptz);
   create table public.posts (id uuid primary key, author_id uuid, body text);
   create table public.ai_usage (id uuid primary key default gen_random_uuid(), profile_id uuid, action text, created_at timestamptz default now());
   create table public.subscriptions (
@@ -41,7 +44,7 @@ const PREREQ = `
     $$ select nullif(current_setting('test.uid', true), '')::uuid $$;
   -- Lecture de posts comme en production : les publications d'un auteur « bloqué » sont invisibles.
   alter table public.posts enable row level security;
-  grant select on public.posts to authenticated;
+  grant select on public.posts, public.profiles to authenticated;
   create policy posts_select on public.posts for select to authenticated using (author_id <> '${HIDER}');
   alter table public.ai_usage enable row level security;
   create policy "Lire son propre usage" on public.ai_usage for select to authenticated using (profile_id = public.current_profile_id());
@@ -53,18 +56,19 @@ beforeAll(async () => {
   db = new PGlite();
   await db.exec(PREREQ);
   await db.exec(`
-    insert into public.profiles (id, banned_at, suspended_until) values
-      ('${PREMIUM}', null, null),
-      ('${SUSPENDED}', null, now() + interval '3 days'),
-      ('${BANNED}', now() - interval '1 day', null),
-      ('${EXPIRED_SUSPENSION}', null, now() - interval '1 day'),
-      ('${HIDER}', null, null);
+    insert into public.profiles (id, banned_at, suspended_until, deletion_requested_at) values
+      ('${PREMIUM}', null, null, null),
+      ('${SUSPENDED}', null, now() + interval '3 days', null),
+      ('${BANNED}', now() - interval '1 day', null, null),
+      ('${EXPIRED_SUSPENSION}', null, now() - interval '1 day', null),
+      ('${DELETING}', null, null, now()),
+      ('${HIDER}', null, null, null);
     insert into public.posts values ('${P_VISIBLE}', '${PREMIUM}', 'visible'), ('${P_HIDDEN}', '${HIDER}', 'masquée');
     insert into public.subscriptions (profile_id, plan, status, current_period_end)
-      select p, 'monthly', 'active', now() + interval '10 days' from unnest(array['${PREMIUM}','${SUSPENDED}','${BANNED}','${EXPIRED_SUSPENSION}']::uuid[]) p;
+      select p, 'monthly', 'active', now() + interval '10 days' from unnest(array['${PREMIUM}','${SUSPENDED}','${BANNED}','${EXPIRED_SUSPENSION}','${DELETING}']::uuid[]) p;
   `);
   await db.exec(SQL37);
-  await db.exec(SQL38);
+  await db.exec(SQL38_PROD);
 });
 afterAll(async () => { await db.close(); });
 
@@ -98,7 +102,7 @@ describe("SQL-41 — prérequis", () => {
   });
   it("s'arrête si les colonnes de suspension manquent", async () => {
     const other = new PGlite();
-    await other.exec("create table public.post_collections (id int); create table public.post_collection_items (id int); create table public.profiles (id uuid);" +
+    await other.exec("create table public.post_collections (id int); create table public.post_collection_items (id int); create table public.profiles (id uuid, banned_at timestamptz, suspended_until timestamptz);" +
       "create function public.has_premium_feature(uuid, text) returns boolean language sql as $$ select false $$;");
     await expect(other.exec(SQL41)).rejects.toThrow(/banned_at/);
     await other.close();
@@ -120,8 +124,8 @@ describe("SQL-41 — après le durcissement", () => {
     });
   });
 
-  it("un compte suspendu ou banni ne crée plus de collection ni ne range plus rien", async () => {
-    for (const who of [SUSPENDED, BANNED]) {
+  it("un compte suspendu, banni ou en cours de suppression ne crée plus de collection ni ne range plus rien", async () => {
+    for (const who of [SUSPENDED, BANNED, DELETING]) {
       await as(who, async () => {
         await expect(mkCollection(who, "Interdite")).rejects.toThrow(/row-level security/i);
       });
@@ -179,5 +183,27 @@ describe("SQL-41 — après le durcissement", () => {
       await expect(db.query("delete from public.ai_usage")).rejects.toThrow(/permission denied/i);
       expect((await db.query("select count(*)::int as n from public.ai_usage")).rows[0].n).toBe(0);   // la lecture marche
     });
+  });
+});
+
+describe("SQL-41 — installation neuve (SQL-38 corrigé du dépôt, puis SQL-41)", () => {
+  it("les deux fichiers s'enchaînent sans erreur et le garde tient", async () => {
+    const fresh = new PGlite();
+    await fresh.exec(PREREQ);
+    await fresh.exec(`
+      insert into public.profiles (id, banned_at, suspended_until, deletion_requested_at) values
+        ('${PREMIUM}', null, null, null), ('${DELETING}', null, null, now()), ('${HIDER}', null, null, null);
+      insert into public.posts values ('${P_VISIBLE}', '${PREMIUM}', 'visible');
+      insert into public.subscriptions (profile_id, plan, status, current_period_end)
+        select p, 'monthly', 'active', now() + interval '10 days' from unnest(array['${PREMIUM}','${DELETING}']::uuid[]) p;
+    `);
+    await fresh.exec(SQL37);
+    await fresh.exec(SQL38_REPO);
+    await fresh.exec(SQL41);
+    await fresh.exec("select set_config('test.uid', '" + DELETING + "', false); set role authenticated;");
+    await expect(fresh.query("insert into public.post_collections (owner_id, name) values ($1, 'x')", [DELETING])).rejects.toThrow(/row-level security/i);
+    await fresh.exec("reset role; select set_config('test.uid', '" + PREMIUM + "', false); set role authenticated;");
+    await fresh.query("insert into public.post_collections (owner_id, name) values ($1, 'ok')", [PREMIUM]);
+    await fresh.close();
   });
 });

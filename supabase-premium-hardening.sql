@@ -3,9 +3,11 @@
 -- 12 novembre 2026 (rejeu sur la répétition, AUDIT-COMPLET-2026-11.md).
 --
 -- LIVRÉ le 12/11/2026. Additif : aucune table supprimée, aucune donnée modifiée.
+-- NB : les fichiers SQL-38 et SQL-39 du dépôt ont été corrigés à la source (même règle) pour une installation neuve ;
+-- la PRODUCTION a exécuté leurs versions d'origine le 12/11, d'où ce fichier qui l'aligne. Rejouable après SQL-38/39.
 --
 -- CE QUE LE FICHIER FAIT :
---   1. Un compte SUSPENDU ou BANNI ne peut plus créer de collection ni y ranger une publication
+--   1. Un compte SUSPENDU, BANNI ou en cours de SUPPRESSION ne peut plus créer de collection ni y ranger une publication
 --      (policies RESTRICTIVES d'INSERT, comme pour les j'aime et les messages). Lire, retirer et supprimer
 --      ses propres lignes reste permis. Helper is_account_restricted(profil), SECURITY DEFINER, qui ne
 --      répond que pour le compte connecté lui-même (pas d'espionnage de l'état d'un autre compte).
@@ -18,7 +20,7 @@
 --      dépendance de plus à une policy.
 --
 -- PRÉREQUIS : SQL-37 et SQL-38 (supabase-premium-entitlements.sql, supabase-premium-collections.sql),
--- colonnes profiles.banned_at / suspended_until (supabase-admin.sql). Le fichier s'arrête avec un message
+-- colonnes profiles.banned_at / suspended_until / deletion_requested_at. Le fichier s'arrête avec un message
 -- clair sinon.
 --
 -- VÉRIFICATIONS APRÈS EXÉCUTION (lecture seule) :
@@ -43,12 +45,13 @@ begin
     raise exception 'has_premium_feature() introuvable : exécuter d''abord SQL-37';
   end if;
   if not exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'profiles' and column_name = 'banned_at')
-     or not exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'profiles' and column_name = 'suspended_until') then
-    raise exception 'profiles.banned_at / suspended_until introuvables : exécuter d''abord supabase-admin.sql';
+     or not exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'profiles' and column_name = 'suspended_until')
+     or not exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'profiles' and column_name = 'deletion_requested_at') then
+    raise exception 'profiles.banned_at / suspended_until / deletion_requested_at introuvables : exécuter d''abord supabase-admin.sql et le SQL de suppression de compte';
   end if;
 end $$;
 
--- 1. Helper : le compte est-il suspendu ou banni ? Ne répond que pour soi-même.
+-- 1. Helper : le compte est-il suspendu, banni ou en cours de suppression ? Ne répond que pour soi-même.
 create or replace function public.is_account_restricted(p_profile_id uuid)
 returns boolean
 language sql stable security definer set search_path = public as $$
@@ -57,7 +60,7 @@ language sql stable security definer set search_path = public as $$
     and exists (
       select 1 from public.profiles p
       where p.id = p_profile_id
-        and (p.banned_at is not null or (p.suspended_until is not null and p.suspended_until > now()))
+        and (p.banned_at is not null or (p.suspended_until is not null and p.suspended_until > now()) or p.deletion_requested_at is not null)
     ), false);
 $$;
 revoke all on function public.is_account_restricted(uuid) from public, anon;
