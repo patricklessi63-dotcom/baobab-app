@@ -84,7 +84,9 @@ Deno.serve(async (req) => {
     }
 
     const subscriptionData: Record<string, unknown> = { metadata: { profile_id: profile.id, plan } };
-    if (TRIAL_DAYS > 0) subscriptionData.trial_period_days = TRIAL_DAYS;
+    // L'essai gratuit n'est offert qu'une fois par profil : si le profil a déjà eu un abonnement (même résilié),
+    // résilier puis se réabonner ne redonnerait pas un nouvel essai.
+    if (TRIAL_DAYS > 0 && !existing) subscriptionData.trial_period_days = TRIAL_DAYS;
 
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
