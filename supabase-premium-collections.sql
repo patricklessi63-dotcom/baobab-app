@@ -94,16 +94,7 @@ create policy "post_collections_select_own" on public.post_collections
 drop policy if exists "post_collections_insert_premium" on public.post_collections;
 create policy "post_collections_insert_premium" on public.post_collections
   for insert to authenticated
-  with check (
-    owner_id = public.current_profile_id()
-    and public.has_premium_feature(owner_id, 'private_collections')
-    -- comme les likes et les messages : un compte suspendu, banni ou en cours de suppression ne cree rien
-    and not exists (
-      select 1 from public.profiles pr
-      where pr.id = owner_id
-        and (pr.banned_at is not null or (pr.suspended_until is not null and pr.suspended_until > now()) or pr.deletion_requested_at is not null)
-    )
-  );
+  with check (owner_id = public.current_profile_id() and public.has_premium_feature(owner_id, 'private_collections'));
 
 drop policy if exists "post_collections_update_own" on public.post_collections;
 create policy "post_collections_update_own" on public.post_collections
@@ -126,14 +117,6 @@ create policy "post_collection_items_insert_premium" on public.post_collection_i
     owner_id = public.current_profile_id()
     and public.has_premium_feature(owner_id, 'private_collections')
     and exists (select 1 from public.post_collections c where c.id = collection_id and c.owner_id = public.current_profile_id())
-    -- la publication doit etre VISIBLE par l'appelant (RLS de lecture de posts) : une publication masquee (blocage) donne le meme
-    -- refus qu'un id inexistant, sans oracle d'existence
-    and exists (select 1 from public.posts p where p.id = post_id)
-    and not exists (
-      select 1 from public.profiles pr
-      where pr.id = owner_id
-        and (pr.banned_at is not null or (pr.suspended_until is not null and pr.suspended_until > now()) or pr.deletion_requested_at is not null)
-    )
   );
 
 drop policy if exists "post_collection_items_delete_own" on public.post_collection_items;

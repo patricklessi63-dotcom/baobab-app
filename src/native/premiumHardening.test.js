@@ -4,15 +4,15 @@ import fs from "node:fs";
 import path from "node:path";
 import { PGlite } from "@electric-sql/pglite";
 
-// Validation de supabase-premium-hardening.sql (SQL-41) sur un SCHÉMA FACTICE (PGlite), SQL-37 et SQL-38
+// Validation de supabase-premium-hardening.sql (SQL-42) sur un SCHÉMA FACTICE (PGlite), SQL-37 et SQL-38
 // chargés pour de vrai avant. La RLS de lecture de `posts` est imitée (un auteur « caché » dont les
 // publications sont invisibles pour l'appelant, comme un blocage). Honnêteté : ce n'est pas la base Supabase.
 
 const read = (f) => fs.readFileSync(path.join(process.cwd(), f), "utf8");
 const SQL37 = read("supabase-premium-entitlements.sql");
-// SQL-38 TEL QU'EXÉCUTÉ EN PRODUCTION le 12/11/2026 (copie figée) : SQL-41 doit corriger CET état-là.
+// SQL-38 TEL QU'EXÉCUTÉ EN PRODUCTION le 12/11/2026 (copie figée) : SQL-42 doit corriger CET état-là.
 const SQL38_PROD = read("src/native/fixtures/sql38-as-executed-in-prod-2026-11-12.sql");
-// SQL-38 actuel du dépôt (corrigé à la source) : une installation neuve passe par lui puis par SQL-41.
+// SQL-38 actuel du dépôt (corrigé à la source) : une installation neuve passe par lui puis par SQL-42.
 const SQL38_REPO = read("supabase-premium-collections.sql");
 const SQL41 = read("supabase-premium-hardening.sql");
 
@@ -79,7 +79,7 @@ async function as(uid, fn) {
 const mkCollection = (owner, name) => db.query("insert into public.post_collections (owner_id, name) values ($1, $2) returning id", [owner, name]);
 const addItem = (cid, post, owner) => db.query("insert into public.post_collection_items (collection_id, post_id, owner_id) values ($1, $2, $3)", [cid, post, owner]);
 
-describe("SQL-41 — avant le durcissement (le défaut est reproduit)", () => {
+describe("SQL-42 — avant le durcissement (le défaut est reproduit)", () => {
   it("un compte suspendu crée une collection, et on peut ranger une publication masquée / vérifier l'existence", async () => {
     const cid = await as(SUSPENDED, async () => (await mkCollection(SUSPENDED, "Avant")).rows[0].id);
     await as(SUSPENDED, async () => {
@@ -94,7 +94,7 @@ describe("SQL-41 — avant le durcissement (le défaut est reproduit)", () => {
   });
 });
 
-describe("SQL-41 — prérequis", () => {
+describe("SQL-42 — prérequis", () => {
   it("s'arrête avec un message clair si SQL-38 n'est pas passé", async () => {
     const empty = new PGlite();
     await expect(empty.exec(SQL41)).rejects.toThrow(/collections introuvables/);
@@ -109,7 +109,7 @@ describe("SQL-41 — prérequis", () => {
   });
 });
 
-describe("SQL-41 — après le durcissement", () => {
+describe("SQL-42 — après le durcissement", () => {
   beforeAll(async () => { await db.exec(SQL41); });
 
   it("l'exécution se rejoue sans erreur (idempotent)", async () => {
@@ -186,7 +186,7 @@ describe("SQL-41 — après le durcissement", () => {
   });
 });
 
-describe("SQL-41 — installation neuve (SQL-38 corrigé du dépôt, puis SQL-41)", () => {
+describe("SQL-42 — installation neuve (SQL-38 corrigé du dépôt, puis SQL-42)", () => {
   it("les deux fichiers s'enchaînent sans erreur et le garde tient", async () => {
     const fresh = new PGlite();
     await fresh.exec(PREREQ);

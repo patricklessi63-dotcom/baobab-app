@@ -1,5 +1,5 @@
 -- ============================================================================
--- SQL-41 — Durcissement de SQL-38 (collections privées) et de SQL-39 (ai_usage), issu de l'audit du
+-- SQL-42 — Durcissement de SQL-38 (collections privées) et de SQL-39 (ai_usage), issu de l'audit du
 -- 12 novembre 2026 (rejeu sur la répétition, AUDIT-COMPLET-2026-11.md).
 --
 -- LIVRÉ le 12/11/2026. Additif : aucune table supprimée, aucune donnée modifiée.

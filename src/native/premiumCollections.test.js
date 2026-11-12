@@ -22,10 +22,8 @@ const POST = id(100);
 const PREREQ = `
   create role anon nologin; create role authenticated nologin;
   grant usage on schema public to anon, authenticated;
-  create table public.profiles (id uuid primary key, banned_at timestamptz, suspended_until timestamptz, deletion_requested_at timestamptz);
+  create table public.profiles (id uuid primary key);
   create table public.posts (id uuid primary key, author_id uuid, body text);
-  -- comme en production : les comptes connectés lisent profiles (colonnes d'état de compte) et posts (soumis à la RLS de lecture)
-  grant select on public.profiles, public.posts to authenticated;
   create table public.subscriptions (
     id uuid primary key default gen_random_uuid(),
     profile_id uuid not null references public.profiles(id),
@@ -152,38 +150,6 @@ describe("confidentialité", () => {
       expect((await db.query("select name from public.post_collections where owner_id = $1", [PREMIUM])).rows[0].name).toBe("Renommée");
       await expect(db.query("update public.post_collections set owner_id = $1 where owner_id = $2", [OTHER, PREMIUM])).rejects.toThrow(/permission denied/i);
     });
-  });
-});
-
-describe("durcissements (relecture de la session d'audit, 12 novembre)", () => {
-  const RESET = `update public.profiles set banned_at = null, suspended_until = null, deletion_requested_at = null`;
-  it("un compte Premium SUSPENDU, BANNI ou en cours de suppression ne crée ni collection ni rangement", async () => {
-    for (const set of ["banned_at = now()", "suspended_until = now() + interval '1 day'", "deletion_requested_at = now()"]) {
-      await db.exec(`${RESET}; update public.profiles set ${set} where id = '${PREMIUM}'`);
-      await expect(as(PREMIUM, () => insertCollection(PREMIUM, `Garde ${set.slice(0, 6)}`))).rejects.toThrow(/row-level security/);
-    }
-    // rangement dans une collection déjà existante : refusé aussi
-    await db.exec(RESET);
-    const { rows } = await as(PREMIUM, () => insertCollection(PREMIUM, "Avant sanction"));
-    await db.exec(`update public.profiles set suspended_until = now() + interval '1 day' where id = '${PREMIUM}'`);
-    await expect(as(PREMIUM, () => db.query("insert into public.post_collection_items (collection_id, post_id, owner_id) values ($1, $2, $3)", [rows[0].id, POST, PREMIUM]))).rejects.toThrow(/row-level security/);
-    await db.exec(RESET);
-  });
-
-  it("publication MASQUÉE à l'appelant (blocage) : même refus qu'un id inexistant, aucun oracle d'existence", async () => {
-    const HIDDEN = id(101);
-    await db.exec(`insert into public.posts values ('${HIDDEN}', '${OTHER}', 'masquée'); alter table public.posts enable row level security;
-      drop policy if exists posts_lecture on public.posts;
-      create policy posts_lecture on public.posts for select to authenticated using (id <> '${HIDDEN}');
-      grant select on public.posts to authenticated;`);
-    const { rows } = await as(PREMIUM, () => insertCollection(PREMIUM, "Oracle"));
-    const attempt = (post) => as(PREMIUM, () => db.query("insert into public.post_collection_items (collection_id, post_id, owner_id) values ($1, $2, $3)", [rows[0].id, post, PREMIUM])).then(() => "accepté", (e) => String(e.message));
-    const hidden = await attempt(HIDDEN);
-    const missing = await attempt(id(999));
-    expect(hidden).toMatch(/row-level security/);
-    expect(missing).toMatch(/row-level security/); // identique : on ne déduit rien
-    expect(await attempt(POST)).toBe("accepté"); // une publication visible reste rangeable
-    await db.exec("alter table public.posts disable row level security");
   });
 });
 
