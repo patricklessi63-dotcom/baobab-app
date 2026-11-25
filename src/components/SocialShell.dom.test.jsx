@@ -1,7 +1,14 @@
 import React from "react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, waitFor, within, act } from "@testing-library/react";
+import { render, screen, waitFor, within, act, configure } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+
+// Les onglets Rencontres, Communautés, Profil… sont chargés à la demande (lazy) : sous la charge de la suite complète,
+// le premier chargement d'un onglet dépassait le délai par défaut de waitFor/findBy (1 s) et le test échouait par
+// intermittence (« popstate », 2 passages sur 3 le 25/11), alors qu'il passe toujours seul. Délais élargis pour ce
+// fichier seulement (chaque fichier de test a son propre environnement) ; rien n'est masqué : un vrai blocage échoue toujours.
+configure({ asyncUtilTimeout: 15000 });
+vi.setConfig({ testTimeout: 60000 });
 
 // Test d'intégration réelle (12 sept.) de la navigation par historique ajoutée
 // dans SocialShell.jsx (goTab/goBack, commit 690fd90) — distinct de

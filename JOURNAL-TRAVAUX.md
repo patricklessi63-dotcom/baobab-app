@@ -58,6 +58,18 @@ Ces actions ne peuvent pas être faites par une session : il faut une interventi
 
 ### 25 novembre 2026
 
+- **Tests** (`local_f49a575b…`) : `SocialShell.dom` « popstate » ne dépend plus de la charge (délais `waitFor`/`findBy` de 15 s
+  pour ce fichier : le premier chargement d'un onglet différé dépassait 1 s en suite complète, 2 passages sur 3). Suite complète
+  ensuite : 2901/2903 ; les 2 échecs restants (`haptics.test.js`, `LandingPage.tree.dom.test.jsx`) passent 12/12 seuls :
+  intermittents sous charge, hors de ma zone, à stabiliser.
+- **Performance** (`local_f49a575b…`, commit `6b0925f`) : visionneuse de photos, fiche de profil public et « C'est un match ! »
+  chargées à la demande (déjà montées à l'ouverture). Fichier principal 419 → 405 ko. Fichiers : `src/lib/ImageLightboxContext.jsx`,
+  `src/components/SocialShell.jsx` (bloc `viewedProfile`), `src/App.jsx`, garde-fou `AppModals.lazySettings.test.js`.
+- **Performance** (`local_f49a575b…`, commit `84abcc6`) : 4 fenêtres de réglages (confidentialité, notifications, localisation,
+  suppression de compte) chargées à la demande et montées à l'ouverture ; `computeAge` dans `src/lib/computeAge.js` (App.jsx ne
+  tire plus l'écran d'inscription). Fichier principal 439 → 419 ko. Suite complète 2875/2875.
+- **Bogue** (`local_f49a575b…`, commit `3767061`) : l'avance automatique des statuts lisait l'ancienne liste (minuteur via une
+  référence à `nextStory`). Tri des 29 avertissements `exhaustive-deps` : 1 vrai bogue, les autres volontaires.
 - **SQL-44 livré, NON exécuté** (`local_bafa9cbe…`) : `supabase-event-media-mod-delete.sql`, même défaut que SQL-43 pour les
   photos d'événements : une photo retirée par l'équipe de l'événement restait orpheline dans le bucket `event-media`
   (policy Storage DELETE réservée au propriétaire du fichier, alors que `event_media` autorise l'équipe). Policy « propriétaire
