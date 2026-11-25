@@ -107,6 +107,13 @@ export default function MessagesTab({
     return true;
   });
 
+  // Clavier virtuel ouvert (mobile web) : la conversation occupe exactement la
+  // zone visible au-dessus du clavier (en-tête + messages + barre de saisie),
+  // voir lib/keyboardViewport.js. Appelé AVANT le retour anticipé ci-dessous :
+  // un hook placé après changerait le nombre de hooks quand la liste se vide ou
+  // se remplit, et React planterait (MessagesTab.hooksOrder.dom.test.jsx).
+  const keyboardArea = useKeyboardViewport(Boolean(activeMatch));
+
   if (matches.length === 0) {
     return (
       <section className="max-w-3xl mx-auto">
@@ -249,10 +256,6 @@ export default function MessagesTab({
     </div>
   );
 
-  // Clavier virtuel ouvert (mobile web) : la conversation occupe exactement la
-  // zone visible au-dessus du clavier (en-tête + messages + barre de saisie),
-  // voir lib/keyboardViewport.js.
-  const keyboardArea = useKeyboardViewport(Boolean(activeMatch));
   const Pane = activeMatch ? (
     <div
       className={`${card} overflow-hidden bb-msg-h ${activeMatch ? "flex" : "hidden md:flex"}`}
