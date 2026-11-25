@@ -58,6 +58,17 @@ Ces actions ne peuvent pas être faites par une session : il faut une interventi
 
 ### 25 novembre 2026
 
+- **Dépendances, lot 2** (`local_f49a575b…`) : `@supabase/supabase-js` 2.112.3 → 2.119.2 (plage `^2.119.2`). Suite complète
+  2924/2924, lint 0 erreur, build OK, `cap sync` sans modification native. Coût : `vendor-supabase` 214 → 225 ko.
+- **Incident corrigé** (`local_f49a575b…`) : le lot 1 (`878bb86`, Capacitor 8.6.3) a cassé `src/native/step5Ios.test.js` sur
+  main ~10 min : paquets mis à jour sans relever les plages de `package.json` (^8.5.2) alors que `cap sync` écrivait
+  `exact 8.6.3` dans `Package.swift`, et la suite avait tourné AVANT `cap sync`. Corrigé par `a9d2df6`. Règle appliquée
+  depuis : relever la plage à chaque mise à jour et lancer la suite APRÈS `cap sync`.
+- **Dépendances, lot 1** (`local_f49a575b…`, commits `878bb86` + `a9d2df6`) : Capacitor 8.5.2 → 8.6.3, camera 8.2.6,
+  geolocation 8.2.5. `Package.swift` aligné. Non vérifié : compilation native (Android Studio / Xcode).
+- **Console admin** (`local_f49a575b…`, commit `faf0b90`) : un échec de chargement (signalements, utilisateurs, retours) n'est
+  plus affiché comme une liste vide (« Impossible de charger… » + Réessayer) ; compteur des signalements et avertissement
+  au plafond serveur de 200. 5 tests.
 - **Tests Communautés** (coordination) : les mocks de `CommunitiesTab.editComment` et `CommunitiesTab.moderation-delete`
   n'avaient pas `.range` (pagination des compteurs de likes et commentaires) : 10 `TypeError` imprimés à chaque passage,
   sans échec. Ajouté aux méthodes chaînables ; 17 fichiers / 27 tests Communautés verts, 0 erreur imprimée.
