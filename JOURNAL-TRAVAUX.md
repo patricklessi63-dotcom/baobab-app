@@ -58,6 +58,14 @@ Ces actions ne peuvent pas être faites par une session : il faut une interventi
 
 ### 25 novembre 2026
 
+- **Sécurité des outils de développement** (`local_f49a575b…`) : `npm audit fix` (sans `--force`) : 17 → 13 vulnérabilités, toutes
+  dans des outils jamais livrés (production : **0**). Les 13 restantes exigent une version MAJEURE, non engagée : `tar` 6.2.1
+  (critique) via `@capacitor/assets` 3 → `@capacitor/cli` 5.7.8 (corrigé par `@capacitor/assets` 4) ; `tinypool` (critique) et
+  `@vitest/mocker` via `vitest` 2 (corrigé par vitest ≥ 4) ; `esbuild` via `vite` 5 ; `sharp` (élevée, libvips) via
+  `@capacitor/assets`. Risque réel limité (outils locaux, aucune archive tierce traitée) ; à décider : lot « majeures ».
+- **Dépendances, lots 3-4** (`local_f49a575b…`, `4d2313a`, `ed5572f`) : PGlite 0.5.17 ; testing-library/dom 10.4.2,
+  user-event 14.6.13, jsdom 30.1.3, postcss 8.5.33, autoprefixer 10.7.0. Chaque lot : cap sync puis suite complète
+  2924/2924, lint 0 erreur, build OK.
 - **Dépendances, lot 2** (`local_f49a575b…`) : `@supabase/supabase-js` 2.112.3 → 2.119.2 (plage `^2.119.2`). Suite complète
   2924/2924, lint 0 erreur, build OK, `cap sync` sans modification native. Coût : `vendor-supabase` 214 → 225 ko.
 - **Incident corrigé** (`local_f49a575b…`) : le lot 1 (`878bb86`, Capacitor 8.6.3) a cassé `src/native/step5Ios.test.js` sur
