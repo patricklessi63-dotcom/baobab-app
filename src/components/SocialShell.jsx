@@ -21,7 +21,6 @@ import ProfileMenu from "./social/ProfileMenu";
 import SearchResultsDropdown from "./social/SearchResultsDropdown";
 import FeedTab from "./social/FeedTab";
 import MessagesTab from "./social/MessagesTab";
-import PublicProfileModal from "./social/PublicProfileModal";
 import { validateMediaFile } from "../lib/mediaValidation";
 import { compressImageIfNeeded } from "../lib/imageCompression";
 import { extFromMime } from "../lib/mediaConstants";
@@ -47,6 +46,8 @@ import { hapticSuccess } from "../lib/haptics";
 const DiscoverTab = lazy(() => import("./social/DiscoverTab"));
 // Profil : onglet secondaire (ouvert après le Fil ou les Messages) : chargé à la demande comme Rencontres.
 const ProfileTab = lazy(() => import("./social/ProfileTab"));
+// Fiche d'un autre profil : montée seulement quand on l'ouvre, donc chargée à ce moment-là.
+const PublicProfileModal = lazy(() => import("./social/PublicProfileModal"));
 const CommunitiesTab = lazy(() => import("./social/CommunitiesTab"));
 const EventsTab = lazy(() => import("./social/EventsTab"));
 const AdminDashboard = lazy(() => import("./admin/AdminDashboard"));
@@ -2829,22 +2830,26 @@ export default function SocialShell({
       </ChunkErrorBoundary>
 
       {viewedProfile && (
-        <PublicProfileModal
-          profile={viewedProfile}
-          photos={profilePhotos[viewedProfile.id] || []}
-          onClose={() => setViewedProfileId(null)}
-          isMatch={viewedProfileIsMatch}
-          isFavorite={favoriteIds.has(viewedProfile.id)}
-          isFollowing={followingIds.has(viewedProfile.id)}
-          isLiked={viewedProfileIsLiked}
-          onLike={viewedProfileIsMatch ? null : (p) => handleLike(p)}
-          onUnlike={viewedProfileIsMatch ? null : (p) => handleUnlike(p)}
-          onMessage={(p) => { setViewedProfileId(null); openChat(p); }}
-          onToggleFavorite={toggleFavorite}
-          onToggleFollow={toggleFollow}
-          onReport={(p) => { setViewedProfileId(null); setReportTarget(p); }}
-          onBlock={(p) => { setViewedProfileId(null); handleBlock(p); }}
-        />
+        <ChunkErrorBoundary>
+          <Suspense fallback={null}>
+            <PublicProfileModal
+              profile={viewedProfile}
+              photos={profilePhotos[viewedProfile.id] || []}
+              onClose={() => setViewedProfileId(null)}
+              isMatch={viewedProfileIsMatch}
+              isFavorite={favoriteIds.has(viewedProfile.id)}
+              isFollowing={followingIds.has(viewedProfile.id)}
+              isLiked={viewedProfileIsLiked}
+              onLike={viewedProfileIsMatch ? null : (p) => handleLike(p)}
+              onUnlike={viewedProfileIsMatch ? null : (p) => handleUnlike(p)}
+              onMessage={(p) => { setViewedProfileId(null); openChat(p); }}
+              onToggleFavorite={toggleFavorite}
+              onToggleFollow={toggleFollow}
+              onReport={(p) => { setViewedProfileId(null); setReportTarget(p); }}
+              onBlock={(p) => { setViewedProfileId(null); handleBlock(p); }}
+            />
+          </Suspense>
+        </ChunkErrorBoundary>
       )}
 
       <ChunkErrorBoundary>

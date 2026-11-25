@@ -1,5 +1,8 @@
-import React, { createContext, useCallback, useContext, useState } from "react";
-import MediaViewerModal from "../components/social/MediaViewerModal";
+import React, { createContext, useCallback, useContext, useState, Suspense, lazy } from "react";
+import ChunkErrorBoundary from "../components/ChunkErrorBoundary";
+
+// Visionneuse (≈ 6 ko) : hors du fichier principal, chargée au premier clic sur une photo (déjà montée seulement à l'ouverture).
+const MediaViewerModal = lazy(() => import("../components/social/MediaViewerModal"));
 
 // Provider monté une seule fois à la racine (main.jsx) — expose
 // openLightbox() à n'importe quel composant profondément imbriqué via le
@@ -24,12 +27,16 @@ export function ImageLightboxProvider({ children }) {
     <ImageLightboxContext.Provider value={{ openLightbox }}>
       {children}
       {state && (
-        <MediaViewerModal
-          images={state.images}
-          index={state.index}
-          onNavigate={navigateLightbox}
-          onClose={closeLightbox}
-        />
+        <ChunkErrorBoundary>
+          <Suspense fallback={null}>
+            <MediaViewerModal
+              images={state.images}
+              index={state.index}
+              onNavigate={navigateLightbox}
+              onClose={closeLightbox}
+            />
+          </Suspense>
+        </ChunkErrorBoundary>
       )}
     </ImageLightboxContext.Provider>
   );

@@ -49,3 +49,20 @@ describe("computeAge — module léger", () => {
     expect(computeAge("pas une date")).toBeNull();
   });
 });
+
+describe("fenêtres montées à l'ouverture : chargées à la demande", () => {
+  it.each([
+    ["src/lib/ImageLightboxContext.jsx", "MediaViewerModal", "state"],
+    ["src/components/SocialShell.jsx", "PublicProfileModal", "viewedProfile"],
+    ["src/App.jsx", "MatchCelebrationModal", "matchNotice"],
+  ])("%s : %s en lazy(), monté seulement si %s, protégé", (file, name, flag) => {
+    const s = read(file);
+    expect(s).toContain(`const ${name} = lazy(() => import(`);
+    expect(s.split(/\r?\n/).some((l) => l.startsWith(`import ${name} from`))).toBe(false);
+    const i = s.search(new RegExp(`<${name}\\s`));
+    const before = s.slice(Math.max(0, i - 160), i);
+    expect(before).toContain(`{${flag} && (`);
+    expect(before).toContain("<ChunkErrorBoundary>");
+    expect(before).toContain("<Suspense fallback={null}>");
+  });
+});

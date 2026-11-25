@@ -13,7 +13,6 @@ import AccountDeletionBanner from "./components/AccountDeletionBanner";
 import UpdateNotice from "./components/UpdateNotice";
 import { checkForUpdate, wasRecentlyDismissed, dismissUpdate, CHECK_INTERVAL_MS } from "./lib/version";
 import { computeAge } from "./lib/computeAge";
-import MatchCelebrationModal from "./components/social/MatchCelebrationModal";
 import { filterCandidatesByPreferences } from "./lib/matching/matchingService";
 import { validateMediaFile } from "./lib/mediaValidation";
 import { compressImageIfNeeded, getProcessedImageSize } from "./lib/imageCompression";
@@ -72,6 +71,8 @@ const PUBLIC_ONLY_PATHS = new Set(["/connexion", "/inscription", "/a-propos", "/
 // et les pages légales sont des détours ponctuels. Chacune derrière Suspense +
 // ChunkErrorBoundary (voir <FullScreenFallback> et lazyScreen ci-dessous).
 const Auth = lazy(() => import("./Auth.jsx"));
+// Fenêtre « C'est un match ! » : montée seulement à l'arrivée d'un match, chargée à ce moment-là.
+const MatchCelebrationModal = lazy(() => import("./components/social/MatchCelebrationModal"));
 const EditProfileForm = lazy(() => import("./screens/EditProfileForm"));
 const UpdatePasswordScreen = lazy(() => import("./screens/UpdatePasswordScreen"));
 const OnboardingWizard = lazy(() => import("./screens/onboarding/OnboardingWizard"));
@@ -3759,12 +3760,16 @@ export default function App() {
           showSuccessNotice={showSuccessNotice}
         />
         {matchNotice && (
-          <MatchCelebrationModal
-            match={matchNotice}
-            currentUser={currentUser}
-            onStartChat={() => { const m = matchNotice; setMatchNoticeQueue((q) => q.slice(1)); openChat(m); }}
-            onDismiss={() => setMatchNoticeQueue((q) => q.slice(1))}
-          />
+          <ChunkErrorBoundary>
+            <Suspense fallback={null}>
+              <MatchCelebrationModal
+                match={matchNotice}
+                currentUser={currentUser}
+                onStartChat={() => { const m = matchNotice; setMatchNoticeQueue((q) => q.slice(1)); openChat(m); }}
+                onDismiss={() => setMatchNoticeQueue((q) => q.slice(1))}
+              />
+            </Suspense>
+          </ChunkErrorBoundary>
         )}
         {successNotice && (
           <div className="fixed left-1/2 -translate-x-1/2 z-[95] px-4 py-3 rounded-2xl text-sm font-semibold text-white shadow-xl" style={{ background: C.primary, bottom: "calc(6rem + env(safe-area-inset-bottom, 0px))" }}>
