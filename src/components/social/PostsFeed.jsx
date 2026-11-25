@@ -4,9 +4,12 @@ import { supabase } from "../../supabaseClient";
 import PostCard from "./PostCard";
 // Chargée à la demande : inutile dans le chunk principal tant que Premium n'est pas ouvert.
 const CollectionsModal = lazy(() => import("./CollectionsModal"));
+// Fenêtre de publication (+ sélecteur d'emojis) : tout son contenu, y compris les champs de fichier, n'existe que
+// fenêtre ouverte (pickMedia n'est appelé que depuis elle) ; montée à l'ouverture, donc chargée à ce moment-là.
+const PostComposerModal = lazy(() => import("./PostComposerModal"));
 import { isPremiumEnabled } from "../../lib/featureFlags";
 import { setPremiumIntent } from "../../lib/premium/premiumIntent";
-import PostComposerModal from "./PostComposerModal";
+import ChunkErrorBoundary from "../ChunkErrorBoundary";
 import ReportModal from "./ReportModal";
 import { POST_REPORT_CATEGORIES } from "../../lib/reportCategories";
 import ConfirmModal from "./ConfirmModal";
@@ -1206,7 +1209,13 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
           </>
         )}
 
-        <PostComposerModal {...composerProps} />
+        {composer && (
+          <ChunkErrorBoundary>
+            <Suspense fallback={null}>
+              <PostComposerModal {...composerProps} />
+            </Suspense>
+          </ChunkErrorBoundary>
+        )}
 
         <ConfirmModal
           open={Boolean(pendingDelete)}
@@ -1306,7 +1315,13 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
         </>
       )}
 
-      <PostComposerModal {...composerProps} />
+      {composer && (
+        <ChunkErrorBoundary>
+          <Suspense fallback={null}>
+            <PostComposerModal {...composerProps} />
+          </Suspense>
+        </ChunkErrorBoundary>
+      )}
 
       {collectionsEnabled && onOpenPremium && collectionsTarget && (
         <Suspense fallback={null}>

@@ -58,6 +58,12 @@ Ces actions ne peuvent pas être faites par une session : il faut une interventi
 
 ### 25 novembre 2026
 
+- **Performance** (`local_f49a575b…`) : fenêtre de publication du fil (`PostComposerModal`, avec le sélecteur d'emojis) chargée
+  à la demande et montée à l'ouverture (tout son contenu, champs de fichier compris, n'existe que fenêtre ouverte).
+  Fichier principal **405 → 372 ko** (550 → 372 depuis le matin). Fichiers : `src/components/social/PostsFeed.jsx`, garde-fou
+  `AppModals.lazySettings.test.js`. Suite complète 2904/2904, lint 0 erreur, build OK.
+- **Tests** (`local_f49a575b…`, commit `e50f294`) : `haptics.test.js` attend l'appel natif (`vi.waitFor`) au lieu d'un délai
+  fixe ; suite complète 2903/2903. `LandingPage.tree` a passé à ce tour : cause de l'intermittence non reproduite.
 - **Tests** (`local_f49a575b…`) : `SocialShell.dom` « popstate » ne dépend plus de la charge (délais `waitFor`/`findBy` de 15 s
   pour ce fichier : le premier chargement d'un onglet différé dépassait 1 s en suite complète, 2 passages sur 3). Suite complète
   ensuite : 2901/2903 ; les 2 échecs restants (`haptics.test.js`, `LandingPage.tree.dom.test.jsx`) passent 12/12 seuls :

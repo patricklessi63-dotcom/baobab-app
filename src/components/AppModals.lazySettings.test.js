@@ -55,6 +55,7 @@ describe("fenêtres montées à l'ouverture : chargées à la demande", () => {
     ["src/lib/ImageLightboxContext.jsx", "MediaViewerModal", "state"],
     ["src/components/SocialShell.jsx", "PublicProfileModal", "viewedProfile"],
     ["src/App.jsx", "MatchCelebrationModal", "matchNotice"],
+    ["src/components/social/PostsFeed.jsx", "PostComposerModal", "composer"],
   ])("%s : %s en lazy(), monté seulement si %s, protégé", (file, name, flag) => {
     const s = read(file);
     expect(s).toContain(`const ${name} = lazy(() => import(`);
