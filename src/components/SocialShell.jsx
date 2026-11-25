@@ -20,7 +20,6 @@ import NotificationsDropdown from "./social/NotificationsDropdown";
 import ProfileMenu from "./social/ProfileMenu";
 import SearchResultsDropdown from "./social/SearchResultsDropdown";
 import FeedTab from "./social/FeedTab";
-import DiscoverTab from "./social/DiscoverTab";
 import MessagesTab from "./social/MessagesTab";
 import ProfileTab from "./social/ProfileTab";
 import PublicProfileModal from "./social/PublicProfileModal";
@@ -45,6 +44,8 @@ import { hapticSuccess } from "../lib/haptics";
 // visités moins souvent que Fil/Découverte/Messages/Profil au démarrage de
 // session, et Premium notamment n'a aucune raison d'alourdir le chunk
 // principal pour les utilisateurs qui ne l'ouvrent jamais.
+// Onglet Rencontres chargé à l'ouverture seulement (allège le fichier principal téléchargé au démarrage).
+const DiscoverTab = lazy(() => import("./social/DiscoverTab"));
 const CommunitiesTab = lazy(() => import("./social/CommunitiesTab"));
 const EventsTab = lazy(() => import("./social/EventsTab"));
 const AdminDashboard = lazy(() => import("./admin/AdminDashboard"));
@@ -2525,36 +2526,40 @@ export default function SocialShell({
           </div>
         )}
         {tab === "discover" && !discoverGateBlocked && (
-          <DiscoverTab
-            filteredPeople={filteredPeople}
-            topPerson={topPerson}
-            topPhotos={topPhotos}
-            discoverPhotoIndex={discoverPhotoIndex}
-            setDiscoverPhotoIndex={setDiscoverPhotoIndex}
-            swipeX={swipeX}
-            swipeExit={swipeExit}
-            swiping={swiping}
-            onSwipeStart={onSwipeStart}
-            onSwipeMove={onSwipeMove}
-            onSwipeEnd={onSwipeEnd}
-            decideSwipe={decideSwipe}
-            currentUser={currentUser}
-            onViewProfile={(p) => setViewedProfileId(p.id)}
-            handleLike={handleLike}
-            handlePass={handlePass}
-            matches={matches}
-            favoriteIds={favoriteIds}
-            hasLiked={hasLiked}
-            toggleFavorite={toggleFavorite}
-            hiddenIds={hiddenProfileIds}
-            hideProfile={hideProfile}
-            setReportTarget={setReportTarget}
-            handleBlock={handleBlock}
-            onUnmatch={handleUnmatch}
-            openChat={openChat}
-            goTab={goTab}
-            myLocation={myLocation}
-          />
+          <ChunkErrorBoundary>
+            <Suspense fallback={<TabLoadingFallback />}>
+              <DiscoverTab
+                filteredPeople={filteredPeople}
+                topPerson={topPerson}
+                topPhotos={topPhotos}
+                discoverPhotoIndex={discoverPhotoIndex}
+                setDiscoverPhotoIndex={setDiscoverPhotoIndex}
+                swipeX={swipeX}
+                swipeExit={swipeExit}
+                swiping={swiping}
+                onSwipeStart={onSwipeStart}
+                onSwipeMove={onSwipeMove}
+                onSwipeEnd={onSwipeEnd}
+                decideSwipe={decideSwipe}
+                currentUser={currentUser}
+                onViewProfile={(p) => setViewedProfileId(p.id)}
+                handleLike={handleLike}
+                handlePass={handlePass}
+                matches={matches}
+                favoriteIds={favoriteIds}
+                hasLiked={hasLiked}
+                toggleFavorite={toggleFavorite}
+                hiddenIds={hiddenProfileIds}
+                hideProfile={hideProfile}
+                setReportTarget={setReportTarget}
+                handleBlock={handleBlock}
+                onUnmatch={handleUnmatch}
+                openChat={openChat}
+                goTab={goTab}
+                myLocation={myLocation}
+              />
+            </Suspense>
+          </ChunkErrorBoundary>
         )}
 
         {tab === "matches" && (
