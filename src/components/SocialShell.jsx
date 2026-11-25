@@ -34,7 +34,7 @@ import { fetchHiddenMedia } from "../lib/moderationApi";
 import { resolveLiveMatch } from "../lib/activeMatchPresence";
 import ChunkErrorBoundary from "./ChunkErrorBoundary";
 import { useHiddenRecommendations } from "../lib/useHiddenRecommendations";
-import { escapeLikePattern, escapeOrFilterValue, normalizeForSearch } from "../lib/searchQuery";
+import { escapeLikePattern, escapeOrFilterValue, normalizeForSearch, samePlaceText } from "../lib/searchQuery";
 import { isRecentArrival } from "../lib/arrivalStage";
 import { OTHER_PROFILE_COLUMNS } from "../lib/otherProfileColumns";
 import { hapticSuccess } from "../lib/haptics";
@@ -1650,7 +1650,7 @@ export default function SocialShell({
   // ("Montréal" vs "Montreal"), ce qui pouvait exclure silencieusement un
   // membre pourtant dans la même ville de la section "Autour de toi".
   const nearbyMembers = currentUser?.city
-    ? candidates.filter((p) => p.show_city !== false && p.city && normalizeForSearch(p.city.trim()) === normalizeForSearch(currentUser.city.trim()))
+    ? candidates.filter((p) => p.show_city !== false && samePlaceText(p.city, currentUser.city))
     : [];
 
   // show_canada_journey vérifié (bug corrigé à l'audit) : la section "Nouveaux

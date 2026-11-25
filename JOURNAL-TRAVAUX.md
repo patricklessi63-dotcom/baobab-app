@@ -58,6 +58,14 @@ Ces actions ne peuvent pas être faites par une session : il faut une interventi
 
 ### 25 novembre 2026
 
+- **Tests autonomes** (coordination) : `vite.config.js` fournit des valeurs factices de `VITE_SUPABASE_URL`,
+  `VITE_SUPABASE_ANON_KEY` et `VITE_VAPID_PUBLIC_KEY` quand l'environnement n'en a pas (une vraie valeur reste prioritaire).
+  Avant, 16 fichiers de test échouaient dans tout dossier sans `.env` (« supabaseUrl is required »), signalé par `local_e774b28a…`.
+- **« Près de toi » / « Autour de toi »** (coordination, suite du correctif recommandations de `local_e774b28a…`) : une
+  ville faite d'espaces des deux côtés comptait comme la même ville. `CommunitiesTab.jsx`, `EventsTab.jsx` (ligne de la
+  section seulement, annoncé à `local_bafa9cbe…`) et `SocialShell.jsx` (`nearbyMembers`) passent par `samePlaceText`.
+  Garde-fou `src/native/samePlaceUsage.test.js` (vérifié par mutation : échoue avec l'ancien `EventsTab.jsx`).
+
 - **SQL-43 livré, NON exécuté** (`local_bafa9cbe…`) : `supabase-community-media-mod-delete.sql`. Le média d'une publication
   de communauté supprimée par un **modérateur** restait orphelin dans le bucket `community-media` (policy Storage DELETE
   réservée au propriétaire du fichier, alors que la policy de `community_posts` autorise le modérateur). La policy devient

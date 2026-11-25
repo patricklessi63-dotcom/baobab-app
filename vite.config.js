@@ -52,7 +52,17 @@ export default defineConfig({
     hookTimeout: 20000,
     // Les drapeaux de lancement (src/lib/featureFlags.js) sont désactivés par défaut en
     // production ; les tests existants couvrent Premium et l’IA, ils les activent donc.
-    env: { VITE_FEATURE_PREMIUM: "true", VITE_FEATURE_AI: "true" },
+    // Valeurs factices par défaut : la suite ne parle jamais au vrai backend, elle ne doit donc pas dépendre
+    // d'un fichier .env (absent des dossiers de travail des agents et de la CI). Sans elles, createClient()
+    // levait « supabaseUrl is required » dans 16 fichiers de test. Une vraie valeur d'environnement reste prioritaire.
+    env: {
+      VITE_FEATURE_PREMIUM: "true",
+      VITE_FEATURE_AI: "true",
+      VITE_SUPABASE_URL: process.env.VITE_SUPABASE_URL || "https://placeholder.supabase.co",
+      VITE_SUPABASE_ANON_KEY: process.env.VITE_SUPABASE_ANON_KEY || "placeholder-anon-key",
+      // base64url VALIDE (65 octets) : pushNotifications.js le décode.
+      VITE_VAPID_PUBLIC_KEY: process.env.VITE_VAPID_PUBLIC_KEY || "BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc",
+    },
   },
   build: {
     rollupOptions: {
