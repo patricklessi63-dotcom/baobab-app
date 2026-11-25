@@ -4,10 +4,6 @@ import { C } from "../constants";
 import { CURRENT_VERSION, checkForUpdate } from "../lib/version";
 import ChunkErrorBoundary from "./ChunkErrorBoundary";
 import Avatar from "./Avatar";
-import PrivacyFieldsModal from "./PrivacyFieldsModal";
-import NotificationPreferencesModal from "./NotificationPreferencesModal";
-import LocationSettingsModal from "./LocationSettingsModal";
-import DeleteAccountModal from "./DeleteAccountModal";
 import ReportModal from "./social/ReportModal";
 import BlockConfirmModal from "./social/BlockConfirmModal";
 import ConfirmModal from "./social/ConfirmModal";
@@ -19,6 +15,12 @@ import { useLanguage } from "../hooks/useLanguage";
 
 // Les textes légaux (~20 ko) ne servent qu'à l'ouverture de ces deux modales : chargés à la
 // demande pour ne pas alourdir le chunk principal (même filet ChunkErrorBoundary que App.jsx).
+// Fenêtres de réglages (ouvertes depuis Réglages seulement) : hors du fichier principal, montées à l'ouverture.
+// Chacune remettait déjà son état à zéro à chaque ouverture : les monter à la demande ne change pas leur comportement.
+const PrivacyFieldsModal = lazy(() => import("./PrivacyFieldsModal"));
+const NotificationPreferencesModal = lazy(() => import("./NotificationPreferencesModal"));
+const LocationSettingsModal = lazy(() => import("./LocationSettingsModal"));
+const DeleteAccountModal = lazy(() => import("./DeleteAccountModal"));
 const PrivacyPolicyContent = lazy(() => import("../legalContent").then((m) => ({ default: m.PrivacyPolicyContent })));
 const TermsOfServiceContent = lazy(() => import("../legalContent").then((m) => ({ default: m.TermsOfServiceContent })));
 function LegalFallback() {
@@ -326,41 +328,65 @@ export default function AppModals({
       )}
 
       {/* ---------- MODAL CONFIDENTIALITÉ DES CHAMPS ---------- */}
-      <PrivacyFieldsModal
-        open={privacyFieldsOpen}
-        onClose={() => setPrivacyFieldsOpen(false)}
-        onBack={() => { setPrivacyFieldsOpen(false); setSettingsOpen(true); }}
-        currentUser={currentUser}
-        onToggleField={onToggleField}
-      />
+      {privacyFieldsOpen && (
+        <ChunkErrorBoundary>
+          <Suspense fallback={null}>
+            <PrivacyFieldsModal
+              open={privacyFieldsOpen}
+              onClose={() => setPrivacyFieldsOpen(false)}
+              onBack={() => { setPrivacyFieldsOpen(false); setSettingsOpen(true); }}
+              currentUser={currentUser}
+              onToggleField={onToggleField}
+            />
+          </Suspense>
+        </ChunkErrorBoundary>
+      )}
 
       {/* ---------- MODAL PRÉFÉRENCES DE NOTIFICATIONS ---------- */}
-      <NotificationPreferencesModal
-        open={notificationPrefsOpen}
-        onClose={() => setNotificationPrefsOpen(false)}
-        onBack={() => { setNotificationPrefsOpen(false); setSettingsOpen(true); }}
-        currentUser={currentUser}
-        onUpdatePreference={onUpdateNotificationPreference}
-      />
+      {notificationPrefsOpen && (
+        <ChunkErrorBoundary>
+          <Suspense fallback={null}>
+            <NotificationPreferencesModal
+              open={notificationPrefsOpen}
+              onClose={() => setNotificationPrefsOpen(false)}
+              onBack={() => { setNotificationPrefsOpen(false); setSettingsOpen(true); }}
+              currentUser={currentUser}
+              onUpdatePreference={onUpdateNotificationPreference}
+            />
+          </Suspense>
+        </ChunkErrorBoundary>
+      )}
 
       {/* ---------- MODAL LOCALISATION ---------- */}
-      <LocationSettingsModal
-        open={locationOpen}
-        onClose={() => setLocationOpen(false)}
-        onBack={() => { setLocationOpen(false); setSettingsOpen(true); }}
-        location={myLocation}
-        onEnable={onEnableLocation}
-        onDisable={onDisableLocation}
-        onUpdatePref={onUpdateLocationPref}
-      />
+      {locationOpen && (
+        <ChunkErrorBoundary>
+          <Suspense fallback={null}>
+            <LocationSettingsModal
+              open={locationOpen}
+              onClose={() => setLocationOpen(false)}
+              onBack={() => { setLocationOpen(false); setSettingsOpen(true); }}
+              location={myLocation}
+              onEnable={onEnableLocation}
+              onDisable={onDisableLocation}
+              onUpdatePref={onUpdateLocationPref}
+            />
+          </Suspense>
+        </ChunkErrorBoundary>
+      )}
 
       {/* ---------- MODAL SUPPRESSION DE COMPTE ---------- */}
-      <DeleteAccountModal
-        open={deleteAccountOpen}
-        onClose={() => setDeleteAccountOpen(false)}
-        currentUser={currentUser}
-        onRequested={() => { setDeleteAccountOpen(false); onAccountDeletionRequested(); }}
-      />
+      {deleteAccountOpen && (
+        <ChunkErrorBoundary>
+          <Suspense fallback={null}>
+            <DeleteAccountModal
+              open={deleteAccountOpen}
+              onClose={() => setDeleteAccountOpen(false)}
+              currentUser={currentUser}
+              onRequested={() => { setDeleteAccountOpen(false); onAccountDeletionRequested(); }}
+            />
+          </Suspense>
+        </ChunkErrorBoundary>
+      )}
 
       {/* ---------- MODAL COMPTES BLOQUÉS ---------- */}
       {blockedOpen && (

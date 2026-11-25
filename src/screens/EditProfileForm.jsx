@@ -12,7 +12,7 @@ import { prepareImageSelection } from "../lib/prepareImageSelection";
 import NativeCameraButton from "../components/NativeCameraButton";
 import { fileListEvent } from "../lib/nativeCamera";
 import { parseArrivedSince, formatArrivedSince } from "./onboarding/steps/Step4CanadaJourney";
-import { computeAge } from "./onboarding/steps/Step1Identity";
+import { computeAge } from "../lib/computeAge";
 import { useImageLightbox } from "../lib/ImageLightboxContext";
 import { truncateUnicodeSafe } from "../utils/format";
 

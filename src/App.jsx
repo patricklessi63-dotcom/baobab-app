@@ -12,7 +12,7 @@ import ConnectivityBanner from "./components/ConnectivityBanner";
 import AccountDeletionBanner from "./components/AccountDeletionBanner";
 import UpdateNotice from "./components/UpdateNotice";
 import { checkForUpdate, wasRecentlyDismissed, dismissUpdate, CHECK_INTERVAL_MS } from "./lib/version";
-import { computeAge } from "./screens/onboarding/steps/Step1Identity";
+import { computeAge } from "./lib/computeAge";
 import MatchCelebrationModal from "./components/social/MatchCelebrationModal";
 import { filterCandidatesByPreferences } from "./lib/matching/matchingService";
 import { validateMediaFile } from "./lib/mediaValidation";
