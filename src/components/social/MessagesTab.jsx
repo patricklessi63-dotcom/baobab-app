@@ -1,9 +1,9 @@
-import React, { useRef, useState } from "react";
+import React, { Suspense, lazy, useEffect, useRef, useState } from "react";
 import { MessageCircle, Heart, Search, X, MoreVertical, UserRound, Flag, Ban } from "lucide-react";
 import Avatar from "../Avatar";
 import StatusBadge from "../StatusBadge";
 import EmptyState from "../home/EmptyState";
-import ConversationPane from "./ConversationPane";
+import ChunkErrorBoundary from "../ChunkErrorBoundary";
 import { useClickOutside } from "../../hooks/useClickOutside";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
 import { useFocusReturn } from "../../hooks/useFocusReturn";
@@ -14,6 +14,15 @@ import { normalizeForSearch } from "../../lib/searchQuery";
 import { useKeyboardViewport } from "../../lib/keyboardViewport";
 import { isUserOnline } from "../../lib/presence";
 import { primary, navy, green, coral, coralText, bg, muted, card, buttonBase, leafLight, offline, body, primaryRgb } from "./theme";
+
+// Conversation (≈ 70 ko) : hors du fichier principal, chargée à la demande. Le module est PRÉchargé dès que l'onglet
+// Messages s'affiche (loadConversationPane), donc l'ouverture d'une conversation ne subit pas l'attente du réseau.
+const loadConversationPane = () => import("./ConversationPane");
+const ConversationPane = lazy(loadConversationPane);
+
+function ConversationPaneFallback() {
+  return <div className="flex-1 flex items-center justify-center" role="status" aria-live="polite"><span className="text-xs" style={{ color: muted }}>Chargement de la conversation…</span></div>;
+}
 
 export default function MessagesTab({
   matches,
@@ -52,6 +61,7 @@ export default function MessagesTab({
 }) {
   // Recherche/filtre de la liste de conversations + menu "⋮" par ligne
   // (voir profil / signaler / bloquer sans devoir ouvrir la conversation).
+  useEffect(() => { loadConversationPane().catch(() => {}); }, []); // préchargement ; une erreur réseau est gérée à l'ouverture par ChunkErrorBoundary
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("all"); // "all" | "unread"
   const [openRowMenu, setOpenRowMenu] = useState(null);
@@ -249,39 +259,43 @@ export default function MessagesTab({
       data-keyboard-open={keyboardArea ? "true" : undefined}
       style={keyboardArea ? { position: "fixed", left: 0, right: 0, top: keyboardArea.top, height: keyboardArea.height, zIndex: 60, borderRadius: 0, maxWidth: "none" } : undefined}
     >
-      <ConversationPane
-        key={activeMatch.id}
-        activeMatch={activeMatch}
-        keyboardOpen={Boolean(keyboardArea)}
-        currentUser={currentUser}
-        goTab={goTab}
-        otherTyping={otherTyping}
-        messages={messages}
-        hasMoreHistory={hasMoreHistory}
-        loadingOlder={loadingOlder}
-        onLoadOlder={onLoadOlder}
-        messageDraft={messageDraft}
-        setMessageDraft={setMessageDraft}
-        broadcastTyping={broadcastTyping}
-        sendMessage={sendMessage}
-        sendStickerMessage={sendStickerMessage}
-        sendMediaMessage={sendMediaMessage}
-        retrySend={retrySend}
-        onBack={onBack}
-        onOpenReport={onOpenReport}
-        onOpenBlockConfirm={onOpenBlockConfirm}
-        onViewProfile={onViewProfile}
-        onUnmatch={onUnmatch}
-        replyingTo={replyingTo}
-        setReplyingTo={setReplyingTo}
-        reactionsByMessageId={reactionsByMessageId}
-        toggleReaction={toggleReaction}
-        deleteMessageForMe={deleteMessageForMe}
-        deleteMessageForEveryone={deleteMessageForEveryone}
-        forwardTargets={matches}
-        forwardMessages={forwardMessages}
-        showSuccessNotice={showSuccessNotice}
-      />
+      <ChunkErrorBoundary>
+        <Suspense fallback={<ConversationPaneFallback />}>
+          <ConversationPane
+            key={activeMatch.id}
+            activeMatch={activeMatch}
+            keyboardOpen={Boolean(keyboardArea)}
+            currentUser={currentUser}
+            goTab={goTab}
+            otherTyping={otherTyping}
+            messages={messages}
+            hasMoreHistory={hasMoreHistory}
+            loadingOlder={loadingOlder}
+            onLoadOlder={onLoadOlder}
+            messageDraft={messageDraft}
+            setMessageDraft={setMessageDraft}
+            broadcastTyping={broadcastTyping}
+            sendMessage={sendMessage}
+            sendStickerMessage={sendStickerMessage}
+            sendMediaMessage={sendMediaMessage}
+            retrySend={retrySend}
+            onBack={onBack}
+            onOpenReport={onOpenReport}
+            onOpenBlockConfirm={onOpenBlockConfirm}
+            onViewProfile={onViewProfile}
+            onUnmatch={onUnmatch}
+            replyingTo={replyingTo}
+            setReplyingTo={setReplyingTo}
+            reactionsByMessageId={reactionsByMessageId}
+            toggleReaction={toggleReaction}
+            deleteMessageForMe={deleteMessageForMe}
+            deleteMessageForEveryone={deleteMessageForEveryone}
+            forwardTargets={matches}
+            forwardMessages={forwardMessages}
+            showSuccessNotice={showSuccessNotice}
+          />
+        </Suspense>
+      </ChunkErrorBoundary>
     </div>
   ) : (
     <div className={`${card} hidden md:flex items-center justify-center bb-msg-h`}>
