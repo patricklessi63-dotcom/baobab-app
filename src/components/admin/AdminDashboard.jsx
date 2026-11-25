@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { ArrowLeft, Shield, Users2, Flag, Search, Ban, PauseCircle, PlayCircle, ShieldCheck, MessageSquareWarning } from "lucide-react";
+import { ArrowLeft, Shield, Users2, Flag, Search, Ban, PauseCircle, PlayCircle, ShieldCheck, MessageSquareWarning, AlertTriangle } from "lucide-react";
 import Avatar from "../Avatar";
 import EmptyState from "../home/EmptyState";
 import Skeleton, { SkeletonCard } from "../Skeleton";
@@ -13,6 +13,9 @@ import { EVENT_REPORT_CATEGORIES } from "../../lib/events/eventConfig";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { primary, coral, coralText, green, gold, goldText, muted, bg, card, primaryRgb, navy } from "../social/theme";
+
+// admin_list_reports renvoie au plus 200 lignes (« limit 200 », supabase-report-statuses.sql) : au-delà, la console le dit.
+const REPORTS_SERVER_LIMIT = 200;
 
 const SUB_TABS = [["dashboard", "Tableau de bord"], ["users", "Utilisateurs"], ["reports", "Signalements"], ["moderation", "Modération"], ["feedback", "Retours"]];
 
@@ -53,6 +56,9 @@ export default function AdminDashboard({ onBack, onError, myPlatformRole, myProf
 
   const [query, setQuery] = useState("");
   const [users, setUsers] = useState([]);
+  // Échec de chargement : distinct d'une liste vide. Sans cela, un échec affichait « Aucun … » et un modérateur pouvait
+  // croire qu'il n'y avait rien à traiter.
+  const [usersError, setUsersError] = useState(false);
   const [usersLoading, setUsersLoading] = useState(true);
   const [actionTarget, setActionTarget] = useState(null); // { user, mode: 'suspend' | 'ban' }
   const [actionReason, setActionReason] = useState("");
@@ -69,6 +75,7 @@ export default function AdminDashboard({ onBack, onError, myPlatformRole, myProf
   const userActionInFlightRef = useRef(new Set());
 
   const [reports, setReports] = useState([]);
+  const [reportsError, setReportsError] = useState(false);
   const [reportsLoading, setReportsLoading] = useState(true);
   // Filtres de la file (côté client : la liste est plafonnée à 200 lignes par le serveur) et disponibilité des étapes intermédiaires
   const [reportCategoryFilter, setReportCategoryFilter] = useState("all");
@@ -80,6 +87,7 @@ export default function AdminDashboard({ onBack, onError, myPlatformRole, myProf
   const reportActionInFlightRef = useRef(new Set());
 
   const [feedback, setFeedback] = useState([]);
+  const [feedbackError, setFeedbackError] = useState(false);
   const [feedbackLoading, setFeedbackLoading] = useState(true);
   const [feedbackStatusFilter, setFeedbackStatusFilter] = useState(null);
   const [feedbackSaving, setFeedbackSaving] = useState(null);
@@ -126,9 +134,11 @@ export default function AdminDashboard({ onBack, onError, myPlatformRole, myProf
       const data = await adminApi.searchUsers(q);
       if (usersRequestRef.current !== requestId) return; // réponse obsolète, ignorée
       setUsers(data);
+      setUsersError(false);
     } catch (e) {
       if (usersRequestRef.current !== requestId) return;
       console.error(e);
+      setUsersError(true);
       onError("Impossible de charger les utilisateurs.");
     } finally {
       if (usersRequestRef.current === requestId) setUsersLoading(false);
@@ -139,8 +149,10 @@ export default function AdminDashboard({ onBack, onError, myPlatformRole, myProf
     setReportsLoading(true);
     try {
       setReports(await adminApi.listReports("open"));
+      setReportsError(false);
     } catch (e) {
       console.error(e);
+      setReportsError(true);
       onError("Impossible de charger les signalements.");
     } finally {
       setReportsLoading(false);
@@ -160,9 +172,11 @@ export default function AdminDashboard({ onBack, onError, myPlatformRole, myProf
       const data = await adminApi.listFeedback(status);
       if (feedbackRequestRef.current !== requestId) return; // réponse obsolète, ignorée
       setFeedback(data);
+      setFeedbackError(false);
     } catch (e) {
       if (feedbackRequestRef.current !== requestId) return;
       console.error(e);
+      setFeedbackError(true);
       onError("Impossible de charger les retours.");
     } finally {
       if (feedbackRequestRef.current === requestId) setFeedbackLoading(false);
@@ -377,7 +391,9 @@ export default function AdminDashboard({ onBack, onError, myPlatformRole, myProf
             <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Rechercher un nom..." aria-label="Rechercher un utilisateur" className="flex-1 bg-transparent text-sm outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--bb-accent)]" />
           </form>
 
-          {usersLoading ? <Skeleton rows={5} height={56} /> : users.length === 0 ? (
+          {usersLoading ? <Skeleton rows={5} height={56} /> : usersError ? (
+            <EmptyState icon={AlertTriangle} title="Impossible de charger les utilisateurs." subtitle="La liste affichée n'est pas fiable : réessaie avant de conclure qu'il n'y a rien à traiter." actionLabel="Réessayer" onAction={() => loadUsers()} />
+          ) : users.length === 0 ? (
             <EmptyState icon={Users2} title="Aucun utilisateur trouvé." />
           ) : (
             <div className="flex flex-col gap-2">
@@ -431,7 +447,9 @@ export default function AdminDashboard({ onBack, onError, myPlatformRole, myProf
       )}
 
       {subTab === "reports" && (
-        reportsLoading ? <Skeleton rows={4} height={80} /> : reports.length === 0 ? (
+        reportsLoading ? <Skeleton rows={4} height={80} /> : reportsError ? (
+          <EmptyState icon={AlertTriangle} title="Impossible de charger les signalements." subtitle="La liste affichée n'est pas fiable : réessaie avant de conclure qu'il n'y a rien à traiter." actionLabel="Réessayer" onAction={() => loadReports()} />
+        ) : reports.length === 0 ? (
           <EmptyState icon={Flag} title="Aucun signalement ouvert." />
         ) : (
           <div className="flex flex-col gap-2">
@@ -445,6 +463,16 @@ export default function AdminDashboard({ onBack, onError, myPlatformRole, myProf
                 {Object.entries(REPORT_STATUS_LABEL).map(([v, l]) => <option key={v} value={v}>{`Statut : ${l}`}</option>)}
               </select>
             </div>
+            <p className="text-xs" style={{ color: muted }} aria-live="polite">
+              {visibleReports.length === reports.length
+                ? `${reports.length} signalement${reports.length > 1 ? "s" : ""} à traiter`
+                : `${visibleReports.length} sur ${reports.length} signalement${reports.length > 1 ? "s" : ""} à traiter`}
+            </p>
+            {reports.length >= REPORTS_SERVER_LIMIT && (
+              <p role="status" className="text-xs font-bold rounded-xl px-3 py-2" style={{ background: bg, color: coralText }}>
+                Seuls les {REPORTS_SERVER_LIMIT} plus prioritaires sont affichés : d'autres signalements attendent. Traite ceux-ci pour faire apparaître la suite.
+              </p>
+            )}
             {visibleReports.length === 0 && <p className="text-xs" style={{ color: muted }}>Aucun signalement ne correspond à ces filtres.</p>}
             {visibleReports.map((r) => {
               const status = r.status || "open";
@@ -498,7 +526,9 @@ export default function AdminDashboard({ onBack, onError, myPlatformRole, myProf
             ))}
           </div>
 
-          {feedbackLoading ? <Skeleton rows={4} height={100} /> : feedback.length === 0 ? (
+          {feedbackLoading ? <Skeleton rows={4} height={100} /> : feedbackError ? (
+            <EmptyState icon={AlertTriangle} title="Impossible de charger les retours." subtitle="La liste affichée n'est pas fiable : réessaie avant de conclure qu'il n'y a rien à traiter." actionLabel="Réessayer" onAction={() => loadFeedback()} />
+          ) : feedback.length === 0 ? (
             <EmptyState icon={MessageSquareWarning} title="Aucun retour dans cette catégorie." />
           ) : (
             <div className="flex flex-col gap-2">
