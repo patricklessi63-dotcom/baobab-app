@@ -33,6 +33,12 @@ describe("listEventFolder", () => {
     expect(calls.list[0]).toEqual(["event-media", "e1", { limit: 100, offset: 0 }]);
   });
 
+  it("dossier vide : aucun chemin, une seule page lue", async () => {
+    const { client, calls } = makeClient({ lists: { "event-media": [[]] } });
+    expect(await listEventFolder(client, "event-media", "e1")).toEqual([]);
+    expect(calls.list).toHaveLength(1);
+  });
+
   it("lit toutes les pages (plus de 100 fichiers)", async () => {
     const p1 = Array.from({ length: 100 }, (_, i) => file(`p1-${i}.jpg`));
     const p2 = [file("dernier.jpg")];
