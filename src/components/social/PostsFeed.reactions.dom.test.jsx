@@ -153,3 +153,36 @@ describe("PostsFeed — réactions multiples", () => {
     });
   });
 });
+
+describe("PostsFeed — menu de réactions au clavier", () => {
+  beforeEach(() => { cleanup(); });
+
+  it("à l'ouverture, le focus entre dans le menu nommé « Réactions » ; les flèches parcourent les six réactions", async () => {
+    await mount();
+    fireEvent.click(await screen.findByRole("button", { name: "Choisir une réaction" }));
+    const menu = await screen.findByRole("menu", { name: "Réactions" });
+    const items = screen.getAllByRole("menuitemradio");
+    await waitFor(() => expect(document.activeElement).toBe(items[0]));
+    fireEvent.keyDown(items[0], { key: "ArrowRight" });
+    expect(document.activeElement).toBe(items[1]);
+    fireEvent.keyDown(items[1], { key: "ArrowLeft" });
+    fireEvent.keyDown(items[0], { key: "ArrowLeft" });
+    expect(document.activeElement).toBe(items[5]);
+    expect(menu).toBeTruthy();
+  });
+
+  it("à l'ouverture, le focus va sur MA réaction actuelle", async () => {
+    await mount({ likes: [likeRow("u1", "🤝")] });
+    fireEvent.click(await screen.findByRole("button", { name: "Choisir une réaction" }));
+    const mine = await screen.findByRole("menuitemradio", { name: /Solidarité/ });
+    await waitFor(() => expect(document.activeElement).toBe(mine));
+  });
+
+  it("le bouton des commentaires annonce s'ils sont affichés", async () => {
+    await mount();
+    const btn = await screen.findByRole("button", { name: "Afficher les commentaires" });
+    expect(btn).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(btn);
+    expect(btn).toHaveAttribute("aria-expanded", "true");
+  });
+});

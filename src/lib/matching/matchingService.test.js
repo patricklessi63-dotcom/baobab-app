@@ -331,3 +331,16 @@ describe("rankCandidates", () => {
     expect(out.map((r) => r.profile.id)).toEqual(["A", "B"]);
   });
 });
+
+describe("ville ou pays fait seulement d'espaces", () => {
+  it("le filtre « Ma ville uniquement » n'accepte pas un candidat parce que les deux villes sont des espaces", () => {
+    const user = { city: "   ", pref_distance: "Ma ville uniquement" };
+    const out = filterCandidatesByPreferences(user, [{ id: "blank", city: "  " }]);
+    expect(out).toEqual([]);
+  });
+  it("aucun point ni libellé « Même ville » pour une ville faite d'espaces", () => {
+    const match = computeMatch({ id: "a", city: "  ", country: " " }, { id: "b", city: "   ", country: "  " });
+    expect(match.locationLabel || "").not.toContain("Même ville");
+    expect(match.breakdown.location).toBe(0);
+  });
+});

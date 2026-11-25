@@ -28,3 +28,10 @@ describe("ConversationStarters — « même ville »/« même pays » insensible
     expect(screen.getByText(/Vous venez tous les deux de Haiti/)).toBeInTheDocument();
   });
 });
+
+describe("ConversationStarters — ville ou pays faits d'espaces", () => {
+  it("ne propose pas « Vous êtes tous les deux à    ! »", () => {
+    render(<ConversationStarters currentUser={{ id: "a", city: "  ", country: " " }} match={{ id: "b", name: "Sam", city: "   ", country: "  " }} onPick={vi.fn()} />);
+    expect(screen.queryByText(/tous les deux/)).toBeNull();
+  });
+});

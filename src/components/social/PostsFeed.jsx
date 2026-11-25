@@ -21,6 +21,7 @@ import { friendlyDbError } from "../../lib/friendlyDbError";
 import { screenText, isModerationRefusal, MODERATION_REFUSAL } from "../../lib/contentGate";
 import ReportMediaDialog from "../ReportMediaDialog";
 import { prunedMentions, escapeLike, isMissingColumnError } from "../../lib/mentions";
+import { moveFocusWithin } from "../../lib/rovingFocus";
 import { FEED_FILTERS, EMPTY_MESSAGES, POPULAR_FETCH, applyFeedFilter, rankPopular, readStoredFilter, storeFilter, countsTowardNewPostsBanner } from "../../lib/feedFilters";
 import { HEART, tallyReactions, totalOf, planReaction, applyReactionChange, isMissingEmojiColumn } from "../../lib/postReactions";
 import { fetchHiddenMedia } from "../../lib/moderationApi";
@@ -1147,7 +1148,7 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
     return (
       <div className="p-3">
         {postsLoading ? (
-          <p className="text-sm text-center py-6" style={{ color: muted }}>Chargement...</p>
+          <p role="status" className="text-sm text-center py-6" style={{ color: muted }}>Chargement...</p>
         ) : visiblePosts.length === 0 && loadError ? (
           <LoadErrorNotice what="les publications" onRetry={() => loadPosts(null)} />
         ) : visiblePosts.length === 0 ? (
@@ -1234,12 +1235,13 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
       )}
 
       {!authorId && (
-        <div role="tablist" aria-label="Filtrer le fil" className="flex gap-1.5 mb-3 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
+        <div role="tablist" aria-label="Filtrer le fil" onKeyDown={(e) => moveFocusWithin(e, '[role="tab"]')} className="flex gap-1.5 mb-3 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
           {FEED_FILTERS.map(([key, label]) => (
             <button
               key={key}
               role="tab"
               aria-selected={feedFilter === key}
+              tabIndex={feedFilter === key ? 0 : -1}
               onClick={() => changeFilter(key)}
               className="px-3.5 py-2 rounded-full text-xs font-bold flex-shrink-0 focus-visible:outline focus-visible:outline-2"
               style={{ background: feedFilter === key ? navy : bg, color: feedFilter === key ? "#fff" : muted, minHeight: 36 }}
@@ -1251,7 +1253,7 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
       )}
 
       {postsLoading ? (
-        <p className="text-sm text-center py-6" style={{ color: muted }}>Chargement...</p>
+        <p role="status" className="text-sm text-center py-6" style={{ color: muted }}>Chargement...</p>
       ) : shownPosts.length === 0 && loadError ? (
         <LoadErrorNotice what="les publications" onRetry={() => loadPosts(null)} />
       ) : shownPosts.length === 0 ? (

@@ -95,3 +95,11 @@ describe("rankCommunities", () => {
     expect(rankCommunities({}, [])).toEqual([]);
   });
 });
+
+describe("scoreCommunity — ville faite d'espaces", () => {
+  it("ne donne ni points ni raison « À <ville>, comme toi »", () => {
+    const r = scoreCommunity({ city: "  " }, community({ city: "   " }));
+    expect(r.score).toBe(0);
+    expect(r.reasons).toEqual([]);
+  });
+});

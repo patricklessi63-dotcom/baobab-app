@@ -9,7 +9,7 @@
 // ============================================================================
 
 import { MATCH_WEIGHTS, SCORE_FLOOR, SCORE_CEIL, DISCLAIMER, ROMANTIC_INTENTION_MARKERS } from "./matchingConfig.js";
-import { normalizeForSearch } from "../searchQuery.js";
+import { samePlaceText } from "../searchQuery.js";
 
 // Bug corrigé : toutes les comparaisons de ville ci-dessous (sameCity dans
 // scorePreferences/filterCandidatesByPreferences, cityA/cityB dans
@@ -25,7 +25,7 @@ import { normalizeForSearch } from "../searchQuery.js";
 // (SocialShell.jsx) et les communautés/événements "Près de toi"
 // (CommunitiesTab.jsx/EventsTab.jsx, corrigé dans le même passage).
 function sameTextNormalized(a, b) {
-  return Boolean(a && b && normalizeForSearch(a.trim()) === normalizeForSearch(b.trim()));
+  return samePlaceText(a, b);
 }
 function sameCityNormalized(cityA, cityB) {
   return sameTextNormalized(cityA, cityB);

@@ -98,3 +98,11 @@ describe("rankEvents", () => {
     expect(rankEvents({}, [])).toEqual([]);
   });
 });
+
+describe("scoreEvent — ville faite d'espaces", () => {
+  it("ne donne ni points ni raison « À <ville>, comme toi »", () => {
+    const r = scoreEvent({ city: "  " }, event({ city: "   " }));
+    expect(r.score).toBe(0);
+    expect(r.reasons).toEqual([]);
+  });
+});

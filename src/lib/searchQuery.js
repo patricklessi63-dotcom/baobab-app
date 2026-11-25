@@ -92,3 +92,13 @@ export function findMatchRanges(text, query) {
   }
   return ranges;
 }
+
+// Même lieu (ville, pays) saisi en texte libre : insensible à la casse, aux accents et aux espaces autour.
+// Une valeur vide ou faite seulement d'espaces n'est JAMAIS « le même lieu » : sans ce garde, deux profils dont
+// la ville vaut "  " étaient comptés « dans la même ville » (points de score, « À   , comme toi », filtre
+// « Ma ville uniquement » satisfait à tort).
+export function samePlaceText(a, b) {
+  const na = normalizeForSearch(String(a ?? "")).trim();
+  const nb = normalizeForSearch(String(b ?? "")).trim();
+  return na !== "" && na === nb;
+}

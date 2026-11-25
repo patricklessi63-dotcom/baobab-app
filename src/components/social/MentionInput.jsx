@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useId, useRef, useState } from "react";
 import Avatar from "../Avatar";
 import { findActiveMention, applyMention, addMention, prunedMentions } from "../../lib/mentions";
 import { bg, primary, muted } from "./theme";
@@ -13,6 +13,8 @@ export default function MentionInput({
   const [active, setActive] = useState(null); // { start, query }
   const [results, setResults] = useState([]);
   const [highlight, setHighlight] = useState(0);
+  const listId = useId();
+  const optionId = (i) => `${listId}-option-${i}`;
   const localRef = useRef(null);
   const ref = inputRef || localRef;
   const caretRef = useRef(null);
@@ -85,23 +87,26 @@ export default function MentionInput({
         onKeyUp={(e) => { if (e.key === "ArrowLeft" || e.key === "ArrowRight") refresh(e.target.value, e.target.selectionStart); }}
         aria-autocomplete={search ? "list" : undefined}
         aria-expanded={search ? open : undefined}
+        aria-controls={open ? listId : undefined}
+        aria-activedescendant={open ? optionId(highlight) : undefined}
         {...rest}
         className={`${rest.className || ""} w-full`}
       />
       {open && (
-        <ul role="listbox" aria-label="Personnes à mentionner" className="rounded-xl shadow-xl overflow-hidden" style={{ position: "absolute", left: 0, right: 0, bottom: "100%", marginBottom: 4, background: "var(--bb-surface)", border: "1px solid var(--bb-border)", zIndex: 30, maxHeight: 220, overflowY: "auto" }}>
+        <ul id={listId} role="listbox" aria-label="Personnes à mentionner" className="rounded-xl shadow-xl overflow-hidden" style={{ position: "absolute", left: 0, right: 0, bottom: "100%", marginBottom: 4, background: "var(--bb-surface)", border: "1px solid var(--bb-border)", zIndex: 30, maxHeight: 220, overflowY: "auto" }}>
           {results.map((p, i) => (
-            <li key={p.id} role="option" aria-selected={i === highlight}>
-              <button
-                type="button"
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => choose(p)}
-                className="w-full flex items-center gap-2 px-3 py-2 text-left text-xs"
-                style={{ background: i === highlight ? bg : "transparent", color: primary, minHeight: 40 }}
-              >
-                <Avatar name={p.name} url={p.avatar_url} size={24} />
-                <span className="font-semibold truncate">{p.name}</span>
-              </button>
+            <li
+              key={p.id}
+              id={optionId(i)}
+              role="option"
+              aria-selected={i === highlight}
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => choose(p)}
+              className="w-full flex items-center gap-2 px-3 py-2 text-left text-xs cursor-pointer"
+              style={{ background: i === highlight ? bg : "transparent", color: primary, minHeight: 40 }}
+            >
+              <Avatar name={p.name} url={p.avatar_url} size={24} />
+              <span className="font-semibold truncate">{p.name}</span>
             </li>
           ))}
           <li aria-hidden="true" className="px-3 py-1 text-[10px]" style={{ color: muted }}>Choisis une personne pour la notifier</li>

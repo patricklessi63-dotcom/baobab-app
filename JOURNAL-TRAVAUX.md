@@ -58,6 +58,22 @@ Ces actions ne peuvent pas être faites par une session : il faut une interventi
 
 ### 25 novembre 2026
 
+- **Accessibilité du fil** (`local_e774b28a…`, ce commit) : onglets de filtre au clavier (un seul arrêt de tabulation,
+  flèches / Début / Fin, activation par Entrée ou clic : pas de requête à chaque flèche) ; menu de réactions nommé
+  « Réactions », le focus y entre (sur ma réaction, sinon la première) et les flèches le parcourent ; bouton des
+  commentaires avec `aria-expanded` ; suggestions de mention annoncées (`aria-controls` + `aria-activedescendant`, plus
+  de bouton imbriqué dans une option) ; « Chargement... » en `role="status"`. Nouveau `src/lib/rovingFocus.js` (+ test).
+  Tests : 94/94 sur le fil et les commentaires.
+- **Recommandations** (`local_e774b28a…`, ce commit) : une ville (ou un pays) faite seulement d'espaces comptait comme
+  « même ville » : +3 points et « À    , comme toi » (communautés, événements), +10 points et filtre « Ma ville uniquement »
+  satisfait à tort (Rencontres), « Vous êtes tous les deux à    ! » (idées de premier message). Correctif commun
+  `samePlaceText` (`src/lib/searchQuery.js`), utilisé par `matchingService.js`, `communities/recommendations.js`,
+  `events/recommendations.js`, `ConversationStarters.jsx` ; 7 tests de non-régression. **Même motif restant hors de
+  ma zone** (signalé à la coordination) : `CommunitiesTab.jsx` et `EventsTab.jsx` (« Près de toi »), `SocialShell.jsx`
+  (filtre par ville) — une ville vide n'y matche que d'autres villes vides, effet mineur.
+- **Fil** (`local_e774b28a…`, commit `0204352`) : le bandeau « N nouvelles publications » respecte le filtre affiché
+  (Abonnements : auteurs suivis seulement ; Populaires et Photos : pas d'annonce de publications que le fil ne montrera
+  pas). `countsTowardNewPostsBanner` dans `src/lib/feedFilters.js`, 3 tests ; 65/65 sur le fil.
 - **Performance** (`local_e774b28a…`, commit `fa73a30`) : l'onglet Rencontres (`DiscoverTab`) se charge à la demande ;
   fichier principal 570 → 550 ko minifiés. Fichiers : `src/components/SocialShell.jsx`, `src/components/SocialShell.lazyTabs.test.js`
   (6 tests). Vérifié en ligne par la session : le site charge `DiscoverTab-*.js` à part. Suite : bannière « nouvelles

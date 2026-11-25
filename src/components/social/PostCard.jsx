@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Heart, MessageCircle, Flag, Ban, Trash2, Pencil, Check, X, ImageOff, SmilePlus, Bookmark } from "lucide-react";
 import Avatar from "../Avatar";
 import StatusBadge from "../StatusBadge";
@@ -13,6 +13,7 @@ import { primary, coral, coralText, muted, bg, primaryRgb } from "./theme";
 import { useClickOutside } from "../../hooks/useClickOutside";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
 import { useFocusReturn } from "../../hooks/useFocusReturn";
+import { moveFocusWithin } from "../../lib/rovingFocus";
 import { HEART, POST_REACTIONS, POST_REACTION_LABEL, topReactions } from "../../lib/postReactions";
 
 const MAX_LENGTH = 4000;
@@ -57,6 +58,13 @@ export default function PostCard({
   useClickOutside(reactionsRef, reactionsOpen, () => setReactionsOpen(false));
   useEscapeKey(reactionsOpen, () => setReactionsOpen(false));
   useFocusReturn(reactionsOpen);
+  const reactionsMenuRef = useRef(null);
+  // Clavier et lecteur d'écran : à l'ouverture, le focus entre dans le menu (sur ma réaction actuelle, sinon la première).
+  useEffect(() => {
+    if (!reactionsOpen) return;
+    const menu = reactionsMenuRef.current;
+    (menu?.querySelector('[aria-checked="true"]') || menu?.querySelector('[role="menuitemradio"]'))?.focus();
+  }, [reactionsOpen]);
   const [editing, setEditing] = useState(false);
   const [editDraft, setEditDraft] = useState(post.body);
   // Suppression en attente de confirmation — remplace l'ancien
@@ -189,7 +197,7 @@ export default function PostCard({
                   </button>
                 )}
                 {onReact && reactionsOpen && (
-                  <div role="menu" className="flex items-center px-1 rounded-full bg-[var(--bb-surface)] shadow-xl" style={{ position: "absolute", top: "100%", left: 0, marginTop: 4, border: `1px solid rgba(${primaryRgb},.08)`, zIndex: 5 }}>
+                  <div ref={reactionsMenuRef} role="menu" aria-label="Réactions" onKeyDown={(e) => moveFocusWithin(e, '[role="menuitemradio"]')} className="flex items-center px-1 rounded-full bg-[var(--bb-surface)] shadow-xl" style={{ position: "absolute", top: "100%", left: 0, marginTop: 4, border: `1px solid rgba(${primaryRgb},.08)`, zIndex: 5 }}>
                     {POST_REACTIONS.map((emoji) => (
                       <button
                         key={emoji}
@@ -207,7 +215,7 @@ export default function PostCard({
                   </div>
                 )}
               </div>
-              <button onClick={toggleComments} aria-label="Afficher les commentaires" className="bb-hit flex items-center gap-1.5 text-xs font-semibold focus-visible:outline focus-visible:outline-2" style={{ color: muted }}>
+              <button onClick={toggleComments} aria-label="Afficher les commentaires" aria-expanded={commentsOpen} className="bb-hit flex items-center gap-1.5 text-xs font-semibold focus-visible:outline focus-visible:outline-2" style={{ color: muted }}>
                 <MessageCircle size={15} /> {(commentsLoaded ? comments.length : commentCount) > 0 ? (commentsLoaded ? comments.length : commentCount) : "Commenter"}
               </button>
               {onSave && (

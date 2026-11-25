@@ -138,7 +138,7 @@ describe("PostComments — saisie avec mentions", () => {
     fireEvent.change(input, { target: { value: "Salut @aw" } });
     const list = await screen.findByRole("listbox", { name: "Personnes à mentionner" });
     expect(search).toHaveBeenCalledWith("aw");
-    fireEvent.click(within(list).getByRole("button", { name: /Awa Sy/ }));
+    fireEvent.click(within(list).getByRole("option", { name: /Awa Sy/ }));
     expect(input.value).toBe("Salut @Awa Sy ");
     fireEvent.change(input, { target: { value: "Salut @Awa Sy bienvenue" } });
     fireEvent.click(screen.getByRole("button", { name: "Envoyer" }));
@@ -158,7 +158,7 @@ describe("PostComments — saisie avec mentions", () => {
     fireEvent.change(input, { target: { value: "@aw" } });
     input.setSelectionRange(3, 3);
     fireEvent.change(input, { target: { value: "@aw" } });
-    fireEvent.click(await screen.findByRole("button", { name: /Awa Diop/ }));
+    fireEvent.click(await screen.findByRole("option", { name: /Awa Diop/ }));
     fireEvent.change(input, { target: { value: "finalement rien" } });
     fireEvent.click(screen.getByRole("button", { name: "Envoyer" }));
     await waitFor(() => expect(onSubmit).toHaveBeenCalledWith("finalement rien"));
@@ -220,5 +220,29 @@ describe("PostComments — j'aime sur les commentaires (SQL-35)", () => {
     const { container } = setup({ comments, likeCounts: { c1: 1, c2: 5, c3: 0, c4: 0 }, myLikes: new Set(), onToggleLike: vi.fn() });
     fireEvent.change(screen.getByLabelText("Trier les commentaires"), { target: { value: "relevant" } });
     expect(texts(container)).toEqual(["Très aimé", "Une réponse", "rep", "Peu aimé"]);
+  });
+});
+
+describe("PostComments — suggestions de mention pour les lecteurs d'écran", () => {
+  it("le champ désigne la liste et l'option surlignée (aria-controls / aria-activedescendant) ; les flèches la font changer", async () => {
+    const search = vi.fn().mockResolvedValue([{ id: "u1", name: "Awa Diop", avatar_url: null }, { id: "u2", name: "Awa Sy", avatar_url: null }]);
+    setup({ onSearchMentions: search });
+    const input = screen.getByLabelText("Écrire un commentaire");
+    input.setSelectionRange(0, 0);
+    fireEvent.change(input, { target: { value: "@aw" } });
+    input.setSelectionRange(3, 3);
+    fireEvent.change(input, { target: { value: "@aw" } });
+    const list = await screen.findByRole("listbox", { name: "Personnes à mentionner" });
+    const options = within(list).getAllByRole("option");
+    expect(options).toHaveLength(2);
+    expect(within(list).queryAllByRole("button")).toHaveLength(0);
+    expect(input.getAttribute("aria-controls")).toBe(list.id);
+    expect(input.getAttribute("aria-activedescendant")).toBe(options[0].id);
+    fireEvent.keyDown(input, { key: "ArrowDown" });
+    expect(input.getAttribute("aria-activedescendant")).toBe(options[1].id);
+    expect(options[1]).toHaveAttribute("aria-selected", "true");
+    fireEvent.keyDown(input, { key: "Escape" });
+    await waitFor(() => expect(screen.queryByRole("listbox")).toBeNull());
+    expect(input.hasAttribute("aria-activedescendant")).toBe(false);
   });
 });

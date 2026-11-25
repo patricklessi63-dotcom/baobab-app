@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { escapeLikePattern, escapeOrFilterValue, normalizeForSearch } from "./searchQuery.js";
+import { escapeLikePattern, escapeOrFilterValue, normalizeForSearch, samePlaceText } from "./searchQuery.js";
 
 // Ces deux fonctions échappent une saisie utilisateur libre AVANT de la
 // concaténer dans un filtre PostgREST `ilike` / `or`. Un défaut ici = requête
@@ -191,5 +191,21 @@ describe("normalizeForSearch", () => {
     expect(normalizeForSearch("Œuvre")).toBe("oeuvre");
     expect(normalizeForSearch("cæsium")).toBe("caesium");
     expect(normalizeForSearch("Ægypte")).toBe("aegypte");
+  });
+});
+
+describe("samePlaceText — même ville / même pays en texte libre", () => {
+  it("insensible à la casse, aux accents et aux espaces autour", () => {
+    expect(samePlaceText("Montréal", " montreal ")).toBe(true);
+    expect(samePlaceText("Haïti", "HAITI")).toBe(true);
+  });
+  it("une valeur vide, absente ou faite d'espaces n'est jamais « le même lieu »", () => {
+    expect(samePlaceText("   ", "   ")).toBe(false);
+    expect(samePlaceText("", "")).toBe(false);
+    expect(samePlaceText(null, undefined)).toBe(false);
+    expect(samePlaceText("Montréal", "")).toBe(false);
+  });
+  it("deux lieux différents restent différents", () => {
+    expect(samePlaceText("Montréal", "Québec")).toBe(false);
   });
 });

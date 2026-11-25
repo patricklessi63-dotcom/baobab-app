@@ -1,7 +1,7 @@
 import React from "react";
 import { MessageCircle } from "lucide-react";
 import { computeMatch } from "../../lib/matching/matchingService";
-import { normalizeForSearch } from "../../lib/searchQuery";
+import { samePlaceText } from "../../lib/searchQuery";
 import { primary, bg, body, primaryRgb } from "./theme";
 
 // Génère jusqu'à 3 suggestions d'ouverture, uniquement à partir de données
@@ -38,8 +38,9 @@ function buildStarters(currentUser, match) {
   // insensible à la casse mais pas aux accents ("Montréal" vs "Montreal",
   // "Haïti" vs "Haiti"), ce qui pouvait priver silencieusement deux personnes
   // réellement dans la même ville/pays de cette suggestion d'ouverture.
-  const sameCity = currentUser.city && matchCity && normalizeForSearch(currentUser.city.trim()) === normalizeForSearch(matchCity.trim());
-  const sameCountry = currentUser.country && matchCountry && normalizeForSearch(currentUser.country.trim()) === normalizeForSearch(matchCountry.trim());
+  // Une ville/un pays vide ou fait d'espaces ne compte jamais (sinon « Vous êtes tous les deux à    ! »).
+  const sameCity = samePlaceText(currentUser.city, matchCity);
+  const sameCountry = samePlaceText(currentUser.country, matchCountry);
   if (sameCity) {
     suggestions.push(`Vous êtes tous les deux à ${matchCity} ! Tu es arrivé(e) depuis combien de temps ?`);
   } else if (sameCountry) {

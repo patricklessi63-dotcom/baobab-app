@@ -1,6 +1,6 @@
 import { parseInterests, matchInterests } from "../parseInterests";
 import { categoryLabel } from "./communityConfig";
-import { normalizeForSearch } from "../searchQuery";
+import { samePlaceText } from "../searchQuery";
 
 // Score déterministe — PAS de l'IA (item 52) : simple recoupement
 // d'intérêts déclarés, de ville et de mots-clés, comme
@@ -17,7 +17,7 @@ export function scoreCommunity(user, community) {
   // casse mais pas aux accents ("Montréal" vs "Montreal"), ce qui pouvait
   // faire manquer silencieusement la raison "À <ville>, comme toi" et les
   // points associés pour deux personnes pourtant dans la même ville.
-  if (user?.city && community.city && normalizeForSearch(user.city.trim()) === normalizeForSearch(community.city.trim())) {
+  if (samePlaceText(user?.city, community.city)) {
     score += 3;
     reasons.push(`À ${community.city}, comme toi`);
   }

@@ -126,3 +126,26 @@ describe("PostsFeed — filtres du fil", () => {
     expect(calls.posts.some((c) => c[0] === "in")).toBe(false);
   });
 });
+
+describe("PostsFeed — onglets de filtre au clavier", () => {
+  beforeEach(() => { cleanup(); window.localStorage.clear(); });
+
+  it("un seul onglet dans l'ordre de tabulation (l'actif) ; les flèches, Début et Fin déplacent le focus sans changer de filtre", async () => {
+    const { calls } = await mount();
+    await screen.findByText("Première");
+    const tabs = screen.getAllByRole("tab");
+    expect(tabs.map((t) => t.getAttribute("tabindex"))).toEqual(["0", "-1", "-1", "-1"]);
+    tabs[0].focus();
+    fireEvent.keyDown(tabs[0], { key: "ArrowRight" });
+    expect(document.activeElement).toBe(tabs[1]);
+    fireEvent.keyDown(tabs[1], { key: "End" });
+    expect(document.activeElement).toBe(tabs[3]);
+    fireEvent.keyDown(tabs[3], { key: "ArrowRight" });
+    expect(document.activeElement).toBe(tabs[0]);
+    fireEvent.keyDown(tabs[0], { key: "ArrowLeft" });
+    expect(document.activeElement).toBe(tabs[3]);
+    // Déplacer le focus n'active pas le filtre (pas de requête à chaque flèche) : il faut Entrée / Espace / clic.
+    expect(screen.getByRole("tab", { name: "Tout" })).toHaveAttribute("aria-selected", "true");
+    expect(calls.follows).toBe(0);
+  });
+});
