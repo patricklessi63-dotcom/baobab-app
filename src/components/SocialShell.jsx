@@ -2208,6 +2208,9 @@ export default function SocialShell({
     closeStoryViewer();
   };
 
+  const nextStoryRef = useRef(nextStory);
+  nextStoryRef.current = nextStory;
+
   // Auto-avance chaque story après storyDurationMs (5s par défaut, ou la
   // durée réelle d'une vidéo une fois ses métadonnées chargées — voir
   // StoryViewerModal.jsx, onVideoDuration). En pause pendant que la personne
@@ -2219,7 +2222,10 @@ export default function SocialShell({
   useEffect(() => {
     if (storyViewerIndex === null) return;
     if (storyReply.trim() || storyViewersOpen || storyPaused) return;
-    const t = setTimeout(() => nextStory(), storyDurationMs);
+    // nextStoryRef : toujours la dernière version de nextStory(). Sans elle, le minuteur appelait la fonction du rendu
+    // où il a été posé, qui lit l'ANCIENNE liste visibleStories : si un statut arrivait (temps réel) ou disparaissait
+    // pendant l'affichage, l'avance automatique pouvait sauter un statut ou fermer la visionneuse trop tôt.
+    const t = setTimeout(() => nextStoryRef.current(), storyDurationMs);
     return () => clearTimeout(t);
   }, [storyViewerIndex, storyDurationMs, storyReply, storyViewersOpen, storyPaused]);
 
