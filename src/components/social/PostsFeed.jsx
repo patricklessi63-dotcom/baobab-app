@@ -7,7 +7,6 @@ const CollectionsModal = lazy(() => import("./CollectionsModal"));
 import { isPremiumEnabled } from "../../lib/featureFlags";
 import { setPremiumIntent } from "../../lib/premium/premiumIntent";
 import PostComposerModal from "./PostComposerModal";
-import PostMediaGrid from "./PostMediaGrid";
 import ReportModal from "./ReportModal";
 import { POST_REPORT_CATEGORIES } from "../../lib/reportCategories";
 import ConfirmModal from "./ConfirmModal";

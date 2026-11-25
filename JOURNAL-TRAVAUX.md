@@ -58,13 +58,13 @@ Ces actions ne peuvent pas être faites par une session : il faut une interventi
 
 ### 25 novembre 2026
 
-- **Accessibilité du fil** (`local_e774b28a…`, ce commit) : onglets de filtre au clavier (un seul arrêt de tabulation,
+- **Accessibilité du fil** (`local_e774b28a…`, commit `1d39f23`) : onglets de filtre au clavier (un seul arrêt de tabulation,
   flèches / Début / Fin, activation par Entrée ou clic : pas de requête à chaque flèche) ; menu de réactions nommé
   « Réactions », le focus y entre (sur ma réaction, sinon la première) et les flèches le parcourent ; bouton des
   commentaires avec `aria-expanded` ; suggestions de mention annoncées (`aria-controls` + `aria-activedescendant`, plus
   de bouton imbriqué dans une option) ; « Chargement... » en `role="status"`. Nouveau `src/lib/rovingFocus.js` (+ test).
   Tests : 94/94 sur le fil et les commentaires.
-- **Recommandations** (`local_e774b28a…`, ce commit) : une ville (ou un pays) faite seulement d'espaces comptait comme
+- **Recommandations** (`local_e774b28a…`, commit `1d39f23`) : une ville (ou un pays) faite seulement d'espaces comptait comme
   « même ville » : +3 points et « À    , comme toi » (communautés, événements), +10 points et filtre « Ma ville uniquement »
   satisfait à tort (Rencontres), « Vous êtes tous les deux à    ! » (idées de premier message). Correctif commun
   `samePlaceText` (`src/lib/searchQuery.js`), utilisé par `matchingService.js`, `communities/recommendations.js`,
