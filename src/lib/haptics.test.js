@@ -51,14 +51,15 @@ afterEach(() => { process.off("unhandledRejection", onUnhandled); vi.unstubAllGl
 
 describe("haptics", () => {
   it("natif : léger = impact Light, réussite et erreur = notification", async () => {
-    hapticLight(); await flush();
-    expect(haptics.impact).toHaveBeenCalledWith({ style: "LIGHT" });
+    // vi.waitFor : attend l'appel lui-même (import asynchrone du plugin), pas un délai fixe qui peut être dépassé sous charge.
+    hapticLight();
+    await vi.waitFor(() => expect(haptics.impact).toHaveBeenCalledWith({ style: "LIGHT" }), { timeout: 5000 });
     _resetHapticsForTests();
-    hapticSuccess(); await flush();
-    expect(haptics.notification).toHaveBeenLastCalledWith({ type: "SUCCESS" });
+    hapticSuccess();
+    await vi.waitFor(() => expect(haptics.notification).toHaveBeenLastCalledWith({ type: "SUCCESS" }), { timeout: 5000 });
     _resetHapticsForTests();
-    hapticError(); await flush();
-    expect(haptics.notification).toHaveBeenLastCalledWith({ type: "ERROR" });
+    hapticError();
+    await vi.waitFor(() => expect(haptics.notification).toHaveBeenLastCalledWith({ type: "ERROR" }), { timeout: 5000 });
     expect(haptics.thenReads).toBe(0);
   });
 
@@ -66,7 +67,8 @@ describe("haptics", () => {
     expect(hapticLight()).toBeUndefined();
     expect(hapticSuccess()).toBeUndefined();
     expect(hapticError()).toBeUndefined();
-    await flush(); // laisse finir l'appel natif simulé avant le test suivant
+    // laisse finir l'appel natif simulé avant le test suivant (anti-rafale : seul le premier part)
+    await vi.waitFor(() => expect(haptics.impact).toHaveBeenCalled(), { timeout: 5000 });
   });
 
   it("web : aucun appel, plugin jamais chargé", async () => {
