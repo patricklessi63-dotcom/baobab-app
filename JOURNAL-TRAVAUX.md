@@ -74,6 +74,9 @@ Ces actions ne peuvent pas être faites par une session : il faut une interventi
 - **Fil** (`local_e774b28a…`, commit `0204352`) : le bandeau « N nouvelles publications » respecte le filtre affiché
   (Abonnements : auteurs suivis seulement ; Populaires et Photos : pas d'annonce de publications que le fil ne montrera
   pas). `countsTowardNewPostsBanner` dans `src/lib/feedFilters.js`, 3 tests ; 65/65 sur le fil.
+- **Performance** (`local_f49a575b…`, commit `f7cdff5`) : `ProfileTab` et `ConversationPane` chargés à la demande
+  (ChunkErrorBoundary + Suspense, conversation préchargée à l'affichage de Messages) ; fichier principal 550 → 439 ko
+  minifiés. Tests : 22 fichiers touchés et 188 tests voisins verts, build OK. Non vérifié sur des écrans connectés.
 - **Sécurité — photos d'événements** (`local_bafa9cbe…`) : liens signés de la galerie `event-media` ramenés de 30 jours à
   24 h (déjà re-signés à chaque chargement, aucun effet sur l'affichage) ; un participant retiré d'un événement privé ne
   garde plus l'accès 30 jours. Durée commune `src/lib/mediaUrlTtl.js` (aussi utilisée par les médias de communauté),
@@ -98,7 +101,9 @@ Ces actions ne peuvent pas être faites par une session : il faut une interventi
 - **Bogue critique corrigé — inscription bloquée** (coordination) : depuis `5d6b0ec` (3 novembre), l'étape « Parcours au
   Canada » de l'inscription lisait `user?.arrived_since`, variable inexistante → `ReferenceError`, message « Une erreur est
   survenue », personne ne pouvait dépasser cette étape. Corrigé (`currentUser`) dans `src/screens/onboarding/OnboardingWizard.jsx` ;
-  test de régression dans `OnboardingWizard.dom.test.jsx` (échouait avant, passe après).
+  test de régression dans `OnboardingWizard.dom.test.jsx` (échouait avant, passe après). Commit `1d7cad3`.
+  **Vérifié en ligne** : le site sert `OnboardingWizard-Cym0veya.js`, qui lit la variable du profil connecté (plus de `user`
+  libre). Non vérifié : une vraie inscription de bout en bout (aucun compte de test en production).
 - **Bogue corrigé — plantage de l'onglet Messages** (coordination) : depuis `561ed64` (1er novembre), `useKeyboardViewport`
   était appelé après le retour anticipé de la liste vide ; passer de 1 conversation à 0 (blocage) ou de 0 à 1 (première
   connexion en direct) faisait planter l'écran (« Rendered fewer/more hooks »). Corrigé dans `MessagesTab.jsx` ; test
