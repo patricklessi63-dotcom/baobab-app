@@ -46,10 +46,12 @@ describe("computeKeyboardViewport", () => {
 });
 
 describe("MessagesTab — clavier virtuel", () => {
-  it("ouverture : la conversation passe en position fixe sur la zone visible ; fermeture : retour à la mise en page normale", () => {
+  it("ouverture : la conversation passe en position fixe sur la zone visible ; fermeture : retour à la mise en page normale", async () => {
     setWindow(375, 812);
     const { vv, set } = installVisualViewport({ height: 812 });
     const { container } = render(<MessagesTab {...base} activeMatch={base.matches[0]} />);
+    // ConversationPane est chargé à la demande (lazy) : attendre qu'il soit rendu avant de lire ses props.
+    await screen.findByText("pane");
     const pane = () => container.querySelector(".bb-msg-h");
     expect(pane().style.position).toBe("");
     expect(paneProps.last.keyboardOpen).toBe(false);

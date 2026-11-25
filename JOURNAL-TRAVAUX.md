@@ -74,6 +74,11 @@ Ces actions ne peuvent pas être faites par une session : il faut une interventi
 - **Fil** (`local_e774b28a…`, commit `0204352`) : le bandeau « N nouvelles publications » respecte le filtre affiché
   (Abonnements : auteurs suivis seulement ; Populaires et Photos : pas d'annonce de publications que le fil ne montrera
   pas). `countsTowardNewPostsBanner` dans `src/lib/feedFilters.js`, 3 tests ; 65/65 sur le fil.
+- **Sécurité — photos d'événements** (`local_bafa9cbe…`) : liens signés de la galerie `event-media` ramenés de 30 jours à
+  24 h (déjà re-signés à chaque chargement, aucun effet sur l'affichage) ; un participant retiré d'un événement privé ne
+  garde plus l'accès 30 jours. Durée commune `src/lib/mediaUrlTtl.js` (aussi utilisée par les médias de communauté),
+  garde-fou `src/lib/mediaUrlTtl.test.js` (3 tests, échoue si 30 jours est remis : mutation vérifiée). Fichier touché :
+  `EventsTab.jsx` (constante seulement, annoncé au coordinateur). Tests liés 15 fichiers / 35 tests verts ; build OK.
 - **Sécurité — médias des communautés** (`local_bafa9cbe…`) : faille corrigée. `community_posts.media_url` recevait une
   URL signée valable **5 ans** (bucket privé `community-media`) ; une URL signée ne se révoque pas, donc un membre exclu
   d'une communauté privée gardait l'accès à la photo ou à la vidéo pendant 5 ans, et un média que le modérateur n'avait pas

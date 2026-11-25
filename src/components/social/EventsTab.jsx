@@ -27,12 +27,15 @@ import { escapeLikePattern, escapeOrFilterValue, normalizeForSearch } from "../.
 import { useEscapeKey } from "../../hooks/useEscapeKey";
 import { useReconnectTick } from "../../hooks/useReconnectTick";
 import { isAmbiguousWriteError } from "../../lib/networkError";
+import { MEMBER_MEDIA_URL_TTL } from "../../lib/mediaUrlTtl";
 import LoadErrorNotice from "../LoadErrorNotice";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { primary, coralText, muted, bg, card, primaryRgb, navy } from "./theme";
 
 const PAGE_SIZE = 20;
-const PHOTO_URL_EXPIRY = 60 * 60 * 24 * 30; // 30 jours — assez pour une galerie, régénéré à chaque chargement
+// 24 h (avant : 30 jours) — régénéré à chaque chargement de la galerie ; un lien signé ne se révoque
+// pas, sa durée est le temps d'accès d'un participant retiré d'un événement privé (mediaUrlTtl.js).
+const PHOTO_URL_EXPIRY = MEMBER_MEDIA_URL_TTL;
 
 // Cartes-conseil qui comblent les rangées à balayage horizontal quand peu
 // d'événements réels existent encore — conseils génériques uniquement,

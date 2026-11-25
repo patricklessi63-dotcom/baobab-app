@@ -21,7 +21,6 @@ import ProfileMenu from "./social/ProfileMenu";
 import SearchResultsDropdown from "./social/SearchResultsDropdown";
 import FeedTab from "./social/FeedTab";
 import MessagesTab from "./social/MessagesTab";
-import ProfileTab from "./social/ProfileTab";
 import PublicProfileModal from "./social/PublicProfileModal";
 import { validateMediaFile } from "../lib/mediaValidation";
 import { compressImageIfNeeded } from "../lib/imageCompression";
@@ -46,6 +45,8 @@ import { hapticSuccess } from "../lib/haptics";
 // principal pour les utilisateurs qui ne l'ouvrent jamais.
 // Onglet Rencontres chargé à l'ouverture seulement (allège le fichier principal téléchargé au démarrage).
 const DiscoverTab = lazy(() => import("./social/DiscoverTab"));
+// Profil : onglet secondaire (ouvert après le Fil ou les Messages) : chargé à la demande comme Rencontres.
+const ProfileTab = lazy(() => import("./social/ProfileTab"));
 const CommunitiesTab = lazy(() => import("./social/CommunitiesTab"));
 const EventsTab = lazy(() => import("./social/EventsTab"));
 const AdminDashboard = lazy(() => import("./admin/AdminDashboard"));
@@ -2601,34 +2602,38 @@ export default function SocialShell({
         )}
 
         {tab === "profile" && (
-          <ProfileTab
-            currentUser={currentUser}
-            openEditProfile={openEditProfile}
-            matches={matches}
-            candidates={candidates}
-            profileTab={profileTab}
-            setProfileTab={setProfileTab}
-            goTab={goTab}
-            profilePhotos={profilePhotos}
-            favoritesCount={favoriteProfiles.length}
-            onOpenFavorites={() => setFavoritesOpen(true)}
-            admirersCount={admirersCount}
-            onOpenAdmirers={() => setAdmirersOpen(true)}
-            onOpenPreferences={() => setPreferencesOpen(true)}
-            myCommunities={myCommunities}
-            myCommunitiesLoading={myCommunitiesLoading}
-            onOpenCommunities={(id) => { setOpenCommunityId(id || null); goTab("communities"); }}
-            myUpcomingEvents={myUpcomingEvents}
-            myUpcomingEventsLoading={myUpcomingEventsLoading}
-            onOpenEvents={(id) => { setOpenEventId(id || null); goTab("events"); }}
-            followingProfiles={followedProfiles}
-            followerProfiles={followerProfiles}
-            followingIds={followingIds}
-            onToggleFollow={toggleFollow}
-            onViewProfile={(p) => setViewedProfileId(p.id)}
-            onError={onError}
-            blockedIds={blockedIds}
-          />
+          <ChunkErrorBoundary>
+            <Suspense fallback={<TabLoadingFallback />}>
+              <ProfileTab
+                currentUser={currentUser}
+                openEditProfile={openEditProfile}
+                matches={matches}
+                candidates={candidates}
+                profileTab={profileTab}
+                setProfileTab={setProfileTab}
+                goTab={goTab}
+                profilePhotos={profilePhotos}
+                favoritesCount={favoriteProfiles.length}
+                onOpenFavorites={() => setFavoritesOpen(true)}
+                admirersCount={admirersCount}
+                onOpenAdmirers={() => setAdmirersOpen(true)}
+                onOpenPreferences={() => setPreferencesOpen(true)}
+                myCommunities={myCommunities}
+                myCommunitiesLoading={myCommunitiesLoading}
+                onOpenCommunities={(id) => { setOpenCommunityId(id || null); goTab("communities"); }}
+                myUpcomingEvents={myUpcomingEvents}
+                myUpcomingEventsLoading={myUpcomingEventsLoading}
+                onOpenEvents={(id) => { setOpenEventId(id || null); goTab("events"); }}
+                followingProfiles={followedProfiles}
+                followerProfiles={followerProfiles}
+                followingIds={followingIds}
+                onToggleFollow={toggleFollow}
+                onViewProfile={(p) => setViewedProfileId(p.id)}
+                onError={onError}
+                blockedIds={blockedIds}
+              />
+            </Suspense>
+          </ChunkErrorBoundary>
         )}
 
         {tab === "communities" && (
