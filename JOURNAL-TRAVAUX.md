@@ -58,6 +58,14 @@ Ces actions ne peuvent pas être faites par une session : il faut une interventi
 
 ### 25 novembre 2026
 
+- **SQL-43 livré, NON exécuté** (`local_bafa9cbe…`) : `supabase-community-media-mod-delete.sql`. Le média d'une publication
+  de communauté supprimée par un **modérateur** restait orphelin dans le bucket `community-media` (policy Storage DELETE
+  réservée au propriétaire du fichier, alors que la policy de `community_posts` autorise le modérateur). La policy devient
+  « propriétaire OU modérateur de la communauté du dossier ». Test PGlite `src/native/communityMediaModDelete.test.js`
+  (11 cas, défaut reproduit avant, 2 mutations détectées). Fiche et inventaire dans `LANCEMENT.md`. **Pour l'exécuter, le
+  propriétaire doit nommer le fichier** ; à rejouer d'abord sur la répétition. Les fichiers déjà orphelins se listent avec la
+  requête en lecture seule du bas du fichier (nettoyage ensuite par l'API Storage).
+
 - **Accessibilité du fil** (`local_e774b28a…`, commit `1d39f23`) : onglets de filtre au clavier (un seul arrêt de tabulation,
   flèches / Début / Fin, activation par Entrée ou clic : pas de requête à chaque flèche) ; menu de réactions nommé
   « Réactions », le focus y entre (sur ma réaction, sinon la première) et les flèches le parcourent ; bouton des
