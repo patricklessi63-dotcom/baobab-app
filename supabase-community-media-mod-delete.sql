@@ -38,6 +38,7 @@ drop policy if exists "community-media: auteur ou moderateur supprime" on storag
 
 create policy "community-media: auteur ou moderateur supprime"
 on storage.objects for delete
+to authenticated
 using (
   bucket_id = 'community-media'
   and (

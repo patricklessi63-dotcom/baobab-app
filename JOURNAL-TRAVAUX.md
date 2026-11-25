@@ -70,7 +70,7 @@ Ces actions ne peuvent pas être faites par une session : il faut une interventi
   de communauté supprimée par un **modérateur** restait orphelin dans le bucket `community-media` (policy Storage DELETE
   réservée au propriétaire du fichier, alors que la policy de `community_posts` autorise le modérateur). La policy devient
   « propriétaire OU modérateur de la communauté du dossier ». Test PGlite `src/native/communityMediaModDelete.test.js`
-  (11 cas, défaut reproduit avant, 2 mutations détectées). Fiche et inventaire dans `LANCEMENT.md`. **Pour l'exécuter, le
+  (12 cas, défaut reproduit avant, 3 mutations détectées ; `to authenticated` ajouté après relecture du coordinateur). Fiche et inventaire dans `LANCEMENT.md`. **Pour l'exécuter, le
   propriétaire doit nommer le fichier** ; à rejouer d'abord sur la répétition. Les fichiers déjà orphelins se listent avec la
   requête en lecture seule du bas du fichier (nettoyage ensuite par l'API Storage).
 

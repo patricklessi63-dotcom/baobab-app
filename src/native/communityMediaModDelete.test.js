@@ -123,6 +123,15 @@ describe("SQL-43 — APRÈS", () => {
     const r = await db.query("select policyname from pg_policies where schemaname = 'storage' and tablename = 'objects' and cmd = 'DELETE' order by 1");
     expect(r.rows.map((x) => x.policyname)).toEqual(["community-media: auteur ou moderateur supprime"]);
   });
+  it("réservée aux comptes connectés (to authenticated) : le rôle anonyme ne supprime rien", async () => {
+    const r = await db.query("select roles::text from pg_policies where policyname = 'community-media: auteur ou moderateur supprime'");
+    expect(r.rows[0].roles).toBe("{authenticated}");
+    const name = await put();
+    await db.exec(`set role anon; select set_config('request.jwt.claim.sub', '${U(2)}', false);`);
+    try {
+      expect((await db.query("delete from storage.objects where name = $1 returning id", [name])).rows).toHaveLength(0);
+    } finally { await db.exec("reset role;"); }
+  });
   it("rejouable (idempotent)", async () => {
     await db.exec(FIX);
     expect(await del(U(2), await put())).toBe(1);
