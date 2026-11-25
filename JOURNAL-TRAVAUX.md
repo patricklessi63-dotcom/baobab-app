@@ -74,6 +74,19 @@ Ces actions ne peuvent pas être faites par une session : il faut une interventi
 - **Fil** (`local_e774b28a…`, commit `0204352`) : le bandeau « N nouvelles publications » respecte le filtre affiché
   (Abonnements : auteurs suivis seulement ; Populaires et Photos : pas d'annonce de publications que le fil ne montrera
   pas). `countsTowardNewPostsBanner` dans `src/lib/feedFilters.js`, 3 tests ; 65/65 sur le fil.
+- **Sécurité — médias des communautés** (`local_bafa9cbe…`) : faille corrigée. `community_posts.media_url` recevait une
+  URL signée valable **5 ans** (bucket privé `community-media`) ; une URL signée ne se révoque pas, donc un membre exclu
+  d'une communauté privée gardait l'accès à la photo ou à la vidéo pendant 5 ans, et un média que le modérateur n'avait pas
+  pu supprimer du Storage restait consultable. Désormais le lien enregistré vit 24 h et la liste re-signe les médias à
+  chaque chargement (la policy du bucket revérifie membre / communauté publique). Format d'URL inchangé : la suppression de
+  compte (`process-scheduled-deletions`) reste compatible, aucun SQL ni redéploiement. Fichiers :
+  `src/lib/communities/communityMedia.js` (+ 7 tests), `src/components/social/CommunitiesTab.jsx`,
+  `CommunitiesTab.mediaResign.dom.test.jsx` (test qui échoue si la re-signature est retirée : mutation vérifiée).
+  Suite complète : 342/344 fichiers verts au premier passage, les 2 échecs (`haptics`, `nativeBack`, non modifiés)
+  passent seuls (11/11) : délai sous charge. Build OK. **Limites** : les publications déjà enregistrées gardent en base
+  leur ancien jeton de 5 ans (non révocable sans rotation de la clé JWT) ; la liste ne le montre plus. Couvertures
+  d'événements (`event-covers`, même durée de 5 ans) : **non modifiées**, risque faible accepté (seule la couverture d'un
+  événement privé est en jeu, et un lien court casserait les cartes d'événements publics partagées en message).
 - **Performance** (`local_e774b28a…`, commit `fa73a30`) : l'onglet Rencontres (`DiscoverTab`) se charge à la demande ;
   fichier principal 570 → 550 ko minifiés. Fichiers : `src/components/SocialShell.jsx`, `src/components/SocialShell.lazyTabs.test.js`
   (6 tests). Vérifié en ligne par la session : le site charge `DiscoverTab-*.js` à part. Suite : bannière « nouvelles
