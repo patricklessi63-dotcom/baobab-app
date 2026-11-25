@@ -58,6 +58,12 @@ Ces actions ne peuvent pas être faites par une session : il faut une interventi
 
 ### 25 novembre 2026
 
+- **SQL-44 livré, NON exécuté** (`local_bafa9cbe…`) : `supabase-event-media-mod-delete.sql`, même défaut que SQL-43 pour les
+  photos d'événements : une photo retirée par l'équipe de l'événement restait orpheline dans le bucket `event-media`
+  (policy Storage DELETE réservée au propriétaire du fichier, alors que `event_media` autorise l'équipe). Policy « propriétaire
+  OU équipe de l'événement du dossier », `to authenticated`. Test PGlite `src/native/eventMediaModDelete.test.js` (12 cas,
+  défaut reproduit avant, 3 mutations détectées). Fiche et inventaire dans `LANCEMENT.md`. Exécution : ordre nominatif du
+  propriétaire (peut passer avec SQL-43).
 - **Tests autonomes** (coordination) : `vite.config.js` fournit des valeurs factices de `VITE_SUPABASE_URL`,
   `VITE_SUPABASE_ANON_KEY` et `VITE_VAPID_PUBLIC_KEY` quand l'environnement n'en a pas (une vraie valeur reste prioritaire).
   Avant, 16 fichiers de test échouaient dans tout dossier sans `.env` (« supabaseUrl is required »), signalé par `local_e774b28a…`.
