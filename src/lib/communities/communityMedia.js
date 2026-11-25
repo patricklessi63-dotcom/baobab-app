@@ -13,8 +13,10 @@
 // compte (process-scheduled-deletions → storagePathFromUrl) et le nettoyage client continuent de
 // retrouver le chemin, sans redéploiement.
 
+import { MEMBER_MEDIA_URL_TTL } from "../mediaUrlTtl";
+
 export const COMMUNITY_MEDIA_BUCKET = "community-media";
-export const COMMUNITY_MEDIA_URL_TTL = 60 * 60 * 24; // 24 h : re-signé à chaque chargement de la liste
+export const COMMUNITY_MEDIA_URL_TTL = MEMBER_MEDIA_URL_TTL; // 24 h : re-signé à chaque chargement de la liste
 
 /** Chemin d'objet (sans jeton) d'une URL du bucket community-media, ou null. Même règle que storagePathFromUrl (Edge). */
 export function communityMediaPath(url) {
