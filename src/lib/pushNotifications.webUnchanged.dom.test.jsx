@@ -4,7 +4,9 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 // Push (VAPID) + table push_subscriptions, jamais le plugin natif ni la table
 // device_push_tokens.
 
-vi.stubEnv("VITE_VAPID_PUBLIC_KEY", "BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuBkr3qBUYIHBQFLXYp5Nksh8U");
+// vi.hoisted : la clé doit être posée AVANT l'import (hissé) de pushNotifications.js, qui lit la variable au chargement.
+// Sans cela le test dépendait de la clé de l'environnement extérieur (clé factice invalide => InvalidCharacterError).
+vi.hoisted(() => { vi.stubEnv("VITE_VAPID_PUBLIC_KEY", "BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuBkr3qBUYIHBQFLXYp5Nksh8U"); });
 
 vi.mock("./platform", () => ({ isNative: () => false, getPlatform: () => "web" }));
 
