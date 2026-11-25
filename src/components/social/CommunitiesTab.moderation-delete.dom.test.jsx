@@ -35,7 +35,7 @@ const mocks = vi.hoisted(() => ({ fromMock: vi.fn() }));
 
 function makeQueryBuilder(result = { data: [], error: null, count: 0 }) {
   const builder = {};
-  ["select", "eq", "neq", "gt", "gte", "lte", "order", "limit", "is", "in", "ilike", "or", "match", "contains", "not"].forEach((m) => {
+  ["select", "eq", "neq", "gt", "gte", "lte", "order", "limit", "range", "is", "in", "ilike", "or", "match", "contains", "not"].forEach((m) => {
     builder[m] = vi.fn(() => builder);
   });
   builder.maybeSingle = vi.fn(() => Promise.resolve({ data: null, error: null }));
@@ -46,7 +46,7 @@ function makeQueryBuilder(result = { data: [], error: null, count: 0 }) {
 
 function makeCommunityBuilder(community) {
   const builder = {};
-  ["select", "eq", "or", "ilike", "order", "limit"].forEach((m) => { builder[m] = vi.fn(() => builder); });
+  ["select", "eq", "or", "ilike", "order", "limit", "range"].forEach((m) => { builder[m] = vi.fn(() => builder); });
   builder.single = vi.fn(() => Promise.resolve({ data: community, error: null }));
   builder.then = (resolve, reject) => Promise.resolve({ data: [], error: null, count: 0 }).then(resolve, reject);
   return builder;
@@ -54,7 +54,7 @@ function makeCommunityBuilder(community) {
 
 function makeMembersBuilder(role) {
   const builder = {};
-  ["select", "eq", "order", "limit"].forEach((m) => { builder[m] = vi.fn(() => builder); });
+  ["select", "eq", "order", "limit", "range"].forEach((m) => { builder[m] = vi.fn(() => builder); });
   builder.maybeSingle = vi.fn(() => Promise.resolve({ data: { role }, error: null }));
   builder.then = (resolve, reject) =>
     Promise.resolve({ data: [{ community_id: "c1", role }], error: null, count: 1 }).then(resolve, reject);
@@ -74,7 +74,7 @@ function makeCommentsBuilder({ comment, deleteCalls }) {
     mode = String(cols).includes("profiles") ? "withProfiles" : "counts";
     return builder;
   });
-  ["eq", "in", "order"].forEach((m) => { builder[m] = vi.fn(() => builder); });
+  ["eq", "in", "order", "range", "limit"].forEach((m) => { builder[m] = vi.fn(() => builder); });
   builder.then = (resolve, reject) => {
     const data = mode === "withProfiles" ? [comment] : [{ post_id: comment.post_id }];
     return Promise.resolve({ data, error: null }).then(resolve, reject);

@@ -58,6 +58,9 @@ Ces actions ne peuvent pas être faites par une session : il faut une interventi
 
 ### 25 novembre 2026
 
+- **Tests Communautés** (coordination) : les mocks de `CommunitiesTab.editComment` et `CommunitiesTab.moderation-delete`
+  n'avaient pas `.range` (pagination des compteurs de likes et commentaires) : 10 `TypeError` imprimés à chaque passage,
+  sans échec. Ajouté aux méthodes chaînables ; 17 fichiers / 27 tests Communautés verts, 0 erreur imprimée.
 - **Stockage des événements supprimés** (`local_bafa9cbe…`) : supprimer définitivement un événement retirait la ligne
   `events` (cascade sur `event_media`) mais laissait la couverture (`event-covers`) et les photos (`event-media`) pour
   toujours dans le stockage. `handleDeleteEvent` liste les dossiers `<id>/` des deux buckets AVANT le DELETE (lecture via
