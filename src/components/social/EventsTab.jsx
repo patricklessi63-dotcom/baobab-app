@@ -28,6 +28,7 @@ import { useEscapeKey } from "../../hooks/useEscapeKey";
 import { useReconnectTick } from "../../hooks/useReconnectTick";
 import { isAmbiguousWriteError } from "../../lib/networkError";
 import { MEMBER_MEDIA_URL_TTL } from "../../lib/mediaUrlTtl";
+import { collectEventStoragePaths, removeEventStorage } from "../../lib/events/eventStorageCleanup";
 import LoadErrorNotice from "../LoadErrorNotice";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { primary, coralText, muted, bg, card, primaryRgb, navy } from "./theme";
@@ -853,8 +854,12 @@ export default function EventsTab({ currentUser, onError, onBack = () => {}, ini
     if (deleteEventInFlightRef.current.has(ev.id)) return;
     deleteEventInFlightRef.current.add(ev.id);
     try {
+      // Fichiers de la couverture et des photos : listés AVANT (la lecture dépend de
+      // can_view_event), retirés APRÈS le DELETE confirmé — voir eventStorageCleanup.js.
+      const storagePaths = await collectEventStoragePaths(supabase, ev.id);
       const { error } = await supabase.from("events").delete().eq("id", ev.id);
       if (error) throw error;
+      removeEventStorage(supabase, storagePaths);
       goHome();
     } catch (e) {
       console.error(e);

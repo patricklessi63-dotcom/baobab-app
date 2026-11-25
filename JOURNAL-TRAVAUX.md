@@ -58,6 +58,14 @@ Ces actions ne peuvent pas être faites par une session : il faut une interventi
 
 ### 25 novembre 2026
 
+- **Stockage des événements supprimés** (`local_bafa9cbe…`) : supprimer définitivement un événement retirait la ligne
+  `events` (cascade sur `event_media`) mais laissait la couverture (`event-covers`) et les photos (`event-media`) pour
+  toujours dans le stockage. `handleDeleteEvent` liste les dossiers `<id>/` des deux buckets AVANT le DELETE (lecture via
+  `can_view_event`), garde le DELETE en premier, puis retire les fichiers au mieux (`src/lib/events/eventStorageCleanup.js`).
+  Effaçables aujourd’hui : ceux dont la personne est propriétaire (couverture, ses photos) ; les photos des autres restent
+  pour la requête d’orphelins de SQL-44 (le droit d’équipe disparaît avec la cascade). Tests : 11 unitaires + 2 DOM sur le
+  vrai `EventsTab` (3 mutations détectées). Suite complète 2916/2917 (`LandingPage.tree` intermittent, passe seul), lint
+  0 erreur, build OK. Aucun SQL.
 - **Performance** (`local_f49a575b…`) : fenêtre de publication du fil (`PostComposerModal`, avec le sélecteur d'emojis) chargée
   à la demande et montée à l'ouverture (tout son contenu, champs de fichier compris, n'existe que fenêtre ouverte).
   Fichier principal **405 → 372 ko** (550 → 372 depuis le matin). Fichiers : `src/components/social/PostsFeed.jsx`, garde-fou
