@@ -28,6 +28,7 @@ import { extFromMime } from "../../lib/mediaConstants";
 import { uploadWithProgress } from "../../lib/uploadWithProgress";
 import { escapeLikePattern, escapeOrFilterValue, normalizeForSearch } from "../../lib/searchQuery";
 import { wouldOrphanCommunity } from "../../lib/communities/permissions";
+import { COMMUNITY_MEDIA_URL_TTL, resignCommunityPosts } from "../../lib/communities/communityMedia";
 import { primary, muted, bg, card, navy } from "./theme";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
 import { useReconnectTick } from "../../hooks/useReconnectTick";
@@ -413,8 +414,11 @@ export default function CommunitiesTab({ aiEnabled = false, currentUser, onError
         .eq("community_id", id)
         .order("created_at", { ascending: false });
       if (error) throw error;
+      // Liens des médias re-signés pour 24 h à chaque chargement (communityMedia.js) : le lien
+      // enregistré en base n'est plus un accès de 5 ans qu'un membre exclu garderait.
+      const rows = await resignCommunityPosts(supabase, data || []);
       if (requestId !== undefined && detailRequestRef.current !== requestId) return;
-      setPosts(data || []);
+      setPosts(rows);
       const ids = (data || []).map((p) => p.id);
       if (ids.length > 0) {
         // Audit (6 oct. 2026) : tous les posts de la communauté sont chargés
@@ -1033,7 +1037,7 @@ export default function CommunitiesTab({ aiEnabled = false, currentUser, onError
         const path = `${community.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.${extFromMime(mediaFile.type)}`;
         await uploadWithProgress({ bucket: COMMUNITY_MEDIA_BUCKET, path, file: mediaFile });
         uploadedPath = path;
-        const { data: signed } = await supabase.storage.from(COMMUNITY_MEDIA_BUCKET).createSignedUrl(path, 60 * 60 * 24 * 365 * 5);
+        const { data: signed } = await supabase.storage.from(COMMUNITY_MEDIA_BUCKET).createSignedUrl(path, COMMUNITY_MEDIA_URL_TTL);
         mediaUrl = signed?.signedUrl || null;
       }
       if (postDraft.trim()) await screenText(supabase, "community_post", postDraft);
