@@ -21,7 +21,7 @@ import { friendlyDbError } from "../../lib/friendlyDbError";
 import { screenText, isModerationRefusal, MODERATION_REFUSAL } from "../../lib/contentGate";
 import ReportMediaDialog from "../ReportMediaDialog";
 import { prunedMentions, escapeLike, isMissingColumnError } from "../../lib/mentions";
-import { FEED_FILTERS, EMPTY_MESSAGES, POPULAR_FETCH, applyFeedFilter, rankPopular, readStoredFilter, storeFilter } from "../../lib/feedFilters";
+import { FEED_FILTERS, EMPTY_MESSAGES, POPULAR_FETCH, applyFeedFilter, rankPopular, readStoredFilter, storeFilter, countsTowardNewPostsBanner } from "../../lib/feedFilters";
 import { HEART, tallyReactions, totalOf, planReaction, applyReactionChange, isMissingEmojiColumn } from "../../lib/postReactions";
 import { fetchHiddenMedia } from "../../lib/moderationApi";
 import { selectAllPages } from "../../lib/inChunks";
@@ -88,6 +88,9 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
   // Filtre du fil général (Tout / Abonnements / Populaires / Photos et vidéos). Le fil d'un auteur (profil) n'en a pas.
   const [feedFilter, setFeedFilter] = useState(() => (authorId ? "all" : readStoredFilter()));
   const filterCtxRef = useRef({});
+  // Lu par le canal temps réel (abonné une seule fois) : le filtre courant sans réabonnement à chaque changement.
+  const feedFilterRef = useRef(feedFilter);
+  feedFilterRef.current = feedFilter;
   const changeFilter = (key) => { filterCtxRef.current = {}; setFeedFilter(key); storeFilter(key); };
   // Items sélectionnés mais pas encore envoyés — aperçu local uniquement
   // (URL.createObjectURL), jamais uploadés tant que l'utilisateur n'a pas
@@ -366,6 +369,8 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "posts", filter }, (payload) => {
         if (payload.new.author_id === currentUser.id) return; // ses propres publications s'affichent déjà tout de suite
         if (blockedIdsRef.current.has(payload.new.author_id)) return;
+        // Le bandeau n'annonce que ce que le fil filtré montrera (ex. « Abonnements » : auteurs suivis seulement).
+        if (!countsTowardNewPostsBanner(feedFilterRef.current, filterCtxRef.current, payload.new, authorId)) return;
         setNewPostsCount((n) => n + 1);
       })
       .subscribe();
@@ -419,7 +424,8 @@ export default function PostsFeed({ currentUser, blockedIds = new Set(), authorI
     query.then(({ data, error }) => {
       if (!alive) return;
       if (error) { console.error(error); return; }
-      const count = (data || []).filter((p) => p.author_id !== currentUser.id && !blockedIdsRef.current.has(p.author_id)).length;
+      const count = (data || []).filter((p) => p.author_id !== currentUser.id && !blockedIdsRef.current.has(p.author_id)
+        && countsTowardNewPostsBanner(feedFilterRef.current, filterCtxRef.current, p, authorId)).length;
       setNewPostsCount(count);
     });
     return () => { alive = false; };

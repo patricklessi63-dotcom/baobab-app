@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import {
-  FEED_FILTERS, isFeedFilter, readStoredFilter, storeFilter, popularityScore, rankPopular, popularSinceIso, applyFeedFilter, POPULAR_WINDOW_DAYS,
+  FEED_FILTERS, isFeedFilter, countsTowardNewPostsBanner, readStoredFilter, storeFilter, popularityScore, rankPopular, popularSinceIso, applyFeedFilter, POPULAR_WINDOW_DAYS,
 } from "./feedFilters.js";
 
 describe("filtres du fil", () => {
@@ -88,5 +88,23 @@ describe("filtres du fil", () => {
       expect(calls[0][0]).toBe("gte");
       expect(calls[0][1]).toBe("created_at");
     });
+  });
+});
+
+describe("bandeau « nouvelles publications » : cohérent avec le filtre affiché", () => {
+  const post = { author_id: "u2" };
+  it("Tout, aucun filtre, ou fil d'un auteur : toute nouvelle publication compte", () => {
+    expect(countsTowardNewPostsBanner("all", {}, post)).toBe(true);
+    expect(countsTowardNewPostsBanner(undefined, {}, post)).toBe(true);
+    expect(countsTowardNewPostsBanner("following", {}, post, "u9")).toBe(true);
+  });
+  it("Abonnements : seulement les auteurs suivis (liste encore inconnue = ne compte pas)", () => {
+    expect(countsTowardNewPostsBanner("following", { followingIds: ["u2"] }, post)).toBe(true);
+    expect(countsTowardNewPostsBanner("following", { followingIds: ["u3"] }, post)).toBe(false);
+    expect(countsTowardNewPostsBanner("following", {}, post)).toBe(false);
+  });
+  it("Populaires et Photos et vidéos : une publication qui vient de paraître ne compte pas", () => {
+    expect(countsTowardNewPostsBanner("popular", {}, post)).toBe(false);
+    expect(countsTowardNewPostsBanner("media", {}, post)).toBe(false);
   });
 });

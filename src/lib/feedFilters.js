@@ -70,6 +70,17 @@ export function applyFeedFilter(query, filter, ctx = {}) {
   return { query, empty: false };
 }
 
+// Faut-il compter une nouvelle publication (temps réel ou resynchronisation) dans le bandeau « N nouvelles publications » ?
+// Le bandeau ne doit annoncer que ce que le fil AFFICHÉ montrera après rechargement :
+//  - Tout (ou fil d'un auteur) : oui ;
+//  - Abonnements : seulement les auteurs suivis ;
+//  - Populaires / Photos et vidéos : non (une publication qui vient de paraître n'a encore ni réaction ni média rattaché).
+export function countsTowardNewPostsBanner(filter, ctx, post, authorId) {
+  if (authorId || !filter || filter === "all") return true;
+  if (filter === "following") return Boolean(ctx?.followingIds?.includes(post?.author_id));
+  return false;
+}
+
 export const EMPTY_MESSAGES = {
   following: { title: "Aucune publication de tes abonnements.", subtitle: "Abonne-toi à des membres pour voir leurs publications ici." },
   popular: { title: "Rien de populaire cette semaine.", subtitle: "Réagis et commente : les publications qui font parler apparaissent ici." },
