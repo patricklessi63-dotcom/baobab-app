@@ -237,3 +237,26 @@ describe("OnboardingWizard — modération du nom (étape 2)", () => {
     expect(screen.queryByText(MODERATION_REFUSAL)).not.toBeInTheDocument();
   });
 });
+
+// Régression (5d6b0ec, 3 novembre 2026) : l'enregistrement de l'étape « Parcours au Canada » lisait
+// `user?.arrived_since`, une variable inexistante dans ce composant (ReferenceError : le `?.` ne protège
+// pas d'une variable non déclarée). Toute personne en cours d'inscription restait bloquée à cette étape
+// avec « Une erreur est survenue ». Le linter (no-undef) l'a détecté.
+describe("OnboardingWizard — étape « Parcours au Canada »", () => {
+  const journeyUser = (arrived_since) => ({
+    id: "u1", onboarding_step: 4, usage_goals: "❤️ Rencontre",
+    arrived_since, immigration_status: "Étudiant(e)", occupation: "Infirmière", education_level: "Baccalauréat",
+  });
+
+  it("enregistre l'étape et passe à la suivante, sans erreur", async () => {
+    single.mockResolvedValue({ data: { id: "u1", onboarding_step: 5 }, error: null });
+    renderWizard({ currentUser: journeyUser("2 ans") });
+    fireEvent.click(await screen.findByRole("button", { name: "Continuer" }));
+    await waitFor(() => expect(chain.update).toHaveBeenCalledTimes(1));
+    expect(chain.update.mock.calls[0][0]).toMatchObject({
+      immigration_status: "Étudiant(e)", occupation: "Infirmière", education_level: "Baccalauréat", onboarding_step: 5,
+    });
+    expect(typeof chain.update.mock.calls[0][0].arrived_since).toBe("string");
+    expect(screen.queryByText(/Une erreur est survenue/)).not.toBeInTheDocument();
+  });
+});

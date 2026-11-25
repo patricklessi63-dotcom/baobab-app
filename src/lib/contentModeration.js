@@ -23,6 +23,7 @@ export const LOOKALIKE_TO   = "abcehkmoptyxijsoaeivtupkx";
 export const LEET_FROM = "013457@$€+";
 export const LEET_TO   = "oieastaset";
 
+// eslint-disable-next-line no-misleading-character-class -- voulu : on retire chaque caract\u00e8re invisible isol\u00e9ment (dont le liant U+200D)
 const ZERO_WIDTH = /[\u200b\u200c\u200d\ufeff\u00ad\u2060]/g;
 const COMBINING = /[\u0300-\u036f]/g;
 

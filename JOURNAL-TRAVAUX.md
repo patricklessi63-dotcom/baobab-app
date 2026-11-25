@@ -78,6 +78,17 @@ Ces actions ne peuvent pas être faites par une session : il faut une interventi
   d'événements (`event-covers`, même durée de 5 ans) : **non modifiées**, risque faible accepté (seule la couverture d'un
   événement privé est en jeu, et un lien court casserait les cartes d'événements publics partagées en message).
 
+- **Linter** (coordination) : ESLint 9 ajouté (`eslint.config.js`, script `npm run lint`, étape dans `.github/workflows/ci.yml`).
+  Règles de bogue certain en erreur (variable non définie, règle des hooks, JSX non défini), le reste en avertissement.
+  État : **0 erreur**, 67 avertissements (variables inutilisées, dépendances de hooks) à traiter progressivement.
+- **Bogue critique corrigé — inscription bloquée** (coordination) : depuis `5d6b0ec` (3 novembre), l'étape « Parcours au
+  Canada » de l'inscription lisait `user?.arrived_since`, variable inexistante → `ReferenceError`, message « Une erreur est
+  survenue », personne ne pouvait dépasser cette étape. Corrigé (`currentUser`) dans `src/screens/onboarding/OnboardingWizard.jsx` ;
+  test de régression dans `OnboardingWizard.dom.test.jsx` (échouait avant, passe après).
+- **Bogue corrigé — plantage de l'onglet Messages** (coordination) : depuis `561ed64` (1er novembre), `useKeyboardViewport`
+  était appelé après le retour anticipé de la liste vide ; passer de 1 conversation à 0 (blocage) ou de 0 à 1 (première
+  connexion en direct) faisait planter l'écran (« Rendered fewer/more hooks »). Corrigé dans `MessagesTab.jsx` ; test
+  `MessagesTab.hooksOrder.dom.test.jsx` (2 tests, échouaient avant).
 - **Performance** (`local_e774b28a…`, commit `fa73a30`) : l'onglet Rencontres (`DiscoverTab`) se charge à la demande ;
   fichier principal 570 → 550 ko minifiés. Fichiers : `src/components/SocialShell.jsx`, `src/components/SocialShell.lazyTabs.test.js`
   (6 tests). Vérifié en ligne par la session : le site charge `DiscoverTab-*.js` à part. Suite : bannière « nouvelles

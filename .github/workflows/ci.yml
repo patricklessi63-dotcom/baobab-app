@@ -47,6 +47,10 @@ jobs:
       - name: Installer les dépendances
         run: npm ci
 
+      - name: Analyse statique (ESLint, erreurs bloquantes seulement)
+        # Variables non définies, règle des hooks React… (eslint.config.js). Les avertissements ne bloquent pas.
+        run: npm run lint
+
       - name: Build de production
         run: npm run build
 

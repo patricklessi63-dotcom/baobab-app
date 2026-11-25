@@ -278,7 +278,7 @@ export default function OnboardingWizard({
         payload = { country: draft.country.trim(), province: draft.province.trim(), city: draft.city.trim(), onboarding_step: 4 };
       } else if (step === 5) {
         payload = {
-          arrived_since: resolveArrivedSinceForSave(draft.arrivedSince, user?.arrived_since),
+          arrived_since: resolveArrivedSinceForSave(draft.arrivedSince, currentUser?.arrived_since),
           immigration_status: draft.immigrationStatus,
           occupation: draft.occupation.trim(),
           education_level: draft.educationLevel,
