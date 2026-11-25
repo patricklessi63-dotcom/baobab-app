@@ -33,6 +33,7 @@ import { primary, muted, bg, card, navy } from "./theme";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
 import { useReconnectTick } from "../../hooks/useReconnectTick";
 import LoadErrorNotice from "../LoadErrorNotice";
+import { collectCommunityStoragePaths, removeCommunityStorage } from "../../lib/communities/communityStorageCleanup";
 
 const COMMUNITY_MEDIA_BUCKET = "community-media";
 
@@ -906,8 +907,13 @@ export default function CommunitiesTab({ aiEnabled = false, currentUser, onError
   // requete echoue proprement pour tout le monde d'autre.
   const handleDeleteCommunity = async (comm) => {
     try {
+      // Médias des publications et couverture : listés AVANT (la lecture dépend de la
+      // visibilité de la communauté), retirés APRÈS le DELETE confirmé — voir
+      // communityStorageCleanup.js.
+      const storagePaths = await collectCommunityStoragePaths(supabase, comm);
       const { error } = await supabase.from("communities").delete().eq("id", comm.id);
       if (error) throw error;
+      removeCommunityStorage(supabase, storagePaths);
       onCommunitiesChanged?.();
       goList();
     } catch (e) {

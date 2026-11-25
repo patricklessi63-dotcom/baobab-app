@@ -58,6 +58,13 @@ Ces actions ne peuvent pas être faites par une session : il faut une interventi
 
 ### 25 novembre 2026
 
+- **Stockage des communautés supprimées** (`local_bafa9cbe…`) : même défaut que les événements. Supprimer une communauté
+  laissait les médias des publications (`community-media/<id>/`) et la couverture (`avatars/<user_id>/community-*`) dans
+  le stockage. `handleDeleteCommunity` liste avant le DELETE, garde le DELETE en premier, puis retire au mieux
+  (`src/lib/communities/communityStorageCleanup.js`). Seuls les noms `community-*` sont visés dans `avatars` : jamais une
+  photo de profil. Schéma commun factorisé dans `src/lib/storageFolderCleanup.js` (repris par les événements). Tests :
+  8 unitaires + 2 DOM sur le vrai `CommunitiesTab` (3 mutations détectées). Suite complète 2933/2933, lint 0 erreur,
+  build OK. Aucun SQL.
 - **Sécurité des outils de développement** (`local_f49a575b…`) : `npm audit fix` (sans `--force`) : 17 → 13 vulnérabilités, toutes
   dans des outils jamais livrés (production : **0**). Les 13 restantes exigent une version MAJEURE, non engagée : `tar` 6.2.1
   (critique) via `@capacitor/assets` 3 → `@capacitor/cli` 5.7.8 (corrigé par `@capacitor/assets` 4) ; `tinypool` (critique) et
