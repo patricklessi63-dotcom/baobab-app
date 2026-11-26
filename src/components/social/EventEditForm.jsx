@@ -10,6 +10,8 @@ import { extFromMime, EVENT_COVER_MIMES, EVENT_COVER_FORMAT_ERROR } from "../../
 // Le bucket event-covers n'accepte pas les GIF (voir mediaConstants.js).
 const COVER_VALIDATION = { mimes: EVENT_COVER_MIMES, formatError: EVENT_COVER_FORMAT_ERROR };
 import { uploadWithProgress } from "../../lib/uploadWithProgress";
+import { screenText } from "../../lib/contentGate";
+import { friendlyDbError } from "../../lib/friendlyDbError";
 import { primary, coralText, muted, bg, primaryRgb } from "./theme";
 
 const TITLE_MAX = 80;
@@ -184,6 +186,12 @@ export default function EventEditForm({ event, onSaved, onCancel, onError, onDir
         setSubmitting(false);
         return;
       }
+      // Modération des textes MODIFIÉS avant tout envoi (audit du 26/11/2026), comme le déclencheur
+      // serveur (supabase-moderation-events-communities.sql) : un texte inchangé n'est pas recontrôlé,
+      // corriger la date d'un ancien événement reste donc toujours possible.
+      for (const [text, before] of [[title, event.title], [description, event.description], [city, event.city], [location, event.location]]) {
+        if (text.trim() && text.trim() !== (before || "").trim()) await screenText(supabase, "post", text);
+      }
       let coverUrl = event.cover_url;
       let uploadedPath = null;
       if (coverFile) {
@@ -279,7 +287,8 @@ export default function EventEditForm({ event, onSaved, onCancel, onError, onDir
     } catch (e) {
       console.error(e);
       if (!mountedRef.current) return;
-      setError("Impossible d'enregistrer les modifications. Réessaie.");
+      // Refus de modération (local ou serveur), limite ou refus de permission : la vraie raison.
+      setError(friendlyDbError(e) || "Impossible d'enregistrer les modifications. Réessaie.");
     } finally {
       if (mountedRef.current) setSubmitting(false);
     }

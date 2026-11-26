@@ -8,6 +8,7 @@ import { validateMediaFile } from "../../lib/mediaValidation";
 import { compressImageIfNeeded } from "../../lib/imageCompression";
 import { extFromMime } from "../../lib/mediaConstants";
 import { friendlyDbError } from "../../lib/friendlyDbError";
+import { screenText } from "../../lib/contentGate";
 import { escapeLikePattern } from "../../lib/searchQuery";
 import { primary, coral, coralText, muted, bg, goldText, primaryRgb } from "./theme";
 
@@ -175,6 +176,13 @@ export default function CommunityCreateForm({ aiEnabled = false, currentUser, on
     if (!canSubmit || !currentUser) return;
     setSubmitting(true);
     try {
+      // Modération du texte AVANT l'envoi de la couverture (audit du 26/11/2026) : le nom, la
+      // description, la ville et les règles d'une communauté ne passaient par aucun contrôle alors
+      // qu'ils s'affichent à tous les membres. Un refus ne laisse donc aucun fichier ; le serveur fait
+      // autorité (supabase-moderation-events-communities.sql). friendlyDbError affiche le refus.
+      for (const text of [name, description, city, rules]) {
+        if (text.trim()) await screenText(supabase, "community_post", text);
+      }
       let coverUrl = null;
       let uploadedPath = null;
       if (coverFile) {

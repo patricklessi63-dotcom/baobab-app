@@ -134,6 +134,9 @@ describe("EventCreateForm — anti-double-submit & validation", () => {
     fireEvent.click(submit);
     fireEvent.click(submit);
 
+    // Le contrôle de modération (screenText, asynchrone) passe avant l'appel : on attend l'appel, puis on
+    // vérifie qu'il est unique (le second clic, synchrone, a trouvé le bouton déjà désactivé).
+    await waitFor(() => expect(rpc).toHaveBeenCalledWith("create_event", expect.anything()));
     expect(rpc).toHaveBeenCalledTimes(1);
     expect(rpc).toHaveBeenCalledWith("create_event", expect.objectContaining({ p_title: "Brunch Baobab" }));
     resolveRpc({ data: { id: "e1" }, error: null });

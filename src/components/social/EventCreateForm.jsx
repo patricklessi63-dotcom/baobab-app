@@ -10,6 +10,8 @@ import { extFromMime, EVENT_COVER_MIMES, EVENT_COVER_FORMAT_ERROR } from "../../
 // Le bucket event-covers n'accepte pas les GIF (voir mediaConstants.js).
 const COVER_VALIDATION = { mimes: EVENT_COVER_MIMES, formatError: EVENT_COVER_FORMAT_ERROR };
 import { uploadWithProgress } from "../../lib/uploadWithProgress";
+import { screenText } from "../../lib/contentGate";
+import { friendlyDbError } from "../../lib/friendlyDbError";
 import AiSuggestButton from "../ai/AiSuggestButton";
 import { primary, coral, coralText, muted, bg, primaryRgb } from "./theme";
 
@@ -177,6 +179,13 @@ export default function EventCreateForm({ currentUser, initialCommunityId = null
         if (!mountedRef.current) return;
         if (!ok) { setError(validationError); setSubmitting(false); return; }
       }
+      // Modération du texte AVANT tout envoi (audit du 26/11/2026) : les textes publics d'un
+      // événement ne passaient par aucun contrôle, alors qu'un titre ou une description injurieux
+      // s'affiche à tous les membres. Même porte que les publications et les commentaires
+      // (contentGate.screenText) ; le serveur fait autorité (supabase-moderation-events-communities.sql).
+      for (const text of [title, description, city, location]) {
+        if (text.trim()) await screenText(supabase, "post", text);
+      }
 
       const { data, error: rpcError } = await supabase.rpc("create_event", {
         p_title: title.trim(),
@@ -239,7 +248,7 @@ export default function EventCreateForm({ currentUser, initialCommunityId = null
     } catch (e) {
       console.error(e);
       if (!mountedRef.current) return;
-      setError(e.message || "Impossible de créer l'événement. Réessaie.");
+      setError(friendlyDbError(e) || e.message || "Impossible de créer l'événement. Réessaie.");
     } finally {
       if (mountedRef.current) setSubmitting(false);
     }

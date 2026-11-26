@@ -27,6 +27,16 @@ drop trigger if exists trg_moderation_profiles_bio on profiles;
 drop trigger if exists trg_moderation_profiles_name on profiles;
 drop trigger if exists trg_moderation_profiles_last_name on profiles;
 drop trigger if exists trg_moderation_profiles_occupation on profiles;
+-- SQL-45 (supabase-moderation-events-communities.sql) : evenements et communautes. A retirer AVANT la
+-- section C, qui ne pourrait sinon plus supprimer moderation_guard_text() (ces declencheurs en dependent).
+drop trigger if exists trg_modtext_events_title on events;
+drop trigger if exists trg_modtext_events_description on events;
+drop trigger if exists trg_modtext_events_city on events;
+drop trigger if exists trg_modtext_events_location on events;
+drop trigger if exists trg_modtext_communities_name on communities;
+drop trigger if exists trg_modtext_communities_description on communities;
+drop trigger if exists trg_modtext_communities_city on communities;
+drop trigger if exists trg_modtext_communities_rules on communities;
 -- Bannissement (révocation des sessions, registre d'e-mails) et journal non modifiable :
 drop trigger if exists trg_modban_change on profiles;
 drop trigger if exists trg_modban_signup on auth.users; -- a lancer avec le role proprietaire de auth.users

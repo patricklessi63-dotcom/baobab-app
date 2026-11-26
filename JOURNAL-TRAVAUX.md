@@ -57,6 +57,10 @@ Ces actions ne peuvent pas être faites par une session : il faut une interventi
 
 ## Journal
 
+### 26 novembre 2026
+
+- **Modération des événements et des communautés** (`local_bafa9cbe…`) : leurs textes publics (événement : titre, description, ville, lieu ; communauté : nom, description, ville, règles) ne passaient par **aucune** modération, ni dans l’app ni sur le serveur (SQL-31 ne couvre que messages, publications, commentaires, statuts et profils). (1) Client, en ligne dès le push : `screenText` avant tout envoi dans `EventCreateForm`, `EventEditForm` (seuls les textes modifiés, comme le serveur) et `CommunityCreateForm` (avant l’envoi de la couverture : un refus ne laisse aucun fichier) ; refus local ou serveur affiché par `friendlyDbError` (avant : « Réessaie » ou le code technique). Test DOM `EventCommunityForms.moderation.dom` (8 cas, 5 mutations détectées). (2) **SQL-45 livré, NON exécuté** : `supabase-moderation-events-communities.sql`, 8 déclencheurs `moderation_guard_text` nommés `trg_modtext_*` (le contrôle de SQL-31 attend toujours 11 `trg_moderation_*`). Garde-fou de prérequis (sans SQL-31 : refus clair), relançable, retour arrière ajouté aussi à la section B de `supabase-moderation-text-rollback.sql`. Test PGlite `src/native/moderationEventsCommunities.test.js` (25 cas, défaut reproduit sans le fichier, 6 mutations). Les tests anti-double-clic de `EventCreateForm` / `CommunityCreateForm` attendent maintenant l’appel (contrôle asynchrone avant l’envoi) ; ils détectent toujours un double envoi (mutation `!submitting` retirée). Fiche et inventaire dans `LANCEMENT.md`. Exécution : ordre nominatif du propriétaire.
+
 ### 25 novembre 2026
 
 - **`LANCEMENT.md` : état de `cleanup-expired-stories`** (coordination, signalé par `local_bafa9cbe…`). L'en-tête la dit déployée
