@@ -51,6 +51,17 @@ describe("collectCommunityStoragePaths", () => {
     expect(calls.list[0].slice(0, 2)).toEqual(["community-media", "c1"]);
   });
 
+  it("couverture : seul le fichier EXACT de cette communauté, jamais un listage d'avatars (l'autre communauté du même propriétaire garde la sienne)", async () => {
+    const { client, calls } = makeClient();
+    const out = await collectCommunityStoragePaths(client, { id: "c1", cover_url: `${PUB}/u1/community-111.jpg` });
+    expect(out.avatars).toEqual(["u1/community-111.jpg"]);
+    expect(calls.list.some(([bucket]) => bucket === "avatars")).toBe(false);
+    await removeCommunityStorage(client, out);
+    const removedAvatars = calls.remove.filter(([bucket]) => bucket === "avatars").flatMap(([, p]) => p);
+    expect(removedAvatars).toEqual(["u1/community-111.jpg"]);
+    expect(removedAvatars).not.toContain("u1/community-222.jpg");
+  });
+
   it("sans couverture ni média : rien à retirer", async () => {
     const { client } = makeClient();
     expect(await collectCommunityStoragePaths(client, { id: "c1", cover_url: null })).toEqual({ "community-media": [], avatars: [] });

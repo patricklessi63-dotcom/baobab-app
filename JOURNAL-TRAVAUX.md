@@ -64,7 +64,10 @@ Ces actions ne peuvent pas être faites par une session : il faut une interventi
   (`src/lib/communities/communityStorageCleanup.js`). Seuls les noms `community-*` sont visés dans `avatars` : jamais une
   photo de profil. Schéma commun factorisé dans `src/lib/storageFolderCleanup.js` (repris par les événements). Tests :
   8 unitaires + 2 DOM sur le vrai `CommunitiesTab` (3 mutations détectées). Suite complète 2933/2933, lint 0 erreur,
-  build OK. Aucun SQL.
+  build OK. Aucun SQL. Couverture : seul le fichier exact de `cover_url` (aucun listage d’`avatars`, test dédié :
+  l’autre communauté du même propriétaire garde la sienne). Médias des autres membres : ils restent (seuls les fichiers
+  de la personne qui supprime partent). SQL-43 n’y change rien après coup : le droit de modération disparaît avec la cascade
+  de `community_members`. Ils relèvent de la requête d’orphelins de SQL-43, comme pour les événements.
 - **Sécurité des outils de développement** (`local_f49a575b…`) : `npm audit fix` (sans `--force`) : 17 → 13 vulnérabilités, toutes
   dans des outils jamais livrés (production : **0**). Les 13 restantes exigent une version MAJEURE, non engagée : `tar` 6.2.1
   (critique) via `@capacitor/assets` 3 → `@capacitor/cli` 5.7.8 (corrigé par `@capacitor/assets` 4) ; `tinypool` (critique) et
