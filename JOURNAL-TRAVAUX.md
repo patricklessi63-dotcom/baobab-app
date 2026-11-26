@@ -53,11 +53,16 @@ Ces actions ne peuvent pas être faites par une session : il faut une interventi
 | Test de bout en bout à deux vrais comptes | Seule preuve réelle de la messagerie en production | `TEST-PRODUCTION-DEUX-COMPTES.md` |
 | SMTP, DNS de `baobab-app.ca`, adresse de contact, textes légaux | Inscriptions et conformité | `LANCEMENT.md` §0 et §9 |
 | Reconstruire les apps natives | Elles embarquent l'ancien code | `MOBILE.md` |
+| Confirmer que `cleanup-expired-stories` est en ligne | Déclarée déployée début nov., jamais revérifiée (sonde refusée aux sessions) | `npx supabase functions list --project-ref vozehymbihnckzklxesw` |
 
 ## Journal
 
 ### 25 novembre 2026
 
+- **`LANCEMENT.md` : état de `cleanup-expired-stories`** (coordination, signalé par `local_bafa9cbe…`). L'en-tête la dit déployée
+  (v1, déclaration du propriétaire début nov.), quatre lignes disaient encore « 404, jamais déployée » (sondes du 8 oct.).
+  Ces lignes portent désormais la date de leur constat et la mention **non revérifié** ; aucune sonde vers la production
+  (refusée à la session pair, non contournée). Vérification ajoutée aux actions du propriétaire. Tests du document 78/78.
 - **Stockage des communautés supprimées** (`local_bafa9cbe…`) : même défaut que les événements. Supprimer une communauté
   laissait les médias des publications (`community-media/<id>/`) et la couverture (`avatars/<user_id>/community-*`) dans
   le stockage. `handleDeleteCommunity` liste avant le DELETE, garde le DELETE en premier, puis retire au mieux

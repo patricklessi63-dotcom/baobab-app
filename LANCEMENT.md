@@ -116,7 +116,7 @@ Classées par urgence (pas forcément dans l'ordre d'exécution : celui-ci est a
 | Tous les SQL livrés après le 10 sept | **Jamais exécutés** (d'après `DEPLOIEMENT.md`) | `DEPLOIEMENT.md` §1b à §12 ; **[À VÉRIFIER]** par le bilan (§4). |
 | Triggers push « message » et « match » | **Probablement exécutés le 25 août** (contrairement à `DEPLOIEMENT.md` §1c) | Le secret `PUSH_WEBHOOK_SECRET` a été créé le 25 août à 23 h 19 (heure locale), dix minutes après le commit du fichier de triggers ; l'en-tête de `supabase-account-deletion-timeout-fix.sql` parle des « triggers push mis en place ce soir ». **[À VÉRIFIER]** (ligne « triggers push message + match » du bilan). |
 | Edge functions en ligne | 7 fonctions, dont `delete-account` absente du dépôt (voir §8) | `npx supabase functions list`, lancé le 8 oct. |
-| `stripe-webhook`, `cleanup-expired-stories` | **404 : jamais déployées** | Sondes HTTP du 8 oct. |
+| `stripe-webhook`, `cleanup-expired-stories` | **404 : jamais déployées** | Sondes HTTP du 8 oct. *Début nov. : `cleanup-expired-stories` déclarée déployée (v1) par le propriétaire, voir l'en-tête ; **non revérifié** depuis.* |
 | Secrets Supabase présents (noms) | `PUSH_WEBHOOK_SECRET`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` + les `SUPABASE_*` fournis par la plateforme (dont `SUPABASE_SERVICE_ROLE_KEY`) | `npx supabase secrets list` du 8 oct. |
 | Secrets Supabase **absents** | `ANTHROPIC_API_KEY`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_MONTHLY`, `STRIPE_PRICE_YEARLY`, `SITE_URL`, `FCM_SERVICE_ACCOUNT_JSON`, `APNS_KEY_P8`, `APNS_KEY_ID`, `APNS_TEAM_ID` | idem |
 | Variables d'environnement Vercel (production) | `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_VAPID_PUBLIC_KEY` présentes | `vercel env ls` du 8 oct. (aucune autre variable ; `VITE_PUBLIC_WEB_ORIGIN` facultative, absente) |
@@ -779,7 +779,7 @@ Exécutés avec le script consolidé le **9 sept 2026** (le correctif d'ordre le
 | `supabase-content-account-state-block-guards-remaining-fix.sql` | 09/09 | Mêmes gardes sur le reste du contenu (communautés, événements, réactions, statuts). |  |
 | `supabase-cleanup-old-notifications.sql` | 09/09 | Purge des notifications de plus de 90 jours (cron 3 h 30). |  |
 | `supabase-event-reminders-cron.sql` | 09/09 | Rappels d'événement 24 h / 1 h (cron toutes les 15 min). |  |
-| `supabase-cleanup-expired-stories.sql` | 09/09 | Purge des statuts expirés (cron 3 h) : appelle l'edge function du même nom. | La fonction n'est pas déployée (404) : le cron échoue chaque nuit sans dommage. |
+| `supabase-cleanup-expired-stories.sql` | 09/09 | Purge des statuts expirés (cron 3 h) : appelle l'edge function du même nom. | La fonction n'est pas déployée (404) : le cron échoue chaque nuit sans dommage (état du 8 oct.). *Début nov. : `cleanup-expired-stories` déclarée déployée (v1) par le propriétaire, voir l'en-tête ; **non revérifié** depuis.* |
 | `supabase-combined-supersede-order-regression-fix.sql` | 09/09 | Rétablit l'état final correct de 3 objets écrasés par l'ordre du COMBINED. | Exécuté le 10 sept ; aussi inclus en dernière section du COMBINED. |
 | `supabase-story-reactions-emoji-check-fix.sql` | 04/11 | Remplace la contrainte `story_reactions_emoji_check` (émojis abîmés en production : toute réaction à un statut était refusée, erreur 23514). | SQL-26. **Exécuté en production le 04/11/2026** (avec accord explicite, lecture avant / après, essai d'insertion annulé). Défaut documenté : ne jamais coller d'émojis en clair dans un éditeur SQL. |
 
@@ -936,7 +936,7 @@ automatiques (cron, triggers, Stripe).
 | Fonction | En ligne ? | Dernier déploiement | JWT | Code du dépôt plus récent ? | Sonde sans jeton | Action |
 | --- | --- | --- | --- | --- | --- | --- |
 | `process-scheduled-deletions` | oui (v5) | 22 août 03:57 (heure locale) | exigé | **OUI** : 4 commits (25 août, 1er sept, 4 sept, 7 oct) + `_shared` | 401 (porte d'entrée) | **Redéployer** (priorité) |
-| `cleanup-expired-stories` | **NON (404)** | jamais | — | — | 404 | **Déployer** |
+| `cleanup-expired-stories` | **NON (404)** | jamais | — | — | 404 | **Déployer** — *Début nov. : `cleanup-expired-stories` déclarée déployée (v1) par le propriétaire, voir l'en-tête ; **non revérifié** depuis.* |
 | `send-push` | oui (v6) | 22 août 03:43 | **non exigé** | **OUI** : 15 sept (like/abonnement), 6 oct (jetons natifs FCM/APNs) + `_shared` | 401 « unauthorized » (texte brut) | Redéployer **avec** `--no-verify-jwt` (avant SQL-17 / apps natives) |
 | `stripe-webhook` | **NON (404)** | jamais | — | — | 404 | Déployer avec `--no-verify-jwt` + secrets (voir ci-dessous, §12) |
 | `create-checkout-session` | oui (v2) | 22 août 03:59 | exigé | **OUI** : 1er sept (double abonnement après paiement refusé) | 401 | Redéployer + secrets Stripe (§12) |
@@ -1019,7 +1019,7 @@ une faille contre autrui (elle n'agit que sur l'appelant) mais un chemin de supp
 | --- | --- | --- | --- | --- |
 | `baobab-process-scheduled-deletions` | toutes les heures | `account-deletion` (+ `account-deletion-timeout-fix`) | edge function du même nom | [À VÉRIFIER] |
 | `baobab-fetch-immigration-news` | toutes les 6 h | `immigration-news` | edge function du même nom | [À VÉRIFIER] |
-| `baobab-cleanup-expired-stories` | 3 h 00 | COMBINED | edge function (404 aujourd'hui) | planifié [PROUVÉ via COMBINED], échoue jusqu'au déploiement |
+| `baobab-cleanup-expired-stories` | 3 h 00 | COMBINED | edge function (404 aujourd'hui) | planifié [PROUVÉ via COMBINED], échoue jusqu'au déploiement (état du 8 oct. ; *Début nov. : `cleanup-expired-stories` déclarée déployée (v1) par le propriétaire, voir l'en-tête ; **non revérifié** depuis.*) |
 | `baobab-cleanup-old-notifications` | 3 h 30 | COMBINED | SQL pur (purge > 90 jours) | [PROUVÉ via COMBINED] |
 | `baobab-send-event-reminders` | toutes les 15 min | COMBINED | SQL pur | [PROUVÉ via COMBINED] |
 | `baobab-cleanup-old-client-errors` | 3 h 45 | `client-errors` (SQL-5) | SQL pur | à venir |
