@@ -15,6 +15,8 @@ import {
 import { PROVINCE_DIRECTORY, GENERALIST_DIRECTORY } from "../../lib/newcomerDirectoryData";
 import { normalizeForSearch } from "../../lib/searchQuery";
 import { useReconnectTick } from "../../hooks/useReconnectTick";
+import { useResumeTick } from "../../hooks/useResumeTick";
+import { isNewsRecent, NEWS_RESUME_RELOAD_MS } from "../../lib/immigrationNewsRetention";
 import LoadErrorNotice from "../LoadErrorNotice";
 
 const STEP_ICONS = { CreditCard, Stethoscope, Wallet, Car, Receipt, Home, Phone, GraduationCap, PhoneCall, BadgeCheck };
@@ -286,6 +288,17 @@ export default function ImmigrationNewsView({ onBack, onError, currentUser }) {
   useEffect(() => {
     if (reconnectTick > 0 && loadErrorRef.current) setReloadKey((k) => k + 1);
   }, [reconnectTick]);
+  // Actualisation quotidienne : la récupération serveur tourne toutes les 6 h,
+  // mais une vue restée ouverte (app en arrière-plan d'un jour à l'autre)
+  // gardait la liste du premier chargement. Retour après 30 min d'absence :
+  // rechargement silencieux (la liste reste affichée pendant ce temps).
+  const resumeTick = useResumeTick({ minAwayMs: NEWS_RESUME_RELOAD_MS });
+  useEffect(() => {
+    if (resumeTick > 0) setReloadKey((k) => k + 1);
+  }, [resumeTick]);
+  // Heure du dernier chargement : sert de « maintenant » au filtre de
+  // fraîcheur (recalculée à chaque rechargement, jamais Date.now() au rendu).
+  const [loadedAt, setLoadedAt] = useState(() => Date.now());
   const [fetchLogs, setFetchLogs] = useState({});
   const [search, setSearch] = useState("");
   const [favoriteIds, setFavoriteIds] = useState(new Set());
@@ -309,6 +322,7 @@ export default function ImmigrationNewsView({ onBack, onError, currentUser }) {
       if (!alive) return;
       if (newsRes.error) { onError?.("Impossible de charger les actualités."); setLoadError(true); setLoading(false); return; }
       setLoadError(false);
+      setLoadedAt(Date.now());
       setItems(newsRes.data || []);
       const bySource = {};
       for (const log of logRes.data || []) {
@@ -361,9 +375,12 @@ export default function ImmigrationNewsView({ onBack, onError, currentUser }) {
     }
   };
 
+  // Fil principal : actualités récentes seulement (voir immigrationNewsRetention.js).
+  // Le filtre « Favoris » montre tous les favoris, même anciens.
+  const recentItems = useMemo(() => items.filter((i) => isNewsRecent(i, loadedAt)), [items, loadedAt]);
+
   const searchedItems = useMemo(() => {
-    let list = items;
-    if (favoritesOnly) list = list.filter((i) => favoriteIds.has(i.id));
+    const list = favoritesOnly ? items.filter((i) => favoriteIds.has(i.id)) : recentItems;
     // Bug corrigé à l'audit : seule la casse était normalisée ici — chercher
     // "sante" (sans accent) ne retrouvait jamais les actualités de la
     // catégorie "Santé", ni un titre/résumé contenant un mot accentué. Même
@@ -375,7 +392,7 @@ export default function ImmigrationNewsView({ onBack, onError, currentUser }) {
       normalizeForSearch(i.summary).includes(q) ||
       normalizeForSearch(CATEGORY_LABELS[i.category]).includes(q)
     );
-  }, [items, search, favoritesOnly, favoriteIds]);
+  }, [items, recentItems, search, favoritesOnly, favoriteIds]);
 
   const isFiltering = Boolean(search.trim()) || favoritesOnly;
   const featured = isFiltering ? null : searchedItems[0];
@@ -506,9 +523,11 @@ export default function ImmigrationNewsView({ onBack, onError, currentUser }) {
             <p className="text-sm text-center py-10" style={{ color: muted }}>Chargement...</p>
           ) : items.length === 0 && loadError ? (
             <LoadErrorNotice what="les actualités" onRetry={() => { setLoading(true); setReloadKey((k) => k + 1); }} />
-          ) : items.length === 0 ? (
+          ) : !favoritesOnly && recentItems.length === 0 ? (
             <div className={`${card} p-8 text-center`}>
-              <p className="text-sm" style={{ color: muted }}>Aucune actualité indexée pour l'instant. Reviens bientôt.</p>
+              <p className="text-sm" style={{ color: muted }}>
+                {items.length === 0 ? "Aucune actualité indexée pour l'instant. Reviens bientôt." : "Aucune actualité récente pour l'instant. Reviens bientôt."}
+              </p>
             </div>
           ) : searchedItems.length === 0 ? (
             <div className={`${card} p-8 text-center`}>
