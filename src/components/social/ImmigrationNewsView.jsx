@@ -291,10 +291,17 @@ export default function ImmigrationNewsView({ onBack, onError, currentUser }) {
   // Actualisation quotidienne : la récupération serveur tourne toutes les 6 h,
   // mais une vue restée ouverte (app en arrière-plan d'un jour à l'autre)
   // gardait la liste du premier chargement. Retour après 30 min d'absence :
-  // rechargement silencieux (la liste reste affichée pendant ce temps).
+  // rechargement silencieux : la liste reste affichée pendant ce temps et, si
+  // le réseau échoue, elle reste telle quelle, sans message d'erreur (la
+  // prochaine reprise réessaiera). Une vue sans liste (vide ou en erreur)
+  // recharge normalement, avec son état d'erreur habituel.
   const resumeTick = useResumeTick({ minAwayMs: NEWS_RESUME_RELOAD_MS });
+  const silentReloadRef = useRef(false);
+  const shownCountRef = useRef(0);
   useEffect(() => {
-    if (resumeTick > 0) setReloadKey((k) => k + 1);
+    if (resumeTick <= 0) return;
+    silentReloadRef.current = shownCountRef.current > 0 && !loadErrorRef.current;
+    setReloadKey((k) => k + 1);
   }, [resumeTick]);
   // Heure du dernier chargement : sert de « maintenant » au filtre de
   // fraîcheur (recalculée à chaque rechargement, jamais Date.now() au rendu).
@@ -314,13 +321,18 @@ export default function ImmigrationNewsView({ onBack, onError, currentUser }) {
 
   useEffect(() => {
     let alive = true;
+    const silent = silentReloadRef.current;
+    silentReloadRef.current = false;
     Promise.all([
       supabase.from("immigration_news").select("*").order("published_at", { ascending: false }).limit(200),
       supabase.from("immigration_news_fetch_log").select("*").order("fetched_at", { ascending: false }).limit(20),
       currentUser ? supabase.from("immigration_news_favorites").select("news_id").eq("profile_id", currentUser.id) : Promise.resolve({ data: [] }),
     ]).then(([newsRes, logRes, favRes]) => {
       if (!alive) return;
-      if (newsRes.error) { onError?.("Impossible de charger les actualités."); setLoadError(true); setLoading(false); return; }
+      if (newsRes.error) {
+        if (silent) return;
+        onError?.("Impossible de charger les actualités."); setLoadError(true); setLoading(false); return;
+      }
       setLoadError(false);
       setLoadedAt(Date.now());
       setItems(newsRes.data || []);
@@ -329,12 +341,14 @@ export default function ImmigrationNewsView({ onBack, onError, currentUser }) {
         if (!bySource[log.source]) bySource[log.source] = log;
       }
       setFetchLogs(bySource);
-      setFavoriteIds(new Set((favRes.data || []).map((r) => r.news_id)));
+      // Favoris illisibles (erreur réseau) : on garde ceux déjà connus, sinon
+      // les anciens favoris disparaîtraient du fil (voir recentItems).
+      if (!favRes.error) setFavoriteIds(new Set((favRes.data || []).map((r) => r.news_id)));
       setLoading(false);
     }).catch((e) => {
       // Rejet inattendu : sans ce filet, « Chargement... » restait affiché sans fin.
       console.error(e);
-      if (alive) { setLoadError(true); setLoading(false); }
+      if (alive && !silent) { setLoadError(true); setLoading(false); }
     });
     return () => { alive = false; };
   }, [onError, currentUser, reloadKey]);
@@ -376,8 +390,12 @@ export default function ImmigrationNewsView({ onBack, onError, currentUser }) {
   };
 
   // Fil principal : actualités récentes seulement (voir immigrationNewsRetention.js).
-  // Le filtre « Favoris » montre tous les favoris, même anciens.
-  const recentItems = useMemo(() => items.filter((i) => isNewsRecent(i, loadedAt)), [items, loadedAt]);
+  // Un favori n'est jamais masqué, ni dans le fil ni dans le filtre « Favoris ».
+  const recentItems = useMemo(
+    () => items.filter((i) => favoriteIds.has(i.id) || isNewsRecent(i, loadedAt)),
+    [items, favoriteIds, loadedAt]
+  );
+  useEffect(() => { shownCountRef.current = recentItems.length; }, [recentItems]);
 
   const searchedItems = useMemo(() => {
     const list = favoritesOnly ? items.filter((i) => favoriteIds.has(i.id)) : recentItems;

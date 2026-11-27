@@ -9,13 +9,15 @@ import { isNewsRecent, NEWS_MAX_AGE_DAYS, NEWS_RESUME_RELOAD_MS } from "../../li
 // 14 jours dans le fil (même si la purge n'a pas tourné), favoris toujours consultables, et
 // rechargement au retour dans l'app après 30 min d'absence.
 
-const mocks = vi.hoisted(() => ({ state: { news: [], favorites: [] }, reads: 0 }));
+const mocks = vi.hoisted(() => ({ state: { news: [], favorites: [], newsError: false, favError: false }, reads: 0 }));
 
 function makeBuilder(table) {
   const b = {};
   ["select", "eq", "order", "limit", "delete", "insert"].forEach((m) => { b[m] = vi.fn(() => b); });
   b.then = (resolve, reject) => {
     if (table === "immigration_news") mocks.reads += 1;
+    if (table === "immigration_news" && mocks.state.newsError) return Promise.resolve({ data: null, error: { message: "réseau" } }).then(resolve, reject);
+    if (table === "immigration_news_favorites" && mocks.state.favError) return Promise.resolve({ data: null, error: { message: "réseau" } }).then(resolve, reject);
     const rows = table === "immigration_news" ? mocks.state.news
       : table === "immigration_news_favorites" ? mocks.state.favorites : [];
     return Promise.resolve({ data: rows, error: null }).then(resolve, reject);
@@ -44,7 +46,7 @@ function setVisibility(state) {
 beforeEach(() => {
   clock = NOW;
   vi.spyOn(Date, "now").mockImplementation(() => clock);
-  mocks.state = { news: [], favorites: [] };
+  mocks.state = { news: [], favorites: [], newsError: false, favError: false };
   mocks.reads = 0;
 });
 afterEach(() => {
@@ -63,17 +65,19 @@ describe("isNewsRecent", () => {
 });
 
 describe("ImmigrationNewsView — fraîcheur du fil", () => {
-  it("le fil n'affiche pas une actualité de plus de 14 jours ; le filtre Favoris la montre si elle est en favori", async () => {
-    mocks.state.news = [news("n1", "Nouvelles du jour", 1), news("n2", "Annonce de la semaine passée", 9), news("n3", "Vieille annonce", 30)];
+  it("le fil n'affiche pas une actualité de plus de 14 jours, sauf si elle est en favori (fil et filtre Favoris)", async () => {
+    mocks.state.news = [news("n1", "Nouvelles du jour", 1), news("n2", "Annonce de la semaine passée", 9), news("n3", "Vieille annonce favorite", 30), news("n5", "Vieille annonce", 30)];
     mocks.state.favorites = [{ news_id: "n3" }];
     render(<ImmigrationNewsView onBack={() => {}} onError={vi.fn()} currentUser={ME} />);
     await screen.findByText("Nouvelles du jour");
     expect(screen.getByText("Annonce de la semaine passée")).toBeTruthy();
+    expect(screen.getByText("Vieille annonce favorite")).toBeTruthy();
     expect(screen.queryByText("Vieille annonce")).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "Afficher uniquement mes favoris" }));
-    expect(await screen.findByText("Vieille annonce")).toBeTruthy();
+    expect(await screen.findByText("Vieille annonce favorite")).toBeTruthy();
     expect(screen.queryByText("Nouvelles du jour")).toBeNull();
+    expect(screen.queryByText("Vieille annonce")).toBeNull();
   });
 
   it("uniquement d'anciennes actualités en base : « Aucune actualité récente », pas de liste vide muette", async () => {
@@ -104,5 +108,42 @@ describe("ImmigrationNewsView — fraîcheur du fil", () => {
     expect(await screen.findByText("Nouvelles du lendemain")).toBeTruthy();
     expect(mocks.reads).toBe(2);
     expect(screen.queryByText("Chargement...")).toBeNull();
+  });
+
+  it("rechargement au retour raté (réseau) : la liste reste affichée, aucun message d'erreur ; les favoris connus restent", async () => {
+    mocks.state.news = [news("n1", "Nouvelles d'hier", 1), news("n3", "Vieille annonce favorite", 30)];
+    mocks.state.favorites = [{ news_id: "n3" }];
+    const onError = vi.fn();
+    render(<ImmigrationNewsView onBack={() => {}} onError={onError} currentUser={ME} />);
+    await screen.findByText("Vieille annonce favorite");
+
+    mocks.state.newsError = true;
+    act(() => { setVisibility("hidden"); });
+    clock += NEWS_RESUME_RELOAD_MS + DAY;
+    act(() => { setVisibility("visible"); });
+    await act(async () => { await new Promise((r) => setTimeout(r, 20)); });
+    expect(mocks.reads).toBe(2);
+    expect(onError).not.toHaveBeenCalled();
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.getByText("Nouvelles d'hier")).toBeTruthy();
+
+    // Actualités relues mais favoris illisibles : l'ancien favori ne disparaît pas du fil.
+    mocks.state.newsError = false;
+    mocks.state.favError = true;
+    act(() => { setVisibility("hidden"); });
+    clock += NEWS_RESUME_RELOAD_MS + DAY;
+    act(() => { setVisibility("visible"); });
+    await act(async () => { await new Promise((r) => setTimeout(r, 20)); });
+    expect(mocks.reads).toBe(3);
+    expect(screen.getByText("Vieille annonce favorite")).toBeTruthy();
+    expect(onError).not.toHaveBeenCalled();
+  });
+
+  it("premier chargement raté : l'erreur s'affiche comme avant (le silence ne vaut que pour la reprise)", async () => {
+    mocks.state.newsError = true;
+    const onError = vi.fn();
+    render(<ImmigrationNewsView onBack={() => {}} onError={onError} currentUser={ME} />);
+    await screen.findByRole("alert");
+    expect(onError).toHaveBeenCalledWith("Impossible de charger les actualités.");
   });
 });

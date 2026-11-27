@@ -10,7 +10,8 @@
 // publication, soit moins de NEWS_MAX_AGE_DAYS jours. Le client masque tout ce
 // qui dépasse cette borne : même si la purge n'a pas tourné (SQL non exécuté,
 // cron en échec), le fil n'affiche jamais une actualité de plus de deux
-// semaines. Les favoris restent consultables dans le filtre « Favoris ».
+// semaines. Exception : une actualité mise en favori n'est jamais masquée
+// (ni dans le fil ni dans le filtre « Favoris »), comme la purge la garde.
 export const NEWS_RETENTION_DAYS = 7;
 export const NEWS_MAX_AGE_DAYS = 14;
 
